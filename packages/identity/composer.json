@@ -1,0 +1,27 @@
+{
+    "name": "core/identity",
+    "description": "Organizations, Projects, API keys, OAuth clients, operators, RBAC.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "core/support": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Identity\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Identity\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Identity\\IdentityServiceProvider"
+            ]
+        }
+    }
+}

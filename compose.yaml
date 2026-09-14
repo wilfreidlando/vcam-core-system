@@ -1,0 +1,128 @@
+name: core-system
+
+services:
+  app:
+    build:
+      context: .
+      target: dev
+      args:
+        UID: ${HOST_UID:-1000}
+        GID: ${HOST_GID:-1000}
+    volumes:
+      - .:/var/www/html
+      - composer-cache:/home/app/.composer/cache
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      PHP_IDE_CONFIG: serverName=core-system
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    tty: true
+
+  # Queue workers. Isolated from the web process so a queue backlog never
+  # degrades the payment API, and so webhook/notification failures stay
+  # contained to their own supervisor.
+  horizon:
+    build:
+      context: .
+      target: dev
+      args:
+        UID: ${HOST_UID:-1000}
+        GID: ${HOST_GID:-1000}
+    volumes:
+      - .:/var/www/html
+      - composer-cache:/home/app/.composer/cache
+    command: php artisan horizon
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  scheduler:
+    build:
+      context: .
+      target: dev
+      args:
+        UID: ${HOST_UID:-1000}
+        GID: ${HOST_GID:-1000}
+    volumes:
+      - .:/var/www/html
+      - composer-cache:/home/app/.composer/cache
+    command: php artisan schedule:work
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-core}
+      POSTGRES_USER: ${DB_USERNAME:-core}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+      # The ledger relies on deterministic ordering and locking behaviour.
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    ports:
+      - "${DB_PORT_HOST:-55432}:5432"
+    volumes:
+      # PostgreSQL 18+ images store data in a major-version subdirectory, so the
+      # mount belongs at /var/lib/postgresql — not .../data as in PG 17 and
+      # earlier. This is what makes `pg_upgrade --link` possible later.
+      - postgres-data:/var/lib/postgresql
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-core} -d ${DB_DATABASE:-core}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Valkey rather than Redis: Redis 8.x is AGPLv3/RSALv2/SSPLv1, and copyleft is
+  # a real question for a proprietary financial platform (ADR-0017).
+  # Protocol-compatible — Horizon and phpredis are unchanged.
+  valkey:
+    image: valkey/valkey:8.1-alpine
+    command: valkey-server --appendonly yes
+    ports:
+      - "${REDIS_PORT_HOST:-56379}:6379"
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+
+  # S3-compatible storage for the Storage capability. Off by default:
+  # `docker compose --profile storage up -d`.
+  minio:
+    image: minio/minio:latest
+    profiles: [storage]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-core}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-secret1234}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+
+volumes:
+  postgres-data:
+  valkey-data:
+  minio-data:
+  composer-cache:

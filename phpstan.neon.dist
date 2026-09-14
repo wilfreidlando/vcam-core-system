@@ -1,0 +1,65 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - vendor/phpstan/phpstan-strict-rules/rules.neon
+    - vendor/phpat/phpat/extension.neon
+
+parameters:
+    # Level 10 (max) from day one. Raising the level later never happens in
+    # practice; starting there costs nothing while the codebase is small, and
+    # the strictest analysis is where it matters most — money arithmetic and
+    # state machines.
+    level: 10
+
+    paths:
+        - app
+        - packages
+        - tools
+        - tests
+        - bootstrap/app.php
+        - routes
+
+    excludePaths:
+        analyseAndScan:
+            - packages/*/vendor/*
+
+    tmpDir: storage/framework/cache/phpstan
+
+    # Financial code must not rely on PHP's loose comparison or silent casts.
+    checkExplicitMixed: true
+    checkImplicitMixed: true
+    treatPhpDocTypesAsCertain: true
+    reportUnmatchedIgnoredErrors: true
+
+    phpat:
+        # A framework type named only in a docblock still couples the class.
+        ignore_doc_comments: false
+        show_rule_names: true
+
+services:
+    # ── Architecture rules (PHPat, type-aware) ──────────────────────────────
+    -
+        class: Core\Tooling\PhpStan\Architecture\DomainIsFrameworkFree
+        tags: [phpat.test]
+    -
+        class: Core\Tooling\PhpStan\Architecture\EventsOnlyViaOutbox
+        tags: [phpat.test]
+    -
+        class: Core\Tooling\PhpStan\Architecture\PersistenceStaysInInfrastructure
+        tags: [phpat.test]
+    -
+        class: Core\Tooling\PhpStan\Architecture\ModulesMeetOnlyThroughContracts
+        tags: [phpat.test]
+    -
+        class: Core\Tooling\PhpStan\Architecture\SharedKernelStaysTechnical
+        tags: [phpat.test]
+    -
+        class: Core\Tooling\PhpStan\Architecture\OutboundHttpIsCentralised
+        tags: [phpat.test]
+
+    # ── Custom rules: string literals and global functions ─────────────────
+    -
+        class: Core\Tooling\PhpStan\Rules\ForbiddenProviderStatusLiteralRule
+        tags: [phpstan.rules.rule]
+    -
+        class: Core\Tooling\PhpStan\Rules\NoDirectEventDispatchRule
+        tags: [phpstan.rules.rule]

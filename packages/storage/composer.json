@@ -1,0 +1,27 @@
+{
+    "name": "core/storage",
+    "description": "Object storage, media metadata, signed URLs, lifecycle. Out of MVP scope (advanced).",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "core/support": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Storage\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Storage\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Storage\\StorageServiceProvider"
+            ]
+        }
+    }
+}

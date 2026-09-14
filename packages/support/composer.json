@@ -1,0 +1,26 @@
+{
+    "name": "core/support",
+    "description": "Shared kernel: cross-cutting primitives (RFC 7807 problem responses, environment enum, correlation) usable by every bounded context. Depends on no module.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Support\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Support\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Support\\SupportServiceProvider"
+            ]
+        }
+    }
+}

@@ -1,0 +1,27 @@
+{
+    "name": "core/admin",
+    "description": "Core Admin: operator console for projects, credentials, transactions, wallets, fee rules, providers, webhooks, audit and reconciliation.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "core/support": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Admin\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Admin\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Admin\\AdminServiceProvider"
+            ]
+        }
+    }
+}

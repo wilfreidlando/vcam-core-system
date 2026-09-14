@@ -1,0 +1,27 @@
+{
+    "name": "core/payment",
+    "description": "Payment intents, orchestration state machine, provider adapters (MTN MoMo, Orange Money), refunds.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "core/support": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Payment\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Payment\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Payment\\PaymentServiceProvider"
+            ]
+        }
+    }
+}

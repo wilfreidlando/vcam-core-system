@@ -1,0 +1,178 @@
+# Cross-module boundaries (fitness functions 1 and 2).
+#
+# Each bounded context is a layer. The ruleset below IS the allowed dependency
+# graph: a dependency that is not listed fails the build.
+#
+# "A new module cannot appear without being placed in this graph" is enforced by
+# tests/Architecture/ComposerGraphTest.php, which asserts that the set of
+# directories under packages/ equals the set of layers here. Deptrac's own
+# --fail-on-uncovered is not used for that: vendor classes count as uncovered
+# too, so the signal would drown in noise.
+#
+# The single most important rule: Ledger depends on nothing. It is the financial
+# core, at the bottom of the stack, and nothing may push a dependency onto it.
+#
+# Keep in sync with tests/Architecture/ModuleGraph.php — ComposerGraphTest fails
+# if the two disagree.
+
+deptrac:
+  paths:
+    - ./packages
+
+  layers:
+    # Shared kernel: cross-cutting primitives, no business capability.
+    # Every module may use it; it may use nothing.
+    - name: Support
+      collectors:
+        - type: directory
+          value: packages/support/.*
+
+    - name: Identity
+      collectors:
+        - type: directory
+          value: packages/identity/.*
+
+    - name: Parties
+      collectors:
+        - type: directory
+          value: packages/parties/.*
+
+    - name: Ledger
+      collectors:
+        - type: directory
+          value: packages/ledger/.*
+
+    - name: Wallet
+      collectors:
+        - type: directory
+          value: packages/wallet/.*
+
+    - name: Payment
+      collectors:
+        - type: directory
+          value: packages/payment/.*
+
+    - name: Fees
+      collectors:
+        - type: directory
+          value: packages/fees/.*
+
+    - name: Events
+      collectors:
+        - type: directory
+          value: packages/events/.*
+
+    - name: Webhook
+      collectors:
+        - type: directory
+          value: packages/webhook/.*
+
+    - name: Notification
+      collectors:
+        - type: directory
+          value: packages/notification/.*
+
+    - name: Audit
+      collectors:
+        - type: directory
+          value: packages/audit/.*
+
+    - name: Billing
+      collectors:
+        - type: directory
+          value: packages/billing/.*
+
+    - name: Storage
+      collectors:
+        - type: directory
+          value: packages/storage/.*
+
+    - name: DeveloperPlatform
+      collectors:
+        - type: directory
+          value: packages/developer-platform/.*
+
+    - name: Admin
+      collectors:
+        - type: directory
+          value: packages/admin/.*
+
+  ruleset:
+    # ── Bottom of the stack: depend on nothing but the shared kernel ────────
+    Support: ~
+    Ledger:
+      - Support
+    Identity:
+      - Support
+    Events:
+      - Support
+    Audit:
+      - Support
+
+    # ── Capability modules ─────────────────────────────────────────────────
+    Parties:
+      - Support
+      - Identity
+
+    Wallet:
+      - Support
+      - Ledger
+      - Parties
+      - Events
+
+    Fees:
+      - Support
+      - Ledger
+      - Parties
+
+    Payment:
+      - Support
+      - Ledger
+      - Fees
+      - Identity
+      - Parties
+      - Events
+      - Wallet
+
+    Webhook:
+      - Support
+      - Identity
+      - Events
+
+    Notification:
+      - Support
+      - Identity
+      - Parties
+      - Events
+
+    Billing:
+      - Support
+      - Identity
+      - Payment
+      - Ledger
+      - Events
+
+    Storage:
+      - Support
+      - Identity
+
+    DeveloperPlatform:
+      - Support
+      - Identity
+
+    # The operator console reads across every capability by design.
+    Admin:
+      - Support
+      - Identity
+      - Parties
+      - Ledger
+      - Wallet
+      - Payment
+      - Fees
+      - Events
+      - Webhook
+      - Notification
+      - Audit
+      - Billing
+      - Storage
+      - DeveloperPlatform

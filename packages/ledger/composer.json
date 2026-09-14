@@ -1,0 +1,27 @@
+{
+    "name": "core/ledger",
+    "description": "Immutable double-entry ledger, accounts, materialized balances. The financial core: depends on no other module.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "core/support": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Ledger\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Ledger\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Ledger\\LedgerServiceProvider"
+            ]
+        }
+    }
+}

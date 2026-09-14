@@ -1,0 +1,27 @@
+{
+    "name": "core/wallet",
+    "description": "Wallets: deposits, withdrawals, transfers, holds — backed by the Ledger.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "core/support": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Wallet\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Wallet\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Wallet\\WalletServiceProvider"
+            ]
+        }
+    }
+}

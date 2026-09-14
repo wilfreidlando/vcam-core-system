@@ -1,0 +1,51 @@
+# Fast local feedback, before CI.
+#
+# Budget: under ~10 seconds. Anything slower belongs in CI — a hook that makes
+# committing painful is a hook developers learn to bypass with --no-verify, and
+# a bypassed guardrail protects nothing.
+#
+# Install once:  lefthook install
+# (https://github.com/evilmartians/lefthook — or `make` targets, which run the
+# same commands.)
+
+pre-commit:
+  parallel: true
+  commands:
+    style:
+      glob: '*.php'
+      run: docker compose run --rm --no-deps -T app vendor/bin/pint --dirty
+      stage_fixed: true
+
+    layers:
+      glob: 'packages/**/*.php'
+      run: docker compose run --rm --no-deps -T app vendor/bin/deptrac analyse --config-file=deptrac-layers.yaml --no-progress
+
+    # Cheap pre-filter for guardrail G5. The authoritative check inspects the
+    # migrated PostgreSQL schema (raw DB::statement and ->change() are invisible
+    # to grep), but catching the obvious case here saves a CI round-trip.
+    money-columns:
+      glob: '**/migrations/*.php'
+      run: |
+        if grep -nE '\->(decimal|float|double|unsignedDecimal)\(' {staged_files}; then
+          echo ""
+          echo "Money is stored as bigint minor units, never a floating-point or decimal column."
+          echo "See docs/architecture/conventions-donnees.md and ADR-0004."
+          exit 1
+        fi
+
+    secrets:
+      run: gitleaks protect --staged --no-banner --redact
+
+commit-msg:
+  commands:
+    conventional:
+      run: npx --yes @commitlint/cli@latest --edit {1}
+
+pre-push:
+  parallel: true
+  commands:
+    static:
+      run: docker compose run --rm --no-deps -T app vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+    architecture:
+      run: docker compose run --rm --no-deps -T app vendor/bin/pest --group=arch

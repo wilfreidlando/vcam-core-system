@@ -1,0 +1,27 @@
+{
+    "name": "core/events",
+    "description": "Standardized event model, transactional outbox, relay and internal dispatch.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "core/support": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Events\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Events\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Events\\EventsServiceProvider"
+            ]
+        }
+    }
+}

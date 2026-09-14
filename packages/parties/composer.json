@@ -1,0 +1,27 @@
+{
+    "name": "core/parties",
+    "description": "Party references (lazy-created, no PII) and their attachments.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "core/support": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Parties\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Parties\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Parties\\PartiesServiceProvider"
+            ]
+        }
+    }
+}

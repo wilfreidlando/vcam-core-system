@@ -1,0 +1,81 @@
+# Intra-module layering and the Contracts boundary (fitness function 3).
+#
+# Two rules in one config:
+#
+#   1. Dependencies point inward only.
+#        Presentation ──┐
+#        Infrastructure ┼──► Application ──► Domain
+#                     ──┘
+#      Domain is pure PHP and depends on nothing — not on Application, not on
+#      Infrastructure, not on the framework (framework purity is enforced by
+#      PHPat, which is type-aware; see tools/phpstan/).
+#
+#   2. A module's public surface is its Contracts/ directory.
+#
+#      LIMIT OF THIS FILE — read before trusting it. Every layer here spans all
+#      packages, so Deptrac cannot tell "my own Domain" from "another module's
+#      Domain": Core\Wallet\Application using Core\Ledger\Domain passes both this
+#      config and deptrac-modules.yaml. That case is enforced by the PHPat rule
+#      tools/PhpStan/Architecture/ModulesMeetOnlyThroughContracts.php (G3c),
+#      added after the 2026-09-14 architecture review exposed the gap.
+#
+# The two configs are complementary: this one says which LAYER may be used,
+# the other says which MODULE may be used. A dependency must satisfy both.
+
+deptrac:
+  paths:
+    - ./packages
+
+  layers:
+    - name: Contracts
+      collectors:
+        - type: directory
+          value: packages/[^/]+/src/Contracts/.*
+
+    - name: Domain
+      collectors:
+        - type: directory
+          value: packages/[^/]+/src/Domain/.*
+
+    - name: Application
+      collectors:
+        - type: directory
+          value: packages/[^/]+/src/Application/.*
+
+    - name: Infrastructure
+      collectors:
+        - type: directory
+          value: packages/[^/]+/src/Infrastructure/.*
+
+    - name: Presentation
+      collectors:
+        - type: directory
+          value: packages/[^/]+/src/Presentation/.*
+
+  ruleset:
+    # The published surface: interfaces and read-model DTOs. It must stay
+    # implementation-free, so it may reference nothing internal.
+    Contracts: ~
+
+    # Pure domain. No outward dependency of any kind.
+    Domain: ~
+
+    # Use cases orchestrate the domain and speak to other modules only through
+    # their published contracts.
+    Application:
+      - Domain
+      - Contracts
+
+    # Adapters implement domain ports and application needs.
+    Infrastructure:
+      - Domain
+      - Application
+      - Contracts
+
+    # Delivery mechanisms: validate, invoke a use case, shape a response.
+    # No access to Infrastructure — adapters are injected through ports, never
+    # reached for directly.
+    Presentation:
+      - Application
+      - Contracts
+      - Domain

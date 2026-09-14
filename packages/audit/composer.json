@@ -1,0 +1,27 @@
+{
+    "name": "core/audit",
+    "description": "Append-only audit journal of sensitive operations, correlated end to end.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "core/support": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Audit\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Audit\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Audit\\AuditServiceProvider"
+            ]
+        }
+    }
+}

@@ -1,0 +1,27 @@
+{
+    "name": "core/billing",
+    "description": "Plans, subscriptions, entitlements, usage metering. Out of MVP scope.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "core/support": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Billing\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Billing\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Billing\\BillingServiceProvider"
+            ]
+        }
+    }
+}

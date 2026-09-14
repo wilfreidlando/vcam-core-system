@@ -1,0 +1,176 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # CI runs the very image developers run locally, so "works on my machine"
+  # and "works in CI" mean the same thing (ADR-0019).
+  IMAGE: core-system:ci
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Every gate runs in parallel. None of them gates another: a fitness-function
+  # failure is a hard stop whatever the order, and serialising only slows the
+  # feedback a developer is waiting on.
+  # ───────────────────────────────────────────────────────────────────────────
+  gate:
+    name: ${{ matrix.gate.name }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        gate:
+          - name: hygiene
+            # Not --strict: it flags every internal core/* path-repo package's
+            # "*@dev" constraint as an error — Composer's advice for packages
+            # meant to be published on Packagist, which these never will be
+            # (ADR-0002).
+            run: |
+              composer validate
+              composer audit --locked
+              vendor/bin/pint --test
+
+          - name: static analysis
+            run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+          - name: architecture boundaries
+            run: |
+              vendor/bin/deptrac analyse --config-file=deptrac-modules.yaml --no-progress
+              vendor/bin/deptrac analyse --config-file=deptrac-layers.yaml --no-progress
+              vendor/bin/pest --group=arch
+
+          - name: schema guardrails
+            run: vendor/bin/pest --group=schema
+
+          - name: tests
+            run: vendor/bin/pest --group=unit,integration,invariants,default
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: core_testing
+          POSTGRES_USER: core
+          POSTGRES_PASSWORD: secret
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U core -d core_testing"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      valkey:
+        image: valkey/valkey:8.1-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build the dev image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: dev
+          load: true
+          tags: ${{ env.IMAGE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install dependencies
+        run: |
+          docker run --rm -v "$PWD:/var/www/html" -u "$(id -u):$(id -g)" \
+            ${{ env.IMAGE }} composer install --no-interaction --prefer-dist
+
+      - name: ${{ matrix.gate.name }}
+        # --network host so the container reaches the service containers, which
+        # are published on the runner's loopback interface.
+        run: |
+          docker run --rm --network host \
+            -v "$PWD:/var/www/html" -u "$(id -u):$(id -g)" \
+            -e DB_HOST=127.0.0.1 -e DB_DATABASE=core_testing \
+            -e DB_USERNAME=core -e DB_PASSWORD=secret \
+            -e REDIS_HOST=127.0.0.1 \
+            -e APP_KEY=base64:P6qA0mrJNvXlNdKzYqZkXHVtJ8sFLQnJ0sIYZ0z1Ef4= \
+            ${{ env.IMAGE }} bash -lc '${{ matrix.gate.run }}'
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Secrets scanning runs on the host: it inspects git history, not the app.
+  # ───────────────────────────────────────────────────────────────────────────
+  secrets:
+    name: secret scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Guardrail G9 — an OpenAPI breaking change requires an explicit version bump.
+  # Activates automatically once the first spec snapshot is committed (Lot 1);
+  # until then there is nothing to diff. Tracked in
+  # docs/architecture/garde-fous-inactifs.md.
+  # ───────────────────────────────────────────────────────────────────────────
+  api-contract:
+    name: api contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Is there a published contract yet?
+        id: probe
+        run: |
+          if [ -f openapi/v1.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No openapi/v1.json yet — G9 activates with the first published endpoint (Lot 1)."
+          fi
+
+      - name: Lint the contract
+        if: steps.probe.outputs.present == 'true'
+        run: npx --yes @stoplight/spectral-cli lint openapi/v1.json --ruleset .spectral.yaml
+
+      - name: Fail on an unversioned breaking change
+        if: steps.probe.outputs.present == 'true' && github.event_name == 'pull_request'
+        run: |
+          git show "origin/${{ github.base_ref }}:openapi/v1.json" > /tmp/base.json 2>/dev/null || exit 0
+          docker run --rm -v /tmp:/specs -v "$PWD/openapi:/head" tufin/oasdiff:latest \
+            breaking /specs/base.json /head/v1.json --fail-on ERR
+
+  # Single required status check for branch protection.
+  ci-ok:
+    name: ci-ok
+    runs-on: ubuntu-latest
+    needs: [gate, secrets, api-contract]
+    if: always()
+    steps:
+      - name: Verify every gate passed
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "One or more gates failed."
+            exit 1
+          fi
+          echo "All gates passed."

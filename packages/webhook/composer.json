@@ -1,0 +1,27 @@
+{
+    "name": "core/webhook",
+    "description": "Consumer webhook endpoints, HMAC-signed delivery, retry/backoff, DLQ, controlled replay.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "core/support": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Webhook\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Webhook\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Webhook\\WebhookServiceProvider"
+            ]
+        }
+    }
+}

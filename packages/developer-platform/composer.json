@@ -1,0 +1,27 @@
+{
+    "name": "core/developer-platform",
+    "description": "API gateway concerns, scopes, quotas, developer portal, OpenAPI publication, SDKs. Out of MVP scope (external).",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "core/support": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\DeveloperPlatform\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\DeveloperPlatform\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\DeveloperPlatform\\DeveloperPlatformServiceProvider"
+            ]
+        }
+    }
+}

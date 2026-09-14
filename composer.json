@@ -1,0 +1,101 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "core/core-system",
+    "description": "Enterprise Core System — modular monolith exposing transversal capabilities (identity, ledger, wallet, payment, fees, notification, billing) to internal products and external clients.",
+    "license": "proprietary",
+    "type": "project",
+    "keywords": [
+        "core",
+        "platform",
+        "modular-monolith",
+        "laravel"
+    ],
+    "require": {
+        "php": "^8.4",
+        "brick/money": "^0.15",
+        "core/admin": "*@dev",
+        "core/audit": "*@dev",
+        "core/billing": "*@dev",
+        "core/developer-platform": "*@dev",
+        "core/events": "*@dev",
+        "core/fees": "*@dev",
+        "core/identity": "*@dev",
+        "core/ledger": "*@dev",
+        "core/notification": "*@dev",
+        "core/parties": "*@dev",
+        "core/payment": "*@dev",
+        "core/storage": "*@dev",
+        "core/support": "*@dev",
+        "core/wallet": "*@dev",
+        "core/webhook": "*@dev",
+        "laravel/framework": "^13.17",
+        "laravel/horizon": "^5.49",
+        "laravel/passport": "^13.8",
+        "laravel/sanctum": "^4.3",
+        "laravel/tinker": "^3.0"
+    },
+    "require-dev": {
+        "brianium/paratest": "^7.24",
+        "deptrac/deptrac": "4.7.1",
+        "fakerphp/faker": "^1.23",
+        "larastan/larastan": "^3.12",
+        "laravel/pail": "^1.2",
+        "laravel/pint": "^1.32",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.9.5",
+        "pestphp/pest": "^5.1",
+        "pestphp/pest-plugin-laravel": "^5.0",
+        "phpat/phpat": "0.12.4",
+        "phpstan/phpstan": "2.2.14",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "roave/security-advisories": "dev-latest"
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "packages/*"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/",
+            "Core\\Tooling\\": "tools/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "arch": [
+            "vendor/bin/deptrac analyse --config-file=deptrac-modules.yaml",
+            "vendor/bin/deptrac analyse --config-file=deptrac-layers.yaml",
+            "vendor/bin/pest --group=arch"
+        ],
+        "stan": "vendor/bin/phpstan analyse --memory-limit=1G",
+        "lint": "vendor/bin/pint --test"
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        },
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

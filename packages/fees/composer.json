@@ -1,0 +1,27 @@
+{
+    "name": "core/fees",
+    "description": "Fee & commission rules engine: evaluation, distribution plans, simulation, applied-rule history.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "core/support": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Fees\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Fees\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Fees\\FeesServiceProvider"
+            ]
+        }
+    }
+}

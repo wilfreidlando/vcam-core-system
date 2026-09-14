@@ -1,0 +1,27 @@
+{
+    "name": "core/notification",
+    "description": "Multi-channel notification orchestration (WhatsApp/SMS/email/push/in-app), versioned templates, provider adapters.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "core/support": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Notification\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Notification\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Notification\\NotificationServiceProvider"
+            ]
+        }
+    }
+}
