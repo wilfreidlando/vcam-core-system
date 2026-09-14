@@ -17,7 +17,48 @@ Décision de référence : [ADR-0020](../../docs/adr/0020-shared-kernel-support.
 | Middleware `CorrelationId` | `src/Http/Middleware/CorrelationId.php` | Livré |
 | `Money` — enveloppe de brick/money | `src/Money/` | Lot 2 — [ADR-0021](../../docs/adr/0021-wrapper-money.md) |
 | Middleware d'idempotence + port `IdempotencyStore` | `src/Idempotency/` | Lot 2 — [ADR-0025](../../docs/adr/0025-design-idempotence.md) |
-| Appelant HTTP sortant d'intégration (`ExternalApiCaller`, `AuthProvider`, `RetryPolicy`, `CircuitBreakerPolicy`, `RequestSigner`, vérification de signature webhook) | `src/Integration/` | **En cours — parallèle au Lot 2** — [ADR-0026](../../docs/adr/0026-integration-providers-externes.md) + [ADR-0031](../../docs/adr/0031-socle-integration-en-parallele-du-lot-2.md) |
+| Socle d'intégration externe (HTTP sortant) | `src/Integration/` | **Livré** — [ADR-0026](../../docs/adr/0026-integration-providers-externes.md) + [ADR-0031](../../docs/adr/0031-socle-integration-en-parallele-du-lot-2.md) + [ADR-0034](../../docs/adr/0034-socle-integration-scope-structure.md) |
+
+### Composition du socle d'intégration
+
+- **Configuration** : `ProviderConfig`, `AuthStrategy`, `TimeoutPolicy`, `RetryPolicy`, `SignaturePolicy`, `CircuitBreakerPolicy`
+- **Auth** : `AuthProvider` (port) + `ApiKeyAuthProvider` (header ou body), `BasicAuthProvider`, `BearerAuthProvider` (statique)
+- **Signing** : `RequestSigner` (port) + `HmacSha256RequestSigner`, `WebhookSignatureVerifier` (port) + `HmacSha256WebhookVerifier`
+- **Mapping** : `StatusMapper<T>` (port — verrouille G6)
+- **CircuitBreaker** : `CircuitBreaker` (port) + `InMemoryCircuitBreaker`
+- **Transport** : `HttpTransport` (port — G6c) + `LaravelHttpTransport`
+- **Redaction** : `PayloadRedactor` + `SensitiveKeySet` (headers + JSON keys)
+- **Caller** : `ExternalApiCaller` (port) + `ExternalApiCallerImpl` (pipeline complet)
+- **Provider contract** : `ProviderGateway` (port), `ProviderCode` (VO), `ProviderRegistry` (port)
+- **Credentials** : `Credentials` (statique défaut + override per-call — multi-tenant)
+- **Correlation** : `CorrelationIdProvider` (port) + `LaravelContextCorrelationIdProvider`
+- **Token cache** : `TokenCache` (port seul — l'impl Valkey viendra de l'app shell)
+- **Exceptions** : `ProviderException` + `ProviderTransientError`, `ProviderPermanentError`, `ProviderAuthError`, `ProviderDisabledException`, `UnknownProviderStatusException`, `TokenCacheUnavailableException`
+
+### Pattern d'un adapter (template)
+
+Un adapter concret consomme le socle sans jamais en connaître l'implémentation. La structure canonique est dans `packages/<module>/src/Infrastructure/HttpAdapter/<Provider>/` :
+
+```
+<Provider>/
+├── <Provider>Adapter.php       # implements <Module>Gateway extends ProviderGateway
+├── Templates/                   # (Lot 3) templates déclaratifs — pas requis aujourd'hui
+├── Mapping/
+│   └── <Provider>StatusMapper.php  # implements StatusMapper<ModuleStatus>
+├── Exception/
+│   └── Unknown<Provider>Status.php  # extends UnknownProviderStatusException
+└── Tests/
+    ├── Unit/Mapping/...
+    └── Contract/<Provider>AdapterTest.php  # Http::fake()
+```
+
+L'adaptateur :
+- Reçoit `ExternalApiCaller`, `ProviderConfig` par injection
+- Construit un `ExternalRequest` par appel (méthode, path, body, idempotencyKey)
+- Appelle `$this->caller->send($this->config, $request)`
+- Traduit la réponse via `$this->statusMapper->map($response->body['status'])`
+
+Aucun appel HTTP direct, aucun statuts provider string exposé en dehors de l'adapter.
 
 ## Ce qui est interdit ici
 

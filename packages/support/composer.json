@@ -19,7 +19,8 @@
     "extra": {
         "laravel": {
             "providers": [
-                "Core\\Support\\SupportServiceProvider"
+                "Core\\Support\\SupportServiceProvider",
+                "Core\\Support\\Integration\\IntegrationServiceProvider"
             ]
         }
     }

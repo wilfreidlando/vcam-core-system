@@ -69,3 +69,6 @@ d'acceptation : il alimente la liste négative et sert de jurisprudence
 | ADR | Décision | Statut |
 | --- | -------- | ------ |
 | [0031](0031-socle-integration-en-parallele-du-lot-2.md) | Le socle d'intégration générique est avancé, en parallèle du Lot 2 | Accepté — amende 0026 |
+| [0032](0032-outbox-ecriture-en-parallele-du-lot-2.md) | L'écriture de l'outbox est avancée, en parallèle du Lot 2 | Accepté |
+| [0033](0033-conception-lot-2-money-core.md) | Conception Lot 2 : pas d'endpoint HTTP de mutation wallet, idempotence à deux niveaux, chart of accounts extensible | Accepté — amende 0025 |
+| [0034](0034-socle-integration-scope-structure.md) | Socle d'intégration : scope, structure et compromis retenus | Accepté — précise 0026 et 0031 |

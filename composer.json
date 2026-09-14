@@ -67,7 +67,11 @@
         "psr-4": {
             "Tests\\": "tests/",
             "Core\\Tooling\\": "tools/",
-            "Core\\Identity\\Tests\\": "packages/identity/tests/"
+            "Core\\Identity\\Tests\\": "packages/identity/tests/",
+            "Core\\Parties\\Tests\\": "packages/parties/tests/",
+            "Core\\Ledger\\Tests\\": "packages/ledger/tests/",
+            "Core\\Wallet\\Tests\\": "packages/wallet/tests/",
+            "Core\\Support\\Tests\\": "packages/support/tests/"
         }
     },
     "scripts": {

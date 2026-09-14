@@ -98,12 +98,19 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   `packages/identity/README.md`.
 - Idempotence : design figé ([ADR-0025](docs/adr/0025-design-idempotence.md)),
   code au Lot 2.
-- Socle d'intégration providers (`Core\Support\Integration`) : **en cours de
-  construction, en parallèle du Lot 2** — [ADR-0031](docs/adr/0031-socle-integration-en-parallele-du-lot-2.md).
-  Ne pas supposer qu'il existe tant que son ADR/README n'indique pas
-  « Livré ». Le DSL de templates, le catalogue d'endpoints et les adaptateurs
-  MTN/Orange concrets restent au Lot 3, après le Lot 2
-  ([ADR-0026](docs/adr/0026-integration-providers-externes.md)).
+- Socle d'intégration providers (`Core\Support\Integration`) : **livré**
+  ([ADR-0026](docs/adr/0026-integration-providers-externes.md) +
+  [ADR-0031](docs/adr/0031-socle-integration-en-parallele-du-lot-2.md) +
+  [ADR-0034](docs/adr/0034-socle-integration-scope-structure.md)).
+  Comprend : `ExternalApiCaller` + pipeline complet (timeout/retry/breaker
+  /auth/signing/correlation/redaction/kill switch), auth (ApiKey header+body,
+  Basic, Bearer statique), signature HMAC-SHA256 sortante et entrante,
+  circuit breaker in-memory, port `StatusMapper` (verrouille G6), port
+  `TokenCache` (sans impl — l'impl Valkey viendra de l'app shell).
+  Ce qui reste **hors** socle (Lot 3) : DSL de templates, catalogue
+  d'endpoints, mappers spécifiques, adaptateurs concrets MTN/Orange, bus
+  de saga, OAuth2 token-endpoint flow (qui sera ajouté quand MTN/Orange
+  réels le demanderont).
 - Laravel Boost (MCP) : incompatible avec Laravel 13 à ce jour
   (`illuminate/support` plafonné à `^12`) — non installé, à réessayer à sa
   prochaine version.
