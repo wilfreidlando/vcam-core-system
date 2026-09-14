@@ -53,5 +53,22 @@ final readonly class ExternalRequest
          * credentials. Use this for multi-tenant / per-merchant credentials.
          */
         public ?Credentials $credentials = null,
+        /**
+         * Whether the outbound call needs authentication.
+         *
+         * Most providers authenticate every call with a single scheme (a
+         * bearer token, an API key). A few — MyCoolPay being the first
+         * concrete case — have a public-key-in-path design where only a
+         * subset of operations (`payout`, `balance`) need a private
+         * credential. For those, the adapter builds the request with
+         * `requiresAuth: false` and attaches the credential manually via
+         * the `headers` field.
+         *
+         * Defaults to `true` so the safe path (always-authenticated)
+         * remains the default. The `ExternalApiCaller` always adds the
+         * `Correlation-Id` and `Idempotency-Key` headers; this flag only
+         * controls whether the matched `AuthProvider` runs.
+         */
+        public bool $requiresAuth = true,
     ) {}
 }

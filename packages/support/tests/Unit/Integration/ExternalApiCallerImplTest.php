@@ -141,6 +141,62 @@ final class ExternalApiCallerImplTest extends TestCase
         self::assertSame('sk-tenant-1', $this->transport->sent[0]['headers']['X-Token']);
     }
 
+    #[Test]
+    public function requires_auth_false_skips_the_auth_provider(): void
+    {
+        $config = $this->makeConfig();
+        // The adapter sets the X-Token header itself (e.g. MyCoolPay-style
+        // public-key-in-path with a private header set manually).
+        $request = new ExternalRequest(
+            method: HttpMethod::GET,
+            path: '/checkStatus/abc123',
+            providerCode: ProviderCode::fromString(self::PROVIDER_CODE),
+            headers: ['X-Manual-Header' => 'set-by-adapter'],
+            body: null,
+            requiresAuth: false,
+        );
+
+        $this->transport->queue(new ExternalResponse(
+            status: 200, headers: [], body: [], rawBody: '', latencyMs: 1,
+        ));
+
+        $this->caller->send($config, $request);
+
+        // The adapter's own header is preserved.
+        self::assertSame('set-by-adapter', $this->transport->sent[0]['headers']['X-Manual-Header']);
+
+        // The auth provider's X-Token header was NOT applied — the default
+        // credential 'sk-test' must not leak here.
+        self::assertArrayNotHasKey('X-Token', $this->transport->sent[0]['headers']);
+    }
+
+    #[Test]
+    public function requires_auth_false_still_adds_correlation_and_idempotency(): void
+    {
+        $config = $this->makeConfig();
+        $request = new ExternalRequest(
+            method: HttpMethod::GET,
+            path: '/checkStatus/abc123',
+            providerCode: ProviderCode::fromString(self::PROVIDER_CODE),
+            headers: [],
+            body: null,
+            correlationId: 'caller-corr',
+            idempotencyKey: 'idem-1',
+            requiresAuth: false,
+        );
+
+        $this->transport->queue(new ExternalResponse(
+            status: 200, headers: [], body: [], rawBody: '', latencyMs: 1,
+        ));
+
+        $this->caller->send($config, $request);
+
+        $sent = $this->transport->sent[0];
+        self::assertSame('caller-corr', $sent['headers']['Correlation-Id']);
+        self::assertSame('idem-1', $sent['headers']['Idempotency-Key']);
+        self::assertArrayNotHasKey('X-Token', $sent['headers']);
+    }
+
     // --- error classification ----------------------------------------------
 
     #[Test]

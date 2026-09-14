@@ -29,12 +29,14 @@ final class CanonicalStatusTest extends TestCase
     private const NOTIFICATION_STATUS_ENUM = 'Core\Notification\Domain\Model\NotificationStatus';
 
     /**
-     * Spec technique §9.4.
+     * Spec technique §9.4, augmented by ADR-0035 (canceled, distinct from
+     * expired and from failed — user-initiated cancellation of the
+     * transaction before its denouement).
      *
      * @var list<string>
      */
     private const PAYMENT_STATUSES = [
-        'pending', 'processing', 'succeeded', 'failed', 'expired', 'refunded',
+        'pending', 'processing', 'succeeded', 'failed', 'expired', 'refunded', 'canceled',
     ];
 
     /**

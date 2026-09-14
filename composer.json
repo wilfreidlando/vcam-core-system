@@ -71,7 +71,8 @@
             "Core\\Parties\\Tests\\": "packages/parties/tests/",
             "Core\\Ledger\\Tests\\": "packages/ledger/tests/",
             "Core\\Wallet\\Tests\\": "packages/wallet/tests/",
-            "Core\\Support\\Tests\\": "packages/support/tests/"
+            "Core\\Support\\Tests\\": "packages/support/tests/",
+            "Core\\Payment\\Tests\\": "packages/payment/tests/"
         }
     },
     "scripts": {

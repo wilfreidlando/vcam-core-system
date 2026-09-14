@@ -60,6 +60,10 @@ L'adaptateur :
 
 Aucun appel HTTP direct, aucun statuts provider string exposé en dehors de l'adapter.
 
+### Authentification par opération
+
+Le champ `ExternalRequest::requiresAuth` (défaut `true`) permet de désactiver l'auth sur une opération spécifique. Cas d'usage : un provider dont seules certaines opérations (ex. `payout`, `balance`) exigent une clé privée ; les autres (ex. `payin`, `checkStatus`) sont appelées avec la clé publique seule, présente dans l'URL. L'adaptateur construit alors la requête avec `requiresAuth: false` et attache la clé privée manuellement via le champ `headers`. Les headers `Correlation-Id` et `Idempotency-Key` sont toujours ajoutés — seul le bloc auth est sauté.
+
 ## Ce qui est interdit ici
 
 - **Toute persistance** : Eloquent, query builder, `DB`, `Schema`, `Redis`

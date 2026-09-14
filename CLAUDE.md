@@ -96,6 +96,12 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
 - Identity/Audit sont livrés (Lot 1) : Organization/Project/ApiKey, middleware
   d'auth Project, `GET /v1/whoami`, module Audit minimal. Voir
   `packages/identity/README.md`.
+- Module `payment` : **scaffoldé** — `PaymentStatus` canonique (avec
+  `canceled` ajouté par ADR-0035), `PaymentGateway` port, `PaymentCommand`
+  / `PaymentReceipt` / `PaymentAction` DTOs, `PaymentServiceProvider`.
+  Pas d'Use Cases ni d'adapter concret avant Lot 3. Le module est
+  dans le graphe Deptrac et reconnu par `CanonicalStatusTest`.
+  Voir `packages/payment/README.md`.
 - Idempotence : design figé ([ADR-0025](docs/adr/0025-design-idempotence.md)),
   code au Lot 2.
 - Socle d'intégration providers (`Core\Support\Integration`) : **livré**

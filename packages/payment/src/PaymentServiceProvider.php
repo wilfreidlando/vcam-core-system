@@ -7,21 +7,19 @@ namespace Core\Payment;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Composition root of the `payment` bounded context: binds Domain ports to their
- * Infrastructure adapters and registers this module's migrations, routes and commands.
+ * Wires the payment module into the Laravel container.
  *
- * Responsibility: Payment intents, orchestration state machine, provider adapters (MTN MoMo, Orange Money), refunds.
- * Delivery lot: Lot 3
+ * This provider is intentionally minimal at Lot 0: the payment domain
+ * ships its canonical status enum and contracts, but concrete use
+ * cases and provider adapters land at Lot 3 alongside the ledger.
+ * The provider is loaded so the `payment` module is registered in the
+ * composer-orchestrated graph and Deptrac layers can see it.
  */
 final class PaymentServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // Bind Domain ports (interfaces) to Infrastructure adapters here.
-    }
-
-    public function boot(): void
-    {
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        // No bindings yet — the domain (PaymentStatus) is pure and
+        // self-loading; concrete provider adapters land at Lot 3.
     }
 }

@@ -234,8 +234,15 @@ final readonly class ExternalApiCallerImpl implements ExternalApiCaller
     }
 
     /**
-     * Run the auth provider selected by the strategy, then layer the
-     * caller-supplied headers, correlation id, and idempotency key on top.
+     * Add the standard envelope headers (Correlation-Id, Idempotency-Key,
+     * Accept) to the request, and the auth headers if the request asks
+     * for authentication.
+     *
+     * The auth provider is skipped when `requiresAuth = false` (e.g. for
+     * the public-key-in-path MyCoolPay operations that don't carry the
+     * private credential). In that case the adapter is expected to have
+     * set any required headers directly in `ExternalRequest::headers`.
+     *
      * The auth provider may also mutate the body (when the credential
      * must ride in the body, not in a header).
      */
@@ -254,6 +261,13 @@ final readonly class ExternalApiCallerImpl implements ExternalApiCaller
             $headers['Idempotency-Key'] = $request->idempotencyKey;
         }
         $headers['Accept'] = $headers['Accept'] ?? 'application/json';
+
+        if (! $request->requiresAuth) {
+            return new Auth\AuthApplyResult(
+                headers: $headers,
+                body: null,
+            );
+        }
 
         // Authentication — selected by kind, applied by the matching provider.
         foreach ($this->authProviders as $authProvider) {
