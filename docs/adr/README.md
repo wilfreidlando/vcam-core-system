@@ -63,3 +63,9 @@ d'acceptation : il alimente la liste négative et sert de jurisprudence
 | --- | -------- | ------ |
 | [0029](0029-identity-depend-audit.md) | `identity` peut dépendre de `audit` | Accepté |
 | [0030](0030-autoload-dev-des-modules-dans-le-root.md) | `autoload-dev` des modules doit être répété dans le `composer.json` racine | Accepté |
+
+### Décisions post-Lot 1 (2026-09-15)
+
+| ADR | Décision | Statut |
+| --- | -------- | ------ |
+| [0031](0031-socle-integration-en-parallele-du-lot-2.md) | Le socle d'intégration générique est avancé, en parallèle du Lot 2 | Accepté — amende 0026 |

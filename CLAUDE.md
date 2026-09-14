@@ -67,16 +67,20 @@ Tout passe par `make` (Docker-first, [ADR-0019](docs/adr/0019-docker-first.md)) 
 | `make test` | Suite de tests en parallèle |
 | `make shell` | Shell dans le conteneur app |
 
-## Séquencement (plan de delivery)
+## Séquencement (plan de delivery, amendé par ADR-0031)
 
-Lot 0 (garde-fous, cette phase) → **Lot 1 Identity** → Lot 2 Money/Ledger
-(chemin critique, validation du modèle par le comité avant code) → Lot 3
-Payment/Fees → Lot 4 Events/Webhooks → Lot 5 Notification → Lot 6 Core Admin →
-Lot 7 migration pilote. Le détail de chaque lot est dans
+Lot 0 (garde-fous — fait, `fd2f515`) → **Lot 1 Identity — fait (`23de124`)** →
+**en parallèle maintenant :** Lot 2 Money/Ledger (chemin critique, validation
+du modèle par le comité avant code) **et** le socle d'intégration générique
+(`Core\Support\Integration` — [ADR-0031](docs/adr/0031-socle-integration-en-parallele-du-lot-2.md),
+ne dépend d'aucun des deux) → Lot 3 Payment/Fees (adaptateurs MTN/Orange +
+orchestration ; démarre seulement une fois le Lot 2 terminé, puisqu'un paiement
+confirmé doit pouvoir s'écrire au ledger) → Lot 4 Events/Webhooks → Lot 5
+Notification → Lot 6 Core Admin → Lot 7 migration pilote. Détail de chaque lot :
 [docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.
 
 **Aucune capacité métier n'est implémentée avant que Lot 0 soit vert**
-(`make ci` et `make guard-test` passants).
+(`make ci` et `make guard-test` passants — c'est le cas).
 
 ## Gouvernance — avant d'ajouter quoi que ce soit au Core
 
@@ -89,11 +93,17 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
 ## Ce qui n'est PAS encore construit (ne pas supposer que ça existe)
 
 - Aucune logique métier de ledger/wallet/paiement/notification (Lots 2–5).
+- Identity/Audit sont livrés (Lot 1) : Organization/Project/ApiKey, middleware
+  d'auth Project, `GET /v1/whoami`, module Audit minimal. Voir
+  `packages/identity/README.md`.
 - Idempotence : design figé ([ADR-0025](docs/adr/0025-design-idempotence.md)),
   code au Lot 2.
-- Intégration providers : principes figés
-  ([ADR-0026](docs/adr/0026-integration-providers-externes.md)), appelant HTTP
-  central construit au Lot 3 à partir de MTN **et** Orange — pas avant.
+- Socle d'intégration providers (`Core\Support\Integration`) : **en cours de
+  construction, en parallèle du Lot 2** — [ADR-0031](docs/adr/0031-socle-integration-en-parallele-du-lot-2.md).
+  Ne pas supposer qu'il existe tant que son ADR/README n'indique pas
+  « Livré ». Le DSL de templates, le catalogue d'endpoints et les adaptateurs
+  MTN/Orange concrets restent au Lot 3, après le Lot 2
+  ([ADR-0026](docs/adr/0026-integration-providers-externes.md)).
 - Laravel Boost (MCP) : incompatible avec Laravel 13 à ce jour
   (`illuminate/support` plafonné à `^12`) — non installé, à réessayer à sa
   prochaine version.

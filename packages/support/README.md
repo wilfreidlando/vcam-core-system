@@ -17,7 +17,7 @@ Décision de référence : [ADR-0020](../../docs/adr/0020-shared-kernel-support.
 | Middleware `CorrelationId` | `src/Http/Middleware/CorrelationId.php` | Livré |
 | `Money` — enveloppe de brick/money | `src/Money/` | Lot 2 — [ADR-0021](../../docs/adr/0021-wrapper-money.md) |
 | Middleware d'idempotence + port `IdempotencyStore` | `src/Idempotency/` | Lot 2 — [ADR-0025](../../docs/adr/0025-design-idempotence.md) |
-| Appelant HTTP sortant d'intégration | `src/Integration/` | Lot 3 — [ADR-0026](../../docs/adr/0026-integration-providers-externes.md) |
+| Appelant HTTP sortant d'intégration (`ExternalApiCaller`, `AuthProvider`, `RetryPolicy`, `CircuitBreakerPolicy`, `RequestSigner`, vérification de signature webhook) | `src/Integration/` | **En cours — parallèle au Lot 2** — [ADR-0026](../../docs/adr/0026-integration-providers-externes.md) + [ADR-0031](../../docs/adr/0031-socle-integration-en-parallele-du-lot-2.md) |
 
 ## Ce qui est interdit ici
 

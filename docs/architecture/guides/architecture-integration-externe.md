@@ -3,7 +3,15 @@
 **Destinataires** : agent en charge des Lots 3+ (Payment, Notification, Webhook, Storage), Tech Lead pour validation.
 **Statut** : recommandation à valider **avant Lot 3**. Les décisions ici figent la façon dont tous les providers seront branchés pour les dix prochaines années.
 
-> **⚠ Statut au 2026-09-14 : partiellement retenu — l'[ADR-0026](../../adr/0026-integration-providers-externes.md) prévaut sur ce guide.**
+> **⚠ Statut au 2026-09-15 : partiellement retenu — l'[ADR-0026](../../adr/0026-integration-providers-externes.md)
+> et son amendement [ADR-0031](../../adr/0031-socle-integration-en-parallele-du-lot-2.md) prévalent sur ce guide.**
+>
+> **Séquencement révisé (ADR-0031)** : le socle générique (pilier 2 —
+> `ExternalApiCaller`, stratégies d'auth, retry/timeout/circuit breaker,
+> signature, kill switch, vérification de signature webhook) est construit
+> **maintenant, en parallèle du Lot 2**, pas après. Le DSL déclaratif
+> (piliers 3-4-5 — templates, catalogue d'endpoints, mappers spécifiques) et
+> les adaptateurs concrets restent au Lot 3, inchangés.
 >
 > **Retenu** : anti-corruption layer, statuts canoniques, appelant HTTP sortant unique
 > (garde-fou G6c actif), registre de providers sans `match`, kill switch par provider,
