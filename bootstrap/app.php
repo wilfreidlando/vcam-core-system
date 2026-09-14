@@ -30,6 +30,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [
             HandleCors::class,
         ]);
+
+        // Wires the named 'api' limiter (AppServiceProvider::configureRateLimiting)
+        // into the group — quotas per project/environment, spec technique §14.
+        $middleware->throttleApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // One error format across the whole Core, which has no HTML surface:

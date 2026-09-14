@@ -38,7 +38,8 @@ final class ModuleGraph
         // repository: nothing may push a dependency onto the ledger.
         'ledger' => ['support'],
 
-        'identity' => ['support'],
+        // Identity may write to Audit — ADR-0029. Audit itself stays a leaf.
+        'identity' => ['support', 'audit'],
         'events' => ['support'],
         'audit' => ['support'],
 

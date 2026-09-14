@@ -17,6 +17,6 @@ final class SupportServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->bind(Identifier::class, Uuid7Identifier::class);
     }
 }

@@ -2,39 +2,42 @@
 
 **Bounded context:** `audit`
 **Responsibility:** Append-only audit journal of sensitive operations, correlated end to end.
-**Delivery lot:** Lot 1 — see [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+**Delivery lot:** Lot 1 — see [docs/specs/plan-delivery-mvp.md](../../docs/specs/plan-delivery-mvp.md)
 
-## Internal structure
+## Internal structure — intentionally thin (ADR-0029)
 
-This module is layered (hexagonal); the dependency direction is inward only:
+This module has no business rule of its own: it records what a caller tells it
+happened, it does not decide what deserves recording. So it skips the usual
+`Domain`/`Application` ceremony:
 
-```
-Presentation ─┐
-Infrastructure ┼─► Application ─► Domain
-              ─┘
-```
+| Directory | Contains |
+| --------- | -------- |
+| `src/Contracts` | `AuditEntry` (the DTO — this module's entire model) and `AuditLogger` (the one method: `record()`) |
+| `src/Infrastructure/Persistence/Eloquent` | `AuditLogRecord` + `EloquentAuditLogger` |
 
-| Directory         | Contains                                                                 |
-| ----------------- | ------------------------------------------------------------------------ |
-| `src/Domain`      | Pure PHP: entities, value objects, domain events, exceptions, **ports**   |
-| `src/Application` | Use cases and their DTOs; transactional orchestration                     |
-| `src/Infrastructure` | Port implementations: Eloquent persistence, HTTP/provider adapters    |
-| `src/Presentation`| HTTP controllers, requests, resources, middleware, console commands       |
-| `src/Contracts`   | **Published API** — the only part other modules may depend on             |
-
-Both directions are enforced by Deptrac (`deptrac.yaml`): `Domain` may not reference
-Laravel, Eloquent or `Infrastructure`, and no other module may reference anything of
-this one outside `Contracts/`.
+A `Domain/` layer is worth adding the day a real rule appears — a retention
+policy, a redaction rule for `context`/`before`/`after` — not before.
 
 ## Module dependencies
 
-**None.** This module sits at the bottom of the stack and may not depend on any other bounded context (Deptrac enforces this).
+**None.** Sits at the bottom of the stack, same as `ledger` and `identity`.
+
+## Who may depend on this module
+
+Any module with a genuine need to record a sensitive action, added to
+[`tests/Architecture/ModuleGraph.php`](../../tests/Architecture/ModuleGraph.php)
+one at a time as that need becomes real — never speculatively. `identity` is
+first (ADR-0029): issuing or revoking an API key is exactly the kind of
+operation this journal exists for.
 
 ## Ground rules
 
-- No application — internal or external — reads this module's tables. Consumers use the
-  Core's versioned API and its events.
-- Cross-context data is joined by correlation identifiers (`external_ref`,
-  `correlation_id`), never by a database join across contexts.
-- Every monetary mutation is idempotent and every state change that others care about is
-  published through the transactional outbox, inside the same transaction.
+- `audit_log` is append-only by convention: no code path updates or deletes a
+  row. Revisit with a restricted PostgreSQL role if that needs to become
+  structural rather than conventional.
+- This module never queries its own table back through `AuditLogger` — it is
+  a write-only port by design. Consultation belongs to the Core Admin operator
+  console (Lot 6), which reads `audit_log` directly because it is the one
+  place allowed to.
+- Never put a secret or an unhashed credential in `context`, `before` or
+  `after` — the table is not encrypted at the field level.

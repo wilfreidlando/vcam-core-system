@@ -1,0 +1,35 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Core\Identity\Tests\Unit\Fakes;
+
+use Core\Identity\Domain\Model\ApiKey;
+use Core\Identity\Domain\Port\ApiKeyRepository;
+
+final class InMemoryApiKeyRepository implements ApiKeyRepository
+{
+    /** @var array<string, ApiKey> */
+    private array $apiKeys = [];
+
+    public function save(ApiKey $apiKey): void
+    {
+        $this->apiKeys[$apiKey->id] = $apiKey;
+    }
+
+    public function find(string $id): ?ApiKey
+    {
+        return $this->apiKeys[$id] ?? null;
+    }
+
+    public function findByPrefix(string $prefix): ?ApiKey
+    {
+        foreach ($this->apiKeys as $apiKey) {
+            if ($apiKey->prefix === $prefix) {
+                return $apiKey;
+            }
+        }
+
+        return null;
+    }
+}

@@ -4,7 +4,8 @@
     "type": "library",
     "license": "proprietary",
     "require": {
-        "php": "^8.2",
+        "php": "^8.4",
+        "core/audit": "*@dev",
         "core/support": "*@dev"
     },
     "autoload": {

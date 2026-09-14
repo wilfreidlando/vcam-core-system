@@ -12,6 +12,7 @@ Décision de référence : [ADR-0020](../../docs/adr/0020-shared-kernel-support.
 | --------- | ----------- | ------ |
 | `Clock` (port) et `SystemClock` (UTC) | `src/Clock.php`, `src/SystemClock.php` | Livré |
 | `Environment` (sandbox / live) | `src/Environment.php` | Livré |
+| `Identifier` (port) et `Uuid7Identifier` | `src/Identifier.php`, `src/Uuid7Identifier.php` | Livré — Lot 1 |
 | Réponses d'erreur RFC 7807 | `src/Http/ProblemDetails.php` | Livré |
 | Middleware `CorrelationId` | `src/Http/Middleware/CorrelationId.php` | Livré |
 | `Money` — enveloppe de brick/money | `src/Money/` | Lot 2 — [ADR-0021](../../docs/adr/0021-wrapper-money.md) |

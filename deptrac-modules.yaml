@@ -104,6 +104,7 @@ deptrac:
       - Support
     Identity:
       - Support
+      - Audit
     Events:
       - Support
     Audit:

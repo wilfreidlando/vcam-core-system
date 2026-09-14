@@ -202,11 +202,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/admin",
-                "reference": "28efa313098d0774bfc79f1d7dd42fe12f47c641"
+                "reference": "58fc3ba104425217f5adb702001739b2ac790ff4"
             },
             "require": {
                 "core/support": "*@dev",
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -240,11 +240,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/audit",
-                "reference": "6cc03ba58e9b73022e8a08ecfa9b7a109b9caac2"
+                "reference": "37a86632079af9a826c4d73a7229cb39b3784203"
             },
             "require": {
                 "core/support": "*@dev",
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -278,11 +278,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/billing",
-                "reference": "b5b1740650125e0e9b6051c24b2c16224dff7fea"
+                "reference": "7686d93da2ef6671004bcb8c5a348be543222091"
             },
             "require": {
                 "core/support": "*@dev",
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -316,11 +316,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/developer-platform",
-                "reference": "5c597e5d0512c92f45465c220febf39a0aeb1729"
+                "reference": "415bbe59cbcbedbb3870724810e16cc3cd6fe868"
             },
             "require": {
                 "core/support": "*@dev",
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -354,11 +354,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/events",
-                "reference": "16f5b707597e357187531247eab084bf66820946"
+                "reference": "d1ad47de75086712eb97186c8979570c0d1fc7cb"
             },
             "require": {
                 "core/support": "*@dev",
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -392,11 +392,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/fees",
-                "reference": "291d81ad1ff89f59887d43767947059e4f142940"
+                "reference": "5cefcdb70421e76d7a0b260096569e6a0c9d6fb9"
             },
             "require": {
                 "core/support": "*@dev",
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -430,11 +430,12 @@
             "dist": {
                 "type": "path",
                 "url": "packages/identity",
-                "reference": "12731f28003cffeedf0e003fab4d891ed1e41b41"
+                "reference": "e6d268cae00208396a15df840e4f17099bf2ffa4"
             },
             "require": {
+                "core/audit": "*@dev",
                 "core/support": "*@dev",
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -468,11 +469,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/ledger",
-                "reference": "91ce653cf58069fa09151c668b42526c90a07c8c"
+                "reference": "214a129f8ce5e30c4171717f07bf56502c20b058"
             },
             "require": {
                 "core/support": "*@dev",
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -506,11 +507,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/notification",
-                "reference": "fc439cce7bae2023de087f41a874dcca307ef33f"
+                "reference": "5ed4d0537a1928dfebbb3e1a30189714ed504f2d"
             },
             "require": {
                 "core/support": "*@dev",
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -544,11 +545,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/parties",
-                "reference": "d9be3d1fe0567ddc24d9255f6d2d8db3f8bf3926"
+                "reference": "ea1ec3a45bc5f9da4fc366d2996ac9003c41ba13"
             },
             "require": {
                 "core/support": "*@dev",
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -582,11 +583,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/payment",
-                "reference": "39c2a10174396bd746e9ec9551aeaef2f84c01a4"
+                "reference": "5ce48edda26a3d4598cc8719864f5409d48d94d1"
             },
             "require": {
                 "core/support": "*@dev",
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -620,11 +621,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/storage",
-                "reference": "704af6d96c37c82fea63cff6a163a12e0ddbaf89"
+                "reference": "eebf815fc204e5b0e62841cee58138781419481e"
             },
             "require": {
                 "core/support": "*@dev",
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -658,10 +659,10 @@
             "dist": {
                 "type": "path",
                 "url": "packages/support",
-                "reference": "b47e0231e38d44b50570a2a695c6564aad149024"
+                "reference": "e73046cfedcf80bbfd55b951c16ed842c1657b01"
             },
             "require": {
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -695,11 +696,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/wallet",
-                "reference": "805c67e193ceeebd9ef915a0140960b04455fb36"
+                "reference": "bff7fdd9469d8bd7f9897f3ca2662d68bc473d7a"
             },
             "require": {
                 "core/support": "*@dev",
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -733,11 +734,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/webhook",
-                "reference": "84ced5bb4bf5af6755017292d2cc32eb4f4dfe34"
+                "reference": "605fe92589631e0dca1070bf320801ccd82c685a"
             },
             "require": {
                 "core/support": "*@dev",
-                "php": "^8.2"
+                "php": "^8.4"
             },
             "type": "library",
             "extra": {
@@ -1207,23 +1208,23 @@
         },
         {
             "name": "firebase/php-jwt",
-            "version": "v7.1.0",
+            "version": "v7.1.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/googleapis/php-jwt.git",
-                "reference": "b374a5d1a4f1f67fadc2165cdb284645945e2fc0"
+                "reference": "9bc93bd7e3ee5bead4cd23c365ec12f3c1fb0a6a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/googleapis/php-jwt/zipball/b374a5d1a4f1f67fadc2165cdb284645945e2fc0",
-                "reference": "b374a5d1a4f1f67fadc2165cdb284645945e2fc0",
+                "url": "https://api.github.com/repos/googleapis/php-jwt/zipball/9bc93bd7e3ee5bead4cd23c365ec12f3c1fb0a6a",
+                "reference": "9bc93bd7e3ee5bead4cd23c365ec12f3c1fb0a6a",
                 "shasum": ""
             },
             "require": {
                 "php": "^8.0"
             },
             "require-dev": {
-                "guzzlehttp/guzzle": "^7.4",
+                "guzzlehttp/guzzle": "^7.4||^8.0",
                 "phpfastcache/phpfastcache": "^9.2",
                 "phpseclib/phpseclib": "~3.0",
                 "phpspec/prophecy-phpunit": "^2.0",
@@ -1267,9 +1268,9 @@
             ],
             "support": {
                 "issues": "https://github.com/googleapis/php-jwt/issues",
-                "source": "https://github.com/googleapis/php-jwt/tree/v7.1.0"
+                "source": "https://github.com/googleapis/php-jwt/tree/v7.1.1"
             },
-            "time": "2026-06-11T17:54:14+00:00"
+            "time": "2026-09-14T17:48:47+00:00"
         },
         {
             "name": "fruitcake/php-cors",
@@ -9143,16 +9144,16 @@
         },
         {
             "name": "pestphp/pest",
-            "version": "v5.1.4",
+            "version": "v5.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/pestphp/pest.git",
-                "reference": "e68976ea9da26e57ce74bf6ac4d638ded9151771"
+                "reference": "942d6aead1c5ae407998eaf4964667423e77fd43"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/pestphp/pest/zipball/e68976ea9da26e57ce74bf6ac4d638ded9151771",
-                "reference": "e68976ea9da26e57ce74bf6ac4d638ded9151771",
+                "url": "https://api.github.com/repos/pestphp/pest/zipball/942d6aead1c5ae407998eaf4964667423e77fd43",
+                "reference": "942d6aead1c5ae407998eaf4964667423e77fd43",
                 "shasum": ""
             },
             "require": {
@@ -9164,13 +9165,13 @@
                 "pestphp/pest-plugin-mutate": "^5.0.2",
                 "pestphp/pest-plugin-profanity": "^5.0.0",
                 "php": "^8.4",
-                "phpunit/phpunit": "^13.3.2",
+                "phpunit/phpunit": "^13.3.3",
                 "symfony/process": "^8.1.6"
             },
             "conflict": {
                 "filp/whoops": "<2.18.3",
                 "laravel/boost": "<2.6.0",
-                "phpunit/phpunit": ">13.3.2",
+                "phpunit/phpunit": ">13.3.3",
                 "sebastian/exporter": "<7.0.0",
                 "webmozart/assert": "<1.11.0"
             },
@@ -9247,7 +9248,7 @@
             ],
             "support": {
                 "issues": "https://github.com/pestphp/pest/issues",
-                "source": "https://github.com/pestphp/pest/tree/v5.1.4"
+                "source": "https://github.com/pestphp/pest/tree/v5.2.0"
             },
             "funding": [
                 {
@@ -9259,7 +9260,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-09-07T11:01:12+00:00"
+            "time": "2026-09-14T14:41:18+00:00"
         },
         {
             "name": "pestphp/pest-plugin",
@@ -10572,16 +10573,16 @@
         },
         {
             "name": "phpunit/phpunit",
-            "version": "13.3.2",
+            "version": "13.3.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/phpunit.git",
-                "reference": "22104a5ceb8d642e6b30ab00211d53d88e2db368"
+                "reference": "0d8711067516c1f6ba1a66f762e16c2fb1a8ccd1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/22104a5ceb8d642e6b30ab00211d53d88e2db368",
-                "reference": "22104a5ceb8d642e6b30ab00211d53d88e2db368",
+                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/0d8711067516c1f6ba1a66f762e16c2fb1a8ccd1",
+                "reference": "0d8711067516c1f6ba1a66f762e16c2fb1a8ccd1",
                 "shasum": ""
             },
             "require": {
@@ -10595,14 +10596,14 @@
                 "phar-io/manifest": "^2.0.4",
                 "phar-io/version": "^3.2.1",
                 "php": ">=8.4.1",
-                "phpunit/php-code-coverage": "^14.3.1",
+                "phpunit/php-code-coverage": "^14.3.2",
                 "phpunit/php-file-iterator": "^7.0.2",
                 "phpunit/php-invoker": "^7.0.0",
                 "phpunit/php-text-template": "^6.0.0",
                 "phpunit/php-timer": "^9.0.0",
                 "sebastian/cli-parser": "^5.0.1",
                 "sebastian/comparator": "^8.4",
-                "sebastian/diff": "^9.0",
+                "sebastian/diff": "^9.0.1",
                 "sebastian/environment": "^9.3.2",
                 "sebastian/exporter": "^8.2.1",
                 "sebastian/file-filter": "^1.0",
@@ -10652,7 +10653,7 @@
             "support": {
                 "issues": "https://github.com/sebastianbergmann/phpunit/issues",
                 "security": "https://github.com/sebastianbergmann/phpunit/security/policy",
-                "source": "https://github.com/sebastianbergmann/phpunit/tree/13.3.2"
+                "source": "https://github.com/sebastianbergmann/phpunit/tree/13.3.3"
             },
             "funding": [
                 {
@@ -10660,7 +10661,7 @@
                     "type": "other"
                 }
             ],
-            "time": "2026-08-27T08:40:49+00:00"
+            "time": "2026-09-09T04:50:32+00:00"
         },
         {
             "name": "roave/security-advisories",
@@ -10668,12 +10669,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/Roave/SecurityAdvisories.git",
-                "reference": "320c728c28346390c380a9876d6572a6c80cdd87"
+                "reference": "eddf5ff07ff44f9c121b404971f5577e81602779"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Roave/SecurityAdvisories/zipball/320c728c28346390c380a9876d6572a6c80cdd87",
-                "reference": "320c728c28346390c380a9876d6572a6c80cdd87",
+                "url": "https://api.github.com/repos/Roave/SecurityAdvisories/zipball/eddf5ff07ff44f9c121b404971f5577e81602779",
+                "reference": "eddf5ff07ff44f9c121b404971f5577e81602779",
                 "shasum": ""
             },
             "conflict": {
@@ -11271,9 +11272,9 @@
                 "nzo/url-encryptor-bundle": ">=4,<4.3.2|>=5,<5.0.1",
                 "october/backend": "<1.1.2",
                 "october/cms": "<1.0.469|==1.0.469|==1.0.471|==1.1.1",
-                "october/october": "<3.7.14|>=4,<4.1.10",
+                "october/october": "<3.7.14|>=4,<4.1.10|>=4.3,<4.3.4",
                 "october/rain": "<=3.7.13|>=4,<=4.1.9",
-                "october/system": "<3.7.16|>=4,<4.1.16",
+                "october/system": "<3.7.17|>=4,<4.2.23",
                 "oliverklee/phpunit": "<3.5.15",
                 "omeka/omeka-s": "<4.0.3",
                 "onelogin/php-saml": "<2.21.1|>=3,<3.8.1|>=4,<4.3.1",
@@ -11806,7 +11807,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-11T23:00:23+00:00"
+            "time": "2026-09-14T17:48:00+00:00"
         },
         {
             "name": "sebastian/cli-parser",

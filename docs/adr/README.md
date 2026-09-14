@@ -56,3 +56,10 @@ d'acceptation : il alimente la liste négative et sert de jurisprudence
 | [0026](0026-integration-providers-externes.md) | Principes d'intégration des providers externes | Accepté — construction Lot 3 |
 | [0027](0027-read-models-et-acces-inter-modules.md) | Read models et accès inter-modules par `Contracts/` | Accepté |
 | [0028](0028-versionnement-api-par-url.md) | Versionnement d'API par préfixe d'URL | Accepté — fenêtre de dépréciation proposée |
+
+### Décisions du Lot 1 (2026-09-15)
+
+| ADR | Décision | Statut |
+| --- | -------- | ------ |
+| [0029](0029-identity-depend-audit.md) | `identity` peut dépendre de `audit` | Accepté |
+| [0030](0030-autoload-dev-des-modules-dans-le-root.md) | `autoload-dev` des modules doit être répété dans le `composer.json` racine | Accepté |

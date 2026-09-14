@@ -66,7 +66,8 @@
     "autoload-dev": {
         "psr-4": {
             "Tests\\": "tests/",
-            "Core\\Tooling\\": "tools/"
+            "Core\\Tooling\\": "tools/",
+            "Core\\Identity\\Tests\\": "packages/identity/tests/"
         }
     },
     "scripts": {
