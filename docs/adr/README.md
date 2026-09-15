@@ -52,7 +52,7 @@ d'acceptation : il alimente la liste négative et sert de jurisprudence
 | ADR | Décision | Statut |
 | --- | -------- | ------ |
 | [0024](0024-outbox-table-unique-module-events.md) | Outbox : table unique possédée par `Events` | Accepté |
-| [0025](0025-design-idempotence.md) | Design de l'idempotence HTTP | Accepté — implémentation Lot 2 |
+| [0025](0025-design-idempotence.md) | Design de l'idempotence HTTP | Accepté — implémentation Lot 3 (amendé par 0033) |
 | [0026](0026-integration-providers-externes.md) | Principes d'intégration des providers externes | Accepté — construction Lot 3 |
 | [0027](0027-read-models-et-acces-inter-modules.md) | Read models et accès inter-modules par `Contracts/` | Accepté |
 | [0028](0028-versionnement-api-par-url.md) | Versionnement d'API par préfixe d'URL | Accepté — fenêtre de dépréciation proposée |
@@ -73,3 +73,4 @@ d'acceptation : il alimente la liste négative et sert de jurisprudence
 | [0033](0033-conception-lot-2-money-core.md) | Conception Lot 2 : pas d'endpoint HTTP de mutation wallet, idempotence à deux niveaux, chart of accounts extensible | Accepté — amende 0025 |
 | [0034](0034-socle-integration-scope-structure.md) | Socle d'intégration : scope, structure et compromis retenus | Accepté — précise 0026 et 0031 |
 | [0035](0035-canonical-payment-status-canceled.md) | Étendre le vocabulaire canonique `PaymentStatus` avec `canceled` | Accepté — précise G6b |
+| [0036](0036-paiement-confirme-credite-le-wallet-en-synchrone.md) | Un paiement confirmé crédite le wallet en appel synchrone, pas via le relais de l'outbox | Accepté |

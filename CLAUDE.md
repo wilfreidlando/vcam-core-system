@@ -80,7 +80,10 @@ de conception. En parallèle, livré aussi : le socle d'intégration générique
 Payment/Fees** (adaptateurs MTN/Orange/MyCoolPay + orchestration ; un premier
 adaptateur concret — MyCoolPay, transport pur, sans dépendance au wallet —
 est déjà livré ; le branchement métier vers `Core\Wallet\Contracts\CreditWallet`
-reste à faire) → Lot 4 Events/Webhooks (relais/dispatch de l'outbox — l'écriture
+reste à faire, mais le **mécanisme** est tranché —
+[ADR-0036](docs/adr/0036-paiement-confirme-credite-le-wallet-en-synchrone.md) :
+appel synchrone dans la même transaction, pas via le relais de l'outbox
+(qui n'existe pas encore)) → Lot 4 Events/Webhooks (relais/dispatch de l'outbox — l'écriture
 existe déjà depuis le Lot 2) → Lot 5 Notification → Lot 6 Core Admin → Lot 7
 migration pilote. Détail de chaque lot :
 [docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.
@@ -116,8 +119,10 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   `PaymentGateway` port, `PaymentCommand`/`PaymentReceipt`/`PaymentAction`
   DTOs, `PaymentServiceProvider`. Ce qui manque encore pour que ce soit le
   Lot 3 complet : les Use Cases d'orchestration métier (le point où un
-  paiement confirmé appelle `Core\Wallet\Contracts\CreditWallet`), les
-  adaptateurs MTN/Orange, et l'idempotence HTTP (G7, ci-dessous). Voir
+  paiement confirmé appelle `Core\Wallet\Contracts\CreditWallet` en
+  synchrone — mécanisme tranché par
+  [ADR-0036](docs/adr/0036-paiement-confirme-credite-le-wallet-en-synchrone.md)),
+  les adaptateurs MTN/Orange, et l'idempotence HTTP (G7, ci-dessous). Voir
   `packages/payment/README.md`.
 - Idempotence à deux niveaux ([ADR-0025](docs/adr/0025-design-idempotence.md),
   amendé par [ADR-0033](docs/adr/0033-conception-lot-2-money-core.md) §2) :
