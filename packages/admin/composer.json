@@ -5,7 +5,11 @@
     "license": "proprietary",
     "require": {
         "php": "^8.4",
-        "core/support": "*@dev"
+        "core/support": "*@dev",
+        "core/identity": "*@dev",
+        "core/audit": "*@dev",
+        "core/webhook": "*@dev",
+        "core/payment": "*@dev"
     },
     "autoload": {
         "psr-4": {

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9b88ec93b06e8022c367459b5760d138",
+    "content-hash": "c9e6500b75b9186dc414021757fef185",
     "packages": [
         {
             "name": "brick/math",
@@ -507,9 +507,12 @@
             "dist": {
                 "type": "path",
                 "url": "packages/notification",
-                "reference": "5ed4d0537a1928dfebbb3e1a30189714ed504f2d"
+                "reference": "9a11bcec6925614bdbc7b01b1ae81f3a26932da1"
             },
             "require": {
+                "core/events": "*@dev",
+                "core/identity": "*@dev",
+                "core/parties": "*@dev",
                 "core/support": "*@dev",
                 "php": "^8.4"
             },
@@ -740,9 +743,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/webhook",
-                "reference": "605fe92589631e0dca1070bf320801ccd82c685a"
+                "reference": "9976aaab0a9399f6a2f2e8a3b89fc5851226339b"
             },
             "require": {
+                "core/events": "*@dev",
+                "core/identity": "*@dev",
                 "core/support": "*@dev",
                 "php": "^8.4"
             },
@@ -4207,6 +4212,58 @@
                 }
             ],
             "time": "2026-08-26T12:15:13+00:00"
+        },
+        {
+            "name": "pragmarx/google2fa",
+            "version": "v8.0.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/antonioribeiro/google2fa.git",
+                "reference": "6f8d87ebd5afbf7790bde1ffc7579c7c705e0fad"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/antonioribeiro/google2fa/zipball/6f8d87ebd5afbf7790bde1ffc7579c7c705e0fad",
+                "reference": "6f8d87ebd5afbf7790bde1ffc7579c7c705e0fad",
+                "shasum": ""
+            },
+            "require": {
+                "paragonie/constant_time_encoding": "^1.0|^2.0|^3.0",
+                "php": "^7.1|^8.0"
+            },
+            "require-dev": {
+                "phpstan/phpstan": "^1.9",
+                "phpunit/phpunit": "^7.5.15|^8.5|^9.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "PragmaRX\\Google2FA\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Antonio Carlos Ribeiro",
+                    "email": "acr@antoniocarlosribeiro.com",
+                    "role": "Creator & Designer"
+                }
+            ],
+            "description": "A One Time Password Authentication package, compatible with Google Authenticator.",
+            "keywords": [
+                "2fa",
+                "Authentication",
+                "Two Factor Authentication",
+                "google2fa"
+            ],
+            "support": {
+                "issues": "https://github.com/antonioribeiro/google2fa/issues",
+                "source": "https://github.com/antonioribeiro/google2fa/tree/v8.0.3"
+            },
+            "time": "2024-09-05T11:56:40+00:00"
         },
         {
             "name": "psr/clock",

@@ -32,7 +32,8 @@
         "laravel/horizon": "^5.49",
         "laravel/passport": "^13.8",
         "laravel/sanctum": "^4.3",
-        "laravel/tinker": "^3.0"
+        "laravel/tinker": "^3.0",
+        "pragmarx/google2fa": "^8.0"
     },
     "require-dev": {
         "brianium/paratest": "^7.24",

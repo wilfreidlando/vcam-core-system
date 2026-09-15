@@ -107,7 +107,15 @@ adaptateur WhatsApp concret livré ensuite : WAHA auto-hébergé (envoi
 texte/image/fichier + liaison de téléphone QR/pairing-code/screenshot,
 sans aucune persistance de session côté Core —
 [ADR-0042](docs/adr/0042-whatsapp-waha-adapter-channel-session-minimal-surface.md))
-→ Lot 6 Core Admin → Lot 7 migration pilote. Détail de chaque lot :
+→ **Lot 6 Core Admin — première tranche livrée** : opérateurs/RBAC/MFA
+(`Core\Identity\OperatorRole`, Sanctum, `pragmarx/google2fa`), recherche
+d'audit (`Core\Audit\Contracts\AuditQuery`), liste + rejeu de la DLQ
+webhook, réconciliation paiement par `checkStatus()` convergeant sur
+`PaymentStatusChangeHandler` existant
+([ADR-0044](docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md)) —
+reste pour un Lot 6 complet : règles de frais, billing, listing générique
+payments/wallets/notifications/projects, monitoring opérationnel
+→ Lot 7 migration pilote. Détail de chaque lot :
 [docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.
 
 **Aucune capacité métier n'est implémentée avant que Lot 0 soit vert**
@@ -188,13 +196,43 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   directement `Core\Support\Integration\Transport\HttpTransport` +
   `Signing\HmacSha256RequestSigner`, toujours le seul point de sortie HTTP
   (G6c). Retry persisté via `DeliverWebhookJob::release()` (Horizon), DLQ
-  après épuisement, replay via `webhook:replay` (CLI seulement — le Core
-  Admin d'ADR-0009 n'existe pas avant le Lot 6). Ce qui reste hors
-  périmètre : `notification`/`billing` ne consomment pas encore
-  `OutboxEventPublished` (Lot 5+), aucune UI de replay.
+  après épuisement, replay via `webhook:replay` (CLI) **et** depuis le Lot 6
+  via `POST /v1/admin/webhook-deliveries/{id}/replay` (ADR-0044) — les deux
+  convergent sur le même `Contracts\ReplayWebhookDelivery` +
+  `Contracts\QueueWebhookDelivery`. Ce qui reste hors périmètre :
+  `notification`/`billing` ne consomment pas encore `OutboxEventPublished`
+  (Lot 5+).
+- Module `admin` : **première tranche du Lot 6 livrée** — voir
+  [ADR-0044](docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md).
+  Nouvelle strate d'authentification « Plan 1 » (spec §5.1), parallèle au
+  plan Project/ApiKey : `Core\Identity\OperatorRole` (enum PHP fixe, pas
+  le schéma dynamique roles/permissions de la spec — écart assumé, YAGNI),
+  Sanctum (jetons API purs, pas de mode SPA/cookie), MFA obligatoire dès
+  la première connexion via `pragmarx/google2fa` (pas de rendu QR serveur
+  — plateforme API-only). Flux : `POST /v1/operators/login` →
+  `mfa/enroll` (1ère connexion) ou `mfa/verify` (connexions suivantes) →
+  jeton Sanctum ; création d'opérateur CLI-only
+  (`identity:create-operator`, pas de self-service). Quatre capacités
+  exposées sous `/v1/admin/*` (middleware `operator.auth`, jamais
+  `project.auth` — et donc jamais `idempotency`, câblée sur
+  `ProjectContext`) : `GET /audit-log` (nouveau port
+  `Core\Audit\Contracts\AuditQuery` — **`admin` ne lit jamais `audit_log`
+  directement**, malgré ce qu'un commentaire Lot 1 suggérait à tort ;
+  G3c/ADR-0027 s'appliquent à `admin` sans exception), `GET
+  /webhook-deliveries/dead` + `POST .../replay` (réutilise
+  `ReplayWebhookDelivery` intact), `POST /payment-reconciliation-runs`
+  (déclenche `Core\Payment\Contracts\ReconcileStuckPayments`, aussi
+  planifié via `admin:reconcile-stuck-payments` toutes les 5 minutes).
+  Hors périmètre de cette tranche : règles de frais, billing, listing
+  générique payments/wallets/notifications/projects, monitoring
+  opérationnel/OTel, gestion self-service des opérateurs.
 - Identity/Audit sont livrés (Lot 1) : Organization/Project/ApiKey, middleware
   d'auth Project, `GET /v1/whoami`, module Audit minimal. Voir
-  `packages/identity/README.md`.
+  `packages/identity/README.md`. Depuis le Lot 6 (ADR-0044), `identity`
+  porte aussi le plan « Plan 1 » opérateurs/RBAC/MFA (`Operator`,
+  `OperatorRole`, Sanctum) — voir le point `admin` ci-dessous ; `audit`
+  porte un port de lecture (`AuditQuery`) en plus du port d'écriture
+  historique (`AuditLogger`).
 - Ledger/Wallet/Parties sont livrés (Lot 2) : ledger double-entrée avec
   contraintes PostgreSQL réelles (triggers de solde et d'immutabilité),
   wallets crédit/débit (aucun endpoint HTTP de mutation — ADR-0033 §1),
@@ -215,9 +253,13 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   optionnel, transactionnel, idempotent au rejeu). Adaptateur concret livré :
   MyCoolPay (`initiate`, `submitAction`, `checkStatus`, webhook).
   `PaymentGatewayRegistry` détecte les codes provider dupliqués au boot
-  plutôt que d'écraser silencieusement (ADR-0039). Reste à construire : le
-  moteur Fees, les adaptateurs MTN/Orange directs (seul le mécanisme de
-  routage existe). Voir `packages/payment/README.md`.
+  plutôt que d'écraser silencieusement (ADR-0039). Depuis le Lot 6
+  (ADR-0044), `payment` expose aussi `Contracts\ReconcileStuckPayments` —
+  une réconciliation par `checkStatus()` pour les webhooks manqués,
+  déclenchée par `admin` (planifiée ou à la demande), convergeant sur
+  `HandlePaymentStatusChangedUseCase` sans logique dupliquée. Reste à
+  construire : le moteur Fees, les adaptateurs MTN/Orange directs (seul
+  le mécanisme de routage existe). Voir `packages/payment/README.md`.
 - Idempotence à deux niveaux ([ADR-0025](docs/adr/0025-design-idempotence.md),
   amendé par [ADR-0033](docs/adr/0033-conception-lot-2-money-core.md) §2) —
   **les deux niveaux sont livrés** : le niveau ledger

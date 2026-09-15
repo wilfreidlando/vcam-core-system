@@ -2,6 +2,14 @@
 
 declare(strict_types=1);
 
+use Core\Identity\Domain\Exception\InvalidMfaCode;
+use Core\Identity\Domain\Exception\InvalidOperatorCredentials;
+use Core\Identity\Domain\Exception\MfaAlreadyEnrolled;
+use Core\Identity\Domain\Exception\MfaChallengeInvalid;
+use Core\Identity\Domain\Exception\MfaNotEnrolled;
+use Core\Identity\Domain\Exception\OperatorNotFound;
+use Core\Identity\Domain\Exception\OperatorRevoked;
+use Core\Identity\Presentation\Http\Middleware\ResolveOperatorMiddleware;
 use Core\Identity\Presentation\Http\Middleware\ResolveProjectMiddleware;
 use Core\Notification\Contracts\ChannelDoesNotSupportSessions;
 use Core\Notification\Contracts\MissingRecipientPhoneNumber;
@@ -58,6 +66,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // to the class.
         $middleware->alias([
             'project.auth' => ResolveProjectMiddleware::class,
+            // ADR-0044: the platform operator plane, parallel to project.auth.
+            'operator.auth' => ResolveOperatorMiddleware::class,
             // G7: every monetary mutation route applies this (ADR-0025).
             'idempotency' => RequireIdempotencyKey::class,
         ]);
@@ -68,6 +78,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // would both read the same unpublished rows before either marks
         // them, republishing each one twice.
         $schedule->command('events:relay')->everyMinute()->withoutOverlapping();
+
+        // ADR-0044: background reconciliation for missed webhooks (spec
+        // technique §10). Same overlap protection reasoning as events:relay.
+        $schedule->command('admin:reconcile-stuck-payments')->everyFiveMinutes()->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // One error format across the whole Core, which has no HTML surface:
@@ -135,6 +149,33 @@ return Application::configure(basePath: dirname(__DIR__))
                 $e instanceof ChannelDoesNotSupportSessions => ProblemDetails::make(
                     'channel-does-not-support-sessions',
                     'This channel has no linked-device session to manage',
+                    422,
+                    $e->getMessage(),
+                ),
+                $e instanceof OperatorNotFound => ProblemDetails::make(
+                    'operator-not-found',
+                    'Operator not found',
+                    404,
+                    $e->getMessage(),
+                ),
+                $e instanceof InvalidOperatorCredentials => ProblemDetails::unauthenticated(
+                    $e->getMessage(),
+                ),
+                $e instanceof OperatorRevoked => ProblemDetails::forbidden(
+                    $e->getMessage(),
+                ),
+                $e instanceof MfaChallengeInvalid, $e instanceof InvalidMfaCode => ProblemDetails::unauthenticated(
+                    $e->getMessage(),
+                ),
+                $e instanceof MfaAlreadyEnrolled => ProblemDetails::make(
+                    'mfa-already-enrolled',
+                    'MFA is already enabled',
+                    409,
+                    $e->getMessage(),
+                ),
+                $e instanceof MfaNotEnrolled => ProblemDetails::make(
+                    'mfa-not-enrolled',
+                    'MFA enrollment has not been started',
                     422,
                     $e->getMessage(),
                 ),

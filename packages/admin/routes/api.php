@@ -1,0 +1,34 @@
+<?php
+
+declare(strict_types=1);
+
+use Core\Admin\Presentation\Http\Controllers\ListDeadWebhookDeliveriesController;
+use Core\Admin\Presentation\Http\Controllers\ReplayDeadWebhookDeliveryController;
+use Core\Admin\Presentation\Http\Controllers\SearchAuditLogController;
+use Core\Admin\Presentation\Http\Controllers\TriggerPaymentReconciliationController;
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Admin routes — registered by AdminServiceProvider (ADR-0018, ADR-0044)
+|--------------------------------------------------------------------------
+|
+| Every route is gated by 'operator.auth' (bootstrap/app.php), never
+| 'project.auth' — this is the platform operator plane, not the
+| machine-identity one. None of these routes carry the 'idempotency'
+| middleware: RequireIdempotencyKey's scope is wired to ProjectContext,
+| never bound on an operator-authenticated request, and none of these
+| four capabilities take a caller-supplied monetary amount in the G7
+| sense — they trigger or read already-idempotent internal operations.
+| The reconciliation route name deliberately avoids the bare "payments"
+| substring IdempotencyTest guards against.
+*/
+
+Route::middleware(['operator.auth'])
+    ->prefix('v1/admin')
+    ->group(function (): void {
+        Route::get('/audit-log', SearchAuditLogController::class)->name('admin.audit-log');
+        Route::get('/webhook-deliveries/dead', ListDeadWebhookDeliveriesController::class)->name('admin.webhook-deliveries.dead');
+        Route::post('/webhook-deliveries/{deliveryId}/replay', ReplayDeadWebhookDeliveryController::class)->name('admin.webhook-deliveries.replay');
+        Route::post('/payment-reconciliation-runs', TriggerPaymentReconciliationController::class)->name('admin.payment-reconciliation-runs');
+    });

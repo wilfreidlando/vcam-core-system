@@ -2,7 +2,32 @@
 
 **Bounded context:** `admin`
 **Responsibility:** Core Admin: operator console for projects, credentials, transactions, wallets, fee rules, providers, webhooks, audit and reconciliation.
-**Delivery lot:** Lot 6 — see [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+**Delivery lot:** Lot 6, first slice delivered — see
+[ADR-0044](../../docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md)
+and [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+
+## What's delivered so far
+
+Four capabilities, all under `/v1/admin/*`, gated by `operator.auth` (the
+platform operator plane — `Core\Identity\OperatorRole` — lives in `identity`,
+not here):
+
+| Endpoint | Permission | Composes |
+| -------- | ---------- | -------- |
+| `GET /v1/admin/audit-log` | `audit:read` | `Core\Audit\Contracts\AuditQuery` |
+| `GET /v1/admin/webhook-deliveries/dead` | `webhooks:read` | `Core\Webhook\Contracts\ListDeadWebhookDeliveries` |
+| `POST /v1/admin/webhook-deliveries/{id}/replay` | `webhooks:replay` | `Core\Webhook\Contracts\{ReplayWebhookDelivery,QueueWebhookDelivery}` |
+| `POST /v1/admin/payment-reconciliation-runs` | `payments:reconcile:write` | `Core\Payment\Contracts\ReconcileStuckPayments` |
+
+Plus `admin:reconcile-stuck-payments`, scheduled every 5 minutes
+(`bootstrap/app.php`) as the primary reconciliation trigger.
+
+This module has no `Domain/`/`Application/` of its own yet — every
+capability above is a controller composing another module's `Contracts/`
+port directly (ADR-0027: "Admin compose, il n'interroge pas directement").
+Not yet built: fee-rule administration (the `fees` module itself is
+paused), billing administration, generic list/search endpoints for
+payments/wallets/notifications/projects, operational monitoring.
 
 ## Internal structure
 

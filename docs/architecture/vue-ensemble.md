@@ -241,8 +241,8 @@ graph BT
 | Module | Rôle | État | Lot | Points d'entrée notables |
 | ------ | ---- | ---- | --- | ------------------------- |
 | `support` | Shared kernel technique (Money, Clock, Identifier, UnitOfWork, ProblemDetails, Idempotency, Integration HTTP) | **Livré** | Lot 0 | — (pas de HTTP propre) |
-| `identity` | Organization/Project/ApiKey, auth, scopes, audit | **Livré** | Lot 1 | `GET /v1/whoami` |
-| `audit` | Journal d'audit minimal | **Livré** | Lot 1 | — |
+| `identity` | Organization/Project/ApiKey, auth, scopes ; Operator/RBAC/MFA (Lot 6) | **Livré** | Lot 1 (+ Lot 6) | `GET /v1/whoami`, `POST /v1/operators/{login,mfa/enroll,mfa/confirm,mfa/verify,logout}`, `GET /v1/operators/me` |
+| `audit` | Journal d'audit (écriture Lot 1, lecture Lot 6) | **Livré** | Lot 1 (+ Lot 6) | — (lu par `admin` via `AuditQuery`) |
 | `events` | Outbox transactionnel (table unique, ADR-0024) + relais unique (ADR-0040) | **Livré** | Lot 2 écriture (ADR-0032), Lot 4 relais | — (commande `events:relay`, planifiée) |
 | `parties` | Tiers à création paresseuse, aucune PII (G4) | **Livré** | Lot 2 | — |
 | `ledger` | Comptabilité double-entrée immuable, contraintes PostgreSQL réelles | **Livré** | Lot 2 | — |
@@ -251,7 +251,7 @@ graph BT
 | `fees` | Moteur de frais | Scaffold | Lot 3 (reste à faire) | — |
 | `webhook` | Endpoints par Project, livraison signée HMAC, retry/backoff, DLQ, replay CLI (ADR-0009, ADR-0040) | **Livré** | Lot 4 | `POST/GET /v1/webhook-endpoints`, `DELETE /v1/webhook-endpoints/{id}` |
 | `notification` | Orchestration multi-canal : fallback ordonné, `NotificationStatus` canonique (ADR-0041), contenu envoyé en ligne — pas de template pré-enregistré (ADR-0043). Adaptateur WhatsApp/WAHA livré (ADR-0042). | **Livré** | Lot 5 | `POST /v1/notifications/{text,image,file}`, `GET /v1/notifications/{id}`, `GET/POST /v1/notification-channel-sessions/{channel}/{sessionRef}/*`, webhook `whatsapp-waha` |
-| `admin` | Console opérateur | Scaffold | Lot 6 | — |
+| `admin` | Console opérateur | **Livré (1ère tranche)** | Lot 6 | `GET /v1/admin/audit-log`, `GET /v1/admin/webhook-deliveries/dead`, `POST .../{id}/replay`, `POST /v1/admin/payment-reconciliation-runs` |
 | `billing` | Facturation | Scaffold | Lot 6/7 | — |
 | `storage` | Fichiers | Scaffold | — | — |
 | `developer-platform` | Auto-service développeur | Scaffold | — | — |
