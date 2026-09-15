@@ -16,6 +16,186 @@
         }
     ],
     "paths": {
+        "/payments/{paymentId}": {
+            "get": {
+                "operationId": "payments.status",
+                "description": "Reads the Core's own last-known state only \u2014 no live call to the\nprovider. Requires the `payments:read` scope, and returns the same\nnot-found response whether the payment doesn't exist or belongs to\nanother project.",
+                "summary": "Get a payment's current status",
+                "tags": [
+                    "GetPaymentStatus"
+                ],
+                "parameters": [
+                    {
+                        "name": "paymentId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "channel": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "amount_minor_units": {
+                                            "type": "integer"
+                                        },
+                                        "currency": {
+                                            "type": "string"
+                                        },
+                                        "requires_action": {
+                                            "type": "boolean"
+                                        },
+                                        "action_hint": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "payment_url": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "error_message": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "channel",
+                                        "status",
+                                        "amount_minor_units",
+                                        "currency",
+                                        "requires_action",
+                                        "action_hint",
+                                        "payment_url",
+                                        "error_message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/payments": {
+            "post": {
+                "operationId": "payments.start",
+                "description": "The request names only a `channel` (e.g. `mtn_momo`, `card`), never a\nprovider \u2014 `StartPaymentUseCase` resolves which adapter actually\nhandles it via the Project's routing configuration (ADR-0038 \u00a72).\nRequires the `payments:write` scope and an `Idempotency-Key` header\n(G7, ADR-0025). Crediting a wallet on success is never implicit \u2014 it\nonly happens if `wallet_recipient_external_ref` is given (ADR-0037).",
+                "summary": "Start a payment",
+                "tags": [
+                    "StartPayment"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StartPaymentRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "channel": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "amount_minor_units": {
+                                            "type": "integer"
+                                        },
+                                        "currency": {
+                                            "type": "string"
+                                        },
+                                        "requires_action": {
+                                            "type": "boolean"
+                                        },
+                                        "action_hint": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "payment_url": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "channel",
+                                        "status",
+                                        "amount_minor_units",
+                                        "currency",
+                                        "requires_action",
+                                        "action_hint",
+                                        "payment_url"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
         "/wallets/{walletId}/balance": {
             "get": {
                 "operationId": "wallet.balance",
@@ -131,6 +311,130 @@
                 "type": "http",
                 "scheme": "bearer",
                 "bearerFormat": "pk_<env>_<id>.<secret>"
+            }
+        },
+        "schemas": {
+            "PaymentFlow": {
+                "type": "string",
+                "description": "Discriminates between the two payment initiation flows exposed by aggregator-style providers. `Payin` is the synchronous, app-driven flow (used by mobile apps and server-to-server integrations that drive the customer through their own UX). MyCoolPay exposes this as `POST /payin`; CinetPay exposes it as `POST /v2/payment`; MTN exposes it as `POST /collection/.../requesttopay`.  `Paylink` is the hosted-link, redirect-driven flow (used by web apps that hand the customer off to a provider-hosted page). MyCoolPay exposes this as `POST /paylink`; CinetPay returns a `payment_url` alongside the same initiation call (the discriminator is implicit).  Providers that do not distinguish the two flows (e.g. CinetPay) treat `Payin` as the default and ignore the discriminator on the `InitiatePaymentCommand`.\n",
+                "enum": [
+                    "payin",
+                    "paylink"
+                ],
+                "title": "PaymentFlow"
+            },
+            "StartPaymentRequest": {
+                "type": "object",
+                "description": "Validates `POST /v1/payments`. Authorization (the `payments:write`\nscope) is checked in the controller against `ProjectContext`, not\nhere \u2014 this class only validates shape, never identity.\n\nNo `idempotency_key` body field: the `Idempotency-Key` HTTP header\n(required by the `idempotency` middleware ahead of this request ever\nreaching validation \u2014 ADR-0025, G7) is the one value used for both\nthe HTTP-level response cache and `StartPaymentUseCase`'s own\nprovider-call protection. One key, not two.",
+                "properties": {
+                    "channel": {
+                        "type": "string"
+                    },
+                    "amount_minor_units": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "currency": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 3
+                    },
+                    "reason": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "customer_phone_number": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 32
+                    },
+                    "customer_name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 255
+                    },
+                    "customer_email": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "email"
+                    },
+                    "customer_lang": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 8
+                    },
+                    "flow": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/PaymentFlow"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "return_url": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uri"
+                    },
+                    "wallet_recipient_external_ref": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 255
+                    }
+                },
+                "required": [
+                    "channel",
+                    "amount_minor_units",
+                    "currency",
+                    "reason"
+                ],
+                "title": "StartPaymentRequest"
+            }
+        },
+        "responses": {
+            "ValidationException": {
+                "description": "Validation error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Errors overview."
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "description": "A detailed description of each field that failed validation.",
+                                    "additionalProperties": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            },
+                            "required": [
+                                "message",
+                                "errors"
+                            ]
+                        }
+                    }
+                }
             }
         }
     }

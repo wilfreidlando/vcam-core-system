@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace Core\Payment\Presentation\Http\Controllers;
 
-use Core\Events\Contracts\DomainEvent;
-use Core\Events\Contracts\EventOutbox;
 use Core\Payment\Contracts\Events\PaymentStatusChanged;
+use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\PaymentStatusMapper;
 use Core\Support\Clock;
-use Core\Support\Identifier;
 use Core\Support\Integration\Configuration\ProviderConfigRegistry;
-use Core\Support\Integration\CorrelationIdProvider;
 use Core\Support\Integration\Provider\ProviderCode;
 use DateTimeZone;
 use Illuminate\Http\JsonResponse;
@@ -19,43 +16,31 @@ use Illuminate\Http\Request;
 use Psr\Log\LoggerInterface;
 
 /**
- * Receives MyCoolPay's transaction-status webhook and publishes a
- * canonical `PaymentStatusChanged` event into the outbox.
+ * Receives MyCoolPay's transaction-status webhook, translates it into a
+ * canonical `PaymentStatusChanged`, and hands it to
+ * `PaymentStatusChangeHandler` — which resolves the `Payment` this
+ * refers to, updates its state, credits a wallet if (and only if) the
+ * caller asked for one at initiation (ADR-0037), and publishes the
+ * event to the outbox, all in one transaction (ADR-0036, ADR-0038 §4/§5).
  *
  * # What it does (and doesn't)
  *
  * - **No signature verification** at this point — the MyCoolPay docs
  *   give no clear algorithm; we keep the hook ready to plug in as
  *   soon as we have a real signed body sample.
- * - **No state mutation**. The adapter is a pure transport; persisting
- *   the status to a domain entity is the consumer's job. This
- *   controller publishes ONE event and replies 200 OK.
  * - **No outbound call**. Everything happens from the inbound payload.
  *
  * # Security filters
  *
- * Two filters are applied BEFORE the outbox is touched:
+ * Two filters are applied BEFORE the handler is called:
  *  1. `transaction_type` must be `'PAYIN'`. Payout webhooks are
  *     ignored here — they will be handled by a dedicated controller
  *     when payout support lands.
  *  2. `application` (the public key) must match the configured one.
  *     This prevents a different tenant's webhook from injecting
- *     events into our outbox.
+ *     events into our system.
  * Both filters reply 200 OK to keep MyCoolPay from retrying — but
  * they log a `warning` so operators see the noise.
- *
- * # Outbox semantics
- *
- * The `PaymentStatusChanged` event is appended to the outbox in the
- * caller's transaction. Today, the only "transaction" is the single
- * `INSERT` into `event_outbox` — there is no other write. When Lot 3
- * adds wallet crediting, the same webhook controller will wrap the
- * `outbox->append()` in a `DB::transaction()` that also writes the
- * ledger entry. The event publication stays transactionally safe.
- *
- * For now, no consumer listens to `payment.status_changed`. The event
- * is recorded, dispatched, and forgotten — that's correct: the
- * infrastructure is ready, the listener comes when needed.
  */
 final class MyCoolPayWebhookController
 {
@@ -80,11 +65,9 @@ final class MyCoolPayWebhookController
      *   }
      */
     public function __construct(
-        private EventOutbox $outbox,
+        private PaymentStatusChangeHandler $statusChangeHandler,
         private PaymentStatusMapper $statusMapper,
-        private Identifier $identifier,
         private Clock $clock,
-        private CorrelationIdProvider $correlationIds,
         private ProviderConfigRegistry $configRegistry,
         private LoggerInterface $logger,
     ) {}
@@ -93,15 +76,15 @@ final class MyCoolPayWebhookController
     {
         // Laravel's `$request->json()->all()` always returns an array
         // (possibly empty for a non-JSON body). The validation that
-        // follows treats an empty body as "missing fields" → no event
-        // published → 200 OK so MyCoolPay does not retry forever.
+        // follows treats an empty body as "missing fields" → no handler
+        // call → 200 OK so MyCoolPay does not retry forever.
         /** @var array<string, mixed> $body */
         $body = $request->json()->all();
 
         $event = $this->buildEvent($body);
         if ($event === null) {
             // The payload was structurally valid but the controller chose
-            // not to publish (wrong transaction type, wrong application,
+            // not to proceed (wrong transaction type, wrong application,
             // missing fields, or unknown status). We have already logged
             // a warning. Reply 200 OK anyway: MyCoolPay considers any 2xx
             // a successful delivery; bouncing 4xx would make them retry
@@ -109,22 +92,12 @@ final class MyCoolPayWebhookController
             return new JsonResponse(['status' => 'ignored'], 200);
         }
 
-        $domainEvent = new DomainEvent(
-            id: $this->identifier->generate(),
-            projectId: $this->extractProjectId($body),
-            type: 'payment.status_changed',
-            payload: $event->toPayload(),
-            correlationId: $this->correlationIds->current(),
-            occurredAt: $this->clock->now(),
-        );
+        $this->statusChangeHandler->handle($event);
 
-        $this->outbox->append($domainEvent);
-
-        $this->logger->info('my-coolpay.webhook.published', [
+        $this->logger->info('my-coolpay.webhook.handled', [
             'provider_code' => $event->providerCode,
             'transaction_ref' => $event->transactionRef,
             'status' => $event->status->value,
-            'correlation_id' => $domainEvent->correlationId,
         ]);
 
         return new JsonResponse(['status' => 'received'], 200);
@@ -200,19 +173,6 @@ final class MyCoolPayWebhookController
             reason: $reason,
             occurredAt: $occurredAt,
         );
-    }
-
-    /**
-     * MyCoolPay identifies the application by `public_key` (the same
-     * key that lives in the URL path). For the outbox, we use the
-     * application as the projectId so consumers can join events to
-     * their own project scope.
-     *
-     * @param array<string, mixed> $body
-     */
-    private function extractProjectId(array $body): string
-    {
-        return self::stringField($body, 'application');
     }
 
     /**

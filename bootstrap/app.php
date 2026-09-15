@@ -3,7 +3,10 @@
 declare(strict_types=1);
 
 use Core\Identity\Presentation\Http\Middleware\ResolveProjectMiddleware;
+use Core\Payment\Contracts\NoProviderForChannelException;
+use Core\Payment\Domain\Exception\PaymentNotFound;
 use Core\Support\Http\Middleware\CorrelationId;
+use Core\Support\Http\Middleware\RequireIdempotencyKey;
 use Core\Support\Http\ProblemDetails;
 use Core\Wallet\Domain\Exception\WalletNotFound;
 use Illuminate\Auth\AuthenticationException;
@@ -43,6 +46,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // to the class.
         $middleware->alias([
             'project.auth' => ResolveProjectMiddleware::class,
+            // G7: every monetary mutation route applies this (ADR-0025).
+            'idempotency' => RequireIdempotencyKey::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -64,6 +69,18 @@ return Application::configure(basePath: dirname(__DIR__))
                     'wallet-not-found',
                     'Wallet not found',
                     404,
+                    $e->getMessage(),
+                ),
+                $e instanceof PaymentNotFound => ProblemDetails::make(
+                    'payment-not-found',
+                    'Payment not found',
+                    404,
+                    $e->getMessage(),
+                ),
+                $e instanceof NoProviderForChannelException => ProblemDetails::make(
+                    'no-provider-for-channel',
+                    'No provider is configured for this channel',
+                    422,
                     $e->getMessage(),
                 ),
                 $e instanceof HttpExceptionInterface => ProblemDetails::make(

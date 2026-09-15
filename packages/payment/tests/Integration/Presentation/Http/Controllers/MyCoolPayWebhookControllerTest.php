@@ -4,17 +4,15 @@ declare(strict_types=1);
 
 namespace Core\Payment\Tests\Integration\Presentation\Http\Controllers;
 
-use Core\Events\Contracts\DomainEvent;
-use Core\Events\Contracts\EventOutbox;
+use Core\Payment\Contracts\Events\PaymentStatusChanged;
+use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\PaymentStatusMapper;
 use Core\Payment\PaymentStatus;
 use Core\Payment\Presentation\Http\Controllers\MyCoolPayWebhookController;
 use Core\Support\Clock;
-use Core\Support\Identifier;
 use Core\Support\Integration\Configuration\ArrayProviderConfigRegistry;
 use Core\Support\Integration\Configuration\ProviderConfigRegistry;
 use Core\Support\Integration\Configuration\ProviderNotConfigured;
-use Core\Support\Integration\CorrelationIdProvider;
 use Core\Support\Integration\Provider\ProviderCode;
 use DateTimeImmutable;
 use Illuminate\Http\Request;
@@ -24,8 +22,11 @@ use Tests\TestCase;
 
 /**
  * Unit-style integration test for `MyCoolPayWebhookController`. Uses a
- * fake `EventOutbox` (no real DB) and a fake `PaymentStatusMapper`
- * so the test stays inside the module's `Contracts` boundary (G3c).
+ * fake `PaymentStatusChangeHandler` (no real DB) and a fake
+ * `PaymentStatusMapper` so the test stays inside the module's
+ * `Contracts` boundary (G3c) — the handler's own behaviour (resolving
+ * the Payment, crediting a wallet, publishing to the outbox) has its
+ * own dedicated test, `HandlePaymentStatusChangedUseCaseTest`.
  *
  * Why Integration, not Unit: the controller's dependencies come from
  * the Laravel container (test framework, container facade). The actual
@@ -34,12 +35,12 @@ use Tests\TestCase;
  */
 final class MyCoolPayWebhookControllerTest extends TestCase
 {
-    private FakeEventOutbox $outbox;
+    private FakePaymentStatusChangeHandler $handler;
 
     private MyCoolPayWebhookController $webhook;
 
     #[Test]
-    public function a_valid_payin_webhook_appends_a_payment_status_changed_event(): void
+    public function a_valid_payin_webhook_is_handed_to_the_status_change_handler(): void
     {
         $body = [
             'application' => 'pub-test-1234',
@@ -53,18 +54,13 @@ final class MyCoolPayWebhookControllerTest extends TestCase
         $response = $this->invoke($this->webhookRequest($body));
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertCount(1, $this->outbox->appended);
-        $event = $this->outbox->appended[0];
-        self::assertSame('payment.status_changed', $event->type);
-        self::assertSame('corr-test', $event->correlationId);
-        self::assertSame('01TESTID000000000000000000', $event->id);
-        self::assertSame('pub-test-1234', $event->projectId);
-        $payload = $event->payload;
-        self::assertSame('my-coolpay', $payload['provider_code']);
-        self::assertSame('tx-abc', $payload['transaction_ref']);
-        self::assertSame('order-42', $payload['app_transaction_ref']);
-        self::assertSame('succeeded', $payload['status']);
-        self::assertSame('Order #42', $payload['reason']);
+        self::assertCount(1, $this->handler->handled);
+        $event = $this->handler->handled[0];
+        self::assertSame('my-coolpay', $event->providerCode);
+        self::assertSame('tx-abc', $event->transactionRef);
+        self::assertSame('order-42', $event->appTransactionRef);
+        self::assertSame(PaymentStatus::Succeeded, $event->status);
+        self::assertSame('Order #42', $event->reason);
     }
 
     #[Test]
@@ -80,7 +76,7 @@ final class MyCoolPayWebhookControllerTest extends TestCase
         $response = $this->invoke($this->webhookRequest($body));
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertCount(0, $this->outbox->appended);
+        self::assertCount(0, $this->handler->handled);
     }
 
     #[Test]
@@ -96,7 +92,7 @@ final class MyCoolPayWebhookControllerTest extends TestCase
         $response = $this->invoke($this->webhookRequest($body));
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertCount(0, $this->outbox->appended, 'A different application key must not inject events.');
+        self::assertCount(0, $this->handler->handled, 'A different application key must not be handled.');
     }
 
     #[Test]
@@ -111,7 +107,7 @@ final class MyCoolPayWebhookControllerTest extends TestCase
         $response = $this->invoke($this->webhookRequest($body));
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertCount(0, $this->outbox->appended);
+        self::assertCount(0, $this->handler->handled);
     }
 
     #[Test]
@@ -126,7 +122,7 @@ final class MyCoolPayWebhookControllerTest extends TestCase
         $response = $this->invoke($this->webhookRequest($body));
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertCount(0, $this->outbox->appended);
+        self::assertCount(0, $this->handler->handled);
     }
 
     #[Test]
@@ -142,7 +138,7 @@ final class MyCoolPayWebhookControllerTest extends TestCase
         $response = $this->invoke($this->webhookRequest($body));
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertCount(0, $this->outbox->appended);
+        self::assertCount(0, $this->handler->handled);
     }
 
     #[Test]
@@ -157,8 +153,7 @@ final class MyCoolPayWebhookControllerTest extends TestCase
 
         $this->invoke($this->webhookRequest($body));
 
-        $payload = $this->outbox->appended[0]->payload;
-        self::assertSame('canceled', $payload['status']);
+        self::assertSame(PaymentStatus::Canceled, $this->handler->handled[0]->status);
     }
 
     #[Test]
@@ -173,8 +168,7 @@ final class MyCoolPayWebhookControllerTest extends TestCase
 
         $this->invoke($this->webhookRequest($body));
 
-        $payload = $this->outbox->appended[0]->payload;
-        self::assertSame('failed', $payload['status']);
+        self::assertSame(PaymentStatus::Failed, $this->handler->handled[0]->status);
     }
 
     #[Test]
@@ -182,8 +176,8 @@ final class MyCoolPayWebhookControllerTest extends TestCase
     {
         // Laravel's `Request::json()->all()` always returns an array
         // (empty for non-JSON bodies). The controller treats an empty
-        // body as missing-fields → no event published → 200 with
-        // `ignored` (so MyCoolPay does not retry forever).
+        // body as missing-fields → not handled → 200 with `ignored` (so
+        // MyCoolPay does not retry forever).
         $request = Request::create(
             '/webhooks/my-coolpay',
             'POST',
@@ -198,7 +192,7 @@ final class MyCoolPayWebhookControllerTest extends TestCase
         $response = $this->invoke($request);
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertCount(0, $this->outbox->appended);
+        self::assertCount(0, $this->handler->handled);
     }
 
     #[Test]
@@ -231,11 +225,9 @@ final class MyCoolPayWebhookControllerTest extends TestCase
         };
 
         $controller = new MyCoolPayWebhookController(
-            outbox: $this->outbox,
+            statusChangeHandler: $this->handler,
             statusMapper: $this->getStatusMapper(),
-            identifier: $this->getIdentifier(),
             clock: $this->getClock(),
-            correlationIds: $this->getCorrelationIdProvider(),
             configRegistry: $emptyRegistry,
             logger: new NullLogger,
         );
@@ -250,31 +242,14 @@ final class MyCoolPayWebhookControllerTest extends TestCase
         $response = ($controller)($this->webhookRequest($body));
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertCount(1, $this->outbox->appended);
+        self::assertCount(1, $this->handler->handled);
     }
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->outbox = new FakeEventOutbox;
-
-        $statusMapper = new class implements PaymentStatusMapper
-        {
-            public function map(string $raw): PaymentStatus
-            {
-                return match (strtoupper($raw)) {
-                    'SUCCESS' => PaymentStatus::Succeeded,
-                    'CANCELED' => PaymentStatus::Canceled,
-                    'FAILED' => PaymentStatus::Failed,
-                    default => throw new \Core\Support\Integration\Exception\UnknownProviderStatusException(
-                        'raw',
-                        ProviderCode::fromString('my-coolpay'),
-                        $raw,
-                    ),
-                };
-            }
-        };
+        $this->handler = new FakePaymentStatusChangeHandler;
 
         $configRegistry = new ArrayProviderConfigRegistry([
             'payment' => [
@@ -291,34 +266,10 @@ final class MyCoolPayWebhookControllerTest extends TestCase
             ],
         ]);
 
-        $identifier = new class implements Identifier
-        {
-            public function generate(): string
-            {
-                return '01TESTID000000000000000000';
-            }
-        };
-        $clock = new class implements Clock
-        {
-            public function now(): DateTimeImmutable
-            {
-                return new DateTimeImmutable('2026-09-15T10:30:00Z');
-            }
-        };
-        $correlations = new class implements CorrelationIdProvider
-        {
-            public function current(): string
-            {
-                return 'corr-test';
-            }
-        };
-
         $this->webhook = new MyCoolPayWebhookController(
-            outbox: $this->outbox,
-            statusMapper: $statusMapper,
-            identifier: $identifier,
-            clock: $clock,
-            correlationIds: $correlations,
+            statusChangeHandler: $this->handler,
+            statusMapper: $this->getStatusMapper(),
+            clock: $this->getClock(),
             configRegistry: $configRegistry,
             logger: new NullLogger,
         );
@@ -374,17 +325,6 @@ final class MyCoolPayWebhookControllerTest extends TestCase
         };
     }
 
-    private function getIdentifier(): Identifier
-    {
-        return new class implements Identifier
-        {
-            public function generate(): string
-            {
-                return '01TESTID000000000000000000';
-            }
-        };
-    }
-
     private function getClock(): Clock
     {
         return new class implements Clock
@@ -395,30 +335,21 @@ final class MyCoolPayWebhookControllerTest extends TestCase
             }
         };
     }
-
-    private function getCorrelationIdProvider(): CorrelationIdProvider
-    {
-        return new class implements CorrelationIdProvider
-        {
-            public function current(): string
-            {
-                return 'corr-test';
-            }
-        };
-    }
 }
 
 /**
- * In-memory EventOutbox for tests. Records every `append()` so the
- * test can assert what was published.
+ * In-memory PaymentStatusChangeHandler for tests. Records every
+ * `handle()` call so the test can assert what the controller decided to
+ * hand off, without exercising the use case's own persistence/outbox/
+ * wallet-crediting behaviour (covered separately).
  */
-final class FakeEventOutbox implements EventOutbox
+final class FakePaymentStatusChangeHandler implements PaymentStatusChangeHandler
 {
-    /** @var list<DomainEvent> */
-    public array $appended = [];
+    /** @var list<PaymentStatusChanged> */
+    public array $handled = [];
 
-    public function append(DomainEvent $event): void
+    public function handle(PaymentStatusChanged $event): void
     {
-        $this->appended[] = $event;
+        $this->handled[] = $event;
     }
 }

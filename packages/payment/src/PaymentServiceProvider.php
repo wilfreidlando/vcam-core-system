@@ -4,13 +4,24 @@ declare(strict_types=1);
 
 namespace Core\Payment;
 
+use Core\Payment\Application\UseCase\GetPaymentStatusUseCase;
+use Core\Payment\Application\UseCase\HandlePaymentStatusChangedUseCase;
+use Core\Payment\Application\UseCase\StartPaymentUseCase;
+use Core\Payment\Contracts\GetPaymentStatus;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
+use Core\Payment\Contracts\PaymentProviderRouter;
+use Core\Payment\Contracts\PaymentStatusChangeHandler;
+use Core\Payment\Contracts\StartPayment;
+use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Payment\Infrastructure\Persistence\Eloquent\EloquentPaymentRepository;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayAdapter;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayStatusMapper;
 use Core\Payment\Infrastructure\Provider\PaymentGatewayRegistryImpl;
+use Core\Payment\Infrastructure\Routing\ConfigPaymentProviderRouter;
 use Core\Support\Integration\Provider\ProviderCode;
 use Core\Support\Integration\Provider\ProviderRegistry;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -32,7 +43,9 @@ final class PaymentServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadRoutesFrom(__DIR__.'/../routes/webhooks.php');
+        Route::middleware('api')->group(__DIR__.'/../routes/api.php');
     }
 
     public function register(): void
@@ -69,5 +82,20 @@ final class PaymentServiceProvider extends ServiceProvider
                 $app->make(ProviderRegistry::class),
             );
         });
+
+        $this->app->singleton(PaymentProviderRouter::class, function (Application $app): PaymentProviderRouter {
+            /** @var array<string, string> $defaults */
+            $defaults = $app->make('config')->get('payment_channels.default', []);
+            /** @var array<string, array<string, string>> $overrides */
+            $overrides = $app->make('config')->get('payment_channels.project_overrides', []);
+
+            return new ConfigPaymentProviderRouter($defaults, $overrides);
+        });
+
+        $this->app->bind(PaymentRepository::class, EloquentPaymentRepository::class);
+
+        $this->app->bind(StartPayment::class, StartPaymentUseCase::class);
+        $this->app->bind(GetPaymentStatus::class, GetPaymentStatusUseCase::class);
+        $this->app->bind(PaymentStatusChangeHandler::class, HandlePaymentStatusChangedUseCase::class);
     }
 }

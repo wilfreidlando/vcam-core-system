@@ -22,6 +22,14 @@ use Core\Payment\PaymentFlow;
  * flow (`Payin`) and the hosted-link redirect flow (`Paylink`). It is
  * honoured by providers that expose both (MyCoolPay); providers that
  * don't distinguish (CinetPay) ignore it.
+ *
+ * `channel` (ADR-0038 §1) is the canonical payment method the customer
+ * chose — nullable here because this DTO is also constructed directly in
+ * tests that exercise an adapter in isolation, without a channel in
+ * play. `returnUrl` (ADR-0038 §6) is the browser redirect target for the
+ * `Paylink` flow only — a best-effort UX aid, never a delivery-guaranteed
+ * notification; see `Core\Payment\Application\UseCase\HandlePaymentStatusChangedUseCase`
+ * for the actual (reliable) outcome notification.
  */
 final readonly class InitiatePaymentCommand
 {
@@ -35,5 +43,7 @@ final readonly class InitiatePaymentCommand
         public ?string $customerEmail = null,
         public ?string $customerLang = null,
         public PaymentFlow $flow = PaymentFlow::Payin,
+        public ?PaymentChannel $channel = null,
+        public ?string $returnUrl = null,
     ) {}
 }
