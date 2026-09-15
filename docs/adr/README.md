@@ -77,3 +77,9 @@ d'acceptation : il alimente la liste négative et sert de jurisprudence
 | [0037](0037-credit-wallet-jamais-automatique-composition-explicite.md) | Le crédit du wallet n'est jamais automatique : composition explicite par paiement, pas comportement par défaut | Accepté — amende 0036 |
 | [0038](0038-conception-lot-3-payment-channel-routage-etat-callback.md) | Conception Lot 3 Payment : channel canonique distinct du provider, routage par Project, état du paiement, deux notions de callback séparées (webhook ADR-0009 vs redirection Paylink) | Accepté |
 | [0039](0039-payment-gateway-registry-typed.md) | Registre provider typé par domaine (`PaymentGatewayRegistry`) + détection des codes provider dupliqués au boot | Accepté |
+
+### Décisions du Lot 4 (2026-09-15)
+
+| ADR | Décision | Statut |
+| --- | -------- | ------ |
+| [0040](0040-conception-lot-4-relais-outbox-webhooks-sortants.md) | Conception Lot 4 : relais outbox unique et centralisé (`Core\Events\Infrastructure\Relay`), webhooks sortants signés HMAC composés directement sur `Core\Support\Integration` (pas `ExternalApiCaller`), retry persisté via Horizon `release()`, secret chiffré au repos, replay CLI en attendant le Core Admin | Accepté — précise ADR-0009 |

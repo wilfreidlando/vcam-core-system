@@ -92,10 +92,13 @@ exécuté en synchrone, même transaction, quand elle est fournie
 ([ADR-0036](docs/adr/0036-paiement-confirme-credite-le-wallet-en-synchrone.md)).
 Reste pour un Lot 3 complet : le moteur **Fees**, les adaptateurs MTN/Orange
 directs (seul le mécanisme de routage existe, pas d'adaptateur concret pour
-eux) → Lot 4 Events/Webhooks (relais/dispatch de l'outbox — l'écriture
-existe déjà depuis le Lot 2) → Lot 5 Notification → Lot 6 Core Admin → Lot 7
-migration pilote. Détail de chaque lot :
-[docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.
+eux) → **Lot 4 Events/Webhooks — livré** : relais unique de l'outbox
+(`Core\Events\Infrastructure\Relay\OutboxRelay`, planifié chaque minute) +
+module `Webhook` (endpoints par Project, livraison signée HMAC,
+retry/backoff persisté via Horizon, DLQ, replay CLI —
+[ADR-0040](docs/adr/0040-conception-lot-4-relais-outbox-webhooks-sortants.md))
+→ Lot 5 Notification → Lot 6 Core Admin → Lot 7 migration pilote. Détail de
+chaque lot : [docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.
 
 **Aucune capacité métier n'est implémentée avant que Lot 0 soit vert**
 (`make ci` et `make guard-test` passants — c'est le cas).
@@ -117,6 +120,26 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   instruction explicite de l'appelant à l'initiation. Ne pas supposer qu'un
   paiement réussi implique un wallet crédité — vérifier que
   `wallet_recipient_external_ref` a été fourni.
+- Module `webhook` et relais outbox : **Lot 4 livré** — voir
+  [ADR-0040](docs/adr/0040-conception-lot-4-relais-outbox-webhooks-sortants.md).
+  `Core\Events\Infrastructure\Relay\OutboxRelay` est le seul lecteur
+  physique d'`event_outbox` (planifié chaque minute, `events:relay`) ; il
+  republie chaque ligne comme `Core\Events\Contracts\OutboxEventPublished`,
+  un événement Laravel interne auquel `webhook` s'abonne
+  (`FanOutRelayedEventListener`, `ShouldQueue`) — jamais de deuxième
+  lecteur de l'outbox. `POST/GET /v1/webhook-endpoints` (self-service,
+  contrairement aux clés d'API qui restent CLI-only), secret HMAC généré
+  une fois et chiffré au repos (`Crypt`, jamais haché — il doit être relu
+  en clair pour signer chaque livraison). La livraison HTTP ne passe **pas**
+  par `ExternalApiCaller` (conçu pour un catalogue de providers, pas une
+  URL Project dynamique avec retry sur des heures) : elle compose
+  directement `Core\Support\Integration\Transport\HttpTransport` +
+  `Signing\HmacSha256RequestSigner`, toujours le seul point de sortie HTTP
+  (G6c). Retry persisté via `DeliverWebhookJob::release()` (Horizon), DLQ
+  après épuisement, replay via `webhook:replay` (CLI seulement — le Core
+  Admin d'ADR-0009 n'existe pas avant le Lot 6). Ce qui reste hors
+  périmètre : `notification`/`billing` ne consomment pas encore
+  `OutboxEventPublished` (Lot 5+), aucune UI de replay.
 - Identity/Audit sont livrés (Lot 1) : Organization/Project/ApiKey, middleware
   d'auth Project, `GET /v1/whoami`, module Audit minimal. Voir
   `packages/identity/README.md`.

@@ -243,13 +243,13 @@ graph BT
 | `support` | Shared kernel technique (Money, Clock, Identifier, UnitOfWork, ProblemDetails, Idempotency, Integration HTTP) | **Livré** | Lot 0 | — (pas de HTTP propre) |
 | `identity` | Organization/Project/ApiKey, auth, scopes, audit | **Livré** | Lot 1 | `GET /v1/whoami` |
 | `audit` | Journal d'audit minimal | **Livré** | Lot 1 | — |
-| `events` | Outbox transactionnel (table unique, ADR-0024) | **Livré** | Lot 2 (avancé, ADR-0032) | — |
+| `events` | Outbox transactionnel (table unique, ADR-0024) + relais unique (ADR-0040) | **Livré** | Lot 2 écriture (ADR-0032), Lot 4 relais | — (commande `events:relay`, planifiée) |
 | `parties` | Tiers à création paresseuse, aucune PII (G4) | **Livré** | Lot 2 | — |
 | `ledger` | Comptabilité double-entrée immuable, contraintes PostgreSQL réelles | **Livré** | Lot 2 | — |
 | `wallet` | Crédit/débit, solde matérialisé + dérivé | **Livré** | Lot 2 | `GET /v1/wallets/{id}/balance` (lecture seule, ADR-0033 §1) |
 | `payment` | Channel canonique, routage par Project, orchestration, webhook, idempotence HTTP | **Livré** (Lot 3, ADR-0038/0039) | Lot 3 | `POST /v1/payments`, `GET /v1/payments/{id}`, webhook MyCoolPay |
 | `fees` | Moteur de frais | Scaffold | Lot 3 (reste à faire) | — |
-| `webhook` | Relais/dispatch sortant de l'outbox (ADR-0009) | Scaffold | Lot 4 | — |
+| `webhook` | Endpoints par Project, livraison signée HMAC, retry/backoff, DLQ, replay CLI (ADR-0009, ADR-0040) | **Livré** | Lot 4 | `POST/GET /v1/webhook-endpoints`, `DELETE /v1/webhook-endpoints/{id}` |
 | `notification` | Notifications multi-canal | Scaffold | Lot 5 | — |
 | `admin` | Console opérateur | Scaffold | Lot 6 | — |
 | `billing` | Facturation | Scaffold | Lot 6/7 | — |
@@ -408,9 +408,15 @@ direct demain sans toucher au contrat public (ADR-0038 §1–2).
 
 `G8` interdit `event()`/`dispatch()` dans `Domain/`ou `Application/` : un
 changement d'état métier et la ligne qu'il publie dans `event_outbox`
-partagent **toujours** la même transaction (G8c). Le relais qui livrera ces
-événements vers des webhooks sortants signés (ADR-0009) est le Lot 4 — la
-table existe et s'écrit déjà, seul le dispatch externe manque.
+partagent **toujours** la même transaction (G8c). Le relais qui lit cette
+table et livre les événements vers des webhooks sortants signés (ADR-0009)
+est **livré** (Lot 4, ADR-0040) : `Core\Events\Infrastructure\Relay\OutboxRelay`
+est le seul lecteur physique de la table — planifié chaque minute
+(`events:relay`) — et republie chaque ligne comme
+`OutboxEventPublished`, un événement Laravel interne auquel un ou
+plusieurs modules s'abonnent (`webhook` aujourd'hui) sans jamais relire
+l'outbox eux-mêmes : `published_at` ne peut signifier qu'« un seul lecteur
+en amont », jamais « lu par chaque consommateur ».
 
 ```mermaid
 graph LR
@@ -421,12 +427,21 @@ graph LR
         (ex. payments.status)"]
         Outbox["INSERT event_outbox"]
     end
-    Relay["Relais sortant
-    (Lot 4 — pas encore construit)"]
+    Relay["OutboxRelay
+    seul lecteur physique, planifié chaque minute"]
+    Pub["OutboxEventPublished
+    événement interne republié"]
+    Listener["Webhook : FanOutRelayedEventListener
+    (ShouldQueue — tourne sur Horizon)"]
+    Deliver["DeliverWebhookJob
+    HMAC, retry/backoff, DLQ, replay CLI"]
 
     UC --> TX
-    Outbox -.->|à venir| Relay
-    Relay -.->|webhook signé HMAC, retry, DLQ| Consumer["Endpoint du Project"]
+    Outbox --> Relay
+    Relay -->|"event()"| Pub
+    Pub --> Listener
+    Listener --> Deliver
+    Deliver -->|webhook signé HMAC| Consumer["Endpoint du Project"]
 ```
 
 ---
@@ -523,7 +538,7 @@ réellement quelque chose.
 ## 12. Pour aller plus loin
 
 - **Pourquoi chaque décision** : [docs/adr/README.md](../adr/README.md) —
-  39 ADR à ce jour, y compris les deux refus/corrections tracés en ADR
+  40 ADR à ce jour, y compris les deux refus/corrections tracés en ADR
   (0036 → corrigé par 0037).
 - **Ce qui est réellement vérifié par la CI** :
   [garde-fous-inactifs.md](garde-fous-inactifs.md).
