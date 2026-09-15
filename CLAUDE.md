@@ -7,7 +7,10 @@ autorité, converties en Markdown dans `docs/specs/` (source `.docx` dans
 gouvernance anti-dérive. Décisions structurantes dans `docs/adr/` (index :
 [docs/adr/README.md](docs/adr/README.md)).
 
-**Avant toute question sur ce dépôt, lire `docs/adr/README.md` et
+**Avant toute question sur ce dépôt, lire
+[docs/architecture/vue-ensemble.md](docs/architecture/vue-ensemble.md)**
+(vue globale avec schémas : modules, topologie d'exécution, anatomie d'une
+requête, garde-fous), **`docs/adr/README.md` et
 `docs/architecture/garde-fous-inactifs.md`.** Ils répondent à « pourquoi c'est
 comme ça » plus vite qu'explorer le code.
 
@@ -34,8 +37,8 @@ avec le message du garde-fou correspondant (voir
   adaptateur ne fait `Http::post()` directement. (G6c)
 - **Aucun statut brut provider (`'SUCCESSFUL'`, `'SUCCESS'`…) hors de son
   adaptateur** ; le cœur ne connaît que les statuts canoniques. (G6)
-- **Toute route qui mute de l'argent exige `Idempotency-Key`.** (G7, actif dès
-  Lot 2)
+- **Toute route qui mute de l'argent exige `Idempotency-Key`.** (G7, actif
+  depuis `POST /v1/payments`, Lot 3)
 
 ## Structure d'un module
 
@@ -77,17 +80,19 @@ Parties à création paresseuse, écriture de l'outbox (ADR-0032). Voir
 de conception. En parallèle, livré aussi : le socle d'intégration générique
 (`Core\Support\Integration` — [ADR-0031](docs/adr/0031-socle-integration-en-parallele-du-lot-2.md)
 + [ADR-0034](docs/adr/0034-socle-integration-scope-structure.md)) → **Lot 3
-Payment/Fees** (adaptateurs MTN/Orange/MyCoolPay + orchestration ; un premier
-adaptateur concret — MyCoolPay, transport pur, sans dépendance au wallet —
-est déjà livré. Le branchement vers `Core\Wallet\Contracts\CreditWallet`
-reste à faire, et son **mécanisme** est tranché — synchrone, même
-transaction ([ADR-0036](docs/adr/0036-paiement-confirme-credite-le-wallet-en-synchrone.md))
-— mais **jamais automatique** : un paiement, par défaut, n'est qu'un
-encaissement au nom du système, sans Party ni Wallet touchés ; le crédit
-d'un wallet est une instruction explicite fournie par l'appelant à
-l'initiation du paiement, jamais déduite du seul succès du paiement
-([ADR-0037](docs/adr/0037-credit-wallet-jamais-automatique-composition-explicite.md))
-→ Lot 4 Events/Webhooks (relais/dispatch de l'outbox — l'écriture
+Payment — orchestration livrée** (`channel` canonique, routage par Project,
+état propre à `Payment`, idempotence HTTP G7, webhook → statut → crédit
+wallet optionnel — [ADR-0038](docs/adr/0038-conception-lot-3-payment-channel-routage-etat-callback.md)) :
+un paiement, par défaut, n'est qu'un encaissement au nom du système, sans
+Party ni Wallet touchés ; le crédit d'un wallet est une instruction
+explicite fournie par l'appelant à l'initiation du paiement, jamais déduite
+du seul succès du paiement
+([ADR-0037](docs/adr/0037-credit-wallet-jamais-automatique-composition-explicite.md)),
+exécuté en synchrone, même transaction, quand elle est fournie
+([ADR-0036](docs/adr/0036-paiement-confirme-credite-le-wallet-en-synchrone.md)).
+Reste pour un Lot 3 complet : le moteur **Fees**, les adaptateurs MTN/Orange
+directs (seul le mécanisme de routage existe, pas d'adaptateur concret pour
+eux) → Lot 4 Events/Webhooks (relais/dispatch de l'outbox — l'écriture
 existe déjà depuis le Lot 2) → Lot 5 Notification → Lot 6 Core Admin → Lot 7
 migration pilote. Détail de chaque lot :
 [docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.
@@ -105,12 +110,13 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
 
 ## Ce qui n'est PAS encore construit (ne pas supposer que ça existe)
 
-- Paiement métier bout-en-bout, frais, notification (Lots 3–5) : le
-  transport (MyCoolPay) existe, mais rien ne crédite encore un wallet suite à
-  un paiement confirmé — et par design, ça ne le fera **jamais
-  automatiquement** (ADR-0037) : un paiement est un encaissement pur sauf
-  instruction explicite de l'appelant. Ne pas supposer qu'un paiement réussi
-  implique un wallet crédité, même une fois le Lot 3 terminé.
+- Frais, notification (reste du Lot 3, Lot 5) : pas construits. Le paiement
+  bout-en-bout (channel → routage → webhook → crédit wallet optionnel) est
+  livré (détail ci-dessous), mais **le crédit d'un wallet n'est jamais
+  automatique** (ADR-0037) : un paiement est un encaissement pur sauf
+  instruction explicite de l'appelant à l'initiation. Ne pas supposer qu'un
+  paiement réussi implique un wallet crédité — vérifier que
+  `wallet_recipient_external_ref` a été fourni.
 - Identity/Audit sont livrés (Lot 1) : Organization/Project/ApiKey, middleware
   d'auth Project, `GET /v1/whoami`, module Audit minimal. Voir
   `packages/identity/README.md`.
@@ -120,33 +126,29 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   parties à création paresseuse. Voir `packages/ledger/README.md`,
   `packages/wallet/README.md`, `packages/parties/README.md` — et
   [ADR-0033](docs/adr/0033-conception-lot-2-money-core.md).
-- Module `payment` : **scaffold canonique + un adaptateur concret**
-  (MyCoolPay : `initiate`, `submitAction`, `checkStatus`, webhook → outbox).
-  `PaymentStatus` canonique (avec `canceled` ajouté par ADR-0035),
-  `PaymentGateway` port, `PaymentCommand`/`PaymentReceipt`/`PaymentAction`
-  DTOs, `PaymentServiceProvider`, un registre de providers typé et sûr
-  (`PaymentGatewayRegistry` — détecte les codes provider dupliqués au
-  boot plutôt que d'écraser silencieusement). Ce qui manque encore pour
-  que ce soit le Lot 3 complet, avec la conception déjà tranchée pour
-  chaque pièce — [ADR-0038](docs/adr/0038-conception-lot-3-payment-channel-routage-etat-callback.md) :
-  le champ `channel` canonique (mtn_momo, orange_money…) distinct du
-  `provider` interne jamais exposé, la table de routage
-  `(channel, Project) → provider`, la table d'état propre à `Payment`
-  (elle seule sait quel provider traite chaque paiement, pour que le
-  statut et les webhooks entrants n'aient jamais à deviner), et les
-  Use Cases d'orchestration métier (le point où un paiement, **sur
-  instruction explicite de l'appelant seulement** —
-  [ADR-0037](docs/adr/0037-credit-wallet-jamais-automatique-composition-explicite.md) —
-  appelle `Core\Wallet\Contracts\CreditWallet` en synchrone, même
-  transaction — [ADR-0036](docs/adr/0036-paiement-confirme-credite-le-wallet-en-synchrone.md)),
-  les adaptateurs MTN/Orange directs, et l'idempotence HTTP (G7,
-  ci-dessous). Voir `packages/payment/README.md`.
+- Module `payment` : **orchestration Lot 3 livrée** — voir
+  [ADR-0038](docs/adr/0038-conception-lot-3-payment-channel-routage-etat-callback.md)
+  et [ADR-0039](docs/adr/0039-payment-gateway-registry-typed.md). Le champ
+  `channel` canonique (`mtn_momo`, `orange_money`, `card`…), distinct du
+  `provider` interne jamais exposé ; `ConfigPaymentProviderRouter` résout
+  `(channel, Project) → provider` ; l'agrégat `Payment` possède son propre
+  état (il sait quel provider le traite, le statut et les webhooks entrants
+  n'ont donc jamais à deviner) ; `StartPaymentUseCase` (`POST /v1/payments`),
+  `GetPaymentStatusUseCase` (`GET /v1/payments/{id}`, lit l'état du Core
+  seulement, pas de réconciliation live avec le provider) et
+  `HandlePaymentStatusChangedUseCase` (webhook → statut → crédit wallet
+  optionnel, transactionnel, idempotent au rejeu). Adaptateur concret livré :
+  MyCoolPay (`initiate`, `submitAction`, `checkStatus`, webhook).
+  `PaymentGatewayRegistry` détecte les codes provider dupliqués au boot
+  plutôt que d'écraser silencieusement (ADR-0039). Reste à construire : le
+  moteur Fees, les adaptateurs MTN/Orange directs (seul le mécanisme de
+  routage existe). Voir `packages/payment/README.md`.
 - Idempotence à deux niveaux ([ADR-0025](docs/adr/0025-design-idempotence.md),
-  amendé par [ADR-0033](docs/adr/0033-conception-lot-2-money-core.md) §2) :
-  le niveau ledger (`idempotency_key` + `wasAlreadyPosted`) est livré au
-  Lot 2. Le niveau HTTP (middleware + `Idempotency-Key` obligatoire sur
-  toute route de mutation monétaire, G7) reste au Lot 3, puisque le Lot 2
-  ne publie aucune route de mutation — voir ADR-0033 §1.
+  amendé par [ADR-0033](docs/adr/0033-conception-lot-2-money-core.md) §2) —
+  **les deux niveaux sont livrés** : le niveau ledger
+  (`idempotency_key` + `wasAlreadyPosted`) depuis le Lot 2, le niveau HTTP
+  (`RequireIdempotencyKey` middleware, `Idempotency-Key` obligatoire sur
+  `POST /v1/payments`, G7 actif) depuis le Lot 3.
 - Socle d'intégration providers (`Core\Support\Integration`) : **livré**
   ([ADR-0026](docs/adr/0026-integration-providers-externes.md) +
   [ADR-0031](docs/adr/0031-socle-integration-en-parallele-du-lot-2.md) +
