@@ -2,22 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Core\Notification\Application\UseCase;
+namespace Core\Notification\Application\Support;
 
 use Core\Events\Contracts\DomainEvent;
 use Core\Events\Contracts\EventOutbox;
+use Core\Notification\Contracts\NotificationChannel;
 use Core\Notification\Contracts\NotificationChannelProviderRegistry;
 use Core\Notification\Contracts\NotificationProviderRouter;
 use Core\Notification\Contracts\NotificationView;
 use Core\Notification\Contracts\OutboundMessage;
-use Core\Notification\Contracts\SendNotification;
-use Core\Notification\Contracts\SendNotificationCommand;
 use Core\Notification\Domain\Exception\NotificationAlreadyExists;
-use Core\Notification\Domain\Exception\NotificationTemplateNotFound;
 use Core\Notification\Domain\Model\Notification;
 use Core\Notification\Domain\Port\NotificationDeliveryRepository;
 use Core\Notification\Domain\Port\NotificationRepository;
-use Core\Notification\Domain\Port\NotificationTemplateRepository;
 use Core\Notification\NotificationStatus;
 use Core\Parties\Contracts\FindOrCreatePartyCommand;
 use Core\Parties\Contracts\PartyFinder;
@@ -28,6 +25,14 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
+ * The provider-fallback cascade shared by `SendTextNotificationUseCase`,
+ * `SendImageNotificationUseCase` and `SendFileNotificationUseCase`
+ * (ADR-0043 — replaces the single template-based `SendNotificationUseCase`
+ * from ADR-0041, one thin use case per content type instead of one
+ * endpoint keyed by a pre-registered template). Not itself a `Contracts`
+ * port — it's Application-internal orchestration reused by three
+ * different public entry points.
+ *
  * Tries each provider `NotificationProviderRouter` returns, in order,
  * until one accepts the message — a synchronous fallback cascade
  * (ADR-0041 §3), not a delayed retry (that's Webhook's job at Lot 4).
@@ -43,11 +48,10 @@ use Throwable;
  * webhook will ever arrive to do it — and that write must share a
  * transaction with the state change (G8c).
  */
-final readonly class SendNotificationUseCase implements SendNotification
+final readonly class NotificationSendCascade
 {
     public function __construct(
         private NotificationRepository $notifications,
-        private NotificationTemplateRepository $templates,
         private NotificationDeliveryRepository $deliveries,
         private NotificationProviderRouter $router,
         private NotificationChannelProviderRegistry $registry,
@@ -59,24 +63,30 @@ final readonly class SendNotificationUseCase implements SendNotification
         private LoggerInterface $logger,
     ) {}
 
-    public function send(SendNotificationCommand $command): NotificationView
-    {
-        $existing = $this->notifications->findByIdempotencyKey($command->projectId, $command->idempotencyKey);
+    /**
+     * @param array<string, mixed> $variables
+     * @param array<string, mixed> $body
+     */
+    public function send(
+        string $projectId,
+        NotificationChannel $channel,
+        string $toPartyRef,
+        array $variables,
+        array $body,
+        string $contentType,
+        string $idempotencyKey,
+    ): NotificationView {
+        $existing = $this->notifications->findByIdempotencyKey($projectId, $idempotencyKey);
         if ($existing !== null) {
             return $this->toView($existing);
         }
 
         // Correlation anchor only (ADR-0041 §5) — never a contact address.
         $this->partyFinder->findOrCreate(new FindOrCreatePartyCommand(
-            $command->projectId,
-            $command->toPartyRef,
+            $projectId,
+            $toPartyRef,
             'notification_recipient',
         ));
-
-        $template = $this->templates->findLatest($command->projectId, $command->template, $command->channel->value);
-        if ($template === null || ! $template->isSendable()) {
-            throw NotificationTemplateNotFound::forKey($command->projectId, $command->template, $command->channel->value);
-        }
 
         $id = $this->identifier->generate();
 
@@ -84,17 +94,14 @@ final readonly class SendNotificationUseCase implements SendNotification
         // not just at the end — so `notification_deliveries` rows (one
         // per attempt, written as the cascade runs) always have a real
         // parent row to reference, and so a genuine idempotency-key race
-        // is caught before ever calling a provider (mirrors
-        // `StartPaymentUseCase`'s create-then-recover-from-the-race
-        // pattern, but here it means "don't send twice", not "re-read
-        // the winner's already-sent state").
+        // is caught before ever calling a provider.
         $queued = new Notification(
             id: $id,
-            projectId: $command->projectId,
-            channel: $command->channel->value,
-            toPartyRef: $command->toPartyRef,
-            templateKey: $command->template,
-            idempotencyKey: $command->idempotencyKey,
+            projectId: $projectId,
+            channel: $channel->value,
+            toPartyRef: $toPartyRef,
+            contentType: $contentType,
+            idempotencyKey: $idempotencyKey,
             status: NotificationStatus::Queued,
             providerCode: null,
             providerMessageId: null,
@@ -104,7 +111,7 @@ final readonly class SendNotificationUseCase implements SendNotification
         try {
             $this->notifications->create($queued);
         } catch (NotificationAlreadyExists) {
-            $winner = $this->notifications->findByIdempotencyKey($command->projectId, $command->idempotencyKey);
+            $winner = $this->notifications->findByIdempotencyKey($projectId, $idempotencyKey);
             if ($winner !== null) {
                 return $this->toView($winner);
             }
@@ -112,7 +119,7 @@ final readonly class SendNotificationUseCase implements SendNotification
             throw new NotificationAlreadyExists;
         }
 
-        $providers = $this->router->resolveProviders($command->channel, $command->projectId);
+        $providers = $this->router->resolveProviders($channel, $projectId);
 
         $lastError = null;
         $attempt = 0;
@@ -123,13 +130,10 @@ final readonly class SendNotificationUseCase implements SendNotification
 
             $outbound = new OutboundMessage(
                 appMessageRef: $id,
-                channel: $command->channel,
-                recipientRef: $command->toPartyRef,
-                templateKey: $template->key,
-                templateVersion: $template->version,
-                templateKind: $template->kind,
-                templateStatus: $template->status,
-                variables: $command->variables,
+                channel: $channel,
+                recipientRef: $toPartyRef,
+                variables: $variables,
+                body: $body,
             );
 
             try {
@@ -185,7 +189,7 @@ final readonly class SendNotificationUseCase implements SendNotification
             id: $notification->id,
             channel: $notification->channel,
             status: $notification->status,
-            templateKey: $notification->templateKey,
+            contentType: $notification->contentType,
             errorMessage: $notification->errorMessage,
         );
     }

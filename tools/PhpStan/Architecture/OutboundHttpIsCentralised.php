@@ -36,6 +36,7 @@ final class OutboundHttpIsCentralised
                 // perform real outbound calls. Any test directory under
                 // `packages/*/tests/Integration` is exempt.
                 Selector::inNamespace('Core\Payment\Tests\Integration'),
+                Selector::inNamespace('Core\Notification\Tests\Integration'),
                 Selector::inNamespace('Core\Identity\Tests\Integration'),
                 Selector::inNamespace('Core\Parties\Tests\Integration'),
                 Selector::inNamespace('Core\Ledger\Tests\Integration'),

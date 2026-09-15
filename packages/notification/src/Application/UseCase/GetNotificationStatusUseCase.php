@@ -33,7 +33,7 @@ final readonly class GetNotificationStatusUseCase implements GetNotificationStat
             id: $notification->id,
             channel: $notification->channel,
             status: $notification->status,
-            templateKey: $notification->templateKey,
+            contentType: $notification->contentType,
             errorMessage: $notification->errorMessage,
         );
     }

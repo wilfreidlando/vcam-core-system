@@ -8,8 +8,8 @@ use Core\Notification\Contracts\Events\NotificationStatusChanged;
 use Core\Notification\Contracts\NotificationChannel;
 use Core\Notification\Contracts\NotificationChannelProviderRegistry;
 use Core\Notification\Contracts\NotificationStatusChangeHandler;
-use Core\Notification\Contracts\SendNotification;
-use Core\Notification\Contracts\SendNotificationCommand;
+use Core\Notification\Contracts\SendTextNotification;
+use Core\Notification\Contracts\SendTextNotificationCommand;
 use Core\Notification\NotificationStatus;
 use Core\Notification\Tests\Unit\Fakes\FakeNotificationChannelProvider;
 use Core\Notification\Tests\Unit\Fakes\FakeNotificationChannelProviderRegistry;
@@ -21,13 +21,12 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * The full Lot 5 orchestration path (ADR-0041) exercised for real: a
- * template lookup, a send through the fallback cascade, and a
- * provider-reported status change — all against real PostgreSQL. Only
- * the outbound "call to the provider" edge is replaced
- * (`FakeNotificationChannelProvider` swapped in for the typed registry),
- * exactly the same pattern as `PaymentToWalletIntegrationTest` and
- * `WebhookRelayAndDeliveryIntegrationTest`.
+ * The full Lot 5 orchestration path (ADR-0041, revised by ADR-0043) exercised
+ * for real: a send through the fallback cascade and a provider-reported
+ * status change — all against real PostgreSQL. Only the outbound "call to
+ * the provider" edge is replaced (`FakeNotificationChannelProvider` swapped
+ * in for the typed registry), exactly the same pattern as
+ * `PaymentToWalletIntegrationTest` and `WebhookRelayAndDeliveryIntegrationTest`.
  */
 final class SendNotificationIntegrationTest extends TestCase
 {
@@ -40,9 +39,7 @@ final class SendNotificationIntegrationTest extends TestCase
     #[Test]
     public function a_notification_is_sent_and_persisted_with_the_pinned_provider(): void
     {
-        $this->seedApprovedTemplate();
-
-        $view = app(SendNotification::class)->send($this->command());
+        $view = app(SendTextNotification::class)->send($this->command());
 
         self::assertSame(NotificationStatus::Sent, $view->status);
 
@@ -50,6 +47,7 @@ final class SendNotificationIntegrationTest extends TestCase
         self::assertNotNull($row);
         self::assertSame('fake-provider', $row->provider_code);
         self::assertSame('msg-fake-1', $row->provider_message_id);
+        self::assertSame('text', $row->content_type);
 
         $deliveries = DB::table('notification_deliveries')->where('notification_id', $view->id)->get();
         self::assertCount(1, $deliveries);
@@ -62,8 +60,7 @@ final class SendNotificationIntegrationTest extends TestCase
     #[Test]
     public function a_provider_reported_status_change_transitions_the_notification_and_publishes_the_canonical_event(): void
     {
-        $this->seedApprovedTemplate();
-        $view = app(SendNotification::class)->send($this->command());
+        $view = app(SendTextNotification::class)->send($this->command());
 
         app(NotificationStatusChangeHandler::class)->handle(new NotificationStatusChanged(
             providerCode: 'fake-provider',
@@ -87,8 +84,7 @@ final class SendNotificationIntegrationTest extends TestCase
     #[Test]
     public function replaying_the_same_status_change_publishes_the_event_only_once(): void
     {
-        $this->seedApprovedTemplate();
-        $view = app(SendNotification::class)->send($this->command());
+        $view = app(SendTextNotification::class)->send($this->command());
 
         $change = new NotificationStatusChanged('fake-provider', 'msg-fake-1', NotificationStatus::Delivered);
         app(NotificationStatusChangeHandler::class)->handle($change);
@@ -119,34 +115,18 @@ final class SendNotificationIntegrationTest extends TestCase
         // The real ConfigNotificationProviderRouter stays wired (routing
         // itself is proven for real); only the channel table gets a
         // routable entry for this test's fake provider, since
-        // config/notification_channels.php ships empty (ADR-0041 — no
-        // real adapter exists yet to route to).
+        // config/notification_channels.php routes `whatsapp` to
+        // `whatsapp-waha` by default (ADR-0042).
         config(['notification_channels.default.whatsapp' => ['fake-provider']]);
     }
 
-    private function seedApprovedTemplate(): void
+    private function command(): SendTextNotificationCommand
     {
-        DB::table('notification_templates')->insert([
-            'id' => (string) Str::uuid(),
-            'project_id' => self::PROJECT_ID,
-            'key' => 'booking_confirmed',
-            'channel' => 'whatsapp',
-            'kind' => 'session',
-            'template_status' => 'approved',
-            'version' => 1,
-            'body' => json_encode(['text' => 'Hello {{name}}'], JSON_THROW_ON_ERROR),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-    }
-
-    private function command(): SendNotificationCommand
-    {
-        return new SendNotificationCommand(
+        return new SendTextNotificationCommand(
             projectId: self::PROJECT_ID,
             channel: NotificationChannel::fromString('whatsapp'),
             toPartyRef: (string) Str::uuid(),
-            template: 'booking_confirmed',
+            text: 'Hello Awa',
             variables: ['name' => 'Awa'],
             idempotencyKey: (string) Str::uuid(),
         );

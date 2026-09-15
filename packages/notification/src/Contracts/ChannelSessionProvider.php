@@ -1,0 +1,44 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Core\Notification\Contracts;
+
+/**
+ * Optional capability: a provider that requires a linked device session
+ * before it can send anything (WhatsApp Web-style providers such as
+ * WAHA, unlike an API-key-only provider like a payment aggregator or an
+ * email/SMS gateway).
+ *
+ * Deliberately NOT part of `NotificationChannelProvider` — send/status/
+ * callback is a universal channel concept, session linking is not (an
+ * SMS or email adapter has no such thing). A concrete adapter that needs
+ * it implements both interfaces on the same class; callers resolve the
+ * gateway through the existing `NotificationChannelProviderRegistry`
+ * (same `ProviderCode`, same `provider.gateway` tag) and narrow with an
+ * `instanceof` check before calling any method here.
+ *
+ * Stateless on the Core side by design (ADR-0042 §4, revised): the Core
+ * persists nothing about a session. `sessionRef` is supplied by the
+ * caller on every request and forwarded to the provider as-is — the
+ * provider itself is the only source of truth for what state a session
+ * is in. This keeps the wire contract stable across providers: swapping
+ * WAHA for a different WhatsApp API later only means writing a new
+ * adapter, never touching the endpoints or their callers.
+ */
+interface ChannelSessionProvider
+{
+    /**
+     * Idempotent: creates the session on the provider if it doesn't
+     * exist yet, starts it if stopped, and is a no-op if already
+     * running. Called internally by the other methods below before they
+     * act — never exposed as its own endpoint.
+     */
+    public function startSession(string $sessionRef): void;
+
+    public function requestPairingCode(string $sessionRef, string $phoneNumber): string;
+
+    public function getQrCode(string $sessionRef): ChannelSessionQrCode;
+
+    public function getScreenshot(string $sessionRef): ChannelSessionScreenshot;
+}

@@ -17,7 +17,7 @@ final readonly class NotificationView
         public string $id,
         public string $channel,
         public NotificationStatus $status,
-        public string $templateKey,
+        public string $contentType,
         public ?string $errorMessage,
     ) {}
 }

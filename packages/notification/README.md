@@ -1,7 +1,7 @@
 # core/notification
 
 **Bounded context:** `notification`
-**Responsibility:** Multi-channel notification orchestration (WhatsApp/SMS/email/push/in-app), versioned templates, provider adapters.
+**Responsibility:** Multi-channel notification orchestration (WhatsApp/SMS/email/push/in-app), provider adapters — content sent inline per request, no template registry (ADR-0043).
 **Delivery lot:** Lot 5 — see [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
 
 ## Internal structure

@@ -16,7 +16,7 @@ function seedNotification(InMemoryNotificationRepository $repo, string $id = 'no
         projectId: $projectId,
         channel: 'whatsapp',
         toPartyRef: 'user-1',
-        templateKey: 'booking_confirmed',
+        contentType: 'text',
         idempotencyKey: 'idem-1',
         status: NotificationStatus::Sent,
         providerCode: 'fake-provider',

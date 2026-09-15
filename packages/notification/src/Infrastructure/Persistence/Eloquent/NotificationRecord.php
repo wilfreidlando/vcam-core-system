@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $project_id
  * @property string $channel
  * @property string $to_party_ref
- * @property string $template_key
+ * @property string $content_type
  * @property string $idempotency_key
  * @property string $status
  * @property string|null $provider_code
@@ -28,7 +28,7 @@ final class NotificationRecord extends Model
     protected $table = 'notifications';
 
     protected $fillable = [
-        'id', 'project_id', 'channel', 'to_party_ref', 'template_key',
+        'id', 'project_id', 'channel', 'to_party_ref', 'content_type',
         'idempotency_key', 'status', 'provider_code', 'provider_message_id', 'error_message',
     ];
 }

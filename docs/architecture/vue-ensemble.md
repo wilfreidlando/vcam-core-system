@@ -250,7 +250,7 @@ graph BT
 | `payment` | Channel canonique, routage par Project, orchestration, webhook, idempotence HTTP | **Livré** (Lot 3, ADR-0038/0039) | Lot 3 | `POST /v1/payments`, `GET /v1/payments/{id}`, webhook MyCoolPay |
 | `fees` | Moteur de frais | Scaffold | Lot 3 (reste à faire) | — |
 | `webhook` | Endpoints par Project, livraison signée HMAC, retry/backoff, DLQ, replay CLI (ADR-0009, ADR-0040) | **Livré** | Lot 4 | `POST/GET /v1/webhook-endpoints`, `DELETE /v1/webhook-endpoints/{id}` |
-| `notification` | Orchestration multi-canal : fallback ordonné, templates versionnés, `NotificationStatus` canonique (ADR-0041). Aucun adaptateur concret. | **Livré** (orchestration) | Lot 5 | `POST /v1/notifications`, `GET /v1/notifications/{id}` |
+| `notification` | Orchestration multi-canal : fallback ordonné, `NotificationStatus` canonique (ADR-0041), contenu envoyé en ligne — pas de template pré-enregistré (ADR-0043). Adaptateur WhatsApp/WAHA livré (ADR-0042). | **Livré** | Lot 5 | `POST /v1/notifications/{text,image,file}`, `GET /v1/notifications/{id}`, `GET/POST /v1/notification-channel-sessions/{channel}/{sessionRef}/*`, webhook `whatsapp-waha` |
 | `admin` | Console opérateur | Scaffold | Lot 6 | — |
 | `billing` | Facturation | Scaffold | Lot 6/7 | — |
 | `storage` | Fichiers | Scaffold | — | — |
@@ -499,21 +499,24 @@ avec une décision différente et volontairement documentée (ADR-0041) :
 (`next_retry_at`, Horizon `release()`, §8) ; `notification` bascule
 **immédiatement** vers le provider suivant d'une chaîne ordonnée — un
 fallback synchrone, pas un retry différé. Chaque tentative (réussie ou
-non) est tracée dans `notification_deliveries`, même sans provider réel :
-`SendNotificationUseCase` est testé de bout en bout avec plusieurs
-providers factices.
+non) est tracée dans `notification_deliveries`. Trois endpoints publics,
+un par type de contenu (`POST /v1/notifications/text|image|file`, ADR-0043
+— pas de template pré-enregistré) délèguent tous à la même cascade
+partagée, `NotificationSendCascade`.
 
 ```mermaid
 sequenceDiagram
     participant C as Appelant (Project)
-    participant UC as SendNotificationUseCase
+    participant Ctrl as SendTextNotificationController
+    participant UC as NotificationSendCascade
     participant R as NotificationProviderRouter
     participant Reg as NotificationChannelProviderRegistry
     participant P1 as Provider primaire
     participant P2 as Provider secondaire
     participant DB as PostgreSQL
 
-    C->>UC: send(channel, to_party_ref, template, variables)
+    C->>Ctrl: POST /v1/notifications/text {channel, to_party_ref, text, variables}
+    Ctrl->>UC: send(channel, to_party_ref, variables, body, contentType)
     UC->>DB: create(Notification, status=queued)
     UC->>R: resolveProviders(channel, project)
     R-->>UC: [primaire, secondaire]
@@ -528,21 +531,19 @@ sequenceDiagram
     UC->>DB: save(Notification, status=sent, provider=secondaire)
 ```
 
-Aucun adaptateur concret n'existe encore (l'utilisateur prépare la
-documentation d'un futur adaptateur WhatsApp séparément) — seul
-`FakeNotificationChannelProvider` couvre les tests. Un futur adaptateur
-n'a que deux choses à faire pour s'intégrer : implémenter
-`NotificationChannelProvider` (qui étend le même `ProviderGateway`
-générique que `PaymentGateway`, partageant le même registre) et se
-`tag('provider.gateway')` dans son propre service provider — rien
-d'autre ne change. `HandleNotificationStatusChangedUseCase` (statuts
-entrants → `notification.delivered`/`.read`/`.failed`) existe et est
-testé, prêt à être appelé par le futur contrôleur webhook de cet
-adaptateur, exactement comme `MyCoolPayWebhookController` appelle
-`HandlePaymentStatusChangedUseCase`.
+Adaptateur concret livré : WhatsApp via WAHA auto-hébergé (ADR-0042) —
+`WahaAdapter` implémente `NotificationChannelProvider` (même
+`ProviderGateway` générique que `PaymentGateway`, même registre) **et**
+un second port, `ChannelSessionProvider`, pour la liaison de téléphone
+(QR/pairing-code/screenshot, `/v1/notification-channel-sessions/{channel}/{sessionRef}/*`)
+— le Core ne persiste rien sur une session, `sessionRef` est fourni par
+l'appelant à chaque requête. `HandleNotificationStatusChangedUseCase`
+(statuts entrants → `notification.delivered`/`.read`/`.failed`) est
+appelé par `WahaWebhookController` (`POST /webhooks/whatsapp-waha`).
+`FakeNotificationChannelProvider` reste utilisé pour les tests.
 
 **Rien dans le Core ne déclenche une notification automatiquement** —
-`POST /v1/notifications` est la seule porte d'entrée, même en réaction à
+les endpoints `send-*` sont la seule porte d'entrée, même en réaction à
 un `payment.status_changed` : c'est une décision explicite d'ADR-0041,
 qui évite de reproduire l'erreur corrigée par ADR-0037 (crédit de wallet
 automatique).

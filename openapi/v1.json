@@ -61,11 +61,11 @@
                 }
             }
         },
-        "/notifications": {
+        "/notifications/text": {
             "post": {
-                "operationId": "notifications.send",
+                "operationId": "notifications.send-text",
                 "description": "Requires the `notifications:write` scope and an `Idempotency-Key`\nheader (spec \u00a713). `to_party_ref` is a correlation reference only\n\u2014 resolving it to an actual delivery address is a provider adapter\nconcern, not the Core's (ADR-0041 \u00a75).",
-                "summary": "Send a notification",
+                "summary": "Send a text message",
                 "tags": [
                     "Notification"
                 ],
@@ -74,7 +74,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/SendNotificationRequest"
+                                "$ref": "#/components/schemas/SendTextNotificationRequest"
                             }
                         }
                     }
@@ -96,7 +96,7 @@
                                         "status": {
                                             "type": "string"
                                         },
-                                        "template": {
+                                        "content_type": {
                                             "type": "string"
                                         },
                                         "error_message": {
@@ -110,7 +110,153 @@
                                         "id",
                                         "channel",
                                         "status",
-                                        "template",
+                                        "content_type",
+                                        "error_message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/notifications/image": {
+            "post": {
+                "operationId": "notifications.send-image",
+                "description": "Requires the `notifications:write` scope and an `Idempotency-Key`\nheader (spec \u00a713).",
+                "summary": "Send an image message",
+                "tags": [
+                    "Notification"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SendImageNotificationRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "channel": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "content_type": {
+                                            "type": "string"
+                                        },
+                                        "error_message": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "channel",
+                                        "status",
+                                        "content_type",
+                                        "error_message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/notifications/file": {
+            "post": {
+                "operationId": "notifications.send-file",
+                "description": "Requires the `notifications:write` scope and an `Idempotency-Key`\nheader (spec \u00a713).",
+                "summary": "Send a file/document message",
+                "tags": [
+                    "Notification"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SendFileNotificationRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "channel": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "content_type": {
+                                            "type": "string"
+                                        },
+                                        "error_message": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "channel",
+                                        "status",
+                                        "content_type",
                                         "error_message"
                                     ]
                                 }
@@ -169,7 +315,7 @@
                                         "status": {
                                             "type": "string"
                                         },
-                                        "template": {
+                                        "content_type": {
                                             "type": "string"
                                         },
                                         "error_message": {
@@ -183,7 +329,7 @@
                                         "id",
                                         "channel",
                                         "status",
-                                        "template",
+                                        "content_type",
                                         "error_message"
                                     ]
                                 }
@@ -200,6 +346,207 @@
                                 }
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/notification-channel-sessions/{channel}/{sessionRef}/qr": {
+            "get": {
+                "operationId": "notification-channel-sessions.qr",
+                "description": "Requires the `notification_channel_sessions:read` scope. Lazily\nstarts the session on the resolved provider if it isn't already\nrunning.",
+                "summary": "Get a scannable QR code for linking a phone to this channel session",
+                "tags": [
+                    "Notification",
+                    "Waha"
+                ],
+                "parameters": [
+                    {
+                        "name": "channel",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sessionRef",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "mime_type": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "mime_type",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/notification-channel-sessions/{channel}/{sessionRef}/screenshot": {
+            "get": {
+                "operationId": "notification-channel-sessions.screenshot",
+                "description": "Requires the `notification_channel_sessions:read` scope. Lazily\nstarts the session on the resolved provider if it isn't already\nrunning.",
+                "summary": "Get a live screenshot of the linked-device session's current screen",
+                "tags": [
+                    "Notification",
+                    "Waha"
+                ],
+                "parameters": [
+                    {
+                        "name": "channel",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sessionRef",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "mime_type": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "mime_type",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/notification-channel-sessions/{channel}/{sessionRef}/pairing-code": {
+            "post": {
+                "operationId": "notification-channel-sessions.pairing-code",
+                "description": "Requires the `notification_channel_sessions:write` scope. Lazily\nstarts the session on the resolved provider if it isn't already\nrunning.",
+                "summary": "Request a phone-number pairing code for linking a phone to this\nchannel session, as an alternative to scanning a QR code",
+                "tags": [
+                    "Notification",
+                    "Waha"
+                ],
+                "parameters": [
+                    {
+                        "name": "channel",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sessionRef",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RequestChannelSessionPairingCodeRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "code": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
                     }
                 }
             }
@@ -642,9 +989,21 @@
                 ],
                 "title": "RegisterWebhookEndpointRequest"
             },
-            "SendNotificationRequest": {
+            "RequestChannelSessionPairingCodeRequest": {
                 "type": "object",
-                "description": "Validates `POST /v1/notifications` (spec \u00a713's own example \u2014 field\nnames match it exactly: `channel`, `to_party_ref`, `template`,\n`variables`). No `idempotency_key` body field: the `Idempotency-Key`\nHTTP header (required by the `idempotency` middleware, spec \u00a713 \u2014\n\"toutes les mutations mon\u00e9taires et d'envoi\") is the one value used,\nmirroring `StartPaymentRequest`.",
+                "properties": {
+                    "phone_number": {
+                        "type": "string",
+                        "maxLength": 32
+                    }
+                },
+                "required": [
+                    "phone_number"
+                ],
+                "title": "RequestChannelSessionPairingCodeRequest"
+            },
+            "SendFileNotificationRequest": {
+                "type": "object",
                 "properties": {
                     "channel": {
                         "type": "string"
@@ -653,8 +1012,75 @@
                         "type": "string",
                         "maxLength": 255
                     },
-                    "template": {
+                    "media_url": {
                         "type": "string",
+                        "maxLength": 2048
+                    },
+                    "filename": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "mimetype": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "caption": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "variables": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "channel",
+                    "to_party_ref",
+                    "media_url",
+                    "filename",
+                    "mimetype"
+                ],
+                "title": "SendFileNotificationRequest"
+            },
+            "SendImageNotificationRequest": {
+                "type": "object",
+                "properties": {
+                    "channel": {
+                        "type": "string"
+                    },
+                    "to_party_ref": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "media_url": {
+                        "type": "string",
+                        "maxLength": 2048
+                    },
+                    "caption": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "filename": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 255
+                    },
+                    "mimetype": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "maxLength": 255
                     },
                     "variables": {
@@ -670,9 +1096,39 @@
                 "required": [
                     "channel",
                     "to_party_ref",
-                    "template"
+                    "media_url"
                 ],
-                "title": "SendNotificationRequest"
+                "title": "SendImageNotificationRequest"
+            },
+            "SendTextNotificationRequest": {
+                "type": "object",
+                "properties": {
+                    "channel": {
+                        "type": "string"
+                    },
+                    "to_party_ref": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "text": {
+                        "type": "string"
+                    },
+                    "variables": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "channel",
+                    "to_party_ref",
+                    "text"
+                ],
+                "title": "SendTextNotificationRequest"
             },
             "StartPaymentRequest": {
                 "type": "object",

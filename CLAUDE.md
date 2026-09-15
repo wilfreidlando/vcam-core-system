@@ -97,10 +97,16 @@ eux) → **Lot 4 Events/Webhooks — livré** : relais unique de l'outbox
 module `Webhook` (endpoints par Project, livraison signée HMAC,
 retry/backoff persisté via Horizon, DLQ, replay CLI —
 [ADR-0040](docs/adr/0040-conception-lot-4-relais-outbox-webhooks-sortants.md))
-→ **Lot 5 Notification — orchestration livrée, sans adaptateur concret**
-(fallback synchrone ordonné, templates versionnés, `NotificationStatus`
-canonique, API self-service `POST /v1/notifications` —
-[ADR-0041](docs/adr/0041-conception-lot-5-notification-orchestration-sans-adaptateur.md))
+→ **Lot 5 Notification — orchestration livrée**
+(fallback synchrone ordonné, `NotificationStatus` canonique, API
+self-service `POST /v1/notifications/{text,image,file}` — un endpoint par
+type de contenu, contenu fourni en ligne, pas de template pré-enregistré
+— [ADR-0041](docs/adr/0041-conception-lot-5-notification-orchestration-sans-adaptateur.md),
+[ADR-0043](docs/adr/0043-notifications-endpoints-par-type-de-contenu-sans-template.md)),
+adaptateur WhatsApp concret livré ensuite : WAHA auto-hébergé (envoi
+texte/image/fichier + liaison de téléphone QR/pairing-code/screenshot,
+sans aucune persistance de session côté Core —
+[ADR-0042](docs/adr/0042-whatsapp-waha-adapter-channel-session-minimal-surface.md))
 → Lot 6 Core Admin → Lot 7 migration pilote. Détail de chaque lot :
 [docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.
 
@@ -124,28 +130,48 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   pur sauf instruction explicite de l'appelant à l'initiation. Ne pas
   supposer qu'un paiement réussi implique un wallet crédité — vérifier
   que `wallet_recipient_external_ref` a été fourni.
-- Module `notification` : **orchestration Lot 5 livrée, sans adaptateur
-  concret** — voir
-  [ADR-0041](docs/adr/0041-conception-lot-5-notification-orchestration-sans-adaptateur.md).
+- Module `notification` : **orchestration Lot 5 livrée** — voir
+  [ADR-0041](docs/adr/0041-conception-lot-5-notification-orchestration-sans-adaptateur.md)
+  et [ADR-0043](docs/adr/0043-notifications-endpoints-par-type-de-contenu-sans-template.md).
   `NotificationChannelProvider` étend le même `ProviderGateway` générique
   que `PaymentGateway` (même registre, même détection de codes dupliqués) ;
   `NotificationProviderRouter::resolveProviders()` retourne une **liste**
-  ordonnée (primaire + fallbacks) — `SendNotificationUseCase` bascule
-  immédiatement vers le provider suivant à l'échec, un **fallback
-  synchrone**, jamais un retry différé (ça, c'est le rôle du Webhook du
-  Lot 4). Chaque tentative est tracée dans `notification_deliveries`.
-  Templates versionnés (`notification_templates`, `kind` template/session,
-  `template_status` approved/pending) — la règle WhatsApp 24h n'est pas
-  câblée dans le Core, elle appartient au futur adaptateur.
-  `HandleNotificationStatusChangedUseCase` existe et est testé, prêt pour
-  le contrôleur webhook d'un futur adaptateur. **Aucun adaptateur concret
-  n'existe** (aucun WhatsApp, aucun canal) — seul un
-  `FakeNotificationChannelProvider` couvre les tests ; ne pas supposer
-  qu'un canal quelconque est routable avant qu'un adaptateur soit tagué
-  `provider.gateway`. **Rien ne déclenche une notification
-  automatiquement** — `POST /v1/notifications` est la seule porte
-  d'entrée, même en réaction à un `payment.status_changed` (même
-  raisonnement qu'ADR-0037 : pas de composition implicite entre modules).
+  ordonnée (primaire + fallbacks) — la cascade de fallback partagée
+  (`NotificationSendCascade`) bascule immédiatement vers le provider
+  suivant à l'échec, jamais un retry différé (ça, c'est le rôle du
+  Webhook du Lot 4). Chaque tentative est tracée dans
+  `notification_deliveries`. **Pas de template pré-enregistré**
+  (ADR-0043 — `notification_templates` supprimée) : trois endpoints, un
+  par type de contenu — `POST /v1/notifications/text`,
+  `/image`, `/file` — prennent le contenu directement dans la requête ;
+  la règle WhatsApp 24h/template-approuvé n'est pas câblée dans le Core,
+  elle appartiendrait à un futur adaptateur qui l'exige (l'API Business
+  officielle, par exemple — WAHA ne l'exige pas).
+  `HandleNotificationStatusChangedUseCase` existe et est testé, appelé
+  par `WahaWebhookController` (`POST /webhooks/whatsapp-waha`). **Rien ne
+  déclenche une notification automatiquement** — les endpoints `send-*`
+  sont la seule porte d'entrée, même en réaction à un
+  `payment.status_changed` (même raisonnement qu'ADR-0037 : pas de
+  composition implicite entre modules).
+  Adaptateur concret livré : WhatsApp via WAHA auto-hébergé
+  ([ADR-0042](docs/adr/0042-whatsapp-waha-adapter-channel-session-minimal-surface.md)) —
+  `WahaAdapter` implémente `NotificationChannelProvider` (send
+  texte/image/fichier, `OutboundMessage::body` porte le contenu brut
+  fourni par l'appelant, interprété par l'adaptateur) **et** un nouveau
+  port `ChannelSessionProvider` (QR/pairing-code/screenshot,
+  `/v1/notification-channel-sessions/{channel}/{sessionRef}/*`) — le
+  **Core ne persiste rien sur une session** : `sessionRef` est fourni par
+  l'appelant à chaque requête et transmis tel quel au provider, qui reste
+  l'unique source de vérité sur son état. Le numéro de téléphone du
+  destinataire voyage dans `variables['phone_number']`, jamais dans
+  `to_party_ref`/`recipientRef` (G4). Ne pas supposer qu'un autre canal
+  (SMS, email) est routable avant qu'un adaptateur soit tagué
+  `provider.gateway` pour lui. Les contrôleurs propres à un provider
+  vivent sous `Presentation\Http\Controllers\<Provider>\` (ex. `Waha\`)
+  — le résolveur de tags OpenAPI (`AppServiceProvider`) en tire
+  automatiquement un second tag, donc les endpoints WAHA apparaissent
+  sous `Notification` + `Waha` dans la doc, les endpoints génériques
+  seulement sous `Notification`.
 - Module `webhook` et relais outbox : **Lot 4 livré** — voir
   [ADR-0040](docs/adr/0040-conception-lot-4-relais-outbox-webhooks-sortants.md).
   `Core\Events\Infrastructure\Relay\OutboxRelay` est le seul lecteur

@@ -1,6 +1,6 @@
 # ADR-0041 — Conception Lot 5 : orchestration Notification, sans adaptateur concret
 
-- **Statut** : Accepté
+- **Statut** : Accepté — §4 (templates) remplacé par ADR-0043
 - **Date** : 2026-09-15
 - **Précise** : spec technique §6.7, §9.2–§9.5 (Notification, provider router,
   cas WhatsApp auto-hébergé)

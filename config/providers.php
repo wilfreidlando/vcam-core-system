@@ -52,7 +52,7 @@ return [
     'payment' => [
         'my_coolpay' => [
             'code' => 'my-coolpay',
-            'adapter' => Core\Payment\Infrastructure\HttpAdapter\MyCoolPay\MyCoolPayAdapter::class,
+            'adapter' => Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayAdapter::class,
             'environment' => env('MYCOOLPAY_ENV', 'sandbox'),
             'base_url' => env('MYCOOLPAY_BASE_URL', 'https://my-coolpay.com'),
             'enabled' => env('MYCOOLPAY_ENABLED', true),
@@ -93,6 +93,65 @@ return [
 
             'extras' => [
                 'public_key' => env('MYCOOLPAY_PUBLIC_KEY'),
+            ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | WAHA (self-hosted WhatsApp HTTP API) — ADR-0042
+    |--------------------------------------------------------------------------
+    |
+    | `base_url` points at the operator's own WAHA instance, not a
+    | third-party SaaS. Auth is a single API key in the `X-Api-Key`
+    | header, applied to every call (no per-operation requiresAuth:false
+    | exceptions, unlike MyCoolPay). `extras.default_session` is the
+    | session name `WahaAdapter::send()` falls back to when the caller
+    | didn't supply `variables['session']` (ADR-0042 §4).
+    | `extras.webhook_secret` is compared against the
+    | `X-Webhook-Secret` header WAHA is configured to send on its
+    | outbound webhook calls (ADR-0042 §8) — set it to the same value on
+    | both sides.
+    |
+    */
+
+    'notification' => [
+        'whatsapp_waha' => [
+            'code' => 'whatsapp-waha',
+            'base_url' => env('WAHA_BASE_URL', 'http://localhost:3000'),
+            'enabled' => env('WAHA_ENABLED', true),
+            'debug' => env('WAHA_DEBUG', false),
+
+            'auth' => [
+                'kind' => 'api-key',
+                'api_key_header' => 'X-Api-Key',
+            ],
+
+            'credentials' => [
+                'api_key' => env('WAHA_API_KEY'),
+            ],
+
+            'timeouts' => [
+                'connect' => 2.0,
+                'request' => 15.0,
+                'total' => 30.0,
+            ],
+
+            'retries' => [
+                'max_attempts' => 3,
+                'base_delay_ms' => 500,
+                'max_delay_ms' => 5000,
+                'retryable_statuses' => [502, 503, 504, 429, 408],
+            ],
+
+            'breaker' => [
+                'failure_threshold' => 5,
+                'open_duration_seconds' => 60,
+            ],
+
+            'extras' => [
+                'default_session' => env('WAHA_DEFAULT_SESSION', 'default'),
+                'webhook_secret' => env('WAHA_WEBHOOK_SECRET'),
             ],
         ],
     ],

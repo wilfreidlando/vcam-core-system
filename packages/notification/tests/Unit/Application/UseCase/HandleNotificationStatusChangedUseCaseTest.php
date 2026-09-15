@@ -40,7 +40,7 @@ function pinnedNotification(NotificationStatus $status = NotificationStatus::Sen
         projectId: 'project-1',
         channel: 'whatsapp',
         toPartyRef: 'user-1',
-        templateKey: 'booking_confirmed',
+        contentType: 'text',
         idempotencyKey: 'idem-1',
         status: $status,
         providerCode: 'whatsapp-selfhosted',

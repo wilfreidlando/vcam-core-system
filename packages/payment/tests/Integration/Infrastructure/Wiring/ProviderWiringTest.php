@@ -186,6 +186,14 @@ final class ProviderWiringTest extends TestCase
         // setUp runs. We override the loader the foundation uses so the
         // test gets explicit credential values — production never relies
         // on the empty defaults.
+        //
+        // Every module's `provider.gateway`-tagged adapter shares this
+        // one config-backed registry (ADR-0039/ADR-0041 §2), so a
+        // minimal fixture here must configure ALL of them, not just
+        // `my-coolpay` — `TaggedProviderRegistry`'s constructor resolves
+        // every tagged gateway (including `WahaAdapter`, ADR-0042) to
+        // index it, and each adapter's own binding closure reads its
+        // config eagerly at that point.
         $this->app->singleton(
             'providers.config_loader',
             fn () => fn (): array => [
@@ -200,6 +208,18 @@ final class ProviderWiringTest extends TestCase
                         'retries' => [],
                         'breaker' => [],
                         'extras' => ['public_key' => 'pub-default-public-key'],
+                    ],
+                ],
+                'notification' => [
+                    'whatsapp_waha' => [
+                        'code' => 'whatsapp-waha',
+                        'base_url' => 'https://waha.test',
+                        'auth' => ['kind' => 'api-key', 'api_key_header' => 'X-Api-Key'],
+                        'credentials' => ['api_key' => 'waha-test-key'],
+                        'timeouts' => [],
+                        'retries' => [],
+                        'breaker' => [],
+                        'extras' => ['default_session' => 'default'],
                     ],
                 ],
             ],

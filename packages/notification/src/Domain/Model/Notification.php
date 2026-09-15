@@ -13,6 +13,11 @@ use Core\Notification\NotificationStatus;
  * unlike `Core\Payment\Domain\Model\Payment` (always pinned at creation),
  * a notification can reach `failed` without ever having a provider
  * attempt succeed enough to pin one (every fallback failed at send time).
+ *
+ * `contentType` (`text`/`image`/`file`) records what kind of content was
+ * sent, for audit — the content itself is never persisted (ADR-0043: no
+ * template subsystem, content travels inline in the send request and is
+ * gone once handed to the adapter).
  */
 final readonly class Notification
 {
@@ -21,7 +26,7 @@ final readonly class Notification
         public string $projectId,
         public string $channel,
         public string $toPartyRef,
-        public string $templateKey,
+        public string $contentType,
         public string $idempotencyKey,
         public NotificationStatus $status,
         public ?string $providerCode,
@@ -44,7 +49,7 @@ final readonly class Notification
             projectId: $this->projectId,
             channel: $this->channel,
             toPartyRef: $this->toPartyRef,
-            templateKey: $this->templateKey,
+            contentType: $this->contentType,
             idempotencyKey: $this->idempotencyKey,
             status: $status,
             providerCode: $this->providerCode,
@@ -66,7 +71,7 @@ final readonly class Notification
             projectId: $this->projectId,
             channel: $this->channel,
             toPartyRef: $this->toPartyRef,
-            templateKey: $this->templateKey,
+            contentType: $this->contentType,
             idempotencyKey: $this->idempotencyKey,
             status: $this->status,
             providerCode: $providerCode,

@@ -57,16 +57,34 @@ final class AppServiceProvider extends ServiceProvider
      * it. Derived from the namespace rather than annotated per controller
      * so a new endpoint is grouped correctly with zero extra effort
      * (governance: prefer structural over manual — docs/specs/gouvernance-anti-derive.md).
+     *
+     * A controller nested one level deeper than `Controllers\` — e.g.
+     * `Core\Notification\Presentation\Http\Controllers\Waha\WahaWebhookController`
+     * — gets a second tag from that subdirectory name, so
+     * provider-specific endpoints (channel-session linking, a provider's
+     * inbound webhook) group separately from a module's generic
+     * endpoints within the same top-level tag. A controller directly
+     * under `Controllers\` (no subdirectory) only gets the module tag.
      */
     private function configureApiDocumentationTags(): void
     {
         Scramble::resolveTagsUsing(function (RouteInfo $routeInfo): array {
             $class = $routeInfo->className();
-            if ($class !== null && preg_match('/^Core\\\\([A-Za-z]+)\\\\/', $class, $matches) === 1) {
-                return [$matches[1]];
+            if ($class === null) {
+                return [];
             }
 
-            return [];
+            $pattern = '/^Core\\\\([A-Za-z]+)\\\\.*\\\\Controllers\\\\(?:([A-Za-z]+)\\\\)?[A-Za-z0-9_]+$/';
+            if (preg_match($pattern, $class, $matches) !== 1) {
+                return [];
+            }
+
+            $tags = [$matches[1]];
+            if (($matches[2] ?? '') !== '') {
+                $tags[] = $matches[2];
+            }
+
+            return $tags;
         });
     }
 

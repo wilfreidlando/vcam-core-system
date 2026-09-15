@@ -36,7 +36,7 @@ final class GetNotificationStatusController
             'id' => $view->id,
             'channel' => $view->channel,
             'status' => $view->status->value,
-            'template' => $view->templateKey,
+            'content_type' => $view->contentType,
             'error_message' => $view->errorMessage,
         ]);
     }

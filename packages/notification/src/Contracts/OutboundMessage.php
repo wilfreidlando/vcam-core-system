@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Core\Notification\Contracts;
 
-use Core\Notification\NotificationTemplateKind;
-use Core\Notification\NotificationTemplateStatus;
-
 /**
  * Command handed to a `NotificationChannelProvider` to send one message.
  *
@@ -14,23 +11,23 @@ use Core\Notification\NotificationTemplateStatus;
  * identifier, never a phone number or email (`parties` carries no PII,
  * G4). Resolving it to an actual delivery address is the adapter's job.
  *
- * `templateKind`/`templateStatus` are carried through so a channel-aware
- * adapter (e.g. a future WhatsApp one) can decide how to send without the
- * Core hardcoding that channel's rules (ADR-0041 §4).
+ * `body` is the content supplied inline by the caller (ADR-0043 — no
+ * template subsystem: `{"type": "text"|"image"|"file", ...}`),
+ * unrendered and un-interpreted by the Core. Variable substitution and
+ * the decision of *how* to send are entirely the adapter's job
+ * (ADR-0042 §6).
  */
 final readonly class OutboundMessage
 {
     /**
      * @param array<string, mixed> $variables
+     * @param array<string, mixed> $body
      */
     public function __construct(
         public string $appMessageRef,
         public NotificationChannel $channel,
         public string $recipientRef,
-        public string $templateKey,
-        public int $templateVersion,
-        public NotificationTemplateKind $templateKind,
-        public NotificationTemplateStatus $templateStatus,
         public array $variables,
+        public array $body,
     ) {}
 }

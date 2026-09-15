@@ -1,0 +1,76 @@
+<?php
+
+declare(strict_types=1);
+
+use Core\Notification\Application\UseCase\GetChannelSessionQrCodeUseCase;
+use Core\Notification\Application\UseCase\GetChannelSessionScreenshotUseCase;
+use Core\Notification\Application\UseCase\RequestChannelSessionPairingCodeUseCase;
+use Core\Notification\Contracts\ChannelDoesNotSupportSessions;
+use Core\Notification\Contracts\GetChannelSessionCommand;
+use Core\Notification\Contracts\NotificationChannel;
+use Core\Notification\Contracts\RequestChannelSessionPairingCodeCommand;
+use Core\Notification\Tests\Unit\Fakes\FakeChannelSessionProvider;
+use Core\Notification\Tests\Unit\Fakes\FakeNotificationChannelProvider;
+use Core\Notification\Tests\Unit\Fakes\FakeNotificationChannelProviderRegistry;
+use Core\Notification\Tests\Unit\Fakes\FakeNotificationProviderRouter;
+use Core\Support\Integration\Provider\ProviderCode;
+
+it('ensures the session is started before returning the qr code', function (): void {
+    $provider = new FakeChannelSessionProvider(ProviderCode::fromString('whatsapp-waha'));
+    $registry = new FakeNotificationChannelProviderRegistry;
+    $registry->register($provider);
+    $router = new FakeNotificationProviderRouter(['whatsapp-waha']);
+
+    $useCase = new GetChannelSessionQrCodeUseCase($router, $registry);
+
+    $qr = $useCase->get(new GetChannelSessionCommand('project-1', NotificationChannel::fromString('whatsapp'), 'shop-1'));
+
+    expect($provider->startedSessions)->toBe(['shop-1'])
+        ->and($qr)->toBe($provider->nextQrCode);
+});
+
+it('ensures the session is started before returning the screenshot', function (): void {
+    $provider = new FakeChannelSessionProvider(ProviderCode::fromString('whatsapp-waha'));
+    $registry = new FakeNotificationChannelProviderRegistry;
+    $registry->register($provider);
+    $router = new FakeNotificationProviderRouter(['whatsapp-waha']);
+
+    $useCase = new GetChannelSessionScreenshotUseCase($router, $registry);
+
+    $screenshot = $useCase->get(new GetChannelSessionCommand('project-1', NotificationChannel::fromString('whatsapp'), 'shop-1'));
+
+    expect($provider->startedSessions)->toBe(['shop-1'])
+        ->and($screenshot)->toBe($provider->nextScreenshot);
+});
+
+it('requests a pairing code after ensuring the session is started', function (): void {
+    $provider = new FakeChannelSessionProvider(ProviderCode::fromString('whatsapp-waha'));
+    $provider->nextPairingCode = 'WXYZ-1234';
+    $registry = new FakeNotificationChannelProviderRegistry;
+    $registry->register($provider);
+    $router = new FakeNotificationProviderRouter(['whatsapp-waha']);
+
+    $useCase = new RequestChannelSessionPairingCodeUseCase($router, $registry);
+
+    $view = $useCase->request(new RequestChannelSessionPairingCodeCommand(
+        'project-1',
+        NotificationChannel::fromString('whatsapp'),
+        'shop-1',
+        '237699009900',
+    ));
+
+    expect($provider->startedSessions)->toBe(['shop-1'])
+        ->and($view->code)->toBe('WXYZ-1234');
+});
+
+it('throws when the primary provider for the channel has no session capability', function (): void {
+    $provider = new FakeNotificationChannelProvider(ProviderCode::fromString('sms-only'));
+    $registry = new FakeNotificationChannelProviderRegistry;
+    $registry->register($provider);
+    $router = new FakeNotificationProviderRouter(['sms-only']);
+
+    $useCase = new GetChannelSessionQrCodeUseCase($router, $registry);
+
+    expect(fn () => $useCase->get(new GetChannelSessionCommand('project-1', NotificationChannel::fromString('sms'), 'anything')))
+        ->toThrow(ChannelDoesNotSupportSessions::class);
+});

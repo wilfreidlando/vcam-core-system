@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-use Core\Notification\Application\UseCase\SendNotificationUseCase;
+use Core\Notification\Application\Support\NotificationSendCascade;
+use Core\Notification\Application\UseCase\SendFileNotificationUseCase;
+use Core\Notification\Application\UseCase\SendImageNotificationUseCase;
+use Core\Notification\Application\UseCase\SendTextNotificationUseCase;
 use Core\Notification\Contracts\NotificationChannel;
-use Core\Notification\Contracts\ProviderDispatchResult;
-use Core\Notification\Contracts\SendNotificationCommand;
-use Core\Notification\Domain\Exception\NotificationTemplateNotFound;
-use Core\Notification\Domain\Model\NotificationTemplate;
+use Core\Notification\Contracts\SendFileNotificationCommand;
+use Core\Notification\Contracts\SendImageNotificationCommand;
+use Core\Notification\Contracts\SendTextNotificationCommand;
 use Core\Notification\NotificationStatus;
-use Core\Notification\NotificationTemplateKind;
-use Core\Notification\NotificationTemplateStatus;
 use Core\Notification\Tests\Unit\Fakes\FakeNotificationChannelProvider;
 use Core\Notification\Tests\Unit\Fakes\FakeNotificationChannelProviderRegistry;
 use Core\Notification\Tests\Unit\Fakes\FakeNotificationProviderRouter;
@@ -19,7 +19,6 @@ use Core\Notification\Tests\Unit\Fakes\FixedClock;
 use Core\Notification\Tests\Unit\Fakes\InMemoryEventOutbox;
 use Core\Notification\Tests\Unit\Fakes\InMemoryNotificationDeliveryRepository;
 use Core\Notification\Tests\Unit\Fakes\InMemoryNotificationRepository;
-use Core\Notification\Tests\Unit\Fakes\InMemoryNotificationTemplateRepository;
 use Core\Notification\Tests\Unit\Fakes\PassthroughUnitOfWork;
 use Core\Notification\Tests\Unit\Fakes\SequentialIdentifier;
 use Core\Support\Integration\Provider\ProviderCode;
@@ -28,28 +27,25 @@ use Psr\Log\NullLogger;
 /**
  * @param list<string> $providerCodes ordered primary-first
  * @return array{
- *     0: SendNotificationUseCase,
+ *     0: NotificationSendCascade,
  *     1: InMemoryNotificationRepository,
- *     2: InMemoryNotificationTemplateRepository,
- *     3: InMemoryNotificationDeliveryRepository,
- *     4: FakeNotificationChannelProviderRegistry,
- *     5: InMemoryEventOutbox,
- *     6: FakePartyFinder,
+ *     2: InMemoryNotificationDeliveryRepository,
+ *     3: FakeNotificationChannelProviderRegistry,
+ *     4: InMemoryEventOutbox,
+ *     5: FakePartyFinder,
  * }
  */
-function makeSendUseCase(array $providerCodes = ['fake-provider']): array
+function makeCascade(array $providerCodes = ['fake-provider']): array
 {
     $notifications = new InMemoryNotificationRepository;
-    $templates = new InMemoryNotificationTemplateRepository;
     $deliveries = new InMemoryNotificationDeliveryRepository;
     $router = new FakeNotificationProviderRouter($providerCodes);
     $registry = new FakeNotificationChannelProviderRegistry;
     $partyFinder = new FakePartyFinder;
     $outbox = new InMemoryEventOutbox;
 
-    $useCase = new SendNotificationUseCase(
+    $cascade = new NotificationSendCascade(
         $notifications,
-        $templates,
         $deliveries,
         $router,
         $registry,
@@ -61,81 +57,124 @@ function makeSendUseCase(array $providerCodes = ['fake-provider']): array
         new NullLogger,
     );
 
-    return [$useCase, $notifications, $templates, $deliveries, $registry, $outbox, $partyFinder];
+    return [$cascade, $notifications, $deliveries, $registry, $outbox, $partyFinder];
 }
 
-function approvedTemplate(string $key = 'booking_confirmed', string $channel = 'whatsapp', int $version = 1): NotificationTemplate
+function textCommand(string $idempotencyKey = 'idem-1'): SendTextNotificationCommand
 {
-    return new NotificationTemplate(
-        id: 'tpl-'.$version,
-        projectId: 'project-1',
-        key: $key,
-        channel: $channel,
-        kind: NotificationTemplateKind::Session,
-        status: NotificationTemplateStatus::Approved,
-        version: $version,
-        body: ['text' => 'Hello {{name}}'],
-    );
-}
-
-function sendCommand(string $idempotencyKey = 'idem-1'): SendNotificationCommand
-{
-    return new SendNotificationCommand(
+    return new SendTextNotificationCommand(
         projectId: 'project-1',
         channel: NotificationChannel::fromString('whatsapp'),
         toPartyRef: 'user-1',
-        template: 'booking_confirmed',
+        text: 'Hello {{name}}',
         variables: ['name' => 'Awa'],
         idempotencyKey: $idempotencyKey,
     );
 }
 
 it('resolves the recipient as a correlation Party, never a contact address', function (): void {
-    [$useCase, , $templates, , $registry, , $partyFinder] = makeSendUseCase();
-    $templates->add(approvedTemplate());
+    [$cascade, , , $registry, , $partyFinder] = makeCascade();
     $registry->register(new FakeNotificationChannelProvider(ProviderCode::fromString('fake-provider')));
 
-    $useCase->send(sendCommand());
+    (new SendTextNotificationUseCase($cascade))->send(textCommand());
 
     expect($partyFinder->calls)->toHaveCount(1)
         ->and($partyFinder->calls[0]->externalRef)->toBe('user-1')
         ->and($partyFinder->calls[0]->type)->toBe('notification_recipient');
 });
 
-it('sends via the primary provider and records the delivery attempt', function (): void {
-    [$useCase, $notifications, $templates, $deliveries, $registry] = makeSendUseCase(['whatsapp-selfhosted']);
-    $templates->add(approvedTemplate());
-    $gateway = new FakeNotificationChannelProvider(ProviderCode::fromString('whatsapp-selfhosted'));
+it('sends via the primary provider with a text body and records the delivery attempt', function (): void {
+    [$cascade, $notifications, $deliveries, $registry] = makeCascade(['whatsapp-waha']);
+    $gateway = new FakeNotificationChannelProvider(ProviderCode::fromString('whatsapp-waha'));
     $registry->register($gateway);
 
-    $view = $useCase->send(sendCommand());
+    $view = (new SendTextNotificationUseCase($cascade))->send(textCommand());
 
     expect($view->status)->toBe(NotificationStatus::Sent)
+        ->and($view->contentType)->toBe('text')
         ->and($gateway->sent)->toHaveCount(1)
         ->and($gateway->sent[0]->recipientRef)->toBe('user-1')
         ->and($gateway->sent[0]->variables)->toBe(['name' => 'Awa'])
+        ->and($gateway->sent[0]->body)->toBe(['type' => 'text', 'text' => 'Hello {{name}}'])
         ->and($deliveries->records)->toHaveCount(1)
-        ->and($deliveries->records[0]['providerCode'])->toBe('whatsapp-selfhosted')
+        ->and($deliveries->records[0]['providerCode'])->toBe('whatsapp-waha')
         ->and($deliveries->records[0]['attempt'])->toBe(1)
         ->and($notifications->count())->toBe(1);
 });
 
-it('replays the same notification for a repeated idempotency key, never sending twice', function (): void {
-    [$useCase, , $templates, , $registry] = makeSendUseCase();
-    $templates->add(approvedTemplate());
-    $gateway = new FakeNotificationChannelProvider(ProviderCode::fromString('fake-provider'));
+it('builds an image body from SendImageNotificationCommand', function (): void {
+    [$cascade, , , $registry] = makeCascade(['whatsapp-waha']);
+    $gateway = new FakeNotificationChannelProvider(ProviderCode::fromString('whatsapp-waha'));
     $registry->register($gateway);
 
-    $first = $useCase->send(sendCommand());
-    $second = $useCase->send(sendCommand());
+    $command = new SendImageNotificationCommand(
+        projectId: 'project-1',
+        channel: NotificationChannel::fromString('whatsapp'),
+        toPartyRef: 'user-1',
+        mediaUrl: 'https://files.test/r.jpg',
+        caption: 'Receipt',
+        filename: 'receipt.jpg',
+        mimetype: 'image/jpeg',
+        variables: [],
+        idempotencyKey: 'idem-image',
+    );
+
+    $view = (new SendImageNotificationUseCase($cascade))->send($command);
+
+    expect($view->contentType)->toBe('image')
+        ->and($gateway->sent[0]->body)->toBe([
+            'type' => 'image',
+            'media_url' => 'https://files.test/r.jpg',
+            'caption' => 'Receipt',
+            'filename' => 'receipt.jpg',
+            'mimetype' => 'image/jpeg',
+        ]);
+});
+
+it('builds a file body from SendFileNotificationCommand', function (): void {
+    [$cascade, , , $registry] = makeCascade(['whatsapp-waha']);
+    $gateway = new FakeNotificationChannelProvider(ProviderCode::fromString('whatsapp-waha'));
+    $registry->register($gateway);
+
+    $command = new SendFileNotificationCommand(
+        projectId: 'project-1',
+        channel: NotificationChannel::fromString('whatsapp'),
+        toPartyRef: 'user-1',
+        mediaUrl: 'https://files.test/invoice.pdf',
+        filename: 'invoice.pdf',
+        mimetype: 'application/pdf',
+        caption: null,
+        variables: [],
+        idempotencyKey: 'idem-file',
+    );
+
+    $view = (new SendFileNotificationUseCase($cascade))->send($command);
+
+    expect($view->contentType)->toBe('file')
+        ->and($gateway->sent[0]->body)->toBe([
+            'type' => 'file',
+            'media_url' => 'https://files.test/invoice.pdf',
+            'filename' => 'invoice.pdf',
+            'mimetype' => 'application/pdf',
+            'caption' => null,
+        ]);
+});
+
+it('replays the same notification for a repeated idempotency key, never sending twice', function (): void {
+    [$cascade, , , $registry] = makeCascade();
+    $gateway = new FakeNotificationChannelProvider(ProviderCode::fromString('fake-provider'));
+    $registry->register($gateway);
+    $useCase = new SendTextNotificationUseCase($cascade);
+
+    $first = $useCase->send(textCommand());
+    $second = $useCase->send(textCommand());
 
     expect($second->id)->toBe($first->id)
         ->and($gateway->sent)->toHaveCount(1);
 });
 
 it('falls back to the next provider when the primary throws', function (): void {
-    [$useCase, , $templates, $deliveries, $registry] = makeSendUseCase(['primary', 'secondary']);
-    $templates->add(approvedTemplate());
+    [$cascade, , $deliveries, $registry] = makeCascade(['primary', 'secondary']);
     $primary = new FakeNotificationChannelProvider(ProviderCode::fromString('primary'));
     $primary->onSend = function (): never {
         throw new RuntimeException('primary is down');
@@ -144,7 +183,7 @@ it('falls back to the next provider when the primary throws', function (): void 
     $registry->register($primary);
     $registry->register($secondary);
 
-    $view = $useCase->send(sendCommand());
+    $view = (new SendTextNotificationUseCase($cascade))->send(textCommand());
 
     expect($view->status)->toBe(NotificationStatus::Sent)
         ->and($primary->sent)->toHaveCount(1)
@@ -157,8 +196,7 @@ it('falls back to the next provider when the primary throws', function (): void 
 });
 
 it('marks the notification failed and publishes notification.failed when every provider fails', function (): void {
-    [$useCase, $notifications, $templates, $deliveries, $registry, $outbox] = makeSendUseCase(['primary', 'secondary']);
-    $templates->add(approvedTemplate());
+    [$cascade, $notifications, $deliveries, $registry, $outbox] = makeCascade(['primary', 'secondary']);
     foreach (['primary', 'secondary'] as $code) {
         $gateway = new FakeNotificationChannelProvider(ProviderCode::fromString($code));
         $gateway->onSend = function (): never {
@@ -167,7 +205,7 @@ it('marks the notification failed and publishes notification.failed when every p
         $registry->register($gateway);
     }
 
-    $view = $useCase->send(sendCommand());
+    $view = (new SendTextNotificationUseCase($cascade))->send(textCommand());
 
     expect($view->status)->toBe(NotificationStatus::Failed)
         ->and($deliveries->records)->toHaveCount(2)
@@ -177,48 +215,10 @@ it('marks the notification failed and publishes notification.failed when every p
 });
 
 it('never publishes an outbox event on a successful send (queued/sent are not canonical events)', function (): void {
-    [$useCase, , $templates, , $registry, $outbox] = makeSendUseCase();
-    $templates->add(approvedTemplate());
+    [$cascade, , , $registry, $outbox] = makeCascade();
     $registry->register(new FakeNotificationChannelProvider(ProviderCode::fromString('fake-provider')));
 
-    $useCase->send(sendCommand());
+    (new SendTextNotificationUseCase($cascade))->send(textCommand());
 
     expect($outbox->events)->toHaveCount(0);
-});
-
-it('rejects sending against a template that does not exist', function (): void {
-    [$useCase] = makeSendUseCase();
-
-    $useCase->send(sendCommand());
-})->throws(NotificationTemplateNotFound::class);
-
-it('rejects sending against a template that is only pending approval', function (): void {
-    [$useCase, , $templates, , $registry] = makeSendUseCase();
-    $templates->add(new NotificationTemplate(
-        id: 'tpl-pending',
-        projectId: 'project-1',
-        key: 'booking_confirmed',
-        channel: 'whatsapp',
-        kind: NotificationTemplateKind::Template,
-        status: NotificationTemplateStatus::Pending,
-        version: 1,
-        body: [],
-    ));
-    $registry->register(new FakeNotificationChannelProvider(ProviderCode::fromString('fake-provider')));
-
-    $useCase->send(sendCommand());
-})->throws(NotificationTemplateNotFound::class);
-
-it('picks the highest version of an approved template', function (): void {
-    [$useCase, , $templates, , $registry] = makeSendUseCase();
-    $templates->add(approvedTemplate(version: 1));
-    $templates->add(approvedTemplate(version: 3));
-    $templates->add(approvedTemplate(version: 2));
-    $gateway = new FakeNotificationChannelProvider(ProviderCode::fromString('fake-provider'));
-    $gateway->nextResult = new ProviderDispatchResult('msg-1', NotificationStatus::Sent);
-    $registry->register($gateway);
-
-    $useCase->send(sendCommand());
-
-    expect($gateway->sent[0]->templateVersion)->toBe(3);
 });
