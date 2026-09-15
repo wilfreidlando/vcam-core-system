@@ -120,6 +120,7 @@ deptrac:
       - Ledger
       - Parties
       - Events
+      - Identity
 
     Fees:
       - Support

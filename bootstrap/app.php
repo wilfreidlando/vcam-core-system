@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use Core\Identity\Presentation\Http\Middleware\ResolveProjectMiddleware;
 use Core\Support\Http\Middleware\CorrelationId;
 use Core\Support\Http\ProblemDetails;
+use Core\Wallet\Domain\Exception\WalletNotFound;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -34,6 +36,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // Wires the named 'api' limiter (AppServiceProvider::configureRateLimiting)
         // into the group — quotas per project/environment, spec technique §14.
         $middleware->throttleApi();
+
+        // ADR-0033 §3: every module's routes reference this alias, never
+        // Identity's Presentation class directly — that would violate G3c.
+        // The composition root is the one place allowed to bind the string
+        // to the class.
+        $middleware->alias([
+            'project.auth' => ResolveProjectMiddleware::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // One error format across the whole Core, which has no HTML surface:
@@ -49,6 +59,12 @@ return Application::configure(basePath: dirname(__DIR__))
                 ),
                 $e instanceof AuthenticationException => ProblemDetails::unauthenticated(
                     'Valid project credentials are required.',
+                ),
+                $e instanceof WalletNotFound => ProblemDetails::make(
+                    'wallet-not-found',
+                    'Wallet not found',
+                    404,
+                    $e->getMessage(),
                 ),
                 $e instanceof HttpExceptionInterface => ProblemDetails::make(
                     'http-error',

@@ -13,9 +13,10 @@ Décision de référence : [ADR-0020](../../docs/adr/0020-shared-kernel-support.
 | `Clock` (port) et `SystemClock` (UTC) | `src/Clock.php`, `src/SystemClock.php` | Livré |
 | `Environment` (sandbox / live) | `src/Environment.php` | Livré |
 | `Identifier` (port) et `Uuid7Identifier` | `src/Identifier.php`, `src/Uuid7Identifier.php` | Livré — Lot 1 |
+| `UnitOfWork` (port uniquement — l'implémentation touche `DB`, donc vit dans `app/Infrastructure/` par G3d) | `src/UnitOfWork.php` | Livré — Lot 2 |
 | Réponses d'erreur RFC 7807 | `src/Http/ProblemDetails.php` | Livré |
 | Middleware `CorrelationId` | `src/Http/Middleware/CorrelationId.php` | Livré |
-| `Money` — enveloppe de brick/money | `src/Money/` | Lot 2 — [ADR-0021](../../docs/adr/0021-wrapper-money.md) |
+| `Money` — enveloppe de brick/money | `src/Money/` | Livré — Lot 2 — [ADR-0021](../../docs/adr/0021-wrapper-money.md) |
 | Middleware d'idempotence + port `IdempotencyStore` | `src/Idempotency/` | Lot 2 — [ADR-0025](../../docs/adr/0025-design-idempotence.md) |
 | Socle d'intégration externe (HTTP sortant) | `src/Integration/` | **Livré** — [ADR-0026](../../docs/adr/0026-integration-providers-externes.md) + [ADR-0031](../../docs/adr/0031-socle-integration-en-parallele-du-lot-2.md) + [ADR-0034](../../docs/adr/0034-socle-integration-scope-structure.md) |
 

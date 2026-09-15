@@ -1,40 +1,30 @@
 # core/events
 
 **Bounded context:** `events`
-**Responsibility:** Standardized event model, transactional outbox, relay and internal dispatch.
-**Delivery lot:** Lot 4 — see [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+**Responsibility:** Transactional outbox — write side only (ADR-0032).
+**Delivery lot:** Write side — Lot 2 (parallel). Relay/dispatch — Lot 4.
 
-## Internal structure
+## Internal structure — write side only, deliberately (ADR-0032)
 
-This module is layered (hexagonal); the dependency direction is inward only:
+| Directory | Contains |
+| --------- | -------- |
+| `src/Contracts` | `DomainEvent` (the DTO) and `EventOutbox` (`append()` — the one method) |
+| `src/Infrastructure/Persistence/Eloquent` | `EventOutboxRecord` + `EloquentEventOutbox` |
 
-```
-Presentation ─┐
-Infrastructure ┼─► Application ─► Domain
-              ─┘
-```
-
-| Directory         | Contains                                                                 |
-| ----------------- | ------------------------------------------------------------------------ |
-| `src/Domain`      | Pure PHP: entities, value objects, domain events, exceptions, **ports**   |
-| `src/Application` | Use cases and their DTOs; transactional orchestration                     |
-| `src/Infrastructure` | Port implementations: Eloquent persistence, HTTP/provider adapters    |
-| `src/Presentation`| HTTP controllers, requests, resources, middleware, console commands       |
-| `src/Contracts`   | **Published API** — the only part other modules may depend on             |
-
-Both directions are enforced by Deptrac (`deptrac.yaml`): `Domain` may not reference
-Laravel, Eloquent or `Infrastructure`, and no other module may reference anything of
-this one outside `Contracts/`.
+No `Domain/`, no `Application/`, no `Presentation/`: this module has no
+business rule yet. A caller appends an event inside its own database
+transaction; nothing reads `event_outbox` back until the Lot 4 relay exists.
 
 ## Module dependencies
 
-**None.** This module sits at the bottom of the stack and may not depend on any other bounded context (Deptrac enforces this).
+**None.** Sits at the bottom of the stack, same as `ledger`, `identity`,
+`audit`.
 
 ## Ground rules
 
-- No application — internal or external — reads this module's tables. Consumers use the
-  Core's versioned API and its events.
-- Cross-context data is joined by correlation identifiers (`external_ref`,
-  `correlation_id`), never by a database join across contexts.
-- Every monetary mutation is idempotent and every state change that others care about is
-  published through the transactional outbox, inside the same transaction.
+- `append()` must be called **inside** the same transaction as the state
+  change it describes (garde-fou G8c, verified once real callers exist).
+- Nothing outside this module reads `event_outbox` — there is no query
+  method on `EventOutbox` on purpose. The Lot 4 relay is the sole reader,
+  and it will very likely bypass the port entirely (a batch poll needs
+  different guarantees than a single append).

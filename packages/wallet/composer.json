@@ -5,6 +5,10 @@
     "license": "proprietary",
     "require": {
         "php": "^8.4",
+        "core/events": "*@dev",
+        "core/identity": "*@dev",
+        "core/ledger": "*@dev",
+        "core/parties": "*@dev",
         "core/support": "*@dev"
     },
     "autoload": {

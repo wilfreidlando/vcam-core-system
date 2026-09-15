@@ -23,6 +23,12 @@ cd "$(dirname "$0")/../.."
 
 DC="docker compose run --rm --no-deps -T app"
 DC_DB="docker compose run --rm -T app"
+# `pest` reads DB_* from phpunit.xml's <env> block (core_testing), but a
+# plain `php artisan` invocation reads .env (the dev database, core) — the
+# two are different databases in the same postgres service. Probes that need
+# `artisan migrate:fresh` to affect the SAME database pest will query must
+# target core_testing explicitly.
+DC_TESTING_DB="docker compose run --rm -T -e DB_DATABASE=core_testing -e DB_HOST=postgres -e DB_PORT=5432 -e DB_USERNAME=core -e DB_PASSWORD=secret app"
 STAN="vendor/bin/phpstan analyse --memory-limit=1G --no-progress --error-format=json"
 
 PASSED=0
@@ -200,6 +206,37 @@ expect_rejection "G3d" "the shared kernel queries the database" \
     'should not depend on Illuminate[^"]*DB' \
     $DC $STAN packages/support
 
+# ── G4 — a PII column added to parties ──────────────────────────────────────
+probe packages/parties/database/migrations/2026_09_15_999999_guard_probe_pii.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('parties', function (Blueprint $table): void {
+            $table->string('email')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('parties', function (Blueprint $table): void {
+            $table->dropColumn('email');
+        });
+    }
+};
+PHP
+expect_rejection "G4" "a migration adds an email column to parties" \
+    'Core must not store end-user identity' \
+    $DC_DB vendor/bin/pest --group=schema
+
 # ── G5 — money stored as a decimal column ───────────────────────────────────
 probe packages/ledger/database/migrations/2026_09_14_999999_guard_probe.php <<'PHP'
 <?php
@@ -291,6 +328,36 @@ PHP
 expect_rejection "G8" "a use case calls event() instead of writing to the outbox" \
     'outside the transactional outbox' \
     $DC $STAN packages/wallet
+
+# ── G8c — outbox/state atomicity — KNOWN GAP, no automated probe yet ────────
+# tests/Integration/OutboxTransactionalityTest.php genuinely proves this
+# (verified manually: a credit writes exactly one outbox row, and a
+# caller-level rollback after a successful credit leaves none). What is
+# missing here is a *shell probe that injects a real violation* — doing that
+# means breaking real transactional atomicity (e.g. writing the outbox row on
+# a second, independent database connection), which none of the sed/python
+# edits used elsewhere in this script can express safely. Tracked honestly
+# rather than faked: do not mark this guard's automation "done" until a real
+# probe exists. Owner: Dev Platform.
+
+# ── G11 — the ledger's own deferred balance trigger, disabled ──────────────
+# Unlike the other probes, this one breaks REAL migrated schema rather than
+# adding harmless residue: the trigger install call is commented out, the
+# database is fully refreshed to pick that up, and — crucially — refreshed
+# again with the restored file afterwards, or every guard and test that runs
+# after this one in the same database would silently lose the invariant.
+backup packages/ledger/database/migrations/2026_09_15_000004_create_ledger_entries_table.php
+python3 - <<'PY'
+path = 'packages/ledger/database/migrations/2026_09_15_000004_create_ledger_entries_table.php'
+needle = '        $this->installBalanceTrigger();\n'
+content = open(path).read()
+assert needle in content, 'installBalanceTrigger() call not found — probe out of date'
+open(path, 'w').write(content.replace(needle, '        // GUARD PROBE: balance trigger intentionally not installed.\n'))
+PY
+expect_rejection "G11" "the ledger_entries deferred balance trigger is not installed" \
+    'must be rejected at commit' \
+    bash -c "$DC_TESTING_DB php artisan migrate:fresh --force >/dev/null 2>&1 && $DC_DB vendor/bin/pest --group=invariants --filter=every_transaction_balances_to_zero"
+$DC_TESTING_DB php artisan migrate:fresh --force > /dev/null 2>&1
 
 # ── Summary ─────────────────────────────────────────────────────────────────
 printf '\n\033[1m%d guardrail(s) rejected their violation, %d did not.\033[0m\n' "$PASSED" "$FAILED"

@@ -76,8 +76,7 @@ final class GuardRegistry
             'rule' => 'The parties table holds no personally identifying column',
             'tool' => 'Pest + PostgreSQL',
             'enforced_by' => 'tests/Schema/PartiesPiiTest.php',
-            'status' => self::PENDING_CODE,
-            'lot' => 'Lot 2 — parties migration',
+            'status' => self::ACTIVE,
         ],
         'G5' => [
             'rule' => 'Money is stored as bigint minor units, never float or decimal',
@@ -109,7 +108,9 @@ final class GuardRegistry
             'tool' => 'Pest (booted application)',
             'enforced_by' => 'tests/Architecture/IdempotencyTest.php',
             'status' => self::PENDING_CODE,
-            'lot' => 'Lot 2 — first wallet mutation route',
+            'lot' => 'Lot 3 — first public monetary mutation route '.
+                '(ADR-0033 §1: Lot 2 wallet mutations are internal-only, no HTTP route; '.
+                'ADR-0033 §2 amends ADR-0025 — HTTP-level idempotency deferred to Lot 3)',
         ],
         'G8' => [
             'rule' => 'Business events are emitted only through the transactional outbox',
@@ -121,8 +122,7 @@ final class GuardRegistry
             'rule' => 'The outbox row and the state change share one transaction',
             'tool' => 'Pest + PostgreSQL',
             'enforced_by' => 'tests/Integration/OutboxTransactionalityTest.php',
-            'status' => self::PENDING_CODE,
-            'lot' => 'Lot 4 — outbox and relay',
+            'status' => self::ACTIVE,
         ],
         'G9' => [
             'rule' => 'No OpenAPI breaking change without an API version bump',
@@ -142,8 +142,7 @@ final class GuardRegistry
             'rule' => 'Ledger invariants: sum-zero, derived balances, concurrency, idempotent replay',
             'tool' => 'Pest + PostgreSQL',
             'enforced_by' => 'tests/Invariants',
-            'status' => self::PENDING_CODE,
-            'lot' => 'Lot 2 — ledger and wallet',
+            'status' => self::ACTIVE,
         ],
     ];
 }

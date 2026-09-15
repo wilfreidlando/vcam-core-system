@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Infrastructure\DatabaseUnitOfWork;
 use Core\Support\Clock;
 use Core\Support\SystemClock;
+use Core\Support\UnitOfWork;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -21,6 +23,7 @@ final class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(Clock::class, SystemClock::class);
+        $this->app->bind(UnitOfWork::class, DatabaseUnitOfWork::class);
     }
 
     public function boot(): void

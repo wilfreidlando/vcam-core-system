@@ -1,6 +1,6 @@
 # ADR-0025 — Design de l'idempotence HTTP
 
-- **Statut** : Accepté — design figé ; implémentation au Lot 2
+- **Statut** : Accepté — design figé ; implémentation au **Lot 3** (amendé par [ADR-0033](0033-conception-lot-2-money-core.md) : Wallet n'expose pas d'endpoint HTTP de mutation au Lot 2, donc ce store HTTP générique n'a pas encore d'appelant réel ; l'idempotence du Lot 2 passe par `ledger_transactions.idempotency_key`)
 - **Date** : 2026-09-14
 - **Dérives concernées** : D6
 

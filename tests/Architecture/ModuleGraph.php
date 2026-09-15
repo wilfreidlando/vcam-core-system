@@ -45,7 +45,9 @@ final class ModuleGraph
 
         // ── Capability modules ─────────────────────────────────────────────
         'parties' => ['support', 'identity'],
-        'wallet' => ['support', 'ledger', 'parties', 'events'],
+        // identity: ADR-0033 — the balance-read endpoint checks scopes via
+        // Core\Identity\Contracts\ProjectContext.
+        'wallet' => ['support', 'ledger', 'parties', 'events', 'identity'],
         'fees' => ['support', 'ledger', 'parties'],
         'payment' => ['support', 'ledger', 'fees', 'identity', 'parties', 'events', 'wallet'],
         'webhook' => ['support', 'identity', 'events'],
