@@ -79,11 +79,15 @@ de conception. En parallèle, livré aussi : le socle d'intégration générique
 + [ADR-0034](docs/adr/0034-socle-integration-scope-structure.md)) → **Lot 3
 Payment/Fees** (adaptateurs MTN/Orange/MyCoolPay + orchestration ; un premier
 adaptateur concret — MyCoolPay, transport pur, sans dépendance au wallet —
-est déjà livré ; le branchement métier vers `Core\Wallet\Contracts\CreditWallet`
-reste à faire, mais le **mécanisme** est tranché —
-[ADR-0036](docs/adr/0036-paiement-confirme-credite-le-wallet-en-synchrone.md) :
-appel synchrone dans la même transaction, pas via le relais de l'outbox
-(qui n'existe pas encore)) → Lot 4 Events/Webhooks (relais/dispatch de l'outbox — l'écriture
+est déjà livré. Le branchement vers `Core\Wallet\Contracts\CreditWallet`
+reste à faire, et son **mécanisme** est tranché — synchrone, même
+transaction ([ADR-0036](docs/adr/0036-paiement-confirme-credite-le-wallet-en-synchrone.md))
+— mais **jamais automatique** : un paiement, par défaut, n'est qu'un
+encaissement au nom du système, sans Party ni Wallet touchés ; le crédit
+d'un wallet est une instruction explicite fournie par l'appelant à
+l'initiation du paiement, jamais déduite du seul succès du paiement
+([ADR-0037](docs/adr/0037-credit-wallet-jamais-automatique-composition-explicite.md))
+→ Lot 4 Events/Webhooks (relais/dispatch de l'outbox — l'écriture
 existe déjà depuis le Lot 2) → Lot 5 Notification → Lot 6 Core Admin → Lot 7
 migration pilote. Détail de chaque lot :
 [docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.
@@ -103,7 +107,10 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
 
 - Paiement métier bout-en-bout, frais, notification (Lots 3–5) : le
   transport (MyCoolPay) existe, mais rien ne crédite encore un wallet suite à
-  un paiement confirmé — c'est le prochain fil à tirer, pas une hypothèse.
+  un paiement confirmé — et par design, ça ne le fera **jamais
+  automatiquement** (ADR-0037) : un paiement est un encaissement pur sauf
+  instruction explicite de l'appelant. Ne pas supposer qu'un paiement réussi
+  implique un wallet crédité, même une fois le Lot 3 terminé.
 - Identity/Audit sont livrés (Lot 1) : Organization/Project/ApiKey, middleware
   d'auth Project, `GET /v1/whoami`, module Audit minimal. Voir
   `packages/identity/README.md`.
@@ -119,9 +126,10 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   `PaymentGateway` port, `PaymentCommand`/`PaymentReceipt`/`PaymentAction`
   DTOs, `PaymentServiceProvider`. Ce qui manque encore pour que ce soit le
   Lot 3 complet : les Use Cases d'orchestration métier (le point où un
-  paiement confirmé appelle `Core\Wallet\Contracts\CreditWallet` en
-  synchrone — mécanisme tranché par
-  [ADR-0036](docs/adr/0036-paiement-confirme-credite-le-wallet-en-synchrone.md)),
+  paiement, **sur instruction explicite de l'appelant seulement**
+  — [ADR-0037](docs/adr/0037-credit-wallet-jamais-automatique-composition-explicite.md) —
+  appelle `Core\Wallet\Contracts\CreditWallet` en synchrone, même
+  transaction — [ADR-0036](docs/adr/0036-paiement-confirme-credite-le-wallet-en-synchrone.md)),
   les adaptateurs MTN/Orange, et l'idempotence HTTP (G7, ci-dessous). Voir
   `packages/payment/README.md`.
 - Idempotence à deux niveaux ([ADR-0025](docs/adr/0025-design-idempotence.md),

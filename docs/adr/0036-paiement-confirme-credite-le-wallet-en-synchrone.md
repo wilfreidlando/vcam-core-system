@@ -1,6 +1,10 @@
 # ADR-0036 — Un paiement confirmé crédite le wallet en synchrone, pas via le relais de l'outbox
 
-- **Statut** : Accepté
+- **Statut** : Accepté — le *mécanisme* (synchrone, même transaction) reste
+  valable ; sa *condition de déclenchement* est corrigée par
+  [ADR-0037](0037-credit-wallet-jamais-automatique-composition-explicite.md) :
+  seulement sur instruction explicite de l'appelant, jamais pour tout
+  paiement confirmé par défaut.
 - **Date** : 2026-09-15
 - **Dérives concernées** : D2, D6
 
@@ -57,8 +61,11 @@ un seul `UnitOfWork::transactional()` :
 
 1. Écrit/met à jour l'état interne du paiement (table possédée par `Payment`,
    pas encore construite — hors périmètre de cet ADR).
-2. Si le statut canonique est un état de succès terminal (`completed` —
-   voir `PaymentStatus`) : résout la Party du bénéficiaire via
+2. **[Corrigé par ADR-0037]** Si le statut canonique est un état de succès
+   terminal (`completed` — voir `PaymentStatus`) **ET que l'appelant a
+   explicitement demandé un crédit de wallet pour ce paiement** (jamais pour
+   tout paiement confirmé par défaut — voir ADR-0037) : résout la Party du
+   bénéficiaire via
    `Core\Parties\Contracts\PartyFinder::findOrCreate()` (le paiement fournit
    son propre `external_ref` pour cette party — `payment` dépend déjà de
    `parties` dans le graphe), puis appelle
