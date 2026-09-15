@@ -16,6 +16,50 @@
         }
     ],
     "paths": {
+        "/webhook-endpoints/{endpointId}": {
+            "delete": {
+                "operationId": "webhook-endpoints.deactivate",
+                "description": "Stops future deliveries; already-scheduled retries for deliveries\ncreated before deactivation still run to completion or DLQ.\nRequires the `webhooks:write` scope.",
+                "summary": "Deactivate a webhook endpoint",
+                "tags": [
+                    "DeactivateWebhookEndpoint"
+                ],
+                "parameters": [
+                    {
+                        "name": "endpointId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No content",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/payments/{paymentId}": {
             "get": {
                 "operationId": "payments.status",
@@ -104,6 +148,115 @@
                                 }
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/webhook-endpoints": {
+            "get": {
+                "operationId": "webhook-endpoints.list",
+                "description": "Never includes the signing secret \u2014 it is shown once, at\nregistration, and never again. Requires the `webhooks:read` scope.",
+                "summary": "List the calling Project's webhook endpoints",
+                "tags": [
+                    "ListWebhookEndpoints"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {}
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "webhook-endpoints.register",
+                "description": "The returned `secret` signs every delivery to this endpoint\n(`X-Signature`/`X-Timestamp` headers, HMAC-SHA256) and is shown\nexactly once \u2014 store it, it cannot be retrieved again. Requires the\n`webhooks:write` scope.",
+                "summary": "Register a webhook endpoint",
+                "tags": [
+                    "RegisterWebhookEndpoint"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegisterWebhookEndpointRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "url": {
+                                            "type": "string"
+                                        },
+                                        "events": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "secret": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "url",
+                                        "events",
+                                        "secret"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
                     }
                 }
             }
@@ -322,6 +475,29 @@
                     "paylink"
                 ],
                 "title": "PaymentFlow"
+            },
+            "RegisterWebhookEndpointRequest": {
+                "type": "object",
+                "description": "Validates `POST /v1/webhook-endpoints`. Authorization (the\n`webhooks:write` scope) is checked in the controller against\n`ProjectContext`, not here.",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "events": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "maxLength": 100
+                        },
+                        "minItems": 1
+                    }
+                },
+                "required": [
+                    "url",
+                    "events"
+                ],
+                "title": "RegisterWebhookEndpointRequest"
             },
             "StartPaymentRequest": {
                 "type": "object",

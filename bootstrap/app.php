@@ -9,7 +9,11 @@ use Core\Support\Http\Middleware\CorrelationId;
 use Core\Support\Http\Middleware\RequireIdempotencyKey;
 use Core\Support\Http\ProblemDetails;
 use Core\Wallet\Domain\Exception\WalletNotFound;
+use Core\Webhook\Domain\Exception\WebhookDeliveryNotDead;
+use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
+use Core\Webhook\Domain\Exception\WebhookEndpointNotFound;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -50,6 +54,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'idempotency' => RequireIdempotencyKey::class,
         ]);
     })
+    ->withSchedule(function (Schedule $schedule): void {
+        // ADR-0040 §1: the single reader of event_outbox. Overlap
+        // protection matters here specifically — two concurrent runs
+        // would both read the same unpublished rows before either marks
+        // them, republishing each one twice.
+        $schedule->command('events:relay')->everyMinute()->withoutOverlapping();
+    })
     ->withExceptions(function (Exceptions $exceptions): void {
         // One error format across the whole Core, which has no HTML surface:
         // RFC 7807 problem+json, always carrying the correlation id.
@@ -81,6 +92,24 @@ return Application::configure(basePath: dirname(__DIR__))
                     'no-provider-for-channel',
                     'No provider is configured for this channel',
                     422,
+                    $e->getMessage(),
+                ),
+                $e instanceof WebhookEndpointNotFound => ProblemDetails::make(
+                    'webhook-endpoint-not-found',
+                    'Webhook endpoint not found',
+                    404,
+                    $e->getMessage(),
+                ),
+                $e instanceof WebhookDeliveryNotFound => ProblemDetails::make(
+                    'webhook-delivery-not-found',
+                    'Webhook delivery not found',
+                    404,
+                    $e->getMessage(),
+                ),
+                $e instanceof WebhookDeliveryNotDead => ProblemDetails::make(
+                    'webhook-delivery-not-dead',
+                    'Only a dead webhook delivery can be replayed',
+                    409,
                     $e->getMessage(),
                 ),
                 $e instanceof HttpExceptionInterface => ProblemDetails::make(
