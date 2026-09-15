@@ -1,0 +1,15 @@
+extends:
+  - spectral:oas
+
+rules:
+  # The Core versions by URL prefix (ADR-0028), not by an Accept header —
+  # nothing here should suggest otherwise.
+  info-contact: off
+  info-description: error
+  operation-description: error
+  operation-operationId: error
+  operation-tags: off
+  # Scramble tags each operation by its controller's module (Wallet,
+  # Identity) but doesn't emit a matching top-level `tags` array with
+  # descriptions — cosmetic only, not worth failing CI over.
+  operation-tag-defined: off

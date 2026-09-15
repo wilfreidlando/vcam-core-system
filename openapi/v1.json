@@ -1,0 +1,137 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Core System API",
+        "version": "v1",
+        "description": "Enterprise Core System \u2014 capacit\u00e9s transverses (identity, ledger, wallet) expos\u00e9es \u00e0 plusieurs produits. Authentification par API key (`Authorization: Bearer pk_<env>_<id>.<secret>`), voir `GET /v1/whoami`."
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8000/v1"
+        }
+    ],
+    "security": [
+        {
+            "http": []
+        }
+    ],
+    "paths": {
+        "/wallets/{walletId}/balance": {
+            "get": {
+                "operationId": "wallet.balance",
+                "description": "Read-only (ADR-0033 \u00a71): Wallet exposes no HTTP endpoint that mutates\na balance. Requires the `wallets:read` scope, and returns the same\nnot-found response whether the wallet doesn't exist or belongs to\nanother project \u2014 the two are indistinguishable on purpose.",
+                "summary": "Get a wallet's balance",
+                "tags": [
+                    "WalletBalance"
+                ],
+                "parameters": [
+                    {
+                        "name": "walletId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "wallet_id": {
+                                            "type": "string"
+                                        },
+                                        "currency": {
+                                            "type": "string"
+                                        },
+                                        "available_minor": {
+                                            "type": "integer"
+                                        },
+                                        "held_minor": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "required": [
+                                        "wallet_id",
+                                        "currency",
+                                        "available_minor",
+                                        "held_minor"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/whoami": {
+            "get": {
+                "operationId": "identity.whoami",
+                "description": "Resolves the bearer API key and returns which Project it belongs to,\nin which environment (sandbox/live), and which scopes it carries. The\nfirst call an integrating product should make to confirm its\ncredentials.",
+                "summary": "Identify the calling Project",
+                "tags": [
+                    "WhoAmI"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "project_id": {
+                                            "type": "string"
+                                        },
+                                        "organization_id": {
+                                            "type": "string"
+                                        },
+                                        "environment": {
+                                            "type": "string"
+                                        },
+                                        "scopes": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "project_id",
+                                        "organization_id",
+                                        "environment",
+                                        "scopes"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "http": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "pk_<env>_<id>.<secret>"
+            }
+        }
+    }
+}

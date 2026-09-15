@@ -16,6 +16,14 @@ use Illuminate\Support\Facades\Log;
  */
 final class WhoAmIController
 {
+    /**
+     * Identify the calling Project.
+     *
+     * Resolves the bearer API key and returns which Project it belongs to,
+     * in which environment (sandbox/live), and which scopes it carries. The
+     * first call an integrating product should make to confirm its
+     * credentials.
+     */
     public function __invoke(ProjectContext $project): JsonResponse
     {
         Log::info('identity.whoami', [
