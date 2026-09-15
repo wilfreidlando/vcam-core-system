@@ -65,7 +65,7 @@ final readonly class StartPaymentUseCase implements StartPayment
         $gateway = $this->gateways->gatewayFor($providerCode);
 
         $receipt = $gateway->initiate(new InitiatePaymentCommand(
-            amountMinorUnits: $command->amountMinorUnits,
+            amount: $command->amount,
             currency: $command->currency,
             reason: $command->reason,
             appTransactionRef: $command->idempotencyKey,
@@ -85,7 +85,7 @@ final readonly class StartPaymentUseCase implements StartPayment
             providerCode: $providerCode->toString(),
             idempotencyKey: $command->idempotencyKey,
             providerTransactionRef: $receipt->transactionRef,
-            amountMinorUnits: $command->amountMinorUnits,
+            amount: $command->amount,
             currency: $command->currency,
             status: $receipt->status,
             requiresAction: $receipt->requiresAction,
@@ -116,7 +116,7 @@ final readonly class StartPaymentUseCase implements StartPayment
             id: $payment->id,
             channel: $payment->channel,
             status: $payment->status,
-            amountMinorUnits: $payment->amountMinorUnits,
+            amount: $payment->amount,
             currency: $payment->currency,
             requiresAction: $payment->requiresAction,
             actionHint: $payment->actionHint,

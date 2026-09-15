@@ -59,13 +59,13 @@ final class StartPaymentController
             throw new LogicException('StartPaymentController reached without a validated Idempotency-Key header.');
         }
 
-        /** @var array{channel: string, amount_minor_units: int, currency: string, reason: string, customer_phone_number?: string, customer_name?: string, customer_email?: string, customer_lang?: string, flow?: string, return_url?: string, wallet_recipient_external_ref?: string} $data */
+        /** @var array{channel: string, amount: int, currency: string, reason: string, customer_phone_number?: string, customer_name?: string, customer_email?: string, customer_lang?: string, flow?: string, return_url?: string, wallet_recipient_external_ref?: string} $data */
         $data = $request->validated();
 
         $view = $this->startPayment->start(new StartPaymentCommand(
             projectId: $project->projectId,
             channel: PaymentChannel::fromString($data['channel']),
-            amountMinorUnits: $data['amount_minor_units'],
+            amount: $data['amount'],
             currency: $data['currency'],
             reason: $data['reason'],
             idempotencyKey: $idempotencyKey,
@@ -82,7 +82,7 @@ final class StartPaymentController
             'id' => $view->id,
             'channel' => $view->channel,
             'status' => $view->status->value,
-            'amount_minor_units' => $view->amountMinorUnits,
+            'amount' => $view->amount,
             'currency' => $view->currency,
             'requires_action' => $view->requiresAction,
             'action_hint' => $view->actionHint,

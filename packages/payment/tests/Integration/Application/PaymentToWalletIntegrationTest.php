@@ -155,7 +155,7 @@ final class PaymentToWalletIntegrationTest extends TestCase
         return new StartPaymentCommand(
             projectId: self::PROJECT_ID,
             channel: PaymentChannel::fromString('mtn_momo'),
-            amountMinorUnits: 1_000,
+            amount: 1_000,
             currency: 'XAF',
             reason: 'Order #42',
             idempotencyKey: (string) Str::uuid(),

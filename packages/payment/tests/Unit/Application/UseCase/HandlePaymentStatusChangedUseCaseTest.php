@@ -48,7 +48,7 @@ function pendingPayment(?string $walletRecipientExternalRef = null): Payment
         providerCode: 'my-coolpay',
         idempotencyKey: 'idem-1',
         providerTransactionRef: 'tx-1',
-        amountMinorUnits: 1_000,
+        amount: 1_000,
         currency: 'XAF',
         status: PaymentStatus::Pending,
         requiresAction: false,

@@ -17,7 +17,8 @@ final readonly class PaymentView
         public string $id,
         public string $channel,
         public PaymentStatus $status,
-        public int $amountMinorUnits,
+        /** Minor units (e.g. cents) — never a float, per G5. */
+        public int $amount,
         public string $currency,
         public bool $requiresAction,
         public ?string $actionHint,

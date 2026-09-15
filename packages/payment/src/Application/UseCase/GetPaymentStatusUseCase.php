@@ -31,7 +31,7 @@ final readonly class GetPaymentStatusUseCase implements GetPaymentStatus
             id: $payment->id,
             channel: $payment->channel,
             status: $payment->status,
-            amountMinorUnits: $payment->amountMinorUnits,
+            amount: $payment->amount,
             currency: $payment->currency,
             requiresAction: $payment->requiresAction,
             actionHint: $payment->actionHint,

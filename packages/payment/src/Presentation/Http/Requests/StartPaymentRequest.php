@@ -18,6 +18,9 @@ use Illuminate\Validation\Rule;
  * reaching validation — ADR-0025, G7) is the one value used for both
  * the HTTP-level response cache and `StartPaymentUseCase`'s own
  * provider-call protection. One key, not two.
+ *
+ * `amount` is in minor units (e.g. cents) — never a decimal amount,
+ * matching how it is stored (`bigint`, G5).
  */
 final class StartPaymentRequest extends FormRequest
 {
@@ -33,7 +36,7 @@ final class StartPaymentRequest extends FormRequest
     {
         return [
             'channel' => ['required', 'string'],
-            'amount_minor_units' => ['required', 'integer', 'min:1'],
+            'amount' => ['required', 'integer', 'min:1'],
             'currency' => ['required', 'string', 'size:3'],
             'reason' => ['required', 'string', 'max:255'],
             'customer_phone_number' => ['nullable', 'string', 'max:32'],

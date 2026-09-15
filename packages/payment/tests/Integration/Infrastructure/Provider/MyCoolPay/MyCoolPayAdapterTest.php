@@ -62,7 +62,7 @@ final class MyCoolPayAdapterTest extends TestCase
         ]);
 
         $command = new InitiatePaymentCommand(
-            amountMinorUnits: 100,
+            amount: 100,
             currency: 'XAF',
             reason: 'Order #42',
             appTransactionRef: 'order-42',
@@ -101,7 +101,7 @@ final class MyCoolPayAdapterTest extends TestCase
         ]);
 
         $command = new InitiatePaymentCommand(
-            amountMinorUnits: 100,
+            amount: 100,
             currency: 'XAF',
             reason: 'r',
             appTransactionRef: 'o',
@@ -129,7 +129,7 @@ final class MyCoolPayAdapterTest extends TestCase
         ]);
 
         $command = new InitiatePaymentCommand(
-            amountMinorUnits: 500,
+            amount: 500,
             currency: 'XAF',
             reason: 'Order #43',
             appTransactionRef: 'order-43',
@@ -212,7 +212,7 @@ final class MyCoolPayAdapterTest extends TestCase
         ]);
 
         $command = new InitiatePaymentCommand(
-            amountMinorUnits: 100,
+            amount: 100,
             currency: 'XAF',
             reason: 'r',
             appTransactionRef: 'order-cancel-safe-id-42',
@@ -276,7 +276,7 @@ final class MyCoolPayAdapterTest extends TestCase
         $this->expectExceptionMessage('missing extras.public_key');
 
         $adapter->initiate(new InitiatePaymentCommand(
-            amountMinorUnits: 1,
+            amount: 1,
             currency: 'XAF',
             reason: 'r',
             appTransactionRef: 'o',

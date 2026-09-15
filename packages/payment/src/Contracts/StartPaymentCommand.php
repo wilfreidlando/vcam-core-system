@@ -29,7 +29,8 @@ final readonly class StartPaymentCommand
     public function __construct(
         public string $projectId,
         public PaymentChannel $channel,
-        public int $amountMinorUnits,
+        /** Minor units (e.g. cents) — never a float, per G5. */
+        public int $amount,
         public string $currency,
         public string $reason,
         public string $idempotencyKey,

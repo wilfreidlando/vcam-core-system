@@ -32,7 +32,8 @@ final readonly class Payment
         public string $providerCode,
         public string $idempotencyKey,
         public string $providerTransactionRef,
-        public int $amountMinorUnits,
+        /** Minor units (e.g. cents) — never a float, per G5. */
+        public int $amount,
         public string $currency,
         public PaymentStatus $status,
         public bool $requiresAction,
@@ -63,7 +64,7 @@ final readonly class Payment
             providerCode: $this->providerCode,
             idempotencyKey: $this->idempotencyKey,
             providerTransactionRef: $this->providerTransactionRef,
-            amountMinorUnits: $this->amountMinorUnits,
+            amount: $this->amount,
             currency: $this->currency,
             status: $status,
             requiresAction: false,

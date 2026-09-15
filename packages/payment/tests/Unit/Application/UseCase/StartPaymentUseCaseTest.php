@@ -37,7 +37,7 @@ function startCommand(string $idempotencyKey = 'idem-1', ?string $walletRecipien
     return new StartPaymentCommand(
         projectId: 'project-1',
         channel: PaymentChannel::fromString('mtn_momo'),
-        amountMinorUnits: 1_000,
+        amount: 1_000,
         currency: 'XAF',
         reason: 'Order #42',
         idempotencyKey: $idempotencyKey,
@@ -51,7 +51,7 @@ it('resolves the provider for the channel and calls its gateway', function (): v
     $view = $useCase->start(startCommand());
 
     expect($gateway->initiated)->toHaveCount(1)
-        ->and($gateway->initiated[0]->amountMinorUnits)->toBe(1_000)
+        ->and($gateway->initiated[0]->amount)->toBe(1_000)
         ->and($gateway->initiated[0]->appTransactionRef)->toBe('idem-1')
         ->and($payments->count())->toBe(1)
         ->and($view->status)->toBe(PaymentStatus::Pending);
@@ -85,7 +85,7 @@ it('scopes idempotency keys to the project', function (): void {
     $useCase->start(new StartPaymentCommand(
         projectId: 'project-1',
         channel: PaymentChannel::fromString('mtn_momo'),
-        amountMinorUnits: 1_000,
+        amount: 1_000,
         currency: 'XAF',
         reason: 'a',
         idempotencyKey: 'idem-shared',
@@ -93,7 +93,7 @@ it('scopes idempotency keys to the project', function (): void {
     $useCase->start(new StartPaymentCommand(
         projectId: 'project-2',
         channel: PaymentChannel::fromString('mtn_momo'),
-        amountMinorUnits: 1_000,
+        amount: 1_000,
         currency: 'XAF',
         reason: 'b',
         idempotencyKey: 'idem-shared',
@@ -112,7 +112,7 @@ it('recovers the winning payment when it loses a concurrent creation race', func
         providerCode: 'my-coolpay',
         idempotencyKey: 'idem-1',
         providerTransactionRef: 'tx-winner',
-        amountMinorUnits: 1_000,
+        amount: 1_000,
         currency: 'XAF',
         status: PaymentStatus::Pending,
         requiresAction: false,

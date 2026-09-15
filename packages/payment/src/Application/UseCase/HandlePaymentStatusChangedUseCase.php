@@ -106,7 +106,7 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
         $this->creditWallet->credit(new CreditWalletCommand(
             $payment->projectId,
             $party->id,
-            $payment->amountMinorUnits,
+            $payment->amount,
             $payment->currency,
             $payment->id,
             // One credit per payment, ever — a payment's own id is

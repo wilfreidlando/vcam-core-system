@@ -34,7 +34,7 @@ use Core\Payment\PaymentFlow;
 final readonly class InitiatePaymentCommand
 {
     public function __construct(
-        public int $amountMinorUnits,
+        public int $amount,
         public string $currency,
         public string $reason,
         public string $appTransactionRef,

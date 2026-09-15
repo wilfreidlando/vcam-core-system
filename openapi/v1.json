@@ -95,7 +95,7 @@
                                         "status": {
                                             "type": "string"
                                         },
-                                        "amount_minor_units": {
+                                        "amount": {
                                             "type": "integer"
                                         },
                                         "currency": {
@@ -127,7 +127,7 @@
                                         "id",
                                         "channel",
                                         "status",
-                                        "amount_minor_units",
+                                        "amount",
                                         "currency",
                                         "requires_action",
                                         "action_hint",
@@ -296,7 +296,7 @@
                                         "status": {
                                             "type": "string"
                                         },
-                                        "amount_minor_units": {
+                                        "amount": {
                                             "type": "integer"
                                         },
                                         "currency": {
@@ -322,7 +322,7 @@
                                         "id",
                                         "channel",
                                         "status",
-                                        "amount_minor_units",
+                                        "amount",
                                         "currency",
                                         "requires_action",
                                         "action_hint",
@@ -501,12 +501,12 @@
             },
             "StartPaymentRequest": {
                 "type": "object",
-                "description": "Validates `POST /v1/payments`. Authorization (the `payments:write`\nscope) is checked in the controller against `ProjectContext`, not\nhere \u2014 this class only validates shape, never identity.\n\nNo `idempotency_key` body field: the `Idempotency-Key` HTTP header\n(required by the `idempotency` middleware ahead of this request ever\nreaching validation \u2014 ADR-0025, G7) is the one value used for both\nthe HTTP-level response cache and `StartPaymentUseCase`'s own\nprovider-call protection. One key, not two.",
+                "description": "Validates `POST /v1/payments`. Authorization (the `payments:write`\nscope) is checked in the controller against `ProjectContext`, not\nhere \u2014 this class only validates shape, never identity.\n\nNo `idempotency_key` body field: the `Idempotency-Key` HTTP header\n(required by the `idempotency` middleware ahead of this request ever\nreaching validation \u2014 ADR-0025, G7) is the one value used for both\nthe HTTP-level response cache and `StartPaymentUseCase`'s own\nprovider-call protection. One key, not two.\n\n`amount` is in minor units (e.g. cents) \u2014 never a decimal amount,\nmatching how it is stored (`bigint`, G5).",
                 "properties": {
                     "channel": {
                         "type": "string"
                     },
-                    "amount_minor_units": {
+                    "amount": {
                         "type": "integer",
                         "minimum": 1
                     },
@@ -574,7 +574,7 @@
                 },
                 "required": [
                     "channel",
-                    "amount_minor_units",
+                    "amount",
                     "currency",
                     "reason"
                 ],

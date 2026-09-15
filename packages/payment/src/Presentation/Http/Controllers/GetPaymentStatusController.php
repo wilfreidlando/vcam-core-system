@@ -42,7 +42,7 @@ final class GetPaymentStatusController
             'id' => $view->id,
             'channel' => $view->channel,
             'status' => $view->status->value,
-            'amount_minor_units' => $view->amountMinorUnits,
+            'amount' => $view->amount,
             'currency' => $view->currency,
             'requires_action' => $view->requiresAction,
             'action_hint' => $view->actionHint,

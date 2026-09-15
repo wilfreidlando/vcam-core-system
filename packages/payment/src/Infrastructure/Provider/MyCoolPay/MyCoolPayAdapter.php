@@ -88,7 +88,7 @@ final readonly class MyCoolPayAdapter implements PaymentGateway
 
         // Build the request body once — shared shape between /payin and /paylink.
         $body = [
-            'transaction_amount' => $command->amountMinorUnits,
+            'transaction_amount' => $command->amount,
             'transaction_currency' => $command->currency,
             'transaction_reason' => $command->reason,
             'app_transaction_ref' => $command->appTransactionRef,
