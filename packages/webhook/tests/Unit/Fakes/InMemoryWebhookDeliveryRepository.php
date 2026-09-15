@@ -6,6 +6,7 @@ namespace Core\Webhook\Tests\Unit\Fakes;
 
 use Core\Webhook\Domain\Exception\WebhookDeliveryAlreadyExists;
 use Core\Webhook\Domain\Model\WebhookDelivery;
+use Core\Webhook\Domain\Model\WebhookDeliveryStatus;
 use Core\Webhook\Domain\Port\WebhookDeliveryRepository;
 
 final class InMemoryWebhookDeliveryRepository implements WebhookDeliveryRepository
@@ -42,5 +43,19 @@ final class InMemoryWebhookDeliveryRepository implements WebhookDeliveryReposito
     public function count(): int
     {
         return count($this->deliveries);
+    }
+
+    public function findByStatusPaginated(WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage): array
+    {
+        $matching = array_values(array_filter(
+            $this->deliveries,
+            static fn (WebhookDelivery $delivery): bool => $delivery->status === $status
+                && ($projectId === null || $delivery->projectId === $projectId),
+        ));
+
+        $total = count($matching);
+        $offset = ($page - 1) * $perPage;
+
+        return ['items' => array_slice($matching, $offset, $perPage), 'total' => $total];
     }
 }

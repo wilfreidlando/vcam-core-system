@@ -8,13 +8,16 @@ use Core\Events\Contracts\OutboxEventPublished;
 use Core\Webhook\Application\UseCase\DeactivateWebhookEndpointUseCase;
 use Core\Webhook\Application\UseCase\DeliverWebhookUseCase;
 use Core\Webhook\Application\UseCase\HandleRelayedEventUseCase;
+use Core\Webhook\Application\UseCase\ListDeadWebhookDeliveriesUseCase;
 use Core\Webhook\Application\UseCase\ListWebhookEndpointsUseCase;
 use Core\Webhook\Application\UseCase\RegisterWebhookEndpointUseCase;
 use Core\Webhook\Application\UseCase\ReplayWebhookDeliveryUseCase;
 use Core\Webhook\Contracts\DeactivateWebhookEndpoint;
 use Core\Webhook\Contracts\DeliverWebhook;
 use Core\Webhook\Contracts\HandleRelayedEvent;
+use Core\Webhook\Contracts\ListDeadWebhookDeliveries;
 use Core\Webhook\Contracts\ListWebhookEndpoints;
+use Core\Webhook\Contracts\QueueWebhookDelivery;
 use Core\Webhook\Contracts\RegisterWebhookEndpoint;
 use Core\Webhook\Contracts\ReplayWebhookDelivery;
 use Core\Webhook\Domain\Model\WebhookRetryPolicy;
@@ -28,6 +31,7 @@ use Core\Webhook\Infrastructure\Persistence\Eloquent\EloquentWebhookEndpointRepo
 use Core\Webhook\Infrastructure\Security\RandomWebhookSecretGenerator;
 use Core\Webhook\Presentation\Console\Commands\ReplayWebhookDeliveryCommand;
 use Core\Webhook\Presentation\Listeners\FanOutRelayedEventListener;
+use Core\Webhook\Presentation\Support\QueuedWebhookDeliveryDispatcher;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -54,6 +58,8 @@ final class WebhookServiceProvider extends ServiceProvider
         $this->app->bind(HandleRelayedEvent::class, HandleRelayedEventUseCase::class);
         $this->app->bind(DeliverWebhook::class, DeliverWebhookUseCase::class);
         $this->app->bind(ReplayWebhookDelivery::class, ReplayWebhookDeliveryUseCase::class);
+        $this->app->bind(ListDeadWebhookDeliveries::class, ListDeadWebhookDeliveriesUseCase::class);
+        $this->app->bind(QueueWebhookDelivery::class, QueuedWebhookDeliveryDispatcher::class);
 
         $this->app->singleton(WebhookRetryPolicy::class, static function (): WebhookRetryPolicy {
             /** @var int $maxAttempts */
