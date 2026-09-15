@@ -124,14 +124,23 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   (MyCoolPay : `initiate`, `submitAction`, `checkStatus`, webhook → outbox).
   `PaymentStatus` canonique (avec `canceled` ajouté par ADR-0035),
   `PaymentGateway` port, `PaymentCommand`/`PaymentReceipt`/`PaymentAction`
-  DTOs, `PaymentServiceProvider`. Ce qui manque encore pour que ce soit le
-  Lot 3 complet : les Use Cases d'orchestration métier (le point où un
-  paiement, **sur instruction explicite de l'appelant seulement**
-  — [ADR-0037](docs/adr/0037-credit-wallet-jamais-automatique-composition-explicite.md) —
+  DTOs, `PaymentServiceProvider`, un registre de providers typé et sûr
+  (`PaymentGatewayRegistry` — détecte les codes provider dupliqués au
+  boot plutôt que d'écraser silencieusement). Ce qui manque encore pour
+  que ce soit le Lot 3 complet, avec la conception déjà tranchée pour
+  chaque pièce — [ADR-0038](docs/adr/0038-conception-lot-3-payment-channel-routage-etat-callback.md) :
+  le champ `channel` canonique (mtn_momo, orange_money…) distinct du
+  `provider` interne jamais exposé, la table de routage
+  `(channel, Project) → provider`, la table d'état propre à `Payment`
+  (elle seule sait quel provider traite chaque paiement, pour que le
+  statut et les webhooks entrants n'aient jamais à deviner), et les
+  Use Cases d'orchestration métier (le point où un paiement, **sur
+  instruction explicite de l'appelant seulement** —
+  [ADR-0037](docs/adr/0037-credit-wallet-jamais-automatique-composition-explicite.md) —
   appelle `Core\Wallet\Contracts\CreditWallet` en synchrone, même
   transaction — [ADR-0036](docs/adr/0036-paiement-confirme-credite-le-wallet-en-synchrone.md)),
-  les adaptateurs MTN/Orange, et l'idempotence HTTP (G7, ci-dessous). Voir
-  `packages/payment/README.md`.
+  les adaptateurs MTN/Orange directs, et l'idempotence HTTP (G7,
+  ci-dessous). Voir `packages/payment/README.md`.
 - Idempotence à deux niveaux ([ADR-0025](docs/adr/0025-design-idempotence.md),
   amendé par [ADR-0033](docs/adr/0033-conception-lot-2-money-core.md) §2) :
   le niveau ledger (`idempotency_key` + `wasAlreadyPosted`) est livré au

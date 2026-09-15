@@ -73,5 +73,7 @@ d'acceptation : il alimente la liste négative et sert de jurisprudence
 | [0033](0033-conception-lot-2-money-core.md) | Conception Lot 2 : pas d'endpoint HTTP de mutation wallet, idempotence à deux niveaux, chart of accounts extensible | Accepté — amende 0025 |
 | [0034](0034-socle-integration-scope-structure.md) | Socle d'intégration : scope, structure et compromis retenus | Accepté — précise 0026 et 0031 |
 | [0035](0035-canonical-payment-status-canceled.md) | Étendre le vocabulaire canonique `PaymentStatus` avec `canceled` | Accepté — précise G6b |
+| ~~0037~~ | **Collision de numérotation** : `0037-payment-gateway-registry-typed.md` réutilise le numéro d'`0037-credit-wallet-jamais-automatique-composition-explicite.md` (déjà commitée, `047f3c9`) — à renuméroter en 0039 avant de commiter | — |
 | [0036](0036-paiement-confirme-credite-le-wallet-en-synchrone.md) | Un paiement confirmé crédite le wallet en appel synchrone, pas via le relais de l'outbox | Accepté — condition de déclenchement corrigée par 0037 |
 | [0037](0037-credit-wallet-jamais-automatique-composition-explicite.md) | Le crédit du wallet n'est jamais automatique : composition explicite par paiement, pas comportement par défaut | Accepté — amende 0036 |
+| [0038](0038-conception-lot-3-payment-channel-routage-etat-callback.md) | Conception Lot 3 Payment : channel canonique distinct du provider, routage par Project, état du paiement, deux notions de callback séparées (webhook ADR-0009 vs redirection Paylink) | Accepté |
