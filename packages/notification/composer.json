@@ -5,7 +5,10 @@
     "license": "proprietary",
     "require": {
         "php": "^8.4",
-        "core/support": "*@dev"
+        "core/support": "*@dev",
+        "core/identity": "*@dev",
+        "core/parties": "*@dev",
+        "core/events": "*@dev"
     },
     "autoload": {
         "psr-4": {

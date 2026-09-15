@@ -75,7 +75,8 @@
             "Core\\Support\\Tests\\": "packages/support/tests/",
             "Core\\Payment\\Tests\\": "packages/payment/tests/",
             "Core\\Events\\Tests\\": "packages/events/tests/",
-            "Core\\Webhook\\Tests\\": "packages/webhook/tests/"
+            "Core\\Webhook\\Tests\\": "packages/webhook/tests/",
+            "Core\\Notification\\Tests\\": "packages/notification/tests/"
         }
     },
     "scripts": {

@@ -1,0 +1,77 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Core\Notification\Domain\Model;
+
+use Core\Notification\Domain\Exception\InvalidNotificationStatusTransition;
+use Core\Notification\NotificationStatus;
+
+/**
+ * One notification this Core sent (or attempted to). `providerCode`/
+ * `providerMessageId` are null until a provider attempt is pinned —
+ * unlike `Core\Payment\Domain\Model\Payment` (always pinned at creation),
+ * a notification can reach `failed` without ever having a provider
+ * attempt succeed enough to pin one (every fallback failed at send time).
+ */
+final readonly class Notification
+{
+    public function __construct(
+        public string $id,
+        public string $projectId,
+        public string $channel,
+        public string $toPartyRef,
+        public string $templateKey,
+        public string $idempotencyKey,
+        public NotificationStatus $status,
+        public ?string $providerCode,
+        public ?string $providerMessageId,
+        public ?string $errorMessage,
+    ) {}
+
+    /**
+     * @throws InvalidNotificationStatusTransition when the transition is not
+     *                                             valid per `NotificationStatus::canTransitionTo()`
+     */
+    public function withStatusChange(NotificationStatus $status, ?string $reason): self
+    {
+        if (! $this->status->canTransitionTo($status)) {
+            throw InvalidNotificationStatusTransition::from($this->status, $status);
+        }
+
+        return new self(
+            id: $this->id,
+            projectId: $this->projectId,
+            channel: $this->channel,
+            toPartyRef: $this->toPartyRef,
+            templateKey: $this->templateKey,
+            idempotencyKey: $this->idempotencyKey,
+            status: $status,
+            providerCode: $this->providerCode,
+            providerMessageId: $this->providerMessageId,
+            errorMessage: $reason,
+        );
+    }
+
+    /**
+     * Pins which provider actually accepted this message — set once, at
+     * the moment a `send()` attempt succeeds, so a later status check or
+     * inbound callback resolves the right adapter directly (mirrors
+     * ADR-0038 §3/§4 for Payment).
+     */
+    public function withProviderAttempt(string $providerCode, string $providerMessageId): self
+    {
+        return new self(
+            id: $this->id,
+            projectId: $this->projectId,
+            channel: $this->channel,
+            toPartyRef: $this->toPartyRef,
+            templateKey: $this->templateKey,
+            idempotencyKey: $this->idempotencyKey,
+            status: $this->status,
+            providerCode: $providerCode,
+            providerMessageId: $providerMessageId,
+            errorMessage: $this->errorMessage,
+        );
+    }
+}

@@ -94,8 +94,7 @@ final class GuardRegistry
             'rule' => 'Canonical status enums match the governance vocabulary exactly',
             'tool' => 'Pest',
             'enforced_by' => 'tests/Architecture/CanonicalStatusTest.php',
-            'status' => self::PENDING_CODE,
-            'lot' => 'Lot 3 — PaymentStatus, Lot 5 — NotificationStatus',
+            'status' => self::ACTIVE,
         ],
         'G6c' => [
             'rule' => 'Only the shared integration caller opens outbound HTTP',

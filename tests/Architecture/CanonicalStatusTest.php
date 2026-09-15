@@ -24,9 +24,9 @@ use PHPUnit\Framework\TestCase;
 #[Group('arch')]
 final class CanonicalStatusTest extends TestCase
 {
-    private const PAYMENT_STATUS_ENUM = 'Core\Payment\Domain\Model\PaymentStatus';
+    private const PAYMENT_STATUS_ENUM = 'Core\Payment\PaymentStatus';
 
-    private const NOTIFICATION_STATUS_ENUM = 'Core\Notification\Domain\Model\NotificationStatus';
+    private const NOTIFICATION_STATUS_ENUM = 'Core\Notification\NotificationStatus';
 
     /**
      * Spec technique §9.4, augmented by ADR-0035 (canceled, distinct from

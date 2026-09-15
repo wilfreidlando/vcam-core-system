@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Core\Notification\Presentation\Http\Controllers;
+
+use Core\Identity\Contracts\ProjectContext;
+use Core\Notification\Contracts\GetNotificationStatus;
+use Core\Notification\Contracts\GetNotificationStatusCommand;
+use Core\Support\Http\ProblemDetails;
+use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
+
+final class GetNotificationStatusController
+{
+    public function __construct(
+        private readonly GetNotificationStatus $getNotificationStatus,
+    ) {}
+
+    /**
+     * Get a notification's current status.
+     *
+     * Requires the `notifications:read` scope, and returns the same
+     * not-found response whether the notification doesn't exist or
+     * belongs to another project.
+     */
+    public function __invoke(string $notificationId, ProjectContext $project): JsonResponse|Response
+    {
+        if (! $project->hasScope('notifications:read')) {
+            return ProblemDetails::forbidden('The notifications:read scope is required.');
+        }
+
+        $view = $this->getNotificationStatus->get(new GetNotificationStatusCommand($notificationId, $project->projectId));
+
+        return new JsonResponse([
+            'id' => $view->id,
+            'channel' => $view->channel,
+            'status' => $view->status->value,
+            'template' => $view->templateKey,
+            'error_message' => $view->errorMessage,
+        ]);
+    }
+}

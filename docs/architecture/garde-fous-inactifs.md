@@ -30,6 +30,7 @@ garde-fou** (une porte qui échoue pour une autre raison ne compte pas).
 | G5  | Montants en `bigint` minor units, jamais en flottant ni décimal | Pest + PostgreSQL |
 | G4  | Aucune colonne PII sur `parties` — actif depuis la migration Lot 2 | Pest + PostgreSQL |
 | G6  | Statuts bruts provider cantonnés à leur adaptateur | Règle PHPStan |
+| G6b | Enums de statuts canoniques conformes à la gouvernance — actif depuis `PaymentStatus` (Lot 3) et `NotificationStatus` (Lot 5, ADR-0041) | Pest |
 | G6c | Seul l'appelant d'intégration partagé ouvre des connexions HTTP sortantes | PHPat |
 | G7  | Tout endpoint monétaire exige un `Idempotency-Key` — actif depuis `POST /v1/payments` (Lot 3, ADR-0025) | Pest (application bootée) |
 | G8  | Aucun événement dispatché hors de l'outbox | PHPat + règle PHPStan |
@@ -45,7 +46,6 @@ démontre — même si peu de code métier existe encore.
 
 | ID   | Règle | Activé par | Propriétaire |
 | ---- | ----- | ---------- | ------------ |
-| G6b  | Enums de statuts canoniques conformes à la gouvernance | **Lot 3** (`PaymentStatus`) et **Lot 5** (`NotificationStatus`) | Dev Payment, Dev Notification |
 | G10  | Aucune régression de contrat consommateur | **Lot 7** — intégration du produit pilote | QA |
 
 ## Comment retirer une ligne de la section « en attente »

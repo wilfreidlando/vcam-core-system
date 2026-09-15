@@ -60,6 +60,76 @@
                 }
             }
         },
+        "/notifications/{notificationId}": {
+            "get": {
+                "operationId": "notifications.status",
+                "description": "Requires the `notifications:read` scope, and returns the same\nnot-found response whether the notification doesn't exist or\nbelongs to another project.",
+                "summary": "Get a notification's current status",
+                "tags": [
+                    "GetNotificationStatus"
+                ],
+                "parameters": [
+                    {
+                        "name": "notificationId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "channel": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "template": {
+                                            "type": "string"
+                                        },
+                                        "error_message": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "channel",
+                                        "status",
+                                        "template",
+                                        "error_message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/payments/{paymentId}": {
             "get": {
                 "operationId": "payments.status",
@@ -239,6 +309,79 @@
                                         "url",
                                         "events",
                                         "secret"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/notifications": {
+            "post": {
+                "operationId": "notifications.send",
+                "description": "Requires the `notifications:write` scope and an `Idempotency-Key`\nheader (spec \u00a713). `to_party_ref` is a correlation reference only\n\u2014 resolving it to an actual delivery address is a provider adapter\nconcern, not the Core's (ADR-0041 \u00a75).",
+                "summary": "Send a notification",
+                "tags": [
+                    "SendNotification"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SendNotificationRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "channel": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "template": {
+                                            "type": "string"
+                                        },
+                                        "error_message": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "channel",
+                                        "status",
+                                        "template",
+                                        "error_message"
                                     ]
                                 }
                             }
@@ -498,6 +641,38 @@
                     "events"
                 ],
                 "title": "RegisterWebhookEndpointRequest"
+            },
+            "SendNotificationRequest": {
+                "type": "object",
+                "description": "Validates `POST /v1/notifications` (spec \u00a713's own example \u2014 field\nnames match it exactly: `channel`, `to_party_ref`, `template`,\n`variables`). No `idempotency_key` body field: the `Idempotency-Key`\nHTTP header (required by the `idempotency` middleware, spec \u00a713 \u2014\n\"toutes les mutations mon\u00e9taires et d'envoi\") is the one value used,\nmirroring `StartPaymentRequest`.",
+                "properties": {
+                    "channel": {
+                        "type": "string"
+                    },
+                    "to_party_ref": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "template": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "variables": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "channel",
+                    "to_party_ref",
+                    "template"
+                ],
+                "title": "SendNotificationRequest"
             },
             "StartPaymentRequest": {
                 "type": "object",

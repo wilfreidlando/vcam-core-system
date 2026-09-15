@@ -309,6 +309,20 @@ expect_rejection "G6c" "a provider adapter calls Http:: directly" \
     'should not depend on Illuminate[^"]*Http' \
     $DC $STAN packages/payment
 
+# ── G6b — a canonical status enum drifts from the governance vocabulary ────
+backup packages/notification/src/NotificationStatus.php
+python3 - <<'PY'
+path = 'packages/notification/src/NotificationStatus.php'
+needle = "case Queued = 'queued';"
+replacement = "case Queued = 'pending';"
+content = open(path).read()
+assert needle in content, 'NotificationStatus::Queued case not found — probe out of date'
+open(path, 'w').write(content.replace(needle, replacement))
+PY
+expect_rejection "G6b" "NotificationStatus drifts from the canonical vocabulary" \
+    'has drifted from the canonical vocabulary' \
+    $DC_DB vendor/bin/pest tests/Architecture/CanonicalStatusTest.php --no-progress
+
 # ── G8 — an event dispatched outside the outbox ─────────────────────────────
 probe packages/wallet/src/Application/UseCase/GuardProbeEvent.php <<'PHP'
 <?php

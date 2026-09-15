@@ -1,0 +1,95 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Core\Notification\Infrastructure\Persistence\Eloquent;
+
+use Core\Notification\Domain\Exception\NotificationAlreadyExists;
+use Core\Notification\Domain\Model\Notification;
+use Core\Notification\Domain\Port\NotificationRepository;
+use Core\Notification\NotificationStatus;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
+
+final class EloquentNotificationRepository implements NotificationRepository
+{
+    public function create(Notification $notification): void
+    {
+        try {
+            // SAVEPOINT (nested transaction) — mirrors EloquentPaymentRepository::create():
+            // without this, a caught violation poisons the whole outer transaction.
+            DB::transaction(function () use ($notification): void {
+                NotificationRecord::query()->create($this->toAttributes($notification));
+            });
+        } catch (UniqueConstraintViolationException) {
+            throw new NotificationAlreadyExists;
+        }
+    }
+
+    public function save(Notification $notification): void
+    {
+        NotificationRecord::query()->whereKey($notification->id)->update($this->toAttributes($notification));
+    }
+
+    public function find(string $id): ?Notification
+    {
+        $record = NotificationRecord::query()->find($id);
+
+        return $record === null ? null : $this->toDomain($record);
+    }
+
+    public function findByIdempotencyKey(string $projectId, string $idempotencyKey): ?Notification
+    {
+        $record = NotificationRecord::query()
+            ->where('project_id', $projectId)
+            ->where('idempotency_key', $idempotencyKey)
+            ->first();
+
+        return $record === null ? null : $this->toDomain($record);
+    }
+
+    public function findByProviderMessage(string $providerCode, string $providerMessageId): ?Notification
+    {
+        $record = NotificationRecord::query()
+            ->where('provider_code', $providerCode)
+            ->where('provider_message_id', $providerMessageId)
+            ->first();
+
+        return $record === null ? null : $this->toDomain($record);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function toAttributes(Notification $notification): array
+    {
+        return [
+            'id' => $notification->id,
+            'project_id' => $notification->projectId,
+            'channel' => $notification->channel,
+            'to_party_ref' => $notification->toPartyRef,
+            'template_key' => $notification->templateKey,
+            'idempotency_key' => $notification->idempotencyKey,
+            'status' => $notification->status->value,
+            'provider_code' => $notification->providerCode,
+            'provider_message_id' => $notification->providerMessageId,
+            'error_message' => $notification->errorMessage,
+        ];
+    }
+
+    private function toDomain(NotificationRecord $record): Notification
+    {
+        return new Notification(
+            id: $record->id,
+            projectId: $record->project_id,
+            channel: $record->channel,
+            toPartyRef: $record->to_party_ref,
+            templateKey: $record->template_key,
+            idempotencyKey: $record->idempotency_key,
+            status: NotificationStatus::from($record->status),
+            providerCode: $record->provider_code,
+            providerMessageId: $record->provider_message_id,
+            errorMessage: $record->error_message,
+        );
+    }
+}
