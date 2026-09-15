@@ -95,7 +95,12 @@ final class IntegrationServiceProvider extends ServiceProvider
 
         $this->app->singleton(ExternalApiCaller::class, function (Application $app): ExternalApiCaller {
             $authProviders = [];
-            foreach ((array) $app->tagged('integration.auth_provider') as $provider) {
+            // NOT `(array) $app->tagged(...)` — Container::tagged() returns
+            // a Generator; casting an object (rather than iterating it) to
+            // array reflects its internal properties, not the tagged
+            // instances, silently handing the caller a Closure instead of
+            // an AuthProvider. Iterate the Generator directly.
+            foreach ($app->tagged('integration.auth_provider') as $provider) {
                 /** @var AuthProvider $provider */
                 $authProviders[] = $provider;
             }
