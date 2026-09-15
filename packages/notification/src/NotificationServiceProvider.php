@@ -9,6 +9,7 @@ use Core\Notification\Application\UseCase\GetChannelSessionQrCodeUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionScreenshotUseCase;
 use Core\Notification\Application\UseCase\GetNotificationStatusUseCase;
 use Core\Notification\Application\UseCase\HandleNotificationStatusChangedUseCase;
+use Core\Notification\Application\UseCase\ListNotificationsUseCase;
 use Core\Notification\Application\UseCase\RequestChannelSessionPairingCodeUseCase;
 use Core\Notification\Application\UseCase\SendFileNotificationUseCase;
 use Core\Notification\Application\UseCase\SendImageNotificationUseCase;
@@ -16,6 +17,7 @@ use Core\Notification\Application\UseCase\SendTextNotificationUseCase;
 use Core\Notification\Contracts\GetChannelSessionQrCode;
 use Core\Notification\Contracts\GetChannelSessionScreenshot;
 use Core\Notification\Contracts\GetNotificationStatus;
+use Core\Notification\Contracts\ListNotifications;
 use Core\Notification\Contracts\NotificationChannelProviderRegistry;
 use Core\Notification\Contracts\NotificationProviderRouter;
 use Core\Notification\Contracts\NotificationStatusChangeHandler;
@@ -82,6 +84,7 @@ final class NotificationServiceProvider extends ServiceProvider
         $this->app->bind(SendImageNotification::class, SendImageNotificationUseCase::class);
         $this->app->bind(SendFileNotification::class, SendFileNotificationUseCase::class);
         $this->app->bind(GetNotificationStatus::class, GetNotificationStatusUseCase::class);
+        $this->app->bind(ListNotifications::class, ListNotificationsUseCase::class);
         $this->app->bind(NotificationStatusChangeHandler::class, HandleNotificationStatusChangedUseCase::class);
 
         $this->app->bind(GetChannelSessionQrCode::class, GetChannelSessionQrCodeUseCase::class);

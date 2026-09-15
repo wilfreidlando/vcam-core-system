@@ -9,7 +9,9 @@
         "core/identity": "*@dev",
         "core/audit": "*@dev",
         "core/webhook": "*@dev",
-        "core/payment": "*@dev"
+        "core/payment": "*@dev",
+        "core/wallet": "*@dev",
+        "core/notification": "*@dev"
     },
     "autoload": {
         "psr-4": {

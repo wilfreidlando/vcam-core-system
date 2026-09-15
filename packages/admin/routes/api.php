@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 use Core\Admin\Presentation\Http\Controllers\ListDeadWebhookDeliveriesController;
+use Core\Admin\Presentation\Http\Controllers\ListProjectNotificationsController;
+use Core\Admin\Presentation\Http\Controllers\ListProjectPaymentsController;
+use Core\Admin\Presentation\Http\Controllers\ListProjectsController;
+use Core\Admin\Presentation\Http\Controllers\ListProjectWalletsController;
 use Core\Admin\Presentation\Http\Controllers\ReplayDeadWebhookDeliveryController;
 use Core\Admin\Presentation\Http\Controllers\SearchAuditLogController;
 use Core\Admin\Presentation\Http\Controllers\TriggerPaymentReconciliationController;
@@ -31,4 +35,9 @@ Route::middleware(['operator.auth'])
         Route::get('/webhook-deliveries/dead', ListDeadWebhookDeliveriesController::class)->name('admin.webhook-deliveries.dead');
         Route::post('/webhook-deliveries/{deliveryId}/replay', ReplayDeadWebhookDeliveryController::class)->name('admin.webhook-deliveries.replay');
         Route::post('/payment-reconciliation-runs', TriggerPaymentReconciliationController::class)->name('admin.payment-reconciliation-runs');
+
+        Route::get('/projects', ListProjectsController::class)->name('admin.projects');
+        Route::get('/projects/{projectId}/payments', ListProjectPaymentsController::class)->name('admin.projects.payments');
+        Route::get('/projects/{projectId}/wallets', ListProjectWalletsController::class)->name('admin.projects.wallets');
+        Route::get('/projects/{projectId}/notifications', ListProjectNotificationsController::class)->name('admin.projects.notifications');
     });

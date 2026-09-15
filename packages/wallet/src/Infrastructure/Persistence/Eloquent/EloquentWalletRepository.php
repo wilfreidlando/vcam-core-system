@@ -51,6 +51,33 @@ final class EloquentWalletRepository implements WalletRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
+    public function findByProject(string $projectId, int $page, int $perPage): array
+    {
+        // `orderBy`/`skip`/`take`/`count` are forwarded by Eloquent\Builder
+        // to the underlying query builder rather than declared on it
+        // directly; going through `toBase()` first avoids a Larastan false
+        // positive ("dynamic call to static method") on those forwarded
+        // calls, and `WalletRecord::hydrate()` restores the casts after.
+        $base = WalletRecord::query()->where('project_id', $projectId)->toBase();
+
+        $total = (clone $base)->count();
+
+        $base->orderBy('created_at', 'desc');
+        $base->skip(($page - 1) * $perPage);
+        $base->take($perPage);
+
+        $rows = $base->get()->map(static fn (object $row): array => (array) $row)->all();
+
+        $records = WalletRecord::hydrate($rows);
+
+        $wallets = [];
+        foreach ($records as $record) {
+            $wallets[] = $this->toDomain($record);
+        }
+
+        return ['items' => $wallets, 'total' => $total];
+    }
+
     private function toDomain(WalletRecord $record): Wallet
     {
         return new Wallet($record->id, $record->project_id, $record->party_id, $record->currency, $record->status);

@@ -7,9 +7,11 @@ namespace Core\Wallet;
 use Core\Wallet\Application\UseCase\CreditWalletUseCase;
 use Core\Wallet\Application\UseCase\DebitWalletUseCase;
 use Core\Wallet\Application\UseCase\GetWalletBalanceUseCase;
+use Core\Wallet\Application\UseCase\ListWalletsUseCase;
 use Core\Wallet\Contracts\CreditWallet;
 use Core\Wallet\Contracts\DebitWallet;
 use Core\Wallet\Contracts\GetWalletBalance;
+use Core\Wallet\Contracts\ListWallets;
 use Core\Wallet\Domain\Port\WalletBalanceRepository;
 use Core\Wallet\Domain\Port\WalletRepository;
 use Core\Wallet\Infrastructure\Persistence\Eloquent\EloquentWalletBalanceRepository;
@@ -33,6 +35,7 @@ final class WalletServiceProvider extends ServiceProvider
         $this->app->bind(CreditWallet::class, CreditWalletUseCase::class);
         $this->app->bind(DebitWallet::class, DebitWalletUseCase::class);
         $this->app->bind(GetWalletBalance::class, GetWalletBalanceUseCase::class);
+        $this->app->bind(ListWallets::class, ListWalletsUseCase::class);
     }
 
     public function boot(): void

@@ -88,6 +88,33 @@ final class EloquentPaymentRepository implements PaymentRepository
         return $payments;
     }
 
+    public function findByProject(string $projectId, ?PaymentStatus $status, int $page, int $perPage): array
+    {
+        // See findStuckSince() above for why this goes through toBase()/hydrate().
+        $base = PaymentRecord::query()->where('project_id', $projectId)->toBase();
+
+        if ($status !== null) {
+            $base->where('status', $status->value);
+        }
+
+        $total = (clone $base)->count();
+
+        $base->orderBy('created_at', 'desc');
+        $base->skip(($page - 1) * $perPage);
+        $base->take($perPage);
+
+        $rows = $base->get()->map(static fn (object $row): array => (array) $row)->all();
+
+        $records = PaymentRecord::hydrate($rows);
+
+        $payments = [];
+        foreach ($records as $record) {
+            $payments[] = $this->toDomain($record);
+        }
+
+        return ['items' => $payments, 'total' => $total];
+    }
+
     /**
      * @return array<string, mixed>
      */

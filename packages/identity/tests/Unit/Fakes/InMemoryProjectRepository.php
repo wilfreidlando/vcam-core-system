@@ -21,4 +21,17 @@ final class InMemoryProjectRepository implements ProjectRepository
     {
         return $this->projects[$id] ?? null;
     }
+
+    public function findAll(?string $organizationId, int $page, int $perPage): array
+    {
+        $matching = array_values(array_filter(
+            $this->projects,
+            static fn (Project $project): bool => $organizationId === null || $project->organizationId === $organizationId,
+        ));
+
+        $total = count($matching);
+        $offset = ($page - 1) * $perPage;
+
+        return ['items' => array_slice($matching, $offset, $perPage), 'total' => $total];
+    }
 }

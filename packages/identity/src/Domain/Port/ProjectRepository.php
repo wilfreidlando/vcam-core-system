@@ -11,4 +11,12 @@ interface ProjectRepository
     public function save(Project $project): void;
 
     public function find(string $id): ?Project;
+
+    /**
+     * Newest first, optionally narrowed to one `organizationId` (ADR-0045
+     * — the operator console's project listing).
+     *
+     * @return array{items: list<Project>, total: int}
+     */
+    public function findAll(?string $organizationId, int $page, int $perPage): array;
 }

@@ -53,4 +53,17 @@ final class InMemoryWalletRepository implements WalletRepository
     {
         return count($this->wallets);
     }
+
+    public function findByProject(string $projectId, int $page, int $perPage): array
+    {
+        $matching = array_values(array_filter(
+            $this->wallets,
+            static fn (Wallet $wallet): bool => $wallet->projectId === $projectId,
+        ));
+
+        $total = count($matching);
+        $offset = ($page - 1) * $perPage;
+
+        return ['items' => array_slice($matching, $offset, $perPage), 'total' => $total];
+    }
 }

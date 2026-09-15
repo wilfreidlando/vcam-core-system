@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Payment\Domain\Port;
 
 use Core\Payment\Domain\Model\Payment;
+use Core\Payment\PaymentStatus;
 use DateTimeImmutable;
 
 interface PaymentRepository
@@ -43,4 +44,12 @@ interface PaymentRepository
      * @return list<Payment>
      */
     public function findStuckSince(DateTimeImmutable $threshold, int $limit): array;
+
+    /**
+     * Newest first, optionally narrowed to one canonical `status`
+     * (ADR-0045 — the operator console's project-scoped listing).
+     *
+     * @return array{items: list<Payment>, total: int}
+     */
+    public function findByProject(string $projectId, ?PaymentStatus $status, int $page, int $perPage): array;
 }

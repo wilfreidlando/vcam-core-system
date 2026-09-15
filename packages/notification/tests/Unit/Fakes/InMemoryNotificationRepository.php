@@ -7,6 +7,7 @@ namespace Core\Notification\Tests\Unit\Fakes;
 use Core\Notification\Domain\Exception\NotificationAlreadyExists;
 use Core\Notification\Domain\Model\Notification;
 use Core\Notification\Domain\Port\NotificationRepository;
+use Core\Notification\NotificationStatus;
 
 final class InMemoryNotificationRepository implements NotificationRepository
 {
@@ -61,5 +62,19 @@ final class InMemoryNotificationRepository implements NotificationRepository
     public function count(): int
     {
         return count($this->notifications);
+    }
+
+    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage): array
+    {
+        $matching = array_values(array_filter(
+            $this->notifications,
+            static fn (Notification $notification): bool => $notification->projectId === $projectId
+                && ($status === null || $notification->status === $status),
+        ));
+
+        $total = count($matching);
+        $offset = ($page - 1) * $perPage;
+
+        return ['items' => array_slice($matching, $offset, $perPage), 'total' => $total];
     }
 }

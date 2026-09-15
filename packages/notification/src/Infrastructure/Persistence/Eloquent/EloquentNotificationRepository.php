@@ -58,6 +58,37 @@ final class EloquentNotificationRepository implements NotificationRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
+    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage): array
+    {
+        // `orderBy`/`skip`/`take`/`count` are forwarded by Eloquent\Builder
+        // to the underlying query builder rather than declared on it
+        // directly; going through `toBase()` first avoids a Larastan false
+        // positive ("dynamic call to static method") on those forwarded
+        // calls, and `NotificationRecord::hydrate()` restores the casts.
+        $base = NotificationRecord::query()->where('project_id', $projectId)->toBase();
+
+        if ($status !== null) {
+            $base->where('status', $status->value);
+        }
+
+        $total = (clone $base)->count();
+
+        $base->orderBy('created_at', 'desc');
+        $base->skip(($page - 1) * $perPage);
+        $base->take($perPage);
+
+        $rows = $base->get()->map(static fn (object $row): array => (array) $row)->all();
+
+        $records = NotificationRecord::hydrate($rows);
+
+        $notifications = [];
+        foreach ($records as $record) {
+            $notifications[] = $this->toDomain($record);
+        }
+
+        return ['items' => $notifications, 'total' => $total];
+    }
+
     /**
      * @return array<string, mixed>
      */

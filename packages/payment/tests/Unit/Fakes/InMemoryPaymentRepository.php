@@ -88,4 +88,18 @@ final class InMemoryPaymentRepository implements PaymentRepository
 
         return array_slice($stuck, 0, $limit);
     }
+
+    public function findByProject(string $projectId, ?PaymentStatus $status, int $page, int $perPage): array
+    {
+        $matching = array_values(array_filter(
+            $this->payments,
+            static fn (Payment $payment): bool => $payment->projectId === $projectId
+                && ($status === null || $payment->status === $status),
+        ));
+
+        $total = count($matching);
+        $offset = ($page - 1) * $perPage;
+
+        return ['items' => array_slice($matching, $offset, $perPage), 'total' => $total];
+    }
 }

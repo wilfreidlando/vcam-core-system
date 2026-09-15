@@ -107,14 +107,16 @@ adaptateur WhatsApp concret livré ensuite : WAHA auto-hébergé (envoi
 texte/image/fichier + liaison de téléphone QR/pairing-code/screenshot,
 sans aucune persistance de session côté Core —
 [ADR-0042](docs/adr/0042-whatsapp-waha-adapter-channel-session-minimal-surface.md))
-→ **Lot 6 Core Admin — première tranche livrée** : opérateurs/RBAC/MFA
+→ **Lot 6 Core Admin — deux tranches livrées** : opérateurs/RBAC/MFA
 (`Core\Identity\OperatorRole`, Sanctum, `pragmarx/google2fa`), recherche
 d'audit (`Core\Audit\Contracts\AuditQuery`), liste + rejeu de la DLQ
 webhook, réconciliation paiement par `checkStatus()` convergeant sur
 `PaymentStatusChangeHandler` existant
-([ADR-0044](docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md)) —
-reste pour un Lot 6 complet : règles de frais, billing, listing générique
-payments/wallets/notifications/projects, monitoring opérationnel
+([ADR-0044](docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md)),
+puis listing générique projects/payments/wallets/notifications, un port
+`List*` par module réutilisant les read models existants
+([ADR-0045](docs/adr/0045-lot-6-listing-generique-admin.md)) —
+reste pour un Lot 6 complet : règles de frais, billing, monitoring opérationnel
 → Lot 7 migration pilote. Détail de chaque lot :
 [docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.
 
@@ -202,8 +204,9 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   `Contracts\QueueWebhookDelivery`. Ce qui reste hors périmètre :
   `notification`/`billing` ne consomment pas encore `OutboxEventPublished`
   (Lot 5+).
-- Module `admin` : **première tranche du Lot 6 livrée** — voir
-  [ADR-0044](docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md).
+- Module `admin` : **deux tranches du Lot 6 livrées** — voir
+  [ADR-0044](docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md)
+  et [ADR-0045](docs/adr/0045-lot-6-listing-generique-admin.md).
   Nouvelle strate d'authentification « Plan 1 » (spec §5.1), parallèle au
   plan Project/ApiKey : `Core\Identity\OperatorRole` (enum PHP fixe, pas
   le schéma dynamique roles/permissions de la spec — écart assumé, YAGNI),
@@ -223,9 +226,22 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   `ReplayWebhookDelivery` intact), `POST /payment-reconciliation-runs`
   (déclenche `Core\Payment\Contracts\ReconcileStuckPayments`, aussi
   planifié via `admin:reconcile-stuck-payments` toutes les 5 minutes).
-  Hors périmètre de cette tranche : règles de frais, billing, listing
-  générique payments/wallets/notifications/projects, monitoring
-  opérationnel/OTel, gestion self-service des opérateurs.
+  Deuxième tranche (ADR-0045) : listing générique, un port `List*` par
+  module (`Identity\Contracts\ListProjects`, `Payment\Contracts\ListPayments`,
+  `Wallet\Contracts\ListWallets`, `Notification\Contracts\ListNotifications`)
+  — `GET /v1/admin/projects` (optionnellement filtré par
+  `organization_id`), puis `GET /v1/admin/projects/{projectId}/{payments,
+  wallets,notifications}` (permissions `projects:read`/`payments:read`/
+  `wallets:read`/`notifications:read`, réparties par rôle selon la spec
+  §8.1). Réutilise les read models existants (`PaymentView`,
+  `NotificationView`) plutôt que d'en dupliquer la forme ; un filtre de
+  statut en query param est une chaîne brute dans le DTO `Contracts`
+  (jamais l'enum canonique, qui vit hors de `Contracts/` — G3c). Aucune
+  route `POST`, donc hors du champ G7/`idempotency`. Convention de
+  pagination (`page`/`per_page`, `{data, meta}`) reprise telle quelle
+  d'`AuditQuery` (ADR-0044). Hors périmètre des deux tranches : règles de
+  frais, billing, monitoring opérationnel/OTel, gestion self-service des
+  opérateurs.
 - Identity/Audit sont livrés (Lot 1) : Organization/Project/ApiKey, middleware
   d'auth Project, `GET /v1/whoami`, module Audit minimal. Voir
   `packages/identity/README.md`. Depuis le Lot 6 (ADR-0044), `identity`

@@ -8,15 +8,30 @@ use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Application\Dto\ConfirmOperatorMfaEnrollmentCommand;
 use Core\Identity\Application\Dto\CreateOperatorCommand;
+use Core\Identity\Application\Dto\CreateOrganizationCommand;
+use Core\Identity\Application\Dto\CreateProjectCommand;
 use Core\Identity\Application\Dto\EnrollOperatorMfaCommand;
 use Core\Identity\Application\Dto\LoginOperatorCommand;
 use Core\Identity\Application\UseCase\ConfirmOperatorMfaEnrollment;
 use Core\Identity\Application\UseCase\CreateOperator;
+use Core\Identity\Application\UseCase\CreateOrganization;
+use Core\Identity\Application\UseCase\CreateProject;
 use Core\Identity\Application\UseCase\EnrollOperatorMfa;
 use Core\Identity\Application\UseCase\LoginOperator;
 use Core\Identity\Domain\Model\Operator;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Identity\OperatorRole;
+use Core\Notification\Domain\Model\Notification;
+use Core\Notification\Domain\Port\NotificationRepository;
+use Core\Notification\NotificationStatus;
+use Core\Payment\Domain\Model\Payment;
+use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Payment\PaymentStatus;
+use Core\Support\Money\Money;
+use Core\Wallet\Domain\Model\Wallet;
+use Core\Wallet\Domain\Model\WalletBalance;
+use Core\Wallet\Domain\Port\WalletBalanceRepository;
+use Core\Wallet\Domain\Port\WalletRepository;
 use Core\Webhook\Contracts\RegisterWebhookEndpoint;
 use Core\Webhook\Contracts\RegisterWebhookEndpointCommand;
 use Core\Webhook\Domain\Model\WebhookDelivery;
@@ -149,6 +164,94 @@ final class AdminHttpFlowTest extends TestCase
         $token = $this->authenticatedOperatorToken(OperatorRole::ReadOnlyAuditor);
 
         $this->postJson('/v1/admin/payment-reconciliation-runs', [], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(403);
+    }
+
+    #[Test]
+    public function an_operator_with_projects_read_lists_projects_optionally_scoped_to_an_organization(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::ReadOnlyAuditor);
+
+        $orgA = app(CreateOrganization::class)(new CreateOrganizationCommand('Org A'), actor: 'service:test', correlationId: null);
+        $orgB = app(CreateOrganization::class)(new CreateOrganizationCommand('Org B'), actor: 'service:test', correlationId: null);
+        app(CreateProject::class)(new CreateProjectCommand($orgA->id, 'Project A1'), actor: 'service:test', correlationId: null);
+        app(CreateProject::class)(new CreateProjectCommand($orgB->id, 'Project B1'), actor: 'service:test', correlationId: null);
+
+        $this->getJson('/v1/admin/projects', ['Authorization' => "Bearer {$token}"])
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2);
+
+        $this->getJson("/v1/admin/projects?organization_id={$orgA->id}", ['Authorization' => "Bearer {$token}"])
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.name', 'Project A1');
+    }
+
+    #[Test]
+    public function an_operator_lists_a_projects_payments_wallets_and_notifications(): void
+    {
+        $organization = app(CreateOrganization::class)(new CreateOrganizationCommand('Org'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)(new CreateProjectCommand($organization->id, 'Project'), actor: 'service:test', correlationId: null);
+        $partyId = (string) Str::uuid();
+
+        app(PaymentRepository::class)->create(new Payment(
+            id: (string) Str::uuid(),
+            projectId: $project->id,
+            channel: 'mtn_momo',
+            providerCode: 'my-coolpay',
+            idempotencyKey: (string) Str::uuid(),
+            providerTransactionRef: (string) Str::uuid(),
+            amount: 5_000,
+            currency: 'XAF',
+            status: PaymentStatus::Succeeded,
+            requiresAction: false,
+            actionHint: null,
+            paymentUrl: null,
+            errorMessage: null,
+            returnUrl: null,
+            walletRecipientExternalRef: null,
+        ));
+
+        $walletId = (string) Str::uuid();
+        app(WalletRepository::class)->save(new Wallet($walletId, $project->id, $partyId, 'XAF', 'active'));
+        app(WalletBalanceRepository::class)->initialize($walletId, 'XAF');
+        app(WalletBalanceRepository::class)->save(new WalletBalance($walletId, Money::ofMinor(2_500, 'XAF'), Money::zero('XAF'), 1));
+
+        app(NotificationRepository::class)->create(new Notification(
+            id: (string) Str::uuid(),
+            projectId: $project->id,
+            channel: 'whatsapp',
+            toPartyRef: $partyId,
+            contentType: 'text',
+            idempotencyKey: (string) Str::uuid(),
+            status: NotificationStatus::Delivered,
+            providerCode: 'whatsapp-waha',
+            providerMessageId: null,
+            errorMessage: null,
+        ));
+
+        $financeToken = $this->authenticatedOperatorToken(OperatorRole::FinanceOperator);
+        $supportToken = $this->authenticatedOperatorToken(OperatorRole::SupportOperator);
+
+        $this->getJson("/v1/admin/projects/{$project->id}/payments", ['Authorization' => "Bearer {$financeToken}"])
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.amount', 5_000);
+
+        $this->getJson("/v1/admin/projects/{$project->id}/wallets", ['Authorization' => "Bearer {$financeToken}"])
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.available_minor', 2_500);
+
+        $this->getJson("/v1/admin/projects/{$project->id}/notifications", ['Authorization' => "Bearer {$supportToken}"])
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.status', 'delivered');
+
+        // Finance has no notifications:read, Support has no wallets:read.
+        $this->getJson("/v1/admin/projects/{$project->id}/notifications", ['Authorization' => "Bearer {$financeToken}"])
+            ->assertStatus(403);
+        $this->getJson("/v1/admin/projects/{$project->id}/wallets", ['Authorization' => "Bearer {$supportToken}"])
             ->assertStatus(403);
     }
 

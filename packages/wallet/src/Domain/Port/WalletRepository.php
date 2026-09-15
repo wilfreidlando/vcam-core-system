@@ -13,4 +13,12 @@ interface WalletRepository
     public function find(string $id): ?Wallet;
 
     public function findByPartyAndCurrency(string $partyId, string $currency): ?Wallet;
+
+    /**
+     * Newest first (ADR-0045 — the operator console's project-scoped
+     * listing).
+     *
+     * @return array{items: list<Wallet>, total: int}
+     */
+    public function findByProject(string $projectId, int $page, int $perPage): array;
 }
