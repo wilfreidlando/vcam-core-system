@@ -33,6 +33,7 @@ garde-fou** (une porte qui échoue pour une autre raison ne compte pas).
 | G6c | Seul l'appelant d'intégration partagé ouvre des connexions HTTP sortantes | PHPat |
 | G8  | Aucun événement dispatché hors de l'outbox | PHPat + règle PHPStan |
 | G8c | L'écriture outbox et le changement d'état partagent une transaction — actif depuis `CreditWalletUseCase` (Lot 2, ADR-0032) | Pest + PostgreSQL |
+| G9  | Aucune rupture OpenAPI sans montée de version — actif depuis l'installation de Scramble et le premier snapshot commité (`openapi/v1.json`) | oasdiff + Spectral |
 | G11 | Invariants ledger (somme nulle, solde dérivé, concurrence, rejeu) — actif depuis le ledger et le wallet (Lot 2) | Pest + PostgreSQL |
 
 Ces règles sont « actives » au sens où elles **rejettent aujourd'hui** une
@@ -45,7 +46,6 @@ démontre — même si peu de code métier existe encore.
 | ---- | ----- | ---------- | ------------ |
 | G6b  | Enums de statuts canoniques conformes à la gouvernance | **Lot 3** (`PaymentStatus`) et **Lot 5** (`NotificationStatus`) | Dev Payment, Dev Notification |
 | G7   | Tout endpoint monétaire exige un `Idempotency-Key` | **Lot 3** — première route de mutation monétaire publique (ADR-0033 §1 : les mutations wallet du Lot 2 sont internes, sans route HTTP ; ADR-0033 §2 amende ADR-0025, idempotence HTTP repoussée au Lot 3) | Dev Money |
-| G9   | Aucune rupture OpenAPI sans montée de version | **Lot 1** — premier endpoint publié | Tech Lead |
 | G10  | Aucune régression de contrat consommateur | **Lot 7** — intégration du produit pilote | QA |
 
 ## Comment retirer une ligne de la section « en attente »

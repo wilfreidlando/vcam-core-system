@@ -340,6 +340,30 @@ expect_rejection "G8" "a use case calls event() instead of writing to the outbox
 # rather than faked: do not mark this guard's automation "done" until a real
 # probe exists. Owner: Dev Platform.
 
+# ── G9 — an OpenAPI breaking change with no version bump ───────────────────
+# Mirrors exactly what the CI job does: diff the committed baseline
+# (openapi/v1.json at HEAD) against a freshly regenerated spec, via the same
+# `tufin/oasdiff breaking` the workflow runs. Removing a whole path is the
+# least ambiguous breaking change oasdiff can detect.
+git show HEAD:openapi/v1.json > /tmp/guard-g9-base.json
+backup packages/identity/routes/api.php
+python3 - <<'PY'
+path = 'packages/identity/routes/api.php'
+needle = "Route::get('/whoami', WhoAmIController::class)->name('identity.whoami');"
+content = open(path).read()
+assert needle in content, 'whoami route registration not found — probe out of date'
+open(path, 'w').write(content.replace(needle, '// GUARD PROBE: route removed.'))
+PY
+$DC_DB php artisan scramble:export --path=openapi/v1.json > /dev/null 2>&1
+expect_rejection "G9" "the /whoami endpoint is silently removed, no version bump" \
+    'api-path-removed|breaking' \
+    docker run --rm -v /tmp:/specs -v "$PWD/openapi:/head" tufin/oasdiff:latest \
+    breaking /specs/guard-g9-base.json /head/v1.json --fail-on ERR
+# The probe overwrote the real openapi/v1.json on disk (reset_workspace only
+# restores the route file) — restore the committed snapshot too.
+git checkout -- openapi/v1.json
+rm -f /tmp/guard-g9-base.json
+
 # ── G11 — the ledger's own deferred balance trigger, disabled ──────────────
 # Unlike the other probes, this one breaks REAL migrated schema rather than
 # adding harmless residue: the trigger install call is commented out, the

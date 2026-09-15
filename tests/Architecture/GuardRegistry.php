@@ -128,8 +128,7 @@ final class GuardRegistry
             'rule' => 'No OpenAPI breaking change without an API version bump',
             'tool' => 'oasdiff + Spectral',
             'enforced_by' => '.github/workflows/ci.yml',
-            'status' => self::PENDING_CODE,
-            'lot' => 'Lot 1 — first published endpoint',
+            'status' => self::ACTIVE,
         ],
         'G10' => [
             'rule' => 'No consumer contract regression',
