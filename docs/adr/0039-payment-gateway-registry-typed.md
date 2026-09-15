@@ -1,4 +1,4 @@
-# ADR-0037 — Registre provider typé par domaine + détection des doublons
+# ADR-0039 — Registre provider typé par domaine + détection des doublons
 
 - **Statut** : Accepté
 - **Date** : 2026-09-15
