@@ -107,10 +107,7 @@ final class GuardRegistry
             'rule' => 'Every monetary endpoint requires an Idempotency-Key',
             'tool' => 'Pest (booted application)',
             'enforced_by' => 'tests/Architecture/IdempotencyTest.php',
-            'status' => self::PENDING_CODE,
-            'lot' => 'Lot 3 — first public monetary mutation route '.
-                '(ADR-0033 §1: Lot 2 wallet mutations are internal-only, no HTTP route; '.
-                'ADR-0033 §2 amends ADR-0025 — HTTP-level idempotency deferred to Lot 3)',
+            'status' => self::ACTIVE,
         ],
         'G8' => [
             'rule' => 'Business events are emitted only through the transactional outbox',

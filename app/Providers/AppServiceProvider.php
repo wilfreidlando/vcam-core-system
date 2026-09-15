@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Infrastructure\DatabaseIdempotencyStore;
 use App\Infrastructure\DatabaseUnitOfWork;
+use App\Infrastructure\ProjectIdempotencyScope;
 use Core\Support\Clock;
+use Core\Support\Idempotency\IdempotencyScope;
+use Core\Support\Idempotency\IdempotencyStore;
 use Core\Support\SystemClock;
 use Core\Support\UnitOfWork;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -24,6 +28,8 @@ final class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(Clock::class, SystemClock::class);
         $this->app->bind(UnitOfWork::class, DatabaseUnitOfWork::class);
+        $this->app->bind(IdempotencyStore::class, DatabaseIdempotencyStore::class);
+        $this->app->bind(IdempotencyScope::class, ProjectIdempotencyScope::class);
     }
 
     public function boot(): void

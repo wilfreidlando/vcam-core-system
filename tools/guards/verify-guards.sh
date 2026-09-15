@@ -340,6 +340,20 @@ expect_rejection "G8" "a use case calls event() instead of writing to the outbox
 # rather than faked: do not mark this guard's automation "done" until a real
 # probe exists. Owner: Dev Platform.
 
+# ── G7 — a monetary mutation route with no idempotency middleware ──────────
+backup packages/payment/routes/api.php
+python3 - <<'PY'
+path = 'packages/payment/routes/api.php'
+needle = "Route::post('/payments', StartPaymentController::class)\n            ->middleware('idempotency')\n            ->name('payments.start');"
+replacement = "Route::post('/payments', StartPaymentController::class)->name('payments.start');"
+content = open(path).read()
+assert needle in content, 'StartPayment route registration not found — probe out of date'
+open(path, 'w').write(content.replace(needle, replacement))
+PY
+expect_rejection "G7" "POST /v1/payments loses its idempotency middleware" \
+    'mutate money without requiring an Idempotency-Key' \
+    $DC_DB vendor/bin/pest tests/Architecture/IdempotencyTest.php --no-progress
+
 # ── G9 — an OpenAPI breaking change with no version bump ───────────────────
 # Mirrors exactly what the CI job does: diff the committed baseline
 # (openapi/v1.json at HEAD) against a freshly regenerated spec, via the same
