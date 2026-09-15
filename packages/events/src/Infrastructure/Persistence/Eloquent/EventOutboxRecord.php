@@ -12,14 +12,24 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $type
  * @property array<string, mixed> $payload
  * @property string|null $correlation_id
- * @property \Illuminate\Support\Carbon|null $published_at
- * @property \Illuminate\Support\Carbon $created_at
+ * @property \Carbon\CarbonImmutable|null $published_at
+ * @property \Carbon\CarbonImmutable $created_at
  */
 final class EventOutboxRecord extends Model
 {
     public const UPDATED_AT = null;
 
+    // Without this, Eloquent treats `id` as an auto-incrementing integer
+    // key and silently casts the UUID primary key to (int) 0 on read — a
+    // pre-existing gap that never surfaced because nothing read a row
+    // back before the relay (ADR-0040). Every other UUID-keyed model in
+    // the Core sets this (see WalletBalanceRecord, or HasUuids on
+    // PaymentRecord/WalletRecord).
+    public $incrementing = false;
+
     protected $table = 'event_outbox';
+
+    protected $keyType = 'string';
 
     protected $fillable = ['id', 'project_id', 'type', 'payload', 'correlation_id', 'published_at', 'created_at'];
 
