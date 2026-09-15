@@ -70,7 +70,7 @@ return [
             ],
 
             'credentials' => [
-                'api_key' => env('MYCOOLPAY_PRIVATE_KEY', 'sk-default-private-key'),
+                'api_key' => env('MYCOOLPAY_PRIVATE_KEY'),
             ],
 
             'timeouts' => [
@@ -92,7 +92,7 @@ return [
             ],
 
             'extras' => [
-                'public_key' => env('MYCOOLPAY_PUBLIC_KEY', 'pub-default-public-key'),
+                'public_key' => env('MYCOOLPAY_PUBLIC_KEY'),
             ],
         ],
     ],

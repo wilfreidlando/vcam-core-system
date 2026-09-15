@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Core\Payment;
 
+use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayAdapter;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayStatusMapper;
+use Core\Payment\Infrastructure\Provider\PaymentGatewayRegistryImpl;
+use Core\Support\Integration\Provider\ProviderCode;
 use Core\Support\Integration\Provider\ProviderRegistry;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
@@ -37,7 +40,7 @@ final class PaymentServiceProvider extends ServiceProvider
         $this->app->singleton(MyCoolPayStatusMapper::class, function (Application $app): MyCoolPayStatusMapper {
             $configs = $app->make(\Core\Support\Integration\Configuration\ProviderConfigRegistry::class);
             $code = $configs->configFor(
-                \Core\Support\Integration\Provider\ProviderCode::fromString('my-coolpay'),
+                ProviderCode::fromString('my-coolpay'),
             )->code;
 
             return new MyCoolPayStatusMapper($code);
@@ -45,7 +48,7 @@ final class PaymentServiceProvider extends ServiceProvider
 
         $this->app->singleton(MyCoolPayAdapter::class, function (Application $app): MyCoolPayAdapter {
             $configs = $app->make(\Core\Support\Integration\Configuration\ProviderConfigRegistry::class);
-            $code = \Core\Support\Integration\Provider\ProviderCode::fromString('my-coolpay');
+            $code = ProviderCode::fromString('my-coolpay');
             $config = $configs->configFor($code);
 
             return new MyCoolPayAdapter(
@@ -56,5 +59,15 @@ final class PaymentServiceProvider extends ServiceProvider
         });
 
         $this->app->tag([MyCoolPayAdapter::class], 'provider.gateway');
+
+        // Typed registry — see ADR-0037. Use cases in the payment module
+        // depend on PaymentGatewayRegistry (the typed version) rather than
+        // the generic ProviderRegistry, so they get back a
+        // PaymentGateway instead of the base ProviderGateway.
+        $this->app->singleton(PaymentGatewayRegistry::class, function (Application $app): PaymentGatewayRegistry {
+            return new PaymentGatewayRegistryImpl(
+                $app->make(ProviderRegistry::class),
+            );
+        });
     }
 }

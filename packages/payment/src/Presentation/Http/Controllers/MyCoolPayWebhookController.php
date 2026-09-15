@@ -10,7 +10,9 @@ use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\PaymentStatusMapper;
 use Core\Support\Clock;
 use Core\Support\Identifier;
+use Core\Support\Integration\Configuration\ProviderConfigRegistry;
 use Core\Support\Integration\CorrelationIdProvider;
+use Core\Support\Integration\Provider\ProviderCode;
 use DateTimeZone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,12 +25,24 @@ use Psr\Log\LoggerInterface;
  * # What it does (and doesn't)
  *
  * - **No signature verification** at this point — the MyCoolPay docs
- *   give no clear algorithm; we keep the hook (`verifySignature()`)
- *   ready to plug in as soon as we have a real signed body sample.
+ *   give no clear algorithm; we keep the hook ready to plug in as
+ *   soon as we have a real signed body sample.
  * - **No state mutation**. The adapter is a pure transport; persisting
  *   the status to a domain entity is the consumer's job. This
  *   controller publishes ONE event and replies 200 OK.
  * - **No outbound call**. Everything happens from the inbound payload.
+ *
+ * # Security filters
+ *
+ * Two filters are applied BEFORE the outbox is touched:
+ *  1. `transaction_type` must be `'PAYIN'`. Payout webhooks are
+ *     ignored here — they will be handled by a dedicated controller
+ *     when payout support lands.
+ *  2. `application` (the public key) must match the configured one.
+ *     This prevents a different tenant's webhook from injecting
+ *     events into our outbox.
+ * Both filters reply 200 OK to keep MyCoolPay from retrying — but
+ * they log a `warning` so operators see the noise.
  *
  * # Outbox semantics
  *
@@ -71,23 +85,27 @@ final class MyCoolPayWebhookController
         private Identifier $identifier,
         private Clock $clock,
         private CorrelationIdProvider $correlationIds,
+        private ProviderConfigRegistry $configRegistry,
         private LoggerInterface $logger,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
     {
+        // Laravel's `$request->json()->all()` always returns an array
+        // (possibly empty for a non-JSON body). The validation that
+        // follows treats an empty body as "missing fields" → no event
+        // published → 200 OK so MyCoolPay does not retry forever.
         /** @var array<string, mixed> $body */
         $body = $request->json()->all();
 
         $event = $this->buildEvent($body);
-
-        $event = $this->buildEvent($body);
         if ($event === null) {
-            // The payload was structurally valid but carried an unrecognised
-            // status. We have already logged a warning. Reply 200 OK anyway:
-            // MyCoolPay considers any 2xx a successful delivery; bouncing
-            // 4xx would make them retry forever for a value they will keep
-            // sending.
+            // The payload was structurally valid but the controller chose
+            // not to publish (wrong transaction type, wrong application,
+            // missing fields, or unknown status). We have already logged
+            // a warning. Reply 200 OK anyway: MyCoolPay considers any 2xx
+            // a successful delivery; bouncing 4xx would make them retry
+            // forever for a payload they will keep sending.
             return new JsonResponse(['status' => 'ignored'], 200);
         }
 
@@ -117,6 +135,29 @@ final class MyCoolPayWebhookController
      */
     private function buildEvent(array $body): ?PaymentStatusChanged
     {
+        // Filter 1: only PAYIN events. PAYOUT will have its own controller.
+        $type = self::stringField($body, 'transaction_type');
+        if ($type !== 'PAYIN') {
+            $this->logger->warning('my-coolpay.webhook.unsupported_type', [
+                'transaction_type' => $type === '' ? null : $type,
+            ]);
+
+            return null;
+        }
+
+        // Filter 2: the public key in the payload must match the one this
+        // controller is bound to. Prevents cross-tenant event injection.
+        $application = self::stringField($body, 'application');
+        $expectedKey = $this->expectedPublicKey();
+        if ($expectedKey !== null && $application !== '' && $application !== $expectedKey) {
+            $this->logger->warning('my-coolpay.webhook.application_mismatch', [
+                'expected_prefix' => substr($expectedKey, 0, 8).'...',
+                'got_prefix' => substr($application, 0, 8).'...',
+            ]);
+
+            return null;
+        }
+
         $transactionRef = self::stringField($body, 'transaction_ref');
         $appTransactionRef = self::stringField($body, 'app_transaction_ref');
         $rawStatus = self::stringField($body, 'transaction_status');
@@ -134,7 +175,7 @@ final class MyCoolPayWebhookController
 
         try {
             $status = $this->statusMapper->map($rawStatus);
-        } catch (\Core\Support\Integration\Exception\UnknownProviderStatusException $e) {
+        } catch (\Core\Support\Integration\Exception\UnknownProviderStatusException) {
             // Status vocabulary drift. Log and skip — refusing the
             // webhook would make MyCoolPay retry the same payload forever.
             $this->logger->warning('my-coolpay.webhook.unknown_status', [
@@ -172,6 +213,26 @@ final class MyCoolPayWebhookController
     private function extractProjectId(array $body): string
     {
         return self::stringField($body, 'application');
+    }
+
+    /**
+     * Return the public_key configured for our MyCoolPay application, or
+     * null if the config registry doesn't know about it. Returning null
+     * means "no application key check possible" — the webhook is
+     * accepted on that point but logged for review.
+     */
+    private function expectedPublicKey(): ?string
+    {
+        try {
+            $config = $this->configRegistry->configFor(
+                ProviderCode::fromString('my-coolpay'),
+            );
+        } catch (\Core\Support\Integration\Configuration\ProviderNotConfigured) {
+            return null;
+        }
+        $value = $config->extra('public_key', '');
+
+        return is_string($value) && $value !== '' ? $value : null;
     }
 
     /**

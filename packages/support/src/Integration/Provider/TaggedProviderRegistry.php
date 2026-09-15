@@ -31,6 +31,13 @@ final class TaggedProviderRegistry implements ProviderRegistry
      * @param iterable<ProviderGateway> $gateways All ProviderGateway implementations,
      *                                            tagged in the service container
      *                                            (typically 'provider.gateway').
+     *
+     * @throws DuplicateProviderCodeException when two gateways claim the same
+     *                                        code. We fail loudly at boot rather than silently overwriting —
+     *                                        a duplicate usually means two modules both tagged an adapter
+     *                                        for the same code (e.g. payment.Orange and notification.Orange)
+     *                                        and silently overwriting one would route requests to whichever
+     *                                        module registered last.
      */
     public function __construct(
         iterable $gateways,
@@ -38,7 +45,16 @@ final class TaggedProviderRegistry implements ProviderRegistry
     ) {
         $byCode = [];
         foreach ($gateways as $gateway) {
-            $byCode[$gateway->providerCode()->toString()] = $gateway;
+            $code = $gateway->providerCode();
+            $key = $code->toString();
+            if (isset($byCode[$key])) {
+                throw new DuplicateProviderCodeException(
+                    $code,
+                    $byCode[$key],
+                    $gateway,
+                );
+            }
+            $byCode[$key] = $gateway;
         }
         $this->indexed = $byCode;
     }
