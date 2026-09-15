@@ -3,11 +3,19 @@
 declare(strict_types=1);
 
 use Core\Identity\Presentation\Http\Middleware\ResolveProjectMiddleware;
+use Core\Notification\Contracts\ChannelDoesNotSupportSessions;
+use Core\Notification\Contracts\MissingRecipientPhoneNumber;
+use Core\Notification\Domain\Exception\NotificationNotFound;
 use Core\Payment\Contracts\NoProviderForChannelException;
 use Core\Payment\Domain\Exception\PaymentNotFound;
 use Core\Support\Http\Middleware\CorrelationId;
 use Core\Support\Http\Middleware\RequireIdempotencyKey;
 use Core\Support\Http\ProblemDetails;
+use Core\Support\Integration\CircuitBreaker\CircuitOpenException;
+use Core\Support\Integration\Exception\ProviderAuthError;
+use Core\Support\Integration\Exception\ProviderDisabledException;
+use Core\Support\Integration\Exception\ProviderPermanentError;
+use Core\Support\Integration\Exception\ProviderTransientError;
 use Core\Wallet\Domain\Exception\WalletNotFound;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotDead;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
@@ -110,6 +118,45 @@ return Application::configure(basePath: dirname(__DIR__))
                     'webhook-delivery-not-dead',
                     'Only a dead webhook delivery can be replayed',
                     409,
+                    $e->getMessage(),
+                ),
+                $e instanceof NotificationNotFound => ProblemDetails::make(
+                    'notification-not-found',
+                    'Notification not found',
+                    404,
+                    $e->getMessage(),
+                ),
+                $e instanceof MissingRecipientPhoneNumber => ProblemDetails::make(
+                    'missing-recipient-phone-number',
+                    'The recipient phone number is missing',
+                    422,
+                    $e->getMessage(),
+                ),
+                $e instanceof ChannelDoesNotSupportSessions => ProblemDetails::make(
+                    'channel-does-not-support-sessions',
+                    'This channel has no linked-device session to manage',
+                    422,
+                    $e->getMessage(),
+                ),
+                // The provider-layer exceptions below (Core\Support\Integration)
+                // are cross-module — every adapter (payment, notification,
+                // webhook) can raise them, so they're mapped once here rather
+                // than per module. Distinguished by remediation, not just
+                // severity: permanent/auth failures won't resolve on retry
+                // (502, our integration or the request is wrong); transient/
+                // disabled/circuit-open might (503, try again shortly).
+                $e instanceof ProviderPermanentError, $e instanceof ProviderAuthError => ProblemDetails::make(
+                    'provider-error',
+                    'The external provider rejected the request',
+                    502,
+                    $e->getMessage(),
+                ),
+                $e instanceof ProviderTransientError,
+                $e instanceof ProviderDisabledException,
+                $e instanceof CircuitOpenException => ProblemDetails::make(
+                    'provider-unavailable',
+                    'The external provider is temporarily unavailable',
+                    503,
                     $e->getMessage(),
                 ),
                 $e instanceof HttpExceptionInterface => ProblemDetails::make(
