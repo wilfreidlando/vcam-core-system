@@ -12,6 +12,7 @@ use Core\Payment\PaymentStatus;
 use Core\Support\Integration\Configuration\ProviderConfig;
 use Core\Support\Integration\Provider\ProviderCode;
 use LogicException;
+use Throwable;
 
 final class FakePaymentGateway implements PaymentGateway
 {
@@ -19,6 +20,13 @@ final class FakePaymentGateway implements PaymentGateway
     public array $initiated = [];
 
     public PaymentReceipt $nextReceipt;
+
+    /**
+     * When set, `checkStatus()` throws this instead of returning
+     * `$nextReceipt` — models a provider call failing during
+     * reconciliation (ReconcileStuckPaymentsUseCase).
+     */
+    public ?Throwable $checkStatusException = null;
 
     public function __construct(
         private readonly ProviderCode $code,
@@ -40,6 +48,10 @@ final class FakePaymentGateway implements PaymentGateway
 
     public function checkStatus(string $transactionRef): PaymentReceipt
     {
+        if ($this->checkStatusException !== null) {
+            throw $this->checkStatusException;
+        }
+
         return $this->nextReceipt;
     }
 

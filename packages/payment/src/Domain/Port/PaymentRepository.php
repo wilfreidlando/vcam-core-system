@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Payment\Domain\Port;
 
 use Core\Payment\Domain\Model\Payment;
+use DateTimeImmutable;
 
 interface PaymentRepository
 {
@@ -33,4 +34,13 @@ interface PaymentRepository
      * always direct — never a search across every registered adapter.
      */
     public function findByProviderTransactionRef(string $providerCode, string $providerTransactionRef): ?Payment;
+
+    /**
+     * Non-terminal payments (`pending`/`processing`) untouched since
+     * before `$threshold` — candidates for reconciliation (ADR-0044):
+     * a missed webhook, not necessarily a failure.
+     *
+     * @return list<Payment>
+     */
+    public function findStuckSince(DateTimeImmutable $threshold, int $limit): array;
 }

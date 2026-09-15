@@ -8,6 +8,7 @@ use Core\Payment\Domain\Exception\PaymentAlreadyExists;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\PaymentStatus;
+use DateTimeImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -59,6 +60,32 @@ final class EloquentPaymentRepository implements PaymentRepository
             ->first();
 
         return $record === null ? null : $this->toDomain($record);
+    }
+
+    public function findStuckSince(DateTimeImmutable $threshold, int $limit): array
+    {
+        // `whereIn`/`orderBy`/`take` are forwarded by Eloquent\Builder to
+        // the underlying query builder rather than declared on it
+        // directly; building the whole query on `toBase()` avoids a
+        // Larastan false positive ("dynamic call to static method") on
+        // those forwarded calls, and `PaymentRecord::hydrate()` restores
+        // the model casts afterwards.
+        $base = PaymentRecord::query()->toBase();
+        $base->whereIn('status', [PaymentStatus::Pending->value, PaymentStatus::Processing->value]);
+        $base->where('updated_at', '<', $threshold);
+        $base->orderBy('updated_at');
+        $base->take($limit);
+
+        $rows = $base->get()->map(static fn (object $row): array => (array) $row)->all();
+
+        $records = PaymentRecord::hydrate($rows);
+
+        $payments = [];
+        foreach ($records as $record) {
+            $payments[] = $this->toDomain($record);
+        }
+
+        return $payments;
     }
 
     /**

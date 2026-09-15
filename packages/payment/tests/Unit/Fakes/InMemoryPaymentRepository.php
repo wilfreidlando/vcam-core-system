@@ -7,6 +7,8 @@ namespace Core\Payment\Tests\Unit\Fakes;
 use Core\Payment\Domain\Exception\PaymentAlreadyExists;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Payment\PaymentStatus;
+use DateTimeImmutable;
 
 final class InMemoryPaymentRepository implements PaymentRepository
 {
@@ -68,5 +70,22 @@ final class InMemoryPaymentRepository implements PaymentRepository
     public function count(): int
     {
         return count($this->payments);
+    }
+
+    /**
+     * The Domain `Payment` carries no timestamp (unlike the Eloquent
+     * record), so this fake ignores `$threshold` and simply returns every
+     * non-terminal payment in insertion order, up to `$limit` — enough for
+     * `ReconcileStuckPaymentsUseCase`'s unit tests, which control "stuck"
+     * entirely via which payments they add.
+     */
+    public function findStuckSince(DateTimeImmutable $threshold, int $limit): array
+    {
+        $stuck = array_values(array_filter(
+            $this->payments,
+            static fn (Payment $payment): bool => in_array($payment->status, [PaymentStatus::Pending, PaymentStatus::Processing], true),
+        ));
+
+        return array_slice($stuck, 0, $limit);
     }
 }

@@ -6,11 +6,13 @@ namespace Core\Payment;
 
 use Core\Payment\Application\UseCase\GetPaymentStatusUseCase;
 use Core\Payment\Application\UseCase\HandlePaymentStatusChangedUseCase;
+use Core\Payment\Application\UseCase\ReconcileStuckPaymentsUseCase;
 use Core\Payment\Application\UseCase\StartPaymentUseCase;
 use Core\Payment\Contracts\GetPaymentStatus;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Contracts\PaymentProviderRouter;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
+use Core\Payment\Contracts\ReconcileStuckPayments;
 use Core\Payment\Contracts\StartPayment;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\Infrastructure\Persistence\Eloquent\EloquentPaymentRepository;
@@ -18,6 +20,7 @@ use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayAdapter;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayStatusMapper;
 use Core\Payment\Infrastructure\Provider\PaymentGatewayRegistryImpl;
 use Core\Payment\Infrastructure\Routing\ConfigPaymentProviderRouter;
+use Core\Support\Clock;
 use Core\Support\Integration\Provider\ProviderCode;
 use Core\Support\Integration\Provider\ProviderRegistry;
 use Illuminate\Contracts\Foundation\Application;
@@ -97,5 +100,22 @@ final class PaymentServiceProvider extends ServiceProvider
         $this->app->bind(StartPayment::class, StartPaymentUseCase::class);
         $this->app->bind(GetPaymentStatus::class, GetPaymentStatusUseCase::class);
         $this->app->bind(PaymentStatusChangeHandler::class, HandlePaymentStatusChangedUseCase::class);
+
+        $this->app->bind(ReconcileStuckPayments::class, function (Application $app): ReconcileStuckPaymentsUseCase {
+            /** @var int $stuckAfterMinutes */
+            $stuckAfterMinutes = $app->make('config')->get('payment.reconciliation.stuck_after_minutes', 15);
+            /** @var int $batchSize */
+            $batchSize = $app->make('config')->get('payment.reconciliation.batch_size', 100);
+
+            return new ReconcileStuckPaymentsUseCase(
+                payments: $app->make(PaymentRepository::class),
+                gateways: $app->make(PaymentGatewayRegistry::class),
+                statusChangeHandler: $app->make(PaymentStatusChangeHandler::class),
+                clock: $app->make(Clock::class),
+                logger: $app->make(\Psr\Log\LoggerInterface::class),
+                stuckAfterMinutes: $stuckAfterMinutes,
+                batchSize: $batchSize,
+            );
+        });
     }
 }
