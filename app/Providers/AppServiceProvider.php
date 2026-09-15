@@ -12,6 +12,8 @@ use Core\Support\Idempotency\IdempotencyScope;
 use Core\Support\Idempotency\IdempotencyStore;
 use Core\Support\SystemClock;
 use Core\Support\UnitOfWork;
+use Dedoc\Scramble\Scramble;
+use Dedoc\Scramble\Support\RouteInfo;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -44,6 +46,28 @@ final class AppServiceProvider extends ServiceProvider
         Model::preventAccessingMissingAttributes($strict);
 
         $this->configureRateLimiting();
+        $this->configureApiDocumentationTags();
+    }
+
+    /**
+     * Group the OpenAPI docs by bounded context (`Core\<Module>\...`),
+     * not by controller — Scramble's default tags each operation under
+     * its controller's own short name (`StartPayment`, `GetPaymentStatus`,
+     * one tag per endpoint), which fragments the doc instead of grouping
+     * it. Derived from the namespace rather than annotated per controller
+     * so a new endpoint is grouped correctly with zero extra effort
+     * (governance: prefer structural over manual — docs/specs/gouvernance-anti-derive.md).
+     */
+    private function configureApiDocumentationTags(): void
+    {
+        Scramble::resolveTagsUsing(function (RouteInfo $routeInfo): array {
+            $class = $routeInfo->className();
+            if ($class !== null && preg_match('/^Core\\\\([A-Za-z]+)\\\\/', $class, $matches) === 1) {
+                return [$matches[1]];
+            }
+
+            return [];
+        });
     }
 
     /**

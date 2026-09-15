@@ -16,32 +16,103 @@
         }
     ],
     "paths": {
-        "/webhook-endpoints/{endpointId}": {
-            "delete": {
-                "operationId": "webhook-endpoints.deactivate",
-                "description": "Stops future deliveries; already-scheduled retries for deliveries\ncreated before deactivation still run to completion or DLQ.\nRequires the `webhooks:write` scope.",
-                "summary": "Deactivate a webhook endpoint",
+        "/whoami": {
+            "get": {
+                "operationId": "identity.whoami",
+                "description": "Resolves the bearer API key and returns which Project it belongs to,\nin which environment (sandbox/live), and which scopes it carries. The\nfirst call an integrating product should make to confirm its\ncredentials.",
+                "summary": "Identify the calling Project",
                 "tags": [
-                    "DeactivateWebhookEndpoint"
-                ],
-                "parameters": [
-                    {
-                        "name": "endpointId",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
+                    "Identity"
                 ],
                 "responses": {
-                    "204": {
-                        "description": "No content",
+                    "200": {
+                        "description": "",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {}
+                                    "type": "object",
+                                    "properties": {
+                                        "project_id": {
+                                            "type": "string"
+                                        },
+                                        "organization_id": {
+                                            "type": "string"
+                                        },
+                                        "environment": {
+                                            "type": "string"
+                                        },
+                                        "scopes": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "project_id",
+                                        "organization_id",
+                                        "environment",
+                                        "scopes"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications": {
+            "post": {
+                "operationId": "notifications.send",
+                "description": "Requires the `notifications:write` scope and an `Idempotency-Key`\nheader (spec \u00a713). `to_party_ref` is a correlation reference only\n\u2014 resolving it to an actual delivery address is a provider adapter\nconcern, not the Core's (ADR-0041 \u00a75).",
+                "summary": "Send a notification",
+                "tags": [
+                    "Notification"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SendNotificationRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "channel": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "template": {
+                                            "type": "string"
+                                        },
+                                        "error_message": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "channel",
+                                        "status",
+                                        "template",
+                                        "error_message"
+                                    ]
                                 }
                             }
                         }
@@ -56,6 +127,9 @@
                                 }
                             }
                         }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
                     }
                 }
             }
@@ -66,7 +140,7 @@
                 "description": "Requires the `notifications:read` scope, and returns the same\nnot-found response whether the notification doesn't exist or\nbelongs to another project.",
                 "summary": "Get a notification's current status",
                 "tags": [
-                    "GetNotificationStatus"
+                    "Notification"
                 ],
                 "parameters": [
                     {
@@ -130,13 +204,101 @@
                 }
             }
         },
+        "/payments": {
+            "post": {
+                "operationId": "payments.start",
+                "description": "The request names only a `channel` (e.g. `mtn_momo`, `card`), never a\nprovider \u2014 `StartPaymentUseCase` resolves which adapter actually\nhandles it via the Project's routing configuration (ADR-0038 \u00a72).\nRequires the `payments:write` scope and an `Idempotency-Key` header\n(G7, ADR-0025). Crediting a wallet on success is never implicit \u2014 it\nonly happens if `wallet_recipient_external_ref` is given (ADR-0037).",
+                "summary": "Start a payment",
+                "tags": [
+                    "Payment"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StartPaymentRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "channel": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "amount": {
+                                            "type": "integer"
+                                        },
+                                        "currency": {
+                                            "type": "string"
+                                        },
+                                        "requires_action": {
+                                            "type": "boolean"
+                                        },
+                                        "action_hint": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "payment_url": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "channel",
+                                        "status",
+                                        "amount",
+                                        "currency",
+                                        "requires_action",
+                                        "action_hint",
+                                        "payment_url"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
         "/payments/{paymentId}": {
             "get": {
                 "operationId": "payments.status",
                 "description": "Reads the Core's own last-known state only \u2014 no live call to the\nprovider. Requires the `payments:read` scope, and returns the same\nnot-found response whether the payment doesn't exist or belongs to\nanother project.",
                 "summary": "Get a payment's current status",
                 "tags": [
-                    "GetPaymentStatus"
+                    "Payment"
                 ],
                 "parameters": [
                     {
@@ -222,13 +384,23 @@
                 }
             }
         },
-        "/webhook-endpoints": {
+        "/wallets/{walletId}/balance": {
             "get": {
-                "operationId": "webhook-endpoints.list",
-                "description": "Never includes the signing secret \u2014 it is shown once, at\nregistration, and never again. Requires the `webhooks:read` scope.",
-                "summary": "List the calling Project's webhook endpoints",
+                "operationId": "wallet.balance",
+                "description": "Read-only (ADR-0033 \u00a71): Wallet exposes no HTTP endpoint that mutates\na balance. Requires the `wallets:read` scope, and returns the same\nnot-found response whether the wallet doesn't exist or belongs to\nanother project \u2014 the two are indistinguishable on purpose.",
+                "summary": "Get a wallet's balance",
                 "tags": [
-                    "ListWebhookEndpoints"
+                    "Wallet"
+                ],
+                "parameters": [
+                    {
+                        "name": "walletId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
                 ],
                 "responses": {
                     "200": {
@@ -238,13 +410,24 @@
                                 "schema": {
                                     "type": "object",
                                     "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {}
+                                        "wallet_id": {
+                                            "type": "string"
+                                        },
+                                        "currency": {
+                                            "type": "string"
+                                        },
+                                        "available_minor": {
+                                            "type": "integer"
+                                        },
+                                        "held_minor": {
+                                            "type": "integer"
                                         }
                                     },
                                     "required": [
-                                        "data"
+                                        "wallet_id",
+                                        "currency",
+                                        "available_minor",
+                                        "held_minor"
                                     ]
                                 }
                             }
@@ -262,13 +445,15 @@
                         }
                     }
                 }
-            },
+            }
+        },
+        "/webhook-endpoints": {
             "post": {
                 "operationId": "webhook-endpoints.register",
                 "description": "The returned `secret` signs every delivery to this endpoint\n(`X-Signature`/`X-Timestamp` headers, HMAC-SHA256) and is shown\nexactly once \u2014 store it, it cannot be retrieved again. Requires the\n`webhooks:write` scope.",
                 "summary": "Register a webhook endpoint",
                 "tags": [
-                    "RegisterWebhookEndpoint"
+                    "Webhook"
                 ],
                 "requestBody": {
                     "required": true,
@@ -329,180 +514,59 @@
                         "$ref": "#/components/responses/ValidationException"
                     }
                 }
-            }
-        },
-        "/notifications": {
-            "post": {
-                "operationId": "notifications.send",
-                "description": "Requires the `notifications:write` scope and an `Idempotency-Key`\nheader (spec \u00a713). `to_party_ref` is a correlation reference only\n\u2014 resolving it to an actual delivery address is a provider adapter\nconcern, not the Core's (ADR-0041 \u00a75).",
-                "summary": "Send a notification",
-                "tags": [
-                    "SendNotification"
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/SendNotificationRequest"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "id": {
-                                            "type": "string"
-                                        },
-                                        "channel": {
-                                            "type": "string"
-                                        },
-                                        "status": {
-                                            "type": "string"
-                                        },
-                                        "template": {
-                                            "type": "string"
-                                        },
-                                        "error_message": {
-                                            "type": [
-                                                "string",
-                                                "null"
-                                            ]
-                                        }
-                                    },
-                                    "required": [
-                                        "id",
-                                        "channel",
-                                        "status",
-                                        "template",
-                                        "error_message"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {}
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
-                    }
-                }
-            }
-        },
-        "/payments": {
-            "post": {
-                "operationId": "payments.start",
-                "description": "The request names only a `channel` (e.g. `mtn_momo`, `card`), never a\nprovider \u2014 `StartPaymentUseCase` resolves which adapter actually\nhandles it via the Project's routing configuration (ADR-0038 \u00a72).\nRequires the `payments:write` scope and an `Idempotency-Key` header\n(G7, ADR-0025). Crediting a wallet on success is never implicit \u2014 it\nonly happens if `wallet_recipient_external_ref` is given (ADR-0037).",
-                "summary": "Start a payment",
-                "tags": [
-                    "StartPayment"
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/StartPaymentRequest"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "id": {
-                                            "type": "string"
-                                        },
-                                        "channel": {
-                                            "type": "string"
-                                        },
-                                        "status": {
-                                            "type": "string"
-                                        },
-                                        "amount": {
-                                            "type": "integer"
-                                        },
-                                        "currency": {
-                                            "type": "string"
-                                        },
-                                        "requires_action": {
-                                            "type": "boolean"
-                                        },
-                                        "action_hint": {
-                                            "type": [
-                                                "string",
-                                                "null"
-                                            ]
-                                        },
-                                        "payment_url": {
-                                            "type": [
-                                                "string",
-                                                "null"
-                                            ]
-                                        }
-                                    },
-                                    "required": [
-                                        "id",
-                                        "channel",
-                                        "status",
-                                        "amount",
-                                        "currency",
-                                        "requires_action",
-                                        "action_hint",
-                                        "payment_url"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {}
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
-                    }
-                }
-            }
-        },
-        "/wallets/{walletId}/balance": {
+            },
             "get": {
-                "operationId": "wallet.balance",
-                "description": "Read-only (ADR-0033 \u00a71): Wallet exposes no HTTP endpoint that mutates\na balance. Requires the `wallets:read` scope, and returns the same\nnot-found response whether the wallet doesn't exist or belongs to\nanother project \u2014 the two are indistinguishable on purpose.",
-                "summary": "Get a wallet's balance",
+                "operationId": "webhook-endpoints.list",
+                "description": "Never includes the signing secret \u2014 it is shown once, at\nregistration, and never again. Requires the `webhooks:read` scope.",
+                "summary": "List the calling Project's webhook endpoints",
                 "tags": [
-                    "WalletBalance"
+                    "Webhook"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {}
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/webhook-endpoints/{endpointId}": {
+            "delete": {
+                "operationId": "webhook-endpoints.deactivate",
+                "description": "Stops future deliveries; already-scheduled retries for deliveries\ncreated before deactivation still run to completion or DLQ.\nRequires the `webhooks:write` scope.",
+                "summary": "Deactivate a webhook endpoint",
+                "tags": [
+                    "Webhook"
                 ],
                 "parameters": [
                     {
-                        "name": "walletId",
+                        "name": "endpointId",
                         "in": "path",
                         "required": true,
                         "schema": {
@@ -511,32 +575,13 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "",
+                    "204": {
+                        "description": "No content",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "wallet_id": {
-                                            "type": "string"
-                                        },
-                                        "currency": {
-                                            "type": "string"
-                                        },
-                                        "available_minor": {
-                                            "type": "integer"
-                                        },
-                                        "held_minor": {
-                                            "type": "integer"
-                                        }
-                                    },
-                                    "required": [
-                                        "wallet_id",
-                                        "currency",
-                                        "available_minor",
-                                        "held_minor"
-                                    ]
+                                    "type": "array",
+                                    "items": {}
                                 }
                             }
                         }
@@ -548,51 +593,6 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {}
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/whoami": {
-            "get": {
-                "operationId": "identity.whoami",
-                "description": "Resolves the bearer API key and returns which Project it belongs to,\nin which environment (sandbox/live), and which scopes it carries. The\nfirst call an integrating product should make to confirm its\ncredentials.",
-                "summary": "Identify the calling Project",
-                "tags": [
-                    "WhoAmI"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "project_id": {
-                                            "type": "string"
-                                        },
-                                        "organization_id": {
-                                            "type": "string"
-                                        },
-                                        "environment": {
-                                            "type": "string"
-                                        },
-                                        "scopes": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "string"
-                                            }
-                                        }
-                                    },
-                                    "required": [
-                                        "project_id",
-                                        "organization_id",
-                                        "environment",
-                                        "scopes"
-                                    ]
                                 }
                             }
                         }
