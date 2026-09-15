@@ -250,7 +250,7 @@ graph BT
 | `payment` | Channel canonique, routage par Project, orchestration, webhook, idempotence HTTP | **Livré** (Lot 3, ADR-0038/0039) | Lot 3 | `POST /v1/payments`, `GET /v1/payments/{id}`, webhook MyCoolPay |
 | `fees` | Moteur de frais | Scaffold | Lot 3 (reste à faire) | — |
 | `webhook` | Endpoints par Project, livraison signée HMAC, retry/backoff, DLQ, replay CLI (ADR-0009, ADR-0040) | **Livré** | Lot 4 | `POST/GET /v1/webhook-endpoints`, `DELETE /v1/webhook-endpoints/{id}` |
-| `notification` | Notifications multi-canal | Scaffold | Lot 5 | — |
+| `notification` | Orchestration multi-canal : fallback ordonné, templates versionnés, `NotificationStatus` canonique (ADR-0041). Aucun adaptateur concret. | **Livré** (orchestration) | Lot 5 | `POST /v1/notifications`, `GET /v1/notifications/{id}` |
 | `admin` | Console opérateur | Scaffold | Lot 6 | — |
 | `billing` | Facturation | Scaffold | Lot 6/7 | — |
 | `storage` | Fichiers | Scaffold | — | — |
@@ -491,7 +491,65 @@ sans instruction de crédit : wallet et ledger restent intouchés ».
 
 ---
 
-## 10. Garde-fous — la liste courte
+## 10. Notification : fallback synchrone, pas retry différé
+
+Autre lecture de la même famille de problème (routage multi-provider),
+avec une décision différente et volontairement documentée (ADR-0041) :
+`webhook` retarde une tentative sur la **même** cible après échec
+(`next_retry_at`, Horizon `release()`, §8) ; `notification` bascule
+**immédiatement** vers le provider suivant d'une chaîne ordonnée — un
+fallback synchrone, pas un retry différé. Chaque tentative (réussie ou
+non) est tracée dans `notification_deliveries`, même sans provider réel :
+`SendNotificationUseCase` est testé de bout en bout avec plusieurs
+providers factices.
+
+```mermaid
+sequenceDiagram
+    participant C as Appelant (Project)
+    participant UC as SendNotificationUseCase
+    participant R as NotificationProviderRouter
+    participant Reg as NotificationChannelProviderRegistry
+    participant P1 as Provider primaire
+    participant P2 as Provider secondaire
+    participant DB as PostgreSQL
+
+    C->>UC: send(channel, to_party_ref, template, variables)
+    UC->>DB: create(Notification, status=queued)
+    UC->>R: resolveProviders(channel, project)
+    R-->>UC: [primaire, secondaire]
+    UC->>Reg: gatewayFor(primaire)
+    UC->>P1: send(OutboundMessage)
+    P1-->>UC: échec
+    UC->>DB: record(delivery, primaire, failed, attempt=1)
+    UC->>Reg: gatewayFor(secondaire)
+    UC->>P2: send(OutboundMessage)
+    P2-->>UC: ProviderDispatchResult(sent)
+    UC->>DB: record(delivery, secondaire, sent, attempt=2)
+    UC->>DB: save(Notification, status=sent, provider=secondaire)
+```
+
+Aucun adaptateur concret n'existe encore (l'utilisateur prépare la
+documentation d'un futur adaptateur WhatsApp séparément) — seul
+`FakeNotificationChannelProvider` couvre les tests. Un futur adaptateur
+n'a que deux choses à faire pour s'intégrer : implémenter
+`NotificationChannelProvider` (qui étend le même `ProviderGateway`
+générique que `PaymentGateway`, partageant le même registre) et se
+`tag('provider.gateway')` dans son propre service provider — rien
+d'autre ne change. `HandleNotificationStatusChangedUseCase` (statuts
+entrants → `notification.delivered`/`.read`/`.failed`) existe et est
+testé, prêt à être appelé par le futur contrôleur webhook de cet
+adaptateur, exactement comme `MyCoolPayWebhookController` appelle
+`HandlePaymentStatusChangedUseCase`.
+
+**Rien dans le Core ne déclenche une notification automatiquement** —
+`POST /v1/notifications` est la seule porte d'entrée, même en réaction à
+un `payment.status_changed` : c'est une décision explicite d'ADR-0041,
+qui évite de reproduire l'erreur corrigée par ADR-0037 (crédit de wallet
+automatique).
+
+---
+
+## 11. Garde-fous — la liste courte
 
 Le détail complet, avec l'outil et le fichier qui enforce chacun, vit dans
 [garde-fous-inactifs.md](garde-fous-inactifs.md) (et
@@ -503,7 +561,8 @@ coup d'œil :
 | Graphe de modules | G1, G1b, G2 | Deptrac + Pest |
 | Couches internes | G3, G3b, G3c, G3d | Deptrac + PHPat |
 | Schéma financier | G4 (pas de PII sur `parties`), G5 (montants en `bigint`) | Pest + introspection PostgreSQL |
-| Statuts provider | G6, G6b, G6c | Règle PHPStan maison + PHPat |
+| Statuts provider | G6, G6c | Règle PHPStan maison + PHPat |
+| Vocabulaire canonique | G6b (`PaymentStatus`, `NotificationStatus`) | Pest |
 | Mutation monétaire | G7 (`Idempotency-Key` obligatoire) | Pest, application bootée |
 | Événements | G8, G8c (outbox transactionnel) | PHPat + règle PHPStan + Pest |
 | Contrat API | G9 (pas de rupture OpenAPI sans version), G10 (contrat consommateur, Lot 7) | oasdiff + Spectral |
@@ -515,7 +574,7 @@ réellement quelque chose.
 
 ---
 
-## 11. Conventions transverses
+## 12. Conventions transverses
 
 - **Argent** : toujours `bigint` minor units + `currency char(3)`, jamais
   `float`/`decimal` (G5). Enveloppe `Money` (ADR-0021) — `Brick\Money` ne
@@ -535,10 +594,10 @@ réellement quelque chose.
 
 ---
 
-## 12. Pour aller plus loin
+## 13. Pour aller plus loin
 
 - **Pourquoi chaque décision** : [docs/adr/README.md](../adr/README.md) —
-  40 ADR à ce jour, y compris les deux refus/corrections tracés en ADR
+  41 ADR à ce jour, y compris les deux refus/corrections tracés en ADR
   (0036 → corrigé par 0037).
 - **Ce qui est réellement vérifié par la CI** :
   [garde-fous-inactifs.md](garde-fous-inactifs.md).

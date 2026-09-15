@@ -83,3 +83,9 @@ d'acceptation : il alimente la liste négative et sert de jurisprudence
 | ADR | Décision | Statut |
 | --- | -------- | ------ |
 | [0040](0040-conception-lot-4-relais-outbox-webhooks-sortants.md) | Conception Lot 4 : relais outbox unique et centralisé (`Core\Events\Infrastructure\Relay`), webhooks sortants signés HMAC composés directement sur `Core\Support\Integration` (pas `ExternalApiCaller`), retry persisté via Horizon `release()`, secret chiffré au repos, replay CLI en attendant le Core Admin | Accepté — précise ADR-0009 |
+
+### Décisions du Lot 5 (2026-09-15)
+
+| ADR | Décision | Statut |
+| --- | -------- | ------ |
+| [0041](0041-conception-lot-5-notification-orchestration-sans-adaptateur.md) | Conception Lot 5 : orchestration Notification livrée sans adaptateur concret — API self-service uniquement (pas d'abonnement automatique à l'outbox), fallback synchrone ordonné (pas un retry différé), `NotificationChannelProvider` sur le registre provider générique de `core/support`, `to_party_ref` comme identifiant de corrélation jamais une donnée de contact | Accepté — précise spec §9.2-§9.5 |
