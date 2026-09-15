@@ -70,13 +70,19 @@ Tout passe par `make` (Docker-first, [ADR-0019](docs/adr/0019-docker-first.md)) 
 ## Séquencement (plan de delivery, amendé par ADR-0031)
 
 Lot 0 (garde-fous — fait, `fd2f515`) → **Lot 1 Identity — fait (`23de124`)** →
-**en parallèle maintenant :** Lot 2 Money/Ledger (chemin critique, validation
-du modèle par le comité avant code) **et** le socle d'intégration générique
-(`Core\Support\Integration` — [ADR-0031](docs/adr/0031-socle-integration-en-parallele-du-lot-2.md),
-ne dépend d'aucun des deux) → Lot 3 Payment/Fees (adaptateurs MTN/Orange +
-orchestration ; démarre seulement une fois le Lot 2 terminé, puisqu'un paiement
-confirmé doit pouvoir s'écrire au ledger) → Lot 4 Events/Webhooks → Lot 5
-Notification → Lot 6 Core Admin → Lot 7 migration pilote. Détail de chaque lot :
+**Lot 2 Money/Ledger — fait (`8d4a969`)** : Ledger double-entrée (contraintes
+PostgreSQL réelles, pas seulement applicatives), Wallet crédit/débit,
+Parties à création paresseuse, écriture de l'outbox (ADR-0032). Voir
+[ADR-0033](docs/adr/0033-conception-lot-2-money-core.md) pour les décisions
+de conception. En parallèle, livré aussi : le socle d'intégration générique
+(`Core\Support\Integration` — [ADR-0031](docs/adr/0031-socle-integration-en-parallele-du-lot-2.md)
++ [ADR-0034](docs/adr/0034-socle-integration-scope-structure.md)) → **Lot 3
+Payment/Fees** (adaptateurs MTN/Orange/MyCoolPay + orchestration ; un premier
+adaptateur concret — MyCoolPay, transport pur, sans dépendance au wallet —
+est déjà livré ; le branchement métier vers `Core\Wallet\Contracts\CreditWallet`
+reste à faire) → Lot 4 Events/Webhooks (relais/dispatch de l'outbox — l'écriture
+existe déjà depuis le Lot 2) → Lot 5 Notification → Lot 6 Core Admin → Lot 7
+migration pilote. Détail de chaque lot :
 [docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.
 
 **Aucune capacité métier n'est implémentée avant que Lot 0 soit vert**
@@ -92,18 +98,33 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
 
 ## Ce qui n'est PAS encore construit (ne pas supposer que ça existe)
 
-- Aucune logique métier de ledger/wallet/paiement/notification (Lots 2–5).
+- Paiement métier bout-en-bout, frais, notification (Lots 3–5) : le
+  transport (MyCoolPay) existe, mais rien ne crédite encore un wallet suite à
+  un paiement confirmé — c'est le prochain fil à tirer, pas une hypothèse.
 - Identity/Audit sont livrés (Lot 1) : Organization/Project/ApiKey, middleware
   d'auth Project, `GET /v1/whoami`, module Audit minimal. Voir
   `packages/identity/README.md`.
-- Module `payment` : **scaffoldé** — `PaymentStatus` canonique (avec
-  `canceled` ajouté par ADR-0035), `PaymentGateway` port, `PaymentCommand`
-  / `PaymentReceipt` / `PaymentAction` DTOs, `PaymentServiceProvider`.
-  Pas d'Use Cases ni d'adapter concret avant Lot 3. Le module est
-  dans le graphe Deptrac et reconnu par `CanonicalStatusTest`.
-  Voir `packages/payment/README.md`.
-- Idempotence : design figé ([ADR-0025](docs/adr/0025-design-idempotence.md)),
-  code au Lot 2.
+- Ledger/Wallet/Parties sont livrés (Lot 2) : ledger double-entrée avec
+  contraintes PostgreSQL réelles (triggers de solde et d'immutabilité),
+  wallets crédit/débit (aucun endpoint HTTP de mutation — ADR-0033 §1),
+  parties à création paresseuse. Voir `packages/ledger/README.md`,
+  `packages/wallet/README.md`, `packages/parties/README.md` — et
+  [ADR-0033](docs/adr/0033-conception-lot-2-money-core.md).
+- Module `payment` : **scaffold canonique + un adaptateur concret**
+  (MyCoolPay : `initiate`, `submitAction`, `checkStatus`, webhook → outbox).
+  `PaymentStatus` canonique (avec `canceled` ajouté par ADR-0035),
+  `PaymentGateway` port, `PaymentCommand`/`PaymentReceipt`/`PaymentAction`
+  DTOs, `PaymentServiceProvider`. Ce qui manque encore pour que ce soit le
+  Lot 3 complet : les Use Cases d'orchestration métier (le point où un
+  paiement confirmé appelle `Core\Wallet\Contracts\CreditWallet`), les
+  adaptateurs MTN/Orange, et l'idempotence HTTP (G7, ci-dessous). Voir
+  `packages/payment/README.md`.
+- Idempotence à deux niveaux ([ADR-0025](docs/adr/0025-design-idempotence.md),
+  amendé par [ADR-0033](docs/adr/0033-conception-lot-2-money-core.md) §2) :
+  le niveau ledger (`idempotency_key` + `wasAlreadyPosted`) est livré au
+  Lot 2. Le niveau HTTP (middleware + `Idempotency-Key` obligatoire sur
+  toute route de mutation monétaire, G7) reste au Lot 3, puisque le Lot 2
+  ne publie aucune route de mutation — voir ADR-0033 §1.
 - Socle d'intégration providers (`Core\Support\Integration`) : **livré**
   ([ADR-0026](docs/adr/0026-integration-providers-externes.md) +
   [ADR-0031](docs/adr/0031-socle-integration-en-parallele-du-lot-2.md) +
