@@ -31,23 +31,34 @@ use PHPStan\Rules\RuleErrorBuilder;
 final class ForbiddenProviderStatusLiteralRule implements Rule
 {
     /**
-     * Raw status vocabulary → the only namespace prefix allowed to mention it.
+     * Raw status vocabulary → the only namespace prefix(es) allowed to
+     * mention it. Multiple providers may share a raw status string
+     * (e.g. MyCoolPay's `SUCCESS` and Orange's `SUCCESS` are independent
+     * vocabularies — a future refund-cancellation might map one of them
+     * differently). When that happens, list every namespace allowed to
+     * mention the string.
      *
-     * @var array<string, string>
+     * @var array<string, list<string>>
      */
     private const PROVIDER_VOCABULARY = [
         // MTN MoMo collection/disbursement statuses
-        'SUCCESSFUL' => 'Core\Payment\Infrastructure\Provider\Mtn',
-        'PAYER_NOT_FOUND' => 'Core\Payment\Infrastructure\Provider\Mtn',
-        'PAYEE_NOT_ALLOWED_TO_RECEIVE' => 'Core\Payment\Infrastructure\Provider\Mtn',
-        'NOT_ENOUGH_FUNDS' => 'Core\Payment\Infrastructure\Provider\Mtn',
-        'PAYER_LIMIT_REACHED' => 'Core\Payment\Infrastructure\Provider\Mtn',
+        'SUCCESSFUL' => ['Core\Payment\Infrastructure\Provider\Mtn'],
+        'PAYER_NOT_FOUND' => ['Core\Payment\Infrastructure\Provider\Mtn'],
+        'PAYEE_NOT_ALLOWED_TO_RECEIVE' => ['Core\Payment\Infrastructure\Provider\Mtn'],
+        'NOT_ENOUGH_FUNDS' => ['Core\Payment\Infrastructure\Provider\Mtn'],
+        'PAYER_LIMIT_REACHED' => ['Core\Payment\Infrastructure\Provider\Mtn'],
         // Orange Money statuses
-        'INITIATED' => 'Core\Payment\Infrastructure\Provider\Orange',
-        'SUCCESS' => 'Core\Payment\Infrastructure\Provider\Orange',
-        'EXPIRED' => 'Core\Payment\Infrastructure\Provider\Orange',
+        'INITIATED' => ['Core\Payment\Infrastructure\Provider\Orange'],
+        'SUCCESS' => ['Core\Payment\Infrastructure\Provider\Orange', 'Core\Payment\Infrastructure\Provider\MyCoolPay'],
+        'EXPIRED' => ['Core\Payment\Infrastructure\Provider\Orange', 'Core\Payment\Infrastructure\Provider\MyCoolPay'],
+        // MyCoolPay statuses
+        'CANCELED' => ['Core\Payment\Infrastructure\Provider\MyCoolPay'],
+        'FAILED' => ['Core\Payment\Infrastructure\Provider\MyCoolPay'],
+        'PENDING' => ['Core\Payment\Infrastructure\Provider\MyCoolPay'],
+        'REQUIRE_OTP' => ['Core\Payment\Infrastructure\Provider\MyCoolPay'],
+        'USSD_OK' => ['Core\Payment\Infrastructure\Provider\MyCoolPay'],
         // WhatsApp delivery receipts
-        'accepted' => 'Core\Notification\Infrastructure\Provider\WhatsApp',
+        'accepted' => ['Core\Notification\Infrastructure\Provider\WhatsApp'],
     ];
 
     public function getNodeType(): string
@@ -63,10 +74,20 @@ final class ForbiddenProviderStatusLiteralRule implements Rule
             return [];
         }
 
-        $allowedNamespace = self::PROVIDER_VOCABULARY[$value];
+        $allowedNamespaces = self::PROVIDER_VOCABULARY[$value];
         $currentNamespace = $scope->getNamespace() ?? '';
 
-        if (str_starts_with($currentNamespace, $allowedNamespace)) {
+        foreach ($allowedNamespaces as $allowedNamespace) {
+            if (str_starts_with($currentNamespace, $allowedNamespace)) {
+                return [];
+            }
+        }
+
+        // Tests legitimately reference provider status literals as test
+        // fixtures — they verify the mapping, they don't perform real
+        // provider calls. The /tests/ directories are exempt.
+        if (str_contains($currentNamespace, '\\Tests\\')
+            || str_starts_with($currentNamespace, 'Tests\\')) {
             return [];
         }
 
@@ -77,12 +98,14 @@ final class ForbiddenProviderStatusLiteralRule implements Rule
             return [];
         }
 
+        $allowedList = implode(' or ', $allowedNamespaces);
+
         return [
             RuleErrorBuilder::message(sprintf(
                 'Raw provider status %s appears outside %s. Map it to a canonical status '.
                 'inside the adapter; the core must only handle canonical values.',
                 var_export($value, true),
-                $allowedNamespace,
+                $allowedList,
             ))
                 ->identifier('core.providerStatusLeak')
                 ->tip('Canonical payment statuses: pending, processing, succeeded, failed, expired, refunded. Canonical notification statuses: queued, sent, delivered, read, failed.')

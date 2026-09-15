@@ -1,11 +1,12 @@
 {
     "name": "core/payment",
-    "description": "Payment intents, orchestration state machine, provider adapters (MTN MoMo, Orange Money), refunds.",
+    "description": "Payment provider integration: aggregator adapters (MyCoolPay, MTN MoMo, etc.), canonical PaymentStatus, outbox-published PaymentStatusChanged events. No business logic (no wallet crediting) — adapters are pure transport.",
     "type": "library",
     "license": "proprietary",
     "require": {
         "php": "^8.4",
-        "core/support": "*@dev"
+        "core/support": "*@dev",
+        "core/events": "*@dev"
     },
     "autoload": {
         "psr-4": {

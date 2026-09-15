@@ -28,9 +28,12 @@ garde-fou** (une porte qui échoue pour une autre raison ne compte pas).
 | G3c | Un module n'en atteint un autre que par son `Contracts/` — trou révélé par la revue du 2026-09-14 | PHPat |
 | G3d | Le shared kernel `Support` ne contient aucune persistance | PHPat |
 | G5  | Montants en `bigint` minor units, jamais en flottant ni décimal | Pest + PostgreSQL |
+| G4  | Aucune colonne PII sur `parties` — actif depuis la migration Lot 2 | Pest + PostgreSQL |
 | G6  | Statuts bruts provider cantonnés à leur adaptateur | Règle PHPStan |
 | G6c | Seul l'appelant d'intégration partagé ouvre des connexions HTTP sortantes | PHPat |
 | G8  | Aucun événement dispatché hors de l'outbox | PHPat + règle PHPStan |
+| G8c | L'écriture outbox et le changement d'état partagent une transaction — actif depuis `CreditWalletUseCase` (Lot 2, ADR-0032) | Pest + PostgreSQL |
+| G11 | Invariants ledger (somme nulle, solde dérivé, concurrence, rejeu) — actif depuis le ledger et le wallet (Lot 2) | Pest + PostgreSQL |
 
 Ces règles sont « actives » au sens où elles **rejettent aujourd'hui** une
 violation introduite n'importe où dans le code — ce que `make guard-test`
@@ -40,13 +43,10 @@ démontre — même si peu de code métier existe encore.
 
 | ID   | Règle | Activé par | Propriétaire |
 | ---- | ----- | ---------- | ------------ |
-| G4   | Aucune colonne PII sur `parties` | **Lot 2** — migration `parties` | Dev Money |
 | G6b  | Enums de statuts canoniques conformes à la gouvernance | **Lot 3** (`PaymentStatus`) et **Lot 5** (`NotificationStatus`) | Dev Payment, Dev Notification |
-| G7   | Tout endpoint monétaire exige un `Idempotency-Key` | **Lot 2** — première route de mutation de wallet | Dev Money |
-| G8c  | L'écriture outbox et le changement d'état partagent une transaction | **Lot 4** — outbox et relayeur | Dev Platform |
+| G7   | Tout endpoint monétaire exige un `Idempotency-Key` | **Lot 3** — première route de mutation monétaire publique (ADR-0033 §1 : les mutations wallet du Lot 2 sont internes, sans route HTTP ; ADR-0033 §2 amende ADR-0025, idempotence HTTP repoussée au Lot 3) | Dev Money |
 | G9   | Aucune rupture OpenAPI sans montée de version | **Lot 1** — premier endpoint publié | Tech Lead |
 | G10  | Aucune régression de contrat consommateur | **Lot 7** — intégration du produit pilote | QA |
-| G11  | Invariants ledger (somme nulle, solde dérivé, concurrence, rejeu) | **Lot 2** — ledger et wallet | Dev Money |
 
 ## Comment retirer une ligne de la section « en attente »
 

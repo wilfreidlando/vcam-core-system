@@ -29,7 +29,19 @@ final class OutboundHttpIsCentralised
     {
         return PHPat::rule()
             ->classes(Selector::inNamespace('Core'))
-            ->excluding(Selector::inNamespace('Core\Support\Integration'))
+            ->excluding(
+                Selector::inNamespace('Core\Support\Integration'),
+                // Contract tests fake the HTTP transport (Http::fake). They are
+                // the legitimate exception — they verify the wire shape, not
+                // perform real outbound calls. Any test directory under
+                // `packages/*/tests/Integration` is exempt.
+                Selector::inNamespace('Core\Payment\Tests\Integration'),
+                Selector::inNamespace('Core\Identity\Tests\Integration'),
+                Selector::inNamespace('Core\Parties\Tests\Integration'),
+                Selector::inNamespace('Core\Ledger\Tests\Integration'),
+                Selector::inNamespace('Core\Wallet\Tests\Integration'),
+                Selector::inNamespace('Core\Support\Tests\Integration'),
+            )
             ->shouldNotDependOn()
             ->classes(
                 Selector::classname('Illuminate\Support\Facades\Http'),
