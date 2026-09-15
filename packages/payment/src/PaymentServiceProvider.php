@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Core\Payment;
 
+use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayAdapter;
+use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayStatusMapper;
+use Core\Support\Integration\Provider\ProviderRegistry;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -12,22 +16,45 @@ use Illuminate\Support\ServiceProvider;
  * Lot 0 + Lot 3 first slice:
  *   - registers the canonical `PaymentStatus` enum (pure, self-loading)
  *   - loads the inbound webhook route (the only HTTP surface for now)
+ *   - binds and tags the MyCoolPayAdapter so the ProviderRegistry can
+ *     find it under the 'my-coolpay' code
  *
- * Adapter instantiation is intentionally NOT bound here. Adapters are
- * constructed with a `ProviderConfig` loaded from `config/providers.php`
- * by the future `ProviderConfigLoader` (Lot 3 deliverable that resolves
- * per-provider credentials, timeouts and auth strategy). Binding the
- * adapter here would couple it to a single configuration; the loader
- * is the right level for that.
- *
- * The pure-status and pure-DTO contracts (`PaymentStatus`,
- * `InitiatePaymentCommand`, `PaymentReceipt`, etc.) are autoloaded —
- * no container binding needed for value objects.
+ * The MyCoolPayAdapter is built by reading the loaded `ProviderConfig`
+ * (from `config/providers.php`) and looking up the bound
+ * `ProviderConfigRegistry`. This is the canonical wiring pattern that
+ * any future payment adapter will follow — add a `register()` block,
+ * declare the class with its `providerCode()`, and tag it.
  */
 final class PaymentServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
         $this->loadRoutesFrom(__DIR__.'/../routes/webhooks.php');
+    }
+
+    public function register(): void
+    {
+        $this->app->singleton(MyCoolPayStatusMapper::class, function (Application $app): MyCoolPayStatusMapper {
+            $configs = $app->make(\Core\Support\Integration\Configuration\ProviderConfigRegistry::class);
+            $code = $configs->configFor(
+                \Core\Support\Integration\Provider\ProviderCode::fromString('my-coolpay'),
+            )->code;
+
+            return new MyCoolPayStatusMapper($code);
+        });
+
+        $this->app->singleton(MyCoolPayAdapter::class, function (Application $app): MyCoolPayAdapter {
+            $configs = $app->make(\Core\Support\Integration\Configuration\ProviderConfigRegistry::class);
+            $code = \Core\Support\Integration\Provider\ProviderCode::fromString('my-coolpay');
+            $config = $configs->configFor($code);
+
+            return new MyCoolPayAdapter(
+                caller: $app->make(\Core\Support\Integration\ExternalApiCaller::class),
+                config: $config,
+                statusMapper: $app->make(MyCoolPayStatusMapper::class),
+            );
+        });
+
+        $this->app->tag([MyCoolPayAdapter::class], 'provider.gateway');
     }
 }

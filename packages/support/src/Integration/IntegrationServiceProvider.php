@@ -13,7 +13,11 @@ use Core\Support\Integration\Auth\NullTokenCache;
 use Core\Support\Integration\Auth\TokenCache;
 use Core\Support\Integration\CircuitBreaker\CircuitBreaker;
 use Core\Support\Integration\CircuitBreaker\InMemoryCircuitBreaker;
+use Core\Support\Integration\Configuration\ArrayProviderConfigRegistry;
 use Core\Support\Integration\Configuration\CircuitBreakerPolicy;
+use Core\Support\Integration\Configuration\ProviderConfigRegistry;
+use Core\Support\Integration\Provider\ProviderRegistry;
+use Core\Support\Integration\Provider\TaggedProviderRegistry;
 use Core\Support\Integration\Redaction\PayloadRedactor;
 use Core\Support\Integration\Redaction\SensitiveKeySet;
 use Core\Support\Integration\Signing\HmacSha256RequestSigner;
@@ -107,5 +111,55 @@ final class IntegrationServiceProvider extends ServiceProvider
                 correlationIds: $app->make(CorrelationIdProvider::class),
             );
         });
+
+        // Provider registry — config is loaded from a custom loader (or
+        // the Laravel config repository as default). Gateways are
+        // collected from the 'provider.gateway' tag. The application
+        // shell is expected to wire its own config/providers.php
+        // (see the canonical example in the repository root).
+        $this->app->singleton(ProviderConfigRegistry::class, function (Application $app): ProviderConfigRegistry {
+            $raw = $this->loadProvidersConfig($app);
+
+            return new ArrayProviderConfigRegistry($raw);
+        });
+
+        $this->app->singleton(ProviderRegistry::class, function (Application $app): ProviderRegistry {
+            /** @var iterable<Provider\ProviderGateway> $gateways */
+            $gateways = $app->tagged('provider.gateway');
+
+            return new TaggedProviderRegistry(
+                gateways: $gateways,
+                configs: $app->make(ProviderConfigRegistry::class),
+            );
+        });
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function loadProvidersConfig(Application $app): array
+    {
+        if ($app->bound('providers.config_loader')) {
+            $loader = $app->make('providers.config_loader');
+            if (is_callable($loader)) {
+                $value = $loader($app);
+                if (is_array($value)) {
+                    /** @var array<string, array<string, mixed>> $value */
+                    unset($value['environment']);
+
+                    return $value;
+                }
+            }
+        }
+
+        $config = $app->make('config');
+        $value = $config->get('providers', []);
+        if (! is_array($value)) {
+            return [];
+        }
+        unset($value['environment']);
+
+        /** @var array<string, array<string, mixed>> $value */
+        return $value;
     }
 }

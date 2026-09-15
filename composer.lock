@@ -583,9 +583,10 @@
             "dist": {
                 "type": "path",
                 "url": "packages/payment",
-                "reference": "5ce48edda26a3d4598cc8719864f5409d48d94d1"
+                "reference": "9c7ef2fb5902eb3e8e01eb062755b5706ab67ba4"
             },
             "require": {
+                "core/events": "*@dev",
                 "core/support": "*@dev",
                 "php": "^8.4"
             },
@@ -610,7 +611,7 @@
             "license": [
                 "proprietary"
             ],
-            "description": "Payment intents, orchestration state machine, provider adapters (MTN MoMo, Orange Money), refunds.",
+            "description": "Payment provider integration: aggregator adapters (MyCoolPay, MTN MoMo, etc.), canonical PaymentStatus, outbox-published PaymentStatusChanged events. No business logic (no wallet crediting) — adapters are pure transport.",
             "transport-options": {
                 "relative": true
             }
@@ -659,7 +660,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/support",
-                "reference": "e73046cfedcf80bbfd55b951c16ed842c1657b01"
+                "reference": "56d16637fbad50a72e96ae7f16304fdc23aa0a07"
             },
             "require": {
                 "php": "^8.4"
@@ -668,7 +669,8 @@
             "extra": {
                 "laravel": {
                     "providers": [
-                        "Core\\Support\\SupportServiceProvider"
+                        "Core\\Support\\SupportServiceProvider",
+                        "Core\\Support\\Integration\\IntegrationServiceProvider"
                     ]
                 }
             },
@@ -696,9 +698,13 @@
             "dist": {
                 "type": "path",
                 "url": "packages/wallet",
-                "reference": "bff7fdd9469d8bd7f9897f3ca2662d68bc473d7a"
+                "reference": "cf9130395874c49df1593e5ce8838528399561b7"
             },
             "require": {
+                "core/events": "*@dev",
+                "core/identity": "*@dev",
+                "core/ledger": "*@dev",
+                "core/parties": "*@dev",
                 "core/support": "*@dev",
                 "php": "^8.4"
             },
