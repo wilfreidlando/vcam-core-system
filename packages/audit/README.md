@@ -12,8 +12,8 @@ happened, it does not decide what deserves recording. So it skips the usual
 
 | Directory | Contains |
 | --------- | -------- |
-| `src/Contracts` | `AuditEntry` (the DTO — this module's entire model) and `AuditLogger` (the one method: `record()`) |
-| `src/Infrastructure/Persistence/Eloquent` | `AuditLogRecord` + `EloquentAuditLogger` |
+| `src/Contracts` | Write side: `AuditEntry` (the DTO) and `AuditLogger` (`record()`). Read side (ADR-0044): `AuditSearchCriteria`/`AuditEntryView`/`AuditSearchResult` and `AuditQuery` (`search()`). |
+| `src/Infrastructure/Persistence/Eloquent` | `AuditLogRecord`, `EloquentAuditLogger`, `EloquentAuditQuery` |
 
 A `Domain/` layer is worth adding the day a real rule appears — a retention
 policy, a redaction rule for `context`/`before`/`after` — not before.
@@ -24,20 +24,22 @@ policy, a redaction rule for `context`/`before`/`after` — not before.
 
 ## Who may depend on this module
 
-Any module with a genuine need to record a sensitive action, added to
+Any module with a genuine need to record or read a sensitive action, added to
 [`tests/Architecture/ModuleGraph.php`](../../tests/Architecture/ModuleGraph.php)
 one at a time as that need becomes real — never speculatively. `identity` is
 first (ADR-0029): issuing or revoking an API key is exactly the kind of
-operation this journal exists for.
+operation this journal exists for. `admin` follows (ADR-0044), for the read
+side only (`AuditQuery`) — it never writes an entry itself.
 
 ## Ground rules
 
 - `audit_log` is append-only by convention: no code path updates or deletes a
   row. Revisit with a restricted PostgreSQL role if that needs to become
   structural rather than conventional.
-- This module never queries its own table back through `AuditLogger` — it is
-  a write-only port by design. Consultation belongs to the Core Admin operator
-  console (Lot 6), which reads `audit_log` directly because it is the one
-  place allowed to.
+- `AuditLogger` never queries its own table back — it is write-only by design.
+  Consultation belongs to the Core Admin operator console (Lot 6), via the
+  separate `AuditQuery` port (ADR-0044). Like any other module, `admin`
+  reaches `audit` only through `Contracts/` — never raw Eloquent (G3c,
+  ADR-0027).
 - Never put a secret or an unhashed credential in `context`, `before` or
   `after` — the table is not encrypted at the field level.
