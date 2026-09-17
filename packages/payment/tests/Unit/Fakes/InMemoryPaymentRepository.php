@@ -67,6 +67,16 @@ final class InMemoryPaymentRepository implements PaymentRepository
         return null;
     }
 
+    /**
+     * No real locking to model in-memory (single-threaded test doubles) —
+     * concurrency itself is proven separately at the Eloquent/PostgreSQL
+     * level, not through this fake.
+     */
+    public function findByProviderTransactionRefForUpdate(string $providerCode, string $providerTransactionRef): ?Payment
+    {
+        return $this->findByProviderTransactionRef($providerCode, $providerTransactionRef);
+    }
+
     public function count(): int
     {
         return count($this->payments);

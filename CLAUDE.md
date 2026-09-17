@@ -115,7 +115,12 @@ webhook, réconciliation paiement par `checkStatus()` convergeant sur
 ([ADR-0044](docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md)),
 puis listing générique projects/payments/wallets/notifications, un port
 `List*` par module réutilisant les read models existants
-([ADR-0045](docs/adr/0045-lot-6-listing-generique-admin.md)) —
+([ADR-0045](docs/adr/0045-lot-6-listing-generique-admin.md)), puis une revue
+de code post-livraison corrigeant une course webhook/réconciliation (verrou
+de ligne), l'expiration des jetons opérateur, l'audit des actions admin, le
+throttle login/MFA, l'anti-rejeu TOTP et la validation d'UUID sur 5 endpoints,
+entre autres
+([ADR-0046](docs/adr/0046-lot-6-revue-de-code-correctifs.md)) —
 reste pour un Lot 6 complet : règles de frais, billing, monitoring opérationnel
 → Lot 7 migration pilote. Détail de chaque lot :
 [docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.

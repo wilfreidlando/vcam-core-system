@@ -10,6 +10,7 @@ use Core\Payment\Contracts\ListPaymentsCommand;
 use Core\Support\Http\ProblemDetails;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ListProjectPaymentsController
@@ -29,6 +30,12 @@ final class ListProjectPaymentsController
             return ProblemDetails::forbidden('The payments:read permission is required.');
         }
 
+        // A malformed (non-UUID) projectId would otherwise reach a
+        // `WHERE project_id = ?` against a Postgres `uuid` column and
+        // crash with an uncaught QueryException — a clean 422 instead
+        // (review finding, Lot 6 follow-up).
+        Validator::make(['projectId' => $projectId], ['projectId' => 'uuid'])->validate();
+
         $statusRaw = $request->query('status');
         $status = is_string($statusRaw) && $statusRaw !== '' ? $statusRaw : null;
 
@@ -41,7 +48,7 @@ final class ListProjectPaymentsController
             'data' => array_map(static fn ($payment): array => [
                 'id' => $payment->id,
                 'channel' => $payment->channel,
-                'status' => $payment->status->value,
+                'status' => $payment->status,
                 'amount' => $payment->amount,
                 'currency' => $payment->currency,
                 'requires_action' => $payment->requiresAction,

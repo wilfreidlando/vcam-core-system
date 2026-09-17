@@ -73,7 +73,12 @@ final class EloquentNotificationRepository implements NotificationRepository
 
         $total = (clone $base)->count();
 
+        // A tiebreaker on the primary key: two rows can share the same
+        // created_at (batch insert, clock resolution), and without a
+        // deterministic secondary sort a row can appear twice or vanish
+        // across page boundaries (review finding, Lot 6 follow-up).
         $base->orderBy('created_at', 'desc');
+        $base->orderBy('id', 'desc');
         $base->skip(($page - 1) * $perPage);
         $base->take($perPage);
 

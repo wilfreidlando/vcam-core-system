@@ -255,6 +255,24 @@ final class AdminHttpFlowTest extends TestCase
             ->assertStatus(403);
     }
 
+    #[Test]
+    public function a_malformed_project_or_organization_id_is_rejected_with_a_clean_422_not_a_500(): void
+    {
+        // Review finding, Lot 6 follow-up: a non-UUID id used to reach the
+        // Postgres `uuid` column unvalidated and crash with an uncaught
+        // QueryException. Covers one path param and one query param —
+        // the other three listing endpoints share the identical fix.
+        $token = $this->authenticatedOperatorToken(OperatorRole::PlatformAdmin);
+
+        $this->getJson('/v1/admin/projects/not-a-uuid/payments', ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(422)
+            ->assertHeader('Content-Type', 'application/problem+json');
+
+        $this->getJson('/v1/admin/projects?organization_id=not-a-uuid', ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(422)
+            ->assertHeader('Content-Type', 'application/problem+json');
+    }
+
     private function authenticatedOperatorToken(OperatorRole $role): string
     {
         $created = app(CreateOperator::class)(

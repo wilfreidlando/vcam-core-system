@@ -41,6 +41,7 @@ final readonly class CreateOperator
             role: $command->role,
             mfaSecret: null,
             mfaEnabled: false,
+            mfaLastVerifiedTimestep: null,
             revokedAt: null,
             createdAt: $now,
         );

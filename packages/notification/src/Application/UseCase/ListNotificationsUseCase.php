@@ -28,7 +28,7 @@ final readonly class ListNotificationsUseCase implements ListNotifications
             static fn (Notification $notification): NotificationView => new NotificationView(
                 id: $notification->id,
                 channel: $notification->channel,
-                status: $notification->status,
+                status: $notification->status->value,
                 contentType: $notification->contentType,
                 errorMessage: $notification->errorMessage,
             ),

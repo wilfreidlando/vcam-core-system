@@ -31,10 +31,17 @@ Route::middleware(['project.auth'])
 
 Route::prefix('v1/operators')
     ->group(function (): void {
-        Route::post('/login', LoginOperatorController::class)->name('operators.login');
-        Route::post('/mfa/enroll', EnrollOperatorMfaController::class)->name('operators.mfa.enroll');
-        Route::post('/mfa/confirm', ConfirmOperatorMfaController::class)->name('operators.mfa.confirm');
-        Route::post('/mfa/verify', VerifyOperatorMfaController::class)->name('operators.mfa.verify');
+        // 'operator-auth' (AppServiceProvider::configureRateLimiting) is
+        // deliberately tighter than the generic 'api' limiter — these
+        // four endpoints are public/unauthenticated and gate the
+        // platform-admin plane, so they need their own ceiling against
+        // online password/TOTP guessing.
+        Route::middleware(['throttle:operator-auth'])->group(function (): void {
+            Route::post('/login', LoginOperatorController::class)->name('operators.login');
+            Route::post('/mfa/enroll', EnrollOperatorMfaController::class)->name('operators.mfa.enroll');
+            Route::post('/mfa/confirm', ConfirmOperatorMfaController::class)->name('operators.mfa.confirm');
+            Route::post('/mfa/verify', VerifyOperatorMfaController::class)->name('operators.mfa.verify');
+        });
 
         Route::middleware(['operator.auth'])->group(function (): void {
             Route::get('/me', WhoAmIOperatorController::class)->name('operators.whoami');

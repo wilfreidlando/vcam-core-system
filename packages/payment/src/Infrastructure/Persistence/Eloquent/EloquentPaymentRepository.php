@@ -62,6 +62,31 @@ final class EloquentPaymentRepository implements PaymentRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
+    public function findByProviderTransactionRefForUpdate(string $providerCode, string $providerTransactionRef): ?Payment
+    {
+        // Must run inside the caller's open transaction (UnitOfWork) —
+        // the lock is released at commit/rollback, not by this call.
+        // `lockForUpdate()` is forwarded by Eloquent\Builder to the base
+        // query builder rather than declared on it directly, which trips
+        // the same Larastan false positive as findStuckSince()/
+        // findByProject() above — same toBase()/hydrate() workaround.
+        $base = PaymentRecord::query()
+            ->where('provider_code', $providerCode)
+            ->where('provider_transaction_ref', $providerTransactionRef)
+            ->toBase();
+        $base->lockForUpdate();
+
+        $row = $base->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $record = PaymentRecord::hydrate([(array) $row])->sole();
+
+        return $this->toDomain($record);
+    }
+
     public function findStuckSince(DateTimeImmutable $threshold, int $limit): array
     {
         // `whereIn`/`orderBy`/`take` are forwarded by Eloquent\Builder to
@@ -99,7 +124,11 @@ final class EloquentPaymentRepository implements PaymentRepository
 
         $total = (clone $base)->count();
 
+        // Tiebreaker on the primary key — see EloquentNotificationRepository's
+        // identical comment: without it, rows sharing a created_at can
+        // duplicate or vanish across pages.
         $base->orderBy('created_at', 'desc');
+        $base->orderBy('id', 'desc');
         $base->skip(($page - 1) * $perPage);
         $base->take($perPage);
 

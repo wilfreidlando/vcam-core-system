@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Core\Admin\Presentation\Http\Controllers;
 
+use Core\Audit\Contracts\AuditEntry;
+use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Payment\Contracts\ReconcileStuckPayments;
 use Core\Payment\Contracts\ReconcileStuckPaymentsCommand;
+use Core\Support\Clock;
 use Core\Support\Http\ProblemDetails;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,6 +26,8 @@ final class TriggerPaymentReconciliationController
 
     public function __construct(
         private readonly ReconcileStuckPayments $reconcileStuckPayments,
+        private readonly AuditLogger $audit,
+        private readonly Clock $clock,
     ) {}
 
     /**
@@ -41,6 +46,17 @@ final class TriggerPaymentReconciliationController
         $summary = $this->reconcileStuckPayments->reconcile(
             new ReconcileStuckPaymentsCommand(limitOverride: self::ON_DEMAND_BATCH_LIMIT),
         );
+
+        $this->audit->record(new AuditEntry(
+            actor: 'operator:'.$operator->operatorId,
+            action: 'payment_reconciliation.triggered',
+            resource: 'payment_reconciliation_run',
+            before: null,
+            after: ['checked' => $summary->checked, 'updated' => $summary->updated, 'errors' => $summary->errors],
+            context: [],
+            correlationId: null,
+            occurredAt: $this->clock->now(),
+        ));
 
         return new JsonResponse([
             'checked' => $summary->checked,

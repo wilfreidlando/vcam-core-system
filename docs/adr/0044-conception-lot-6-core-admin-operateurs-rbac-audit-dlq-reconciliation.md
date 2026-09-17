@@ -163,12 +163,26 @@ demande.
 Constat vérifié : `RequireIdempotencyKey`/`IdempotencyScope` est câblé sur
 `ProjectContext`, jamais bindée sur une requête authentifiée par
 opérateur (`operator.auth`, jamais `project.auth`) — l'attacher
-planterait avec un `BindingResolutionException`. Sans conséquence
-fonctionnelle : aucune des quatre capacités de cette tranche ne mute un
-montant fourni par l'appelant au sens G7 (elles déclenchent ou lisent des
-opérations déjà idempotentes en interne). Le nom de la route de
-réconciliation (`payment-reconciliation-runs`) évite volontairement le
-sous-mot `payments` que `IdempotencyTest.php` détecte par substring.
+planterait avec un `BindingResolutionException`. Sans conséquence au sens
+G7 : aucune des quatre capacités de cette tranche ne mute un **montant
+fourni par l'appelant** — la réconciliation lit `checkStatus()` et
+converge sur `PaymentStatusChangeHandler` (idempotent au niveau ledger,
+ADR-0033 §2, avec verrou de ligne depuis le correctif de revue post-Lot 6
+— voir §9 ci-dessous).
+
+**Correction (revue post-Lot 6)** : cette section affirmait à tort que
+les quatre capacités « déclenchent ou lisent des opérations déjà
+idempotentes en interne » sans distinction. C'est faux pour le replay
+webhook : `ReplayWebhookDeliveryUseCase` crée une **nouvelle ligne** de
+livraison à chaque appel — rejouer deux fois envoie deux livraisons au
+endpoint marchand. Ce n'est délibérément pas un no-op (un replay doit
+produire une tentative fraîche), donc ce n'est pas un bug à corriger,
+mais l'affirmation d'idempotence était incorrecte et est retirée ici.
+Le nom de la route de réconciliation (`payment-reconciliation-runs`)
+évite le sous-mot `payments` qu'`IdempotencyTest.php` détecte par
+substring — un contournement par nommage plutôt qu'une exemption
+explicite documentée dans le garde-fou lui-même ; à régulariser si
+`IdempotencyTest.php` gagne un mécanisme d'exemption nommé.
 
 ## Alternatives écartées
 

@@ -62,7 +62,11 @@ final class EloquentWalletRepository implements WalletRepository
 
         $total = (clone $base)->count();
 
+        // Tiebreaker on the primary key — see EloquentNotificationRepository's
+        // identical comment: without it, rows sharing a created_at can
+        // duplicate or vanish across pages.
         $base->orderBy('created_at', 'desc');
+        $base->orderBy('id', 'desc');
         $base->skip(($page - 1) * $perPage);
         $base->take($perPage);
 

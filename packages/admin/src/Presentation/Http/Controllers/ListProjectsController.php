@@ -10,6 +10,7 @@ use Core\Identity\Contracts\OperatorContext;
 use Core\Support\Http\ProblemDetails;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ListProjectsController
@@ -33,6 +34,15 @@ final class ListProjectsController
 
         $organizationIdRaw = $request->query('organization_id');
         $organizationId = is_string($organizationIdRaw) && $organizationIdRaw !== '' ? $organizationIdRaw : null;
+
+        if ($organizationId !== null) {
+            // A malformed (non-UUID) organization_id would otherwise
+            // reach a `WHERE organization_id = ?` against a Postgres
+            // `uuid` column and crash with an uncaught QueryException —
+            // a clean 422 via Laravel's existing ValidationException
+            // mapping instead (review finding, Lot 6 follow-up).
+            Validator::make(['organization_id' => $organizationId], ['organization_id' => 'uuid'])->validate();
+        }
 
         $page = max(1, (int) $request->query('page', '1'));
         $perPage = min(100, max(1, (int) $request->query('per_page', '25')));

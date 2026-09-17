@@ -20,9 +20,23 @@ final class Google2faTotpProvider implements TotpProvider
         return $this->google2fa->generateSecretKey();
     }
 
-    public function verify(string $secret, string $code): bool
+    public function verify(string $secret, string $code, ?int $afterTimestep = null): int|false
     {
-        return $this->google2fa->verifyKey($secret, $code) === true;
+        if ($afterTimestep === null) {
+            // No prior timestep to compare against (first-ever
+            // verification for this operator) — `verifyKey()` alone
+            // returns true/false, not a timestep, so resolve one
+            // ourselves via `getTimestamp()` for the caller to persist.
+            if ($this->google2fa->verifyKey($secret, $code) !== true) {
+                return false;
+            }
+
+            return $this->google2fa->getTimestamp();
+        }
+
+        $matchedTimestep = $this->google2fa->verifyKeyNewer($secret, $code, $afterTimestep);
+
+        return is_int($matchedTimestep) ? $matchedTimestep : false;
     }
 
     public function buildOtpauthUri(string $secret, string $email): string

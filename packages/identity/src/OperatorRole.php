@@ -39,7 +39,7 @@ enum OperatorRole: string
         return match ($this) {
             self::PlatformAdmin => ['*'],
             self::FinanceOperator => [
-                'payments:reconcile:read', 'payments:reconcile:write', 'audit:read',
+                'payments:reconcile:write', 'audit:read',
                 'payments:read', 'wallets:read', 'projects:read',
             ],
             self::SupportOperator => [
@@ -48,7 +48,8 @@ enum OperatorRole: string
             ],
             self::ProviderManager => ['audit:read', 'projects:read'],
             self::ReadOnlyAuditor => [
-                'audit:read', 'projects:read', 'payments:read', 'wallets:read', 'notifications:read',
+                'audit:read', 'projects:read', 'payments:read', 'wallets:read',
+                'notifications:read', 'webhooks:read',
             ],
         };
     }

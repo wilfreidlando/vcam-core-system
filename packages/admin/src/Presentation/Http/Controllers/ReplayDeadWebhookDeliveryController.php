@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace Core\Admin\Presentation\Http\Controllers;
 
+use Core\Audit\Contracts\AuditEntry;
+use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Support\Clock;
 use Core\Support\Http\ProblemDetails;
 use Core\Webhook\Contracts\DeliverWebhookCommand;
 use Core\Webhook\Contracts\QueueWebhookDelivery;
 use Core\Webhook\Contracts\ReplayWebhookDelivery;
 use Core\Webhook\Contracts\ReplayWebhookDeliveryCommand;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -26,6 +30,8 @@ final class ReplayDeadWebhookDeliveryController
     public function __construct(
         private readonly ReplayWebhookDelivery $replayWebhookDelivery,
         private readonly QueueWebhookDelivery $queueWebhookDelivery,
+        private readonly AuditLogger $audit,
+        private readonly Clock $clock,
     ) {}
 
     /**
@@ -40,9 +46,22 @@ final class ReplayDeadWebhookDeliveryController
             return ProblemDetails::forbidden('The webhooks:replay permission is required.');
         }
 
+        Validator::make(['deliveryId' => $deliveryId], ['deliveryId' => 'uuid'])->validate();
+
         $view = $this->replayWebhookDelivery->replay(new ReplayWebhookDeliveryCommand($deliveryId));
 
         $this->queueWebhookDelivery->queue(new DeliverWebhookCommand($view->newDeliveryId));
+
+        $this->audit->record(new AuditEntry(
+            actor: 'operator:'.$operator->operatorId,
+            action: 'webhook_delivery.replayed',
+            resource: 'webhook_delivery:'.$deliveryId,
+            before: null,
+            after: ['new_delivery_id' => $view->newDeliveryId],
+            context: [],
+            correlationId: null,
+            occurredAt: $this->clock->now(),
+        ));
 
         return new JsonResponse(['id' => $view->newDeliveryId], 201);
     }

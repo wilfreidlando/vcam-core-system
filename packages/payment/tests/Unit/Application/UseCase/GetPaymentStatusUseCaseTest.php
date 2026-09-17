@@ -41,7 +41,7 @@ it('returns the view for a payment owned by the requesting project', function ()
     $view = $useCase->get(new GetPaymentStatusCommand('payment-1', 'project-1'));
 
     expect($view->id)->toBe('payment-1')
-        ->and($view->status)->toBe(PaymentStatus::Succeeded);
+        ->and($view->status)->toBe(PaymentStatus::Succeeded->value);
 });
 
 it('rejects an unknown payment id', function (): void {

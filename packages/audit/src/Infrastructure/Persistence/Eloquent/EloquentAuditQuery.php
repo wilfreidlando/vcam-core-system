@@ -43,7 +43,13 @@ final class EloquentAuditQuery implements AuditQuery
 
         $total = (clone $base)->count();
 
+        // Tiebreaker on the primary key: two rows can share the same
+        // created_at (batch insert, clock resolution), and without a
+        // deterministic secondary sort a row can appear twice or vanish
+        // across page boundaries — especially undesirable on the audit
+        // log, an evidentiary record (review finding, Lot 6 follow-up).
         $base->orderBy('created_at', 'desc');
+        $base->orderBy('id', 'desc');
         $base->skip(($criteria->page - 1) * $criteria->perPage);
         $base->take($criteria->perPage);
 

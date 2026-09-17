@@ -35,7 +35,7 @@ final class GetNotificationStatusController
         return new JsonResponse([
             'id' => $view->id,
             'channel' => $view->channel,
-            'status' => $view->status->value,
+            'status' => $view->status,
             'content_type' => $view->contentType,
             'error_message' => $view->errorMessage,
         ]);

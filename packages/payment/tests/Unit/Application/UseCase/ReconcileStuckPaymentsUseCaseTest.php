@@ -146,6 +146,42 @@ it('logs and skips a payment whose provider call fails, without aborting the bat
         ->and($handler->handled)->toBeEmpty();
 });
 
+it('logs and skips a payment whose handler fails with a non-provider exception, without aborting the batch', function (): void {
+    // Review finding, Lot 6 follow-up: the catch clause previously only
+    // covered provider-shaped exceptions, so a persistence/domain
+    // failure inside PaymentStatusChangeHandler (a real possibility —
+    // see the row-lock race fix) escaped and aborted the whole loop,
+    // leaving every payment after the poisoned one unchecked.
+    $payments = new InMemoryPaymentRepository;
+    $payments->create(stuckPayment('p1'));
+    $payments->create(stuckPayment('p2'));
+
+    $gateway = new FakePaymentGateway(ProviderCode::fromString('fake-provider'));
+    $gateway->nextReceipt = new PaymentReceipt('tx-x', PaymentStatus::Succeeded);
+    $registry = new FakePaymentGatewayRegistry;
+    $registry->register($gateway);
+
+    $handler = new FakePaymentStatusChangeHandler;
+    $handler->handleException = new LogicException('a persistence race, not a provider failure');
+
+    $useCase = new ReconcileStuckPaymentsUseCase(
+        payments: $payments,
+        gateways: $registry,
+        statusChangeHandler: $handler,
+        clock: new FixedClock,
+        logger: new NullLogger,
+        stuckAfterMinutes: 15,
+        batchSize: 100,
+    );
+
+    $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand);
+
+    expect($summary->checked)->toBe(2)
+        ->and($summary->updated)->toBe(0)
+        ->and($summary->errors)->toBe(2)
+        ->and($handler->handled)->toBeEmpty();
+});
+
 it('honours limitOverride over the configured batch size', function (): void {
     $payments = new InMemoryPaymentRepository;
     $payments->create(stuckPayment('p1'));

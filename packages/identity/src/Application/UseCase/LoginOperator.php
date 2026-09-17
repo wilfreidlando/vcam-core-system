@@ -8,6 +8,7 @@ use Core\Identity\Application\Dto\LoginOperatorCommand;
 use Core\Identity\Application\Dto\OperatorLoginChallenge;
 use Core\Identity\Domain\Exception\InvalidOperatorCredentials;
 use Core\Identity\Domain\Exception\OperatorRevoked;
+use Core\Identity\Domain\Model\Operator;
 use Core\Identity\Domain\Port\LoginChallengeCodec;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Support\Clock;
@@ -30,8 +31,18 @@ final readonly class LoginOperator
 
     public function __invoke(LoginOperatorCommand $command): OperatorLoginChallenge
     {
-        $operator = $this->operators->findByEmail($command->email)
-            ?? throw InvalidOperatorCredentials::unknown();
+        $operator = $this->operators->findByEmail($command->email);
+
+        if ($operator === null) {
+            // Still pays the Argon2id cost a real verification would —
+            // otherwise an unknown email returns near-instantly while a
+            // known-email/wrong-password request is measurably slower,
+            // letting response timing enumerate which operator emails
+            // exist.
+            Operator::verifyAgainstDummyHash($command->password);
+
+            throw InvalidOperatorCredentials::unknown();
+        }
 
         if (! $operator->verifyPassword($command->password)) {
             throw InvalidOperatorCredentials::unknown();

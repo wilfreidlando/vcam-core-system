@@ -19,6 +19,7 @@ use Core\Support\Integration\Exception\ProviderException;
 use Core\Support\Integration\Provider\ProviderCode;
 use DateTimeZone;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Background reconciliation for missed webhooks (spec technique §10).
@@ -29,8 +30,15 @@ use Psr\Log\LoggerInterface;
  * behaviour") — so this use case adds no transactional/idempotency/outbox
  * logic of its own (G8 stays intact: no raw `dispatch()`/`event()` here).
  *
- * A provider failure on one payment is logged and skipped — it must never
- * abort the rest of the batch.
+ * A failure on one payment — provider-side or not (a persistence error,
+ * a domain invariant, anything `PaymentStatusChangeHandler` can throw) —
+ * is logged and skipped. The batch must never abort partway through: with
+ * `findStuckSince()` ordering the oldest-untouched payment first and no
+ * separate starvation guard, a single payment whose processing always
+ * throws would otherwise sit at the head of every future run forever,
+ * silently blocking reconciliation for the whole platform (caught in
+ * review — a narrower catch here previously let non-provider exceptions
+ * escape and abort the loop).
  */
 final readonly class ReconcileStuckPaymentsUseCase implements ReconcileStuckPayments
 {
@@ -66,6 +74,18 @@ final readonly class ReconcileStuckPaymentsUseCase implements ReconcileStuckPaym
             } catch (ProviderException|CircuitOpenException|UnsupportedPaymentGatewayException $e) {
                 $errors++;
                 $this->logger->warning('payment.reconciliation.check_status_failed', [
+                    'payment_id' => $payment->id,
+                    'provider_code' => $payment->providerCode,
+                    'error' => $e->getMessage(),
+                ]);
+            } catch (Throwable $e) {
+                // Anything else — including a failure inside
+                // PaymentStatusChangeHandler itself (persistence, a
+                // domain invariant) — must not kill the batch either.
+                // Logged at error level, distinct from the expected/
+                // routine provider-side warning above.
+                $errors++;
+                $this->logger->error('payment.reconciliation.payment_failed', [
                     'payment_id' => $payment->id,
                     'provider_code' => $payment->providerCode,
                     'error' => $e->getMessage(),

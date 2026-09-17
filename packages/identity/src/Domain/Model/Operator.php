@@ -17,6 +17,19 @@ use DateTimeImmutable;
  */
 final class Operator
 {
+    /**
+     * A fixed, precomputed Argon2id hash of an arbitrary value — never a
+     * real operator's password. `verifyAgainstDummyHash()` runs the same
+     * `password_verify()` cost against it when the caller has no
+     * `Operator` to check against (unknown email), so the login endpoint
+     * takes roughly the same time whether the email exists or not.
+     * Without this, an unknown-email request returns immediately while a
+     * known-email/wrong-password request pays the full Argon2id cost,
+     * letting a timing side-channel enumerate which operator emails exist
+     * (review finding, Lot 6 follow-up).
+     */
+    private const string DUMMY_PASSWORD_HASH = '$argon2id$v=19$m=65536,t=4,p=1$QVdidWQweDRTQzRVcmdKLg$4d7UJRVl1P5YfLSyvsq6VSxchbrs9wwpdNUO5hCFcSo';
+
     public function __construct(
         public readonly string $id,
         public readonly string $email,
@@ -25,6 +38,7 @@ final class Operator
         public readonly OperatorRole $role,
         private ?string $mfaSecret,
         private bool $mfaEnabled,
+        private ?int $mfaLastVerifiedTimestep,
         private ?DateTimeImmutable $revokedAt,
         public readonly DateTimeImmutable $createdAt,
     ) {}
@@ -32,6 +46,11 @@ final class Operator
     public static function hashPassword(string $plainPassword): string
     {
         return password_hash($plainPassword, PASSWORD_ARGON2ID);
+    }
+
+    public static function verifyAgainstDummyHash(string $candidatePassword): void
+    {
+        password_verify($candidatePassword, self::DUMMY_PASSWORD_HASH);
     }
 
     public function verifyPassword(string $candidatePassword): bool
@@ -55,6 +74,23 @@ final class Operator
     }
 
     /**
+     * The TOTP time step (30s window index) of the last code this
+     * operator successfully verified — `null` until their first
+     * successful verification. Passed back to `TotpProvider::verify()`
+     * as `$afterTimestep` so a code cannot be replayed within its
+     * validity window (RFC 6238 §5.2, review finding, Lot 6 follow-up).
+     */
+    public function mfaLastVerifiedTimestep(): ?int
+    {
+        return $this->mfaLastVerifiedTimestep;
+    }
+
+    public function recordMfaVerification(int $timestep): void
+    {
+        $this->mfaLastVerifiedTimestep = $timestep;
+    }
+
+    /**
      * Stores a freshly generated TOTP secret, not yet confirmed — MFA
      * only becomes `enabled` once the operator proves possession of it
      * via `confirmMfa()`.
@@ -63,6 +99,7 @@ final class Operator
     {
         $this->mfaSecret = $secret;
         $this->mfaEnabled = false;
+        $this->mfaLastVerifiedTimestep = null;
     }
 
     public function confirmMfa(): void

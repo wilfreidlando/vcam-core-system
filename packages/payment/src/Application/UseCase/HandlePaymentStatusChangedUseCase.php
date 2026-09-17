@@ -47,7 +47,14 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
     public function handle(PaymentStatusChanged $event): void
     {
         $this->unitOfWork->transactional(function () use ($event): void {
-            $payment = $this->payments->findByProviderTransactionRef($event->providerCode, $event->transactionRef);
+            // Locked read: this handler is reached from two concurrent
+            // entry points (inbound webhook, reconciliation job —
+            // ADR-0044) racing on the same Payment row. The lock forces a
+            // second concurrent call to block until the first commits,
+            // then re-read the now-committed row, so its terminal-status
+            // guard below correctly short-circuits instead of both calls
+            // writing a stale transition.
+            $payment = $this->payments->findByProviderTransactionRefForUpdate($event->providerCode, $event->transactionRef);
 
             if ($payment === null) {
                 // A webhook for a transaction this Core never initiated

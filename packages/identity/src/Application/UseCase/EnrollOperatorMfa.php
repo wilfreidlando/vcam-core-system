@@ -9,6 +9,7 @@ use Core\Identity\Application\Dto\OperatorMfaEnrollment;
 use Core\Identity\Domain\Exception\MfaAlreadyEnrolled;
 use Core\Identity\Domain\Exception\MfaChallengeInvalid;
 use Core\Identity\Domain\Exception\OperatorNotFound;
+use Core\Identity\Domain\Exception\OperatorRevoked;
 use Core\Identity\Domain\Port\LoginChallengeCodec;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Identity\Domain\Port\TotpProvider;
@@ -38,6 +39,10 @@ final readonly class EnrollOperatorMfa
 
         $operator = $this->operators->find($operatorId)
             ?? throw OperatorNotFound::withId($operatorId);
+
+        if ($operator->isRevoked()) {
+            throw OperatorRevoked::withId($operator->id);
+        }
 
         if ($operator->mfaEnabled()) {
             throw MfaAlreadyEnrolled::forOperator($operator->id);

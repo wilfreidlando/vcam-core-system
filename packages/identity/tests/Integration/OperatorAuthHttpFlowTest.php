@@ -95,7 +95,12 @@ final class OperatorAuthHttpFlowTest extends TestCase
 
         self::assertSame('mfa', $secondLogin['purpose']);
 
-        $verifyCode = (new Google2FA)->getCurrentOtp($secret);
+        // A genuinely later code, one time step after the one `confirm`
+        // just consumed — not the same window's `getCurrentOtp()`, which
+        // the anti-replay fix (review finding, Lot 6 follow-up) now
+        // correctly rejects as a replay of the code just verified above.
+        $google2fa = new Google2FA;
+        $verifyCode = $google2fa->oathTotp($secret, $google2fa->getTimestamp() + 1);
         $verify = $this->jsonBody($this->postJson('/v1/operators/mfa/verify', [
             'challenge_token' => $secondLogin['challenge_token'],
             'code' => $verifyCode,

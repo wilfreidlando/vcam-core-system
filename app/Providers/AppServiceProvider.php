@@ -104,5 +104,24 @@ final class AppServiceProvider extends ServiceProvider
 
             return Limit::perMinute(300)->by($key);
         });
+
+        // Stricter than the generic 'api' limiter above: the operator
+        // login/MFA endpoints (`/v1/operators/{login,mfa/*}`) are public,
+        // unauthenticated, and gate the platform-admin plane — 300/min
+        // per IP is permissive enough for online password/TOTP guessing
+        // (review finding, Lot 6 follow-up). Two limits apply together:
+        // a per-IP ceiling, and a tighter per-credential ceiling (email
+        // for /login, challenge token for the MFA steps) so an attacker
+        // can't just rotate the other dimension to escape one limit.
+        RateLimiter::for('operator-auth', function (Request $request): array {
+            $email = $request->string('email')->value();
+            $challengeToken = $request->string('challenge_token')->value();
+            $credential = $email !== '' ? $email : ($challengeToken !== '' ? $challengeToken : 'none');
+
+            return [
+                Limit::perMinute(20)->by('operator-auth-ip:'.$request->ip()),
+                Limit::perMinute(5)->by('operator-auth-credential:'.hash('sha256', $credential)),
+            ];
+        });
     }
 }

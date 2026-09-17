@@ -28,6 +28,18 @@ final class InMemoryWalletBalanceRepository implements WalletBalanceRepository
         return $this->balances[$walletId] ?? null;
     }
 
+    public function findMany(array $walletIds): array
+    {
+        $result = [];
+        foreach ($walletIds as $walletId) {
+            if (isset($this->balances[$walletId])) {
+                $result[$walletId] = $this->balances[$walletId];
+            }
+        }
+
+        return $result;
+    }
+
     public function lockForUpdate(string $walletId): WalletBalance
     {
         return $this->balances[$walletId]

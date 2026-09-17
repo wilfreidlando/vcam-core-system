@@ -12,6 +12,7 @@ use Core\Identity\Domain\Exception\InvalidMfaCode;
 use Core\Identity\Domain\Exception\MfaChallengeInvalid;
 use Core\Identity\Domain\Exception\MfaNotEnrolled;
 use Core\Identity\Domain\Exception\OperatorNotFound;
+use Core\Identity\Domain\Exception\OperatorRevoked;
 use Core\Identity\Domain\Port\LoginChallengeCodec;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Identity\Domain\Port\OperatorTokenIssuer;
@@ -42,14 +43,20 @@ final readonly class ConfirmOperatorMfaEnrollment
         $operator = $this->operators->find($operatorId)
             ?? throw OperatorNotFound::withId($operatorId);
 
+        if ($operator->isRevoked()) {
+            throw OperatorRevoked::withId($operator->id);
+        }
+
         $secret = $operator->mfaSecret()
             ?? throw MfaNotEnrolled::forOperator($operator->id);
 
-        if (! $this->totp->verify($secret, $command->code)) {
+        $timestep = $this->totp->verify($secret, $command->code, $operator->mfaLastVerifiedTimestep());
+        if ($timestep === false) {
             throw InvalidMfaCode::make();
         }
 
         $operator->confirmMfa();
+        $operator->recordMfaVerification($timestep);
         $this->operators->save($operator);
 
         $accessToken = $this->tokens->issue($operator->id, 'operator-console');

@@ -4,7 +4,8 @@
 **Responsibility:** Core Admin: operator console for projects, credentials, transactions, wallets, fee rules, providers, webhooks, audit and reconciliation.
 **Delivery lot:** Lot 6, two slices delivered — see
 [ADR-0044](../../docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md),
-[ADR-0045](../../docs/adr/0045-lot-6-listing-generique-admin.md)
+[ADR-0045](../../docs/adr/0045-lot-6-listing-generique-admin.md),
+[ADR-0046](../../docs/adr/0046-lot-6-revue-de-code-correctifs.md)
 and [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
 
 ## What's delivered so far
@@ -26,6 +27,11 @@ not here):
 
 Plus `admin:reconcile-stuck-payments`, scheduled every 5 minutes
 (`bootstrap/app.php`) as the primary reconciliation trigger.
+
+The two mutating endpoints (webhook replay, reconciliation trigger) record
+an `AuditLogger` entry (`webhook_delivery.replayed` / `payment_reconciliation.triggered`,
+actor `operator:<id>`) since ADR-0046 — before that, admin actions left no
+audit trail of their own.
 
 This module has no `Domain/`/`Application/` of its own yet — every
 capability above is a controller composing another module's `Contracts/`

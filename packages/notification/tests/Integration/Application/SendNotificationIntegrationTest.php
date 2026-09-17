@@ -41,7 +41,7 @@ final class SendNotificationIntegrationTest extends TestCase
     {
         $view = app(SendTextNotification::class)->send($this->command());
 
-        self::assertSame(NotificationStatus::Sent, $view->status);
+        self::assertSame(NotificationStatus::Sent->value, $view->status);
 
         $row = DB::table('notifications')->where('id', $view->id)->first();
         self::assertNotNull($row);

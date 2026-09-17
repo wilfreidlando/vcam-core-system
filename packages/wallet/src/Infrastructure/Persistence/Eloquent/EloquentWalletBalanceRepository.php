@@ -40,6 +40,51 @@ final class EloquentWalletBalanceRepository implements WalletBalanceRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
+    public function findMany(array $walletIds): array
+    {
+        if ($walletIds === []) {
+            return [];
+        }
+
+        // `whereIn()`/`pluck()` are forwarded by Eloquent\Builder to the
+        // base query builder rather than declared on it directly — same
+        // Larastan false positive as the toBase()/hydrate() workaround
+        // used elsewhere in this codebase (e.g. EloquentAuditQuery).
+        $rows = WalletBalanceRecord::query()->toBase()
+            ->whereIn('wallet_id', $walletIds)
+            ->get();
+
+        /** @var array<string, string> $currencies */
+        $currencies = WalletRecord::query()->toBase()
+            ->whereIn('id', $walletIds)
+            ->pluck('currency', 'id')
+            ->all();
+
+        $balances = [];
+        foreach ($rows as $row) {
+            $walletId = $row->wallet_id;
+            $availableMinor = $row->available_minor;
+            $heldMinor = $row->held_minor;
+            $version = $row->version;
+            assert(is_string($walletId));
+            assert(is_int($availableMinor));
+            assert(is_int($heldMinor));
+            assert(is_int($version));
+
+            $currency = $currencies[$walletId] ?? null;
+            assert(is_string($currency));
+
+            $balances[$walletId] = new WalletBalance(
+                $walletId,
+                Money::ofMinor($availableMinor, $currency),
+                Money::ofMinor($heldMinor, $currency),
+                $version,
+            );
+        }
+
+        return $balances;
+    }
+
     public function lockForUpdate(string $walletId): WalletBalance
     {
         // Eloquent forwards lockForUpdate() to the query builder via __call;

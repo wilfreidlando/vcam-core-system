@@ -19,9 +19,11 @@ interface PaymentRepository
     public function create(Payment $payment): void;
 
     /**
-     * Persists a status transition on a Payment that already exists — the
-     * caller always has it via `find()`/`findByProviderTransactionRef()`
-     * first, so no race handling is needed here (unlike `create()`).
+     * Persists a status transition on a Payment that already exists.
+     * Race-safe only because the caller resolved the Payment via
+     * `findByProviderTransactionRefForUpdate()` first, holding a row lock
+     * for the whole transaction — this method itself performs a plain
+     * unconditional `UPDATE`, with no status/version predicate of its own.
      */
     public function save(Payment $payment): void;
 
@@ -35,6 +37,22 @@ interface PaymentRepository
      * always direct — never a search across every registered adapter.
      */
     public function findByProviderTransactionRef(string $providerCode, string $providerTransactionRef): ?Payment;
+
+    /**
+     * Same lookup as `findByProviderTransactionRef()`, but takes a
+     * row-level lock (`SELECT ... FOR UPDATE`) for the remainder of the
+     * caller's transaction. `HandlePaymentStatusChangedUseCase` is the
+     * only writer of a Payment's status and is reached from two
+     * concurrent entry points — an inbound webhook and the reconciliation
+     * job (ADR-0044) — so without this lock two transactions can both
+     * read the same pre-transition row, both pass the terminal-status
+     * guard, and both write: a lost update, a double wallet credit
+     * attempt, or an outbox event published twice for one transition.
+     * The lock forces the second transaction to block until the first
+     * commits, at which point it re-reads the now-committed row and its
+     * terminal-status guard correctly short-circuits.
+     */
+    public function findByProviderTransactionRefForUpdate(string $providerCode, string $providerTransactionRef): ?Payment;
 
     /**
      * Non-terminal payments (`pending`/`processing`) untouched since

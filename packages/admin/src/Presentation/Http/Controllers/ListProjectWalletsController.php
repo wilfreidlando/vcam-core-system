@@ -10,6 +10,7 @@ use Core\Wallet\Contracts\ListWallets;
 use Core\Wallet\Contracts\ListWalletsCommand;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ListProjectWalletsController
@@ -28,6 +29,8 @@ final class ListProjectWalletsController
         if (! $operator->hasPermission('wallets:read')) {
             return ProblemDetails::forbidden('The wallets:read permission is required.');
         }
+
+        Validator::make(['projectId' => $projectId], ['projectId' => 'uuid'])->validate();
 
         $page = max(1, (int) $request->query('page', '1'));
         $perPage = min(100, max(1, (int) $request->query('per_page', '25')));

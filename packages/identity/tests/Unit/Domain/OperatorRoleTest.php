@@ -15,7 +15,9 @@ it('grants a non-admin role only its own listed permissions', function (): void 
         ->and(OperatorRole::SupportOperator->hasPermission('payments:reconcile:write'))->toBeFalse();
 });
 
-it('grants read-only auditor nothing beyond audit read', function (): void {
+it('grants read-only auditor every read permission but no write/replay action', function (): void {
     expect(OperatorRole::ReadOnlyAuditor->hasPermission('audit:read'))->toBeTrue()
-        ->and(OperatorRole::ReadOnlyAuditor->hasPermission('webhooks:replay'))->toBeFalse();
+        ->and(OperatorRole::ReadOnlyAuditor->hasPermission('webhooks:read'))->toBeTrue()
+        ->and(OperatorRole::ReadOnlyAuditor->hasPermission('webhooks:replay'))->toBeFalse()
+        ->and(OperatorRole::ReadOnlyAuditor->hasPermission('payments:reconcile:write'))->toBeFalse();
 });

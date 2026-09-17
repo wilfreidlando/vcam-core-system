@@ -13,7 +13,16 @@ interface TotpProvider
 {
     public function generateSecret(): string;
 
-    public function verify(string $secret, string $code): bool;
+    /**
+     * `$afterTimestep`, when given, rejects a code whose matching 30s
+     * time step is not strictly newer than it — RFC 6238 §5.2's
+     * anti-replay requirement: without it, a TOTP code observed once
+     * (log leak, shoulder-surfing) stays valid for reuse across its
+     * whole window (~90s with the library's default drift tolerance).
+     * Returns the matched time step (to persist as the caller's new
+     * `$afterTimestep` for next time) on success, `false` otherwise.
+     */
+    public function verify(string $secret, string $code, ?int $afterTimestep = null): int|false;
 
     /**
      * The `otpauth://` provisioning URI an authenticator app scans/imports.

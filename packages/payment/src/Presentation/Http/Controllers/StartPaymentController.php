@@ -81,7 +81,7 @@ final class StartPaymentController
         return new JsonResponse([
             'id' => $view->id,
             'channel' => $view->channel,
-            'status' => $view->status->value,
+            'status' => $view->status,
             'amount' => $view->amount,
             'currency' => $view->currency,
             'requires_action' => $view->requiresAction,

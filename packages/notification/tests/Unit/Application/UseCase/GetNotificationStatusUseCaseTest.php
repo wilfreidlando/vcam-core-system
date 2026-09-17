@@ -36,7 +36,7 @@ it('returns the view for a notification owned by the requesting project', functi
     $view = $useCase->get(new GetNotificationStatusCommand('notif-1', 'project-1'));
 
     expect($view->id)->toBe('notif-1')
-        ->and($view->status)->toBe(NotificationStatus::Sent);
+        ->and($view->status)->toBe(NotificationStatus::Sent->value);
 });
 
 it('rejects an unknown notification id', function (): void {

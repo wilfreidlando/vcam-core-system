@@ -90,7 +90,7 @@ it('sends via the primary provider with a text body and records the delivery att
 
     $view = (new SendTextNotificationUseCase($cascade))->send(textCommand());
 
-    expect($view->status)->toBe(NotificationStatus::Sent)
+    expect($view->status)->toBe(NotificationStatus::Sent->value)
         ->and($view->contentType)->toBe('text')
         ->and($gateway->sent)->toHaveCount(1)
         ->and($gateway->sent[0]->recipientRef)->toBe('user-1')
@@ -185,7 +185,7 @@ it('falls back to the next provider when the primary throws', function (): void 
 
     $view = (new SendTextNotificationUseCase($cascade))->send(textCommand());
 
-    expect($view->status)->toBe(NotificationStatus::Sent)
+    expect($view->status)->toBe(NotificationStatus::Sent->value)
         ->and($primary->sent)->toHaveCount(1)
         ->and($secondary->sent)->toHaveCount(1)
         ->and($deliveries->records)->toHaveCount(2)
@@ -207,7 +207,7 @@ it('marks the notification failed and publishes notification.failed when every p
 
     $view = (new SendTextNotificationUseCase($cascade))->send(textCommand());
 
-    expect($view->status)->toBe(NotificationStatus::Failed)
+    expect($view->status)->toBe(NotificationStatus::Failed->value)
         ->and($deliveries->records)->toHaveCount(2)
         ->and($outbox->events)->toHaveCount(1)
         ->and($outbox->events[0]->type)->toBe('notification.failed')

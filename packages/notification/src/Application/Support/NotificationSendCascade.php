@@ -188,7 +188,7 @@ final readonly class NotificationSendCascade
         return new NotificationView(
             id: $notification->id,
             channel: $notification->channel,
-            status: $notification->status,
+            status: $notification->status->value,
             contentType: $notification->contentType,
             errorMessage: $notification->errorMessage,
         );

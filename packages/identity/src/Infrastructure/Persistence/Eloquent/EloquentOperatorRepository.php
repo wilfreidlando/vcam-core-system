@@ -53,6 +53,7 @@ final class EloquentOperatorRepository implements OperatorRepository
             'role' => $operator->role->value,
             'mfa_secret_encrypted' => $operator->mfaSecret() === null ? null : Crypt::encryptString($operator->mfaSecret()),
             'mfa_enabled' => $operator->mfaEnabled(),
+            'mfa_last_verified_timestep' => $operator->mfaLastVerifiedTimestep(),
             'revoked_at' => $operator->revokedAt(),
         ];
     }
@@ -67,6 +68,7 @@ final class EloquentOperatorRepository implements OperatorRepository
             role: OperatorRole::from($record->role),
             mfaSecret: $record->mfa_secret_encrypted === null ? null : Crypt::decryptString($record->mfa_secret_encrypted),
             mfaEnabled: $record->mfa_enabled,
+            mfaLastVerifiedTimestep: $record->mfa_last_verified_timestep,
             revokedAt: $record->revoked_at,
             createdAt: $record->created_at,
         );

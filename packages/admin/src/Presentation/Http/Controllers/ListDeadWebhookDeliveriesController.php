@@ -10,6 +10,7 @@ use Core\Webhook\Contracts\ListDeadWebhookDeliveries;
 use Core\Webhook\Contracts\ListDeadWebhookDeliveriesCommand;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ListDeadWebhookDeliveriesController
@@ -31,6 +32,10 @@ final class ListDeadWebhookDeliveriesController
 
         $projectIdRaw = $request->query('project_id');
         $projectId = is_string($projectIdRaw) && $projectIdRaw !== '' ? $projectIdRaw : null;
+
+        if ($projectId !== null) {
+            Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
+        }
 
         $page = max(1, (int) $request->query('page', '1'));
         $perPage = min(100, max(1, (int) $request->query('per_page', '25')));

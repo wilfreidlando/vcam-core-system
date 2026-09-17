@@ -15,6 +15,7 @@ function makeOperator(): Operator
         role: OperatorRole::SupportOperator,
         mfaSecret: null,
         mfaEnabled: false,
+        mfaLastVerifiedTimestep: null,
         revokedAt: null,
         createdAt: new DateTimeImmutable('2026-09-15T10:00:00Z'),
     );
@@ -37,6 +38,17 @@ it('is not mfa-enabled until enrollment is confirmed', function (): void {
 
     $operator->confirmMfa();
     expect($operator->mfaEnabled())->toBeTrue();
+});
+
+it('tracks the last verified MFA time step, reset on re-enrollment', function (): void {
+    $operator = makeOperator();
+    expect($operator->mfaLastVerifiedTimestep())->toBeNull();
+
+    $operator->recordMfaVerification(123456);
+    expect($operator->mfaLastVerifiedTimestep())->toBe(123456);
+
+    $operator->enrollMfa('NEW-SECRET');
+    expect($operator->mfaLastVerifiedTimestep())->toBeNull();
 });
 
 it('is revoked exactly once, idempotently', function (): void {

@@ -49,9 +49,13 @@ final readonly class VerifyOperatorMfa
         $secret = $operator->mfaSecret()
             ?? throw MfaNotEnrolled::forOperator($operator->id);
 
-        if (! $this->totp->verify($secret, $command->code)) {
+        $timestep = $this->totp->verify($secret, $command->code, $operator->mfaLastVerifiedTimestep());
+        if ($timestep === false) {
             throw InvalidMfaCode::make();
         }
+
+        $operator->recordMfaVerification($timestep);
+        $this->operators->save($operator);
 
         $accessToken = $this->tokens->issue($operator->id, 'operator-console');
 

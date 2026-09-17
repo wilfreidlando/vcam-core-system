@@ -54,7 +54,7 @@ it('resolves the provider for the channel and calls its gateway', function (): v
         ->and($gateway->initiated[0]->amount)->toBe(1_000)
         ->and($gateway->initiated[0]->appTransactionRef)->toBe('idem-1')
         ->and($payments->count())->toBe(1)
-        ->and($view->status)->toBe(PaymentStatus::Pending);
+        ->and($view->status)->toBe(PaymentStatus::Pending->value);
 });
 
 it('persists the provider that actually handled the payment', function (): void {

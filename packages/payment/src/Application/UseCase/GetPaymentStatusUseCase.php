@@ -30,7 +30,7 @@ final readonly class GetPaymentStatusUseCase implements GetPaymentStatus
         return new PaymentView(
             id: $payment->id,
             channel: $payment->channel,
-            status: $payment->status,
+            status: $payment->status->value,
             amount: $payment->amount,
             currency: $payment->currency,
             requiresAction: $payment->requiresAction,

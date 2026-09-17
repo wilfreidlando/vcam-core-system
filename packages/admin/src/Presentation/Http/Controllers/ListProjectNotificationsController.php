@@ -10,6 +10,7 @@ use Core\Notification\Contracts\ListNotificationsCommand;
 use Core\Support\Http\ProblemDetails;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ListProjectNotificationsController
@@ -29,6 +30,8 @@ final class ListProjectNotificationsController
             return ProblemDetails::forbidden('The notifications:read permission is required.');
         }
 
+        Validator::make(['projectId' => $projectId], ['projectId' => 'uuid'])->validate();
+
         $statusRaw = $request->query('status');
         $status = is_string($statusRaw) && $statusRaw !== '' ? $statusRaw : null;
 
@@ -41,7 +44,7 @@ final class ListProjectNotificationsController
             'data' => array_map(static fn ($notification): array => [
                 'id' => $notification->id,
                 'channel' => $notification->channel,
-                'status' => $notification->status->value,
+                'status' => $notification->status,
                 'content_type' => $notification->contentType,
                 'error_message' => $notification->errorMessage,
             ], $result->items),
