@@ -45,6 +45,13 @@ final class AppServiceProvider extends ServiceProvider
         Model::preventLazyLoading($strict);
         Model::preventAccessingMissingAttributes($strict);
 
+        // Load the admin web UI routes under the `web` middleware group.
+        // They live in routes/admin.php (separate from the platform's
+        // bare-bones routes/web.php which only exposes the service
+        // banner). The 'operator.session' middleware gates them.
+        \Illuminate\Support\Facades\Route::middleware('web')
+            ->group(base_path('routes/admin.php'));
+
         $this->configureRateLimiting();
         $this->configureApiDocumentationTags();
     }

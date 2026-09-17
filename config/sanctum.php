@@ -11,11 +11,17 @@ declare(strict_types=1);
  *   login, that reduces MFA to a one-time gate rather than an ongoing
  *   control — a leaked/stolen token stays valid forever. Bounded here via
  *   `OPERATOR_TOKEN_TTL_MINUTES` instead.
- * - `'routes' => false` disables Sanctum's own `/sanctum/csrf-cookie`
- *   route: this platform is API-only for operators (bearer tokens via
- *   `Authorization` header), never the SPA/cookie session mode that
- *   route exists for (ADR-0044 §3 — "jetons API purs, pas de mode
- *   SPA/cookie").
+ *
+ * Mixed mode:
+ * - `routes` is TRUE so the `/sanctum/csrf-cookie` endpoint is
+ *   available to the admin web UI (which needs CSRF protection on
+ *   form POSTs). The API itself never reads cookies — it stays bearer
+ *   auth only — so enabling the route has no impact on the API plane.
+ * - `stateful` includes only the `web` middleware group, which is the
+ *   group the admin web UI lives in. The `api` group stays
+ *   bearer-token-only — Sanctum never reads cookies there.
+ * - `expiration` is still the operator's token TTL (same value used by
+ *   both bearer and cookie modes).
  */
 return [
 
@@ -25,6 +31,8 @@ return [
 
     'token_prefix' => env('SANCTUM_TOKEN_PREFIX', ''),
 
-    'routes' => false,
+    'stateful' => explode(',', (string) env('SANCTUM_STATEFUL_GUARDS', 'web')),
+
+    'routes' => true,
 
 ];

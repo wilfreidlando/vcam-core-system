@@ -68,6 +68,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'project.auth' => ResolveProjectMiddleware::class,
             // ADR-0044: the platform operator plane, parallel to project.auth.
             'operator.auth' => ResolveOperatorMiddleware::class,
+            // Admin web UI: reads the Sanctum cookie set by ResolveOperatorSession
+            // (instead of the bearer header used by operator.auth on the API plane).
+            // The two middlewares share the same use case internally.
+            'operator.session' => App\Http\Middleware\ResolveOperatorSession::class,
             // G7: every monetary mutation route applies this (ADR-0025).
             'idempotency' => RequireIdempotencyKey::class,
         ]);
