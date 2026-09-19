@@ -13,10 +13,13 @@ use Core\Support\Idempotency\IdempotencyStore;
 use Core\Support\SystemClock;
 use Core\Support\UnitOfWork;
 use Dedoc\Scramble\Scramble;
+use Dedoc\Scramble\SecurityDocumentation\MiddlewareAuthSecurityStrategy;
+use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Dedoc\Scramble\Support\RouteInfo;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -55,6 +58,7 @@ final class AppServiceProvider extends ServiceProvider
 
         $this->configureRateLimiting();
         $this->configureApiDocumentationTags();
+        $this->configureAdminApiDocumentation();
     }
 
     /**
@@ -94,6 +98,50 @@ final class AppServiceProvider extends ServiceProvider
 
             return $tags;
         });
+    }
+
+    /**
+     * The operator/admin console plane (`v1/admin/*`, `v1/operators/*`)
+     * gets its own OpenAPI document, `/docs/admin` (+ `/docs/admin.json`)
+     * — separate from `/docs/api`, the third-party integration surface
+     * (ADR-0049). Mixing the two into one document meant a Project
+     * integrator's docs listed `POST /v1/admin/payment-reconciliation-runs`
+     * right next to `POST /v1/payments`, even though the former requires
+     * an operator bearer token and has nothing to do with integration.
+     *
+     * `Scramble::registerApi()` clones the default API's config (so this
+     * inherits the same renderer, dev-tools setting, etc.) then overrides
+     * just `api_path` (this plane only) and `security_strategy` (operator
+     * bearer, not the Project API-key format `/docs/api` documents).
+     */
+    private function configureAdminApiDocumentation(): void
+    {
+        Scramble::registerApi('admin', [
+            'api_path' => [
+                'include' => ['v1/admin', 'v1/operators'],
+            ],
+            'info' => [
+                'version' => config('scramble.info.version'),
+                'description' => 'Core Admin — the platform operator console\'s own API '.
+                    '(operator bearer token, `Authorization: Bearer <token>`). This is '.
+                    'not a third-party integration surface; see `/docs/api` for that.',
+            ],
+            'ui' => [
+                'title' => 'Core Admin API',
+            ],
+            'security_strategy' => [
+                MiddlewareAuthSecurityStrategy::class,
+                [
+                    'middleware' => ['operator.auth'],
+                    'scheme' => SecurityScheme::http('bearer'),
+                ],
+            ],
+        ])->expose(
+            // @phpstan-ignore-next-line — Scramble passes $action as mixed (its own docblock), narrower than Router::get()'s declared param type.
+            ui: fn (Router $router, mixed $action) => $router->get('docs/admin', $action)->name('scramble.docs.admin.ui'),
+            // @phpstan-ignore-next-line — same dynamic-typing gap as the ui closure above.
+            document: fn (Router $router, mixed $action) => $router->get('docs/admin.json', $action)->name('scramble.docs.admin.document'),
+        );
     }
 
     /**

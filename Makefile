@@ -117,8 +117,9 @@ guard-test: ## Prove the guardrails bite: inject violations, expect failures, re
 # ─── Convenience ────────────────────────────────────────────────────────────
 
 .PHONY: openapi
-openapi: ## Regenerate the OpenAPI snapshot
+openapi: ## Regenerate both OpenAPI snapshots (integration + admin console, ADR-0049)
 	$(EXEC) php artisan scramble:export --path=openapi/v1.json
+	$(EXEC) php artisan scramble:export --api=admin --path=openapi/admin.json
 
 .PHONY: horizon-status
 horizon-status: ## Show queue worker status

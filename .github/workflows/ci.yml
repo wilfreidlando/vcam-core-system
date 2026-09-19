@@ -153,6 +153,16 @@ jobs:
         if: steps.probe.outputs.present == 'true'
         run: npx --yes @stoplight/spectral-cli lint openapi/v1.json --ruleset .spectral.yaml
 
+      - name: Lint the admin console contract
+        # ADR-0049: the operator/admin plane's own document, separate from
+        # the integration contract above. Not (yet) covered by the
+        # unversioned-breaking-change check below — that G9 guardrail was
+        # scoped to the third-party integration surface (v1.json); the
+        # admin plane's audience is internal operators, a different
+        # concern that hasn't needed the same guarantee so far.
+        if: hashFiles('openapi/admin.json') != ''
+        run: npx --yes @stoplight/spectral-cli lint openapi/admin.json --ruleset .spectral.yaml
+
       - name: Fail on an unversioned breaking change
         if: steps.probe.outputs.present == 'true' && github.event_name == 'pull_request'
         run: |

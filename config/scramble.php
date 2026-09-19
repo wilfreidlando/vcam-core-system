@@ -25,7 +25,14 @@ return [
     // matches every endpoint documented so far (whoami, wallet balance).
     // `/webhooks/*` (payment provider inbound) is deliberately excluded:
     // it's not a consumer-facing API surface, it's a provider integration.
-    'api_path' => 'v1',
+    // `v1/admin` and `v1/operators` are excluded too (ADR-0049): the
+    // operator/console plane isn't a third-party integration surface —
+    // it gets its own separate document, registered in
+    // AppServiceProvider::configureAdminApiDocumentation().
+    'api_path' => [
+        'include' => 'v1',
+        'exclude' => ['v1/admin', 'v1/operators'],
+    ],
 
     /*
      * Your API domain. By default, app domain is used. This is also a part of the default API routes
