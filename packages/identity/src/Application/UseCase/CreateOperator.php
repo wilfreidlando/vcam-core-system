@@ -6,20 +6,24 @@ namespace Core\Identity\Application\UseCase;
 
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
-use Core\Identity\Application\Dto\CreatedOperator;
-use Core\Identity\Application\Dto\CreateOperatorCommand;
+use Core\Identity\Contracts\CreatedOperatorView;
+use Core\Identity\Contracts\CreateOperator as CreateOperatorPort;
+use Core\Identity\Contracts\CreateOperatorCommand;
+use Core\Identity\Domain\Exception\InvalidOperatorRole;
 use Core\Identity\Domain\Model\Operator;
 use Core\Identity\Domain\Port\OperatorRepository;
+use Core\Identity\OperatorRole;
 use Core\Support\Clock;
 use Core\Support\Identifier;
 
 /**
- * CLI-only bootstrap (mirrors `IssueApiKey`): the operator console does not
- * self-serve operator creation this round (ADR-0044) — an operator's
- * account is provisioned out of band, the same way a Project's first API
- * key is. MFA enrollment happens on first login, not here.
+ * Reachable from both the CLI (`identity:create-operator`) and the admin
+ * console's self-service endpoint (`POST /v1/admin/operators`, ADR-0050) —
+ * a single place where an operator account is provisioned, whichever
+ * caller triggers it. MFA enrollment always happens on first login, never
+ * here.
  */
-final readonly class CreateOperator
+final readonly class CreateOperator implements CreateOperatorPort
 {
     public function __construct(
         private OperatorRepository $operators,
@@ -28,8 +32,11 @@ final readonly class CreateOperator
         private Clock $clock,
     ) {}
 
-    public function __invoke(CreateOperatorCommand $command, string $actor, ?string $correlationId): CreatedOperator
+    public function create(CreateOperatorCommand $command, string $actor, ?string $correlationId): CreatedOperatorView
     {
+        $role = OperatorRole::tryFrom($command->role)
+            ?? throw InvalidOperatorRole::withValue($command->role);
+
         $plainPassword = bin2hex(random_bytes(24));
         $now = $this->clock->now();
 
@@ -38,7 +45,7 @@ final readonly class CreateOperator
             email: $command->email,
             name: $command->name,
             passwordHash: Operator::hashPassword($plainPassword),
-            role: $command->role,
+            role: $role,
             mfaSecret: null,
             mfaEnabled: false,
             mfaLastVerifiedTimestep: null,
@@ -59,6 +66,6 @@ final readonly class CreateOperator
             occurredAt: $now,
         ));
 
-        return new CreatedOperator($operator->id, $plainPassword);
+        return new CreatedOperatorView($operator->id, $plainPassword);
     }
 }

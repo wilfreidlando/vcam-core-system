@@ -107,7 +107,7 @@ adaptateur WhatsApp concret livré ensuite : WAHA auto-hébergé (envoi
 texte/image/fichier + liaison de téléphone QR/pairing-code/screenshot,
 sans aucune persistance de session côté Core —
 [ADR-0042](docs/adr/0042-whatsapp-waha-adapter-channel-session-minimal-surface.md))
-→ **Lot 6 Core Admin — deux tranches livrées** : opérateurs/RBAC/MFA
+→ **Lot 6 Core Admin — trois tranches livrées** : opérateurs/RBAC/MFA
 (`Core\Identity\OperatorRole`, Sanctum, `pragmarx/google2fa`), recherche
 d'audit (`Core\Audit\Contracts\AuditQuery`), liste + rejeu de la DLQ
 webhook, réconciliation paiement par `checkStatus()` convergeant sur
@@ -124,7 +124,10 @@ entre autres
 correction de la console web admin livrée hors-session (mécanisme d'auth,
 vérifications de permission, retrait d'un déclenchement caché de
 réconciliation, résolution des composants Blade, entre autres —
-[ADR-0047](docs/adr/0047-console-web-admin-correctifs-et-mecanisme-auth.md))
+[ADR-0047](docs/adr/0047-console-web-admin-correctifs-et-mecanisme-auth.md)),
+puis une troisième tranche livrant la gestion self-service des opérateurs
+(créer/lister/révoquer, JSON et console web, réservé à `PlatformAdmin` —
+[ADR-0050](docs/adr/0050-gestion-self-service-des-operateurs.md))
 → Lot 7 migration pilote. `billing`, `storage`, `fees`, `developer-platform`
 restent des scaffolds Lot 0 vides, **explicitement hors périmètre de la
 version de production** de ce Core
@@ -216,9 +219,10 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   `Contracts\QueueWebhookDelivery`. Ce qui reste hors périmètre :
   `notification`/`billing` ne consomment pas encore `OutboxEventPublished`
   (Lot 5+).
-- Module `admin` : **deux tranches du Lot 6 livrées** — voir
-  [ADR-0044](docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md)
-  et [ADR-0045](docs/adr/0045-lot-6-listing-generique-admin.md).
+- Module `admin` : **trois tranches du Lot 6 livrées** — voir
+  [ADR-0044](docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md),
+  [ADR-0045](docs/adr/0045-lot-6-listing-generique-admin.md) et
+  [ADR-0050](docs/adr/0050-gestion-self-service-des-operateurs.md).
   Nouvelle strate d'authentification « Plan 1 » (spec §5.1), parallèle au
   plan Project/ApiKey : `Core\Identity\OperatorRole` (enum PHP fixe, pas
   le schéma dynamique roles/permissions de la spec — écart assumé, YAGNI),
@@ -226,8 +230,9 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   la première connexion via `pragmarx/google2fa` (pas de rendu QR serveur
   — plateforme API-only). Flux : `POST /v1/operators/login` →
   `mfa/enroll` (1ère connexion) ou `mfa/verify` (connexions suivantes) →
-  jeton Sanctum ; création d'opérateur CLI-only
-  (`identity:create-operator`, pas de self-service). Quatre capacités
+  jeton Sanctum ; création d'opérateur possible en CLI
+  (`identity:create-operator`) **ou** en self-service depuis le Lot 6,
+  troisième tranche (ADR-0050 — voir plus bas). Quatre capacités
   exposées sous `/v1/admin/*` (middleware `operator.auth`, jamais
   `project.auth` — et donc jamais `idempotency`, câblée sur
   `ProjectContext`) : `GET /audit-log` (nouveau port
@@ -251,9 +256,14 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   (jamais l'enum canonique, qui vit hors de `Contracts/` — G3c). Aucune
   route `POST`, donc hors du champ G7/`idempotency`. Convention de
   pagination (`page`/`per_page`, `{data, meta}`) reprise telle quelle
-  d'`AuditQuery` (ADR-0044). Hors périmètre des deux tranches : règles de
-  frais (module hors périmètre de production, ADR-0048), billing (idem),
-  monitoring opérationnel/OTel, gestion self-service des opérateurs.
+  d'`AuditQuery` (ADR-0044). Troisième
+  tranche (ADR-0050) : gestion self-service des opérateurs — créer/lister/
+  révoquer via `POST/GET /v1/admin/operators`,
+  `POST /v1/admin/operators/{id}/revoke`, réservé à `operators:read`/
+  `operators:write` (seul `PlatformAdmin` les porte) ; même capacité côté
+  console web (`/admin/operators`). Reste hors périmètre : règles de frais
+  (module hors périmètre de production, ADR-0048), billing (idem),
+  monitoring opérationnel/OTel.
 - Identity/Audit sont livrés (Lot 1) : Organization/Project/ApiKey, middleware
   d'auth Project, `GET /v1/whoami`, module Audit minimal. Voir
   `packages/identity/README.md`. Depuis le Lot 6 (ADR-0044), `identity`

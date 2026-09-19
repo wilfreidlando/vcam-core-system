@@ -251,7 +251,7 @@ graph BT
 | `fees` | Moteur de frais | Scaffold — **hors périmètre production** (ADR-0048) | Lot 3 (en pause) | — |
 | `webhook` | Endpoints par Project, livraison signée HMAC, retry/backoff, DLQ, replay CLI (ADR-0009, ADR-0040) | **Livré** | Lot 4 | `POST/GET /v1/webhook-endpoints`, `DELETE /v1/webhook-endpoints/{id}` |
 | `notification` | Orchestration multi-canal : fallback ordonné, `NotificationStatus` canonique (ADR-0041), contenu envoyé en ligne — pas de template pré-enregistré (ADR-0043). Adaptateur WhatsApp/WAHA livré (ADR-0042). | **Livré** | Lot 5 | `POST /v1/notifications/{text,image,file}`, `GET /v1/notifications/{id}`, `GET/POST /v1/notification-channel-sessions/{channel}/{sessionRef}/*`, webhook `whatsapp-waha` |
-| `admin` | Console opérateur | **Livré (2 tranches)** | Lot 6 | `GET /v1/admin/audit-log`, `GET /v1/admin/webhook-deliveries/dead`, `POST .../{id}/replay`, `POST /v1/admin/payment-reconciliation-runs`, `GET /v1/admin/projects[/{id}/{payments,wallets,notifications}]` |
+| `admin` | Console opérateur | **Livré (3 tranches)** | Lot 6 | `GET /v1/admin/audit-log`, `GET /v1/admin/webhook-deliveries/dead`, `POST .../{id}/replay`, `POST /v1/admin/payment-reconciliation-runs`, `GET /v1/admin/projects[/{id}/{payments,wallets,notifications}]`, `GET/POST /v1/admin/operators`, `POST /v1/admin/operators/{id}/revoke` |
 | `billing` | Facturation | Scaffold — **hors périmètre production** (ADR-0048) | — | — |
 | `storage` | Fichiers | Scaffold — **hors périmètre production** (ADR-0048) | — | — |
 | `developer-platform` | Auto-service développeur | Scaffold — **hors périmètre production** (ADR-0048) | — | — |

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
-use Core\Identity\Application\Dto\CreateOperatorCommand;
-use Core\Identity\Application\UseCase\CreateOperator;
+use Core\Identity\Contracts\CreateOperator;
+use Core\Identity\Contracts\CreateOperatorCommand;
 use Core\Identity\Domain\Model\Operator;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Identity\OperatorRole;
@@ -38,8 +38,8 @@ final class AdminWebFlowTest extends TestCase
     {
         $this->withoutMiddleware(PreventRequestForgery::class);
 
-        $created = app(CreateOperator::class)(
-            new CreateOperatorCommand('webflow@example.com', 'Web Flow', OperatorRole::PlatformAdmin),
+        $created = app(CreateOperator::class)->create(
+            new CreateOperatorCommand('webflow@example.com', 'Web Flow', OperatorRole::PlatformAdmin->value),
             actor: 'service:test',
             correlationId: null,
         );
@@ -75,6 +75,7 @@ final class AdminWebFlowTest extends TestCase
             '/admin/webhook-deliveries/dead' => 'Webhook DLQ',
             '/admin/audit-log' => 'Audit log',
             '/admin/reconciliation/new' => 'Trigger reconciliation',
+            '/admin/operators' => 'Operators',
         ] as $path => $expectedText) {
             $response = $this->get($path);
             $response->assertOk();
@@ -106,6 +107,38 @@ final class AdminWebFlowTest extends TestCase
         // authenticated operator regardless of role.
         $this->get('/admin/projects')->assertOk();
         $this->get('/admin/reconciliation/new')->assertForbidden();
+        $this->get('/admin/operators')->assertForbidden();
+        $this->get('/admin/operators/create')->assertForbidden();
+    }
+
+    #[Test]
+    public function a_platform_admin_creates_and_revokes_an_operator_through_the_web_console(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $email = uniqid('new-op-', true).'@example.com';
+
+        $store = $this->post('/admin/operators', [
+            'email' => $email,
+            'name' => 'New Operator',
+            'role' => OperatorRole::SupportOperator->value,
+        ]);
+        $store->assertRedirect(route('admin.operators.index'));
+
+        $index = $this->get('/admin/operators');
+        $index->assertOk();
+        $index->assertSee($email);
+        $index->assertSee('One-time password');
+
+        $created = app(OperatorRepository::class)->findByEmail($email);
+        assert($created instanceof Operator);
+
+        $this->post("/admin/operators/{$created->id}/revoke")
+            ->assertRedirect(route('admin.operators.index'));
+
+        $this->get('/admin/operators')->assertSee('Revoked');
     }
 
     #[Test]
@@ -131,8 +164,8 @@ final class AdminWebFlowTest extends TestCase
      */
     private function loginAndEnrollMfa(OperatorRole $role): void
     {
-        $created = app(CreateOperator::class)(
-            new CreateOperatorCommand(uniqid('op-', true).'@example.com', 'Ops', $role),
+        $created = app(CreateOperator::class)->create(
+            new CreateOperatorCommand(uniqid('op-', true).'@example.com', 'Ops', $role->value),
             actor: 'service:test',
             correlationId: null,
         );

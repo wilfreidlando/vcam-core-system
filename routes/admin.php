@@ -81,5 +81,18 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             Route::post('/', [App\Http\Controllers\Admin\ReconciliationController::class, 'run'])
                 ->name('reconciliation.run');
         });
+
+        // ADR-0050: operator self-service — mirrors packages/admin's JSON
+        // /v1/admin/operators endpoints for the console web plane.
+        Route::prefix('operators')->group(function (): void {
+            Route::get('/', [App\Http\Controllers\Admin\OperatorsController::class, 'index'])
+                ->name('operators.index');
+            Route::get('create', [App\Http\Controllers\Admin\OperatorsController::class, 'create'])
+                ->name('operators.create');
+            Route::post('/', [App\Http\Controllers\Admin\OperatorsController::class, 'store'])
+                ->name('operators.store');
+            Route::post('{operatorId}/revoke', [App\Http\Controllers\Admin\OperatorsController::class, 'revoke'])
+                ->name('operators.revoke');
+        });
     });
 });

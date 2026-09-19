@@ -37,4 +37,13 @@ final class InMemoryOperatorRepository implements OperatorRepository
 
         return null;
     }
+
+    public function findAll(int $page, int $perPage): array
+    {
+        $all = array_values($this->operators);
+        $total = count($all);
+        $offset = ($page - 1) * $perPage;
+
+        return ['items' => array_slice($all, $offset, $perPage), 'total' => $total];
+    }
 }

@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Core\Identity\Application\Dto\ConfirmOperatorMfaEnrollmentCommand;
-use Core\Identity\Application\Dto\CreateOperatorCommand;
 use Core\Identity\Application\Dto\EnrollOperatorMfaCommand;
 use Core\Identity\Application\Dto\LoginOperatorCommand;
 use Core\Identity\Application\Dto\VerifyOperatorMfaCommand;
@@ -13,6 +12,7 @@ use Core\Identity\Application\UseCase\EnrollOperatorMfa;
 use Core\Identity\Application\UseCase\LoginOperator;
 use Core\Identity\Application\UseCase\ResolveOperatorFromBearerToken;
 use Core\Identity\Application\UseCase\VerifyOperatorMfa;
+use Core\Identity\Contracts\CreateOperatorCommand;
 use Core\Identity\Domain\Exception\InvalidMfaCode;
 use Core\Identity\Domain\Exception\InvalidOperatorCredentials;
 use Core\Identity\Domain\Exception\MfaAlreadyEnrolled;
@@ -75,8 +75,8 @@ final readonly class OperatorAuthFlowFixture
 it('walks an operator through first login: create, login, enroll mfa, confirm, resolve', function (): void {
     $fixture = OperatorAuthFlowFixture::make();
 
-    $created = ($fixture->createOperator)(
-        new CreateOperatorCommand('ops@example.com', 'Ops', OperatorRole::SupportOperator),
+    $created = $fixture->createOperator->create(
+        new CreateOperatorCommand('ops@example.com', 'Ops', 'support_operator'),
         actor: 'service:cli',
         correlationId: 'corr-1',
     );
@@ -115,8 +115,8 @@ it('walks an operator through first login: create, login, enroll mfa, confirm, r
 it('returning login skips straight to mfa verification once already enrolled', function (): void {
     $fixture = OperatorAuthFlowFixture::make();
 
-    $created = ($fixture->createOperator)(
-        new CreateOperatorCommand('ops@example.com', 'Ops', OperatorRole::FinanceOperator),
+    $created = $fixture->createOperator->create(
+        new CreateOperatorCommand('ops@example.com', 'Ops', 'finance_operator'),
         actor: 'service:cli',
         correlationId: null,
     );
@@ -138,8 +138,8 @@ it('returning login skips straight to mfa verification once already enrolled', f
 
 it('rejects a wrong password without revealing whether the email exists', function (): void {
     $fixture = OperatorAuthFlowFixture::make();
-    ($fixture->createOperator)(
-        new CreateOperatorCommand('ops@example.com', 'Ops', OperatorRole::SupportOperator),
+    $fixture->createOperator->create(
+        new CreateOperatorCommand('ops@example.com', 'Ops', 'support_operator'),
         actor: 'service:cli',
         correlationId: null,
     );
@@ -155,8 +155,8 @@ it('rejects an unknown email the same way as a wrong password', function (): voi
 
 it('rejects an invalid mfa code during confirmation', function (): void {
     $fixture = OperatorAuthFlowFixture::make();
-    $created = ($fixture->createOperator)(
-        new CreateOperatorCommand('ops@example.com', 'Ops', OperatorRole::SupportOperator),
+    $created = $fixture->createOperator->create(
+        new CreateOperatorCommand('ops@example.com', 'Ops', 'support_operator'),
         actor: 'service:cli',
         correlationId: null,
     );
@@ -170,8 +170,8 @@ it('rejects an invalid mfa code during confirmation', function (): void {
 
 it('rejects enrolling mfa twice', function (): void {
     $fixture = OperatorAuthFlowFixture::make();
-    $created = ($fixture->createOperator)(
-        new CreateOperatorCommand('ops@example.com', 'Ops', OperatorRole::SupportOperator),
+    $created = $fixture->createOperator->create(
+        new CreateOperatorCommand('ops@example.com', 'Ops', 'support_operator'),
         actor: 'service:cli',
         correlationId: null,
     );
@@ -189,8 +189,8 @@ it('rejects enrolling mfa twice', function (): void {
 
 it('rejects a stale mfa_enrollment challenge presented after mfa is already enabled', function (): void {
     $fixture = OperatorAuthFlowFixture::make();
-    $created = ($fixture->createOperator)(
-        new CreateOperatorCommand('ops@example.com', 'Ops', OperatorRole::SupportOperator),
+    $created = $fixture->createOperator->create(
+        new CreateOperatorCommand('ops@example.com', 'Ops', 'support_operator'),
         actor: 'service:cli',
         correlationId: null,
     );

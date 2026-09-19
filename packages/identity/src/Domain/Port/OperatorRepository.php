@@ -15,4 +15,11 @@ interface OperatorRepository
     public function find(string $id): ?Operator;
 
     public function findByEmail(string $email): ?Operator;
+
+    /**
+     * Newest first — the admin console's self-service listing.
+     *
+     * @return array{items: list<Operator>, total: int}
+     */
+    public function findAll(int $page, int $perPage): array;
 }

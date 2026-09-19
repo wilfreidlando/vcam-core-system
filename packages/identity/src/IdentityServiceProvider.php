@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace Core\Identity;
 
+use Core\Identity\Application\UseCase\CreateOperator as CreateOperatorUseCase;
 use Core\Identity\Application\UseCase\GetProjectUseCase;
+use Core\Identity\Application\UseCase\ListOperatorsUseCase;
 use Core\Identity\Application\UseCase\ListOrganizationsUseCase;
 use Core\Identity\Application\UseCase\ListProjectsUseCase;
+use Core\Identity\Application\UseCase\RevokeOperator as RevokeOperatorUseCase;
+use Core\Identity\Contracts\CreateOperator;
 use Core\Identity\Contracts\GetProject;
+use Core\Identity\Contracts\ListOperators;
 use Core\Identity\Contracts\ListOrganizations;
 use Core\Identity\Contracts\ListProjects;
+use Core\Identity\Contracts\RevokeOperator;
 use Core\Identity\Domain\Port\ApiKeyRepository;
 use Core\Identity\Domain\Port\ApiKeySecretGenerator;
 use Core\Identity\Domain\Port\LoginChallengeCodec;
@@ -56,6 +62,9 @@ final class IdentityServiceProvider extends ServiceProvider
         $this->app->bind(ListProjects::class, ListProjectsUseCase::class);
         $this->app->bind(ListOrganizations::class, ListOrganizationsUseCase::class);
         $this->app->bind(GetProject::class, GetProjectUseCase::class);
+        $this->app->bind(CreateOperator::class, CreateOperatorUseCase::class);
+        $this->app->bind(ListOperators::class, ListOperatorsUseCase::class);
+        $this->app->bind(RevokeOperator::class, RevokeOperatorUseCase::class);
 
         $this->app->bind(OperatorRepository::class, EloquentOperatorRepository::class);
         $this->app->bind(TotpProvider::class, Google2faTotpProvider::class);

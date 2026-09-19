@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Identity\Tests\Integration;
 
-use Core\Identity\Application\Dto\CreateOperatorCommand;
-use Core\Identity\Application\UseCase\CreateOperator;
+use Core\Identity\Contracts\CreateOperator;
+use Core\Identity\Contracts\CreateOperatorCommand;
 use Core\Identity\OperatorRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
@@ -26,8 +26,8 @@ final class OperatorAuthHttpFlowTest extends TestCase
     #[Test]
     public function a_fresh_operator_enrolls_mfa_on_first_login_and_authenticates(): void
     {
-        $created = app(CreateOperator::class)(
-            new CreateOperatorCommand('ops@example.com', 'Ops', OperatorRole::SupportOperator),
+        $created = app(CreateOperator::class)->create(
+            new CreateOperatorCommand('ops@example.com', 'Ops', OperatorRole::SupportOperator->value),
             actor: 'service:test',
             correlationId: null,
         );
@@ -68,8 +68,8 @@ final class OperatorAuthHttpFlowTest extends TestCase
     #[Test]
     public function a_returning_operator_skips_straight_to_mfa_verification(): void
     {
-        $created = app(CreateOperator::class)(
-            new CreateOperatorCommand('ops2@example.com', 'Ops Two', OperatorRole::FinanceOperator),
+        $created = app(CreateOperator::class)->create(
+            new CreateOperatorCommand('ops2@example.com', 'Ops Two', OperatorRole::FinanceOperator->value),
             actor: 'service:test',
             correlationId: null,
         );
@@ -112,8 +112,8 @@ final class OperatorAuthHttpFlowTest extends TestCase
     #[Test]
     public function logout_revokes_the_token(): void
     {
-        $created = app(CreateOperator::class)(
-            new CreateOperatorCommand('ops3@example.com', 'Ops Three', OperatorRole::ReadOnlyAuditor),
+        $created = app(CreateOperator::class)->create(
+            new CreateOperatorCommand('ops3@example.com', 'Ops Three', OperatorRole::ReadOnlyAuditor->value),
             actor: 'service:test',
             correlationId: null,
         );

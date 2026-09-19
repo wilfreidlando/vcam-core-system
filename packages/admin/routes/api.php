@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
+use Core\Admin\Presentation\Http\Controllers\CreateOperatorController;
 use Core\Admin\Presentation\Http\Controllers\ListDeadWebhookDeliveriesController;
+use Core\Admin\Presentation\Http\Controllers\ListOperatorsController;
 use Core\Admin\Presentation\Http\Controllers\ListProjectNotificationsController;
 use Core\Admin\Presentation\Http\Controllers\ListProjectPaymentsController;
 use Core\Admin\Presentation\Http\Controllers\ListProjectsController;
 use Core\Admin\Presentation\Http\Controllers\ListProjectWalletsController;
 use Core\Admin\Presentation\Http\Controllers\ReplayDeadWebhookDeliveryController;
+use Core\Admin\Presentation\Http\Controllers\RevokeOperatorController;
 use Core\Admin\Presentation\Http\Controllers\SearchAuditLogController;
 use Core\Admin\Presentation\Http\Controllers\TriggerPaymentReconciliationController;
 use Illuminate\Support\Facades\Route;
@@ -40,4 +43,10 @@ Route::middleware(['operator.auth'])
         Route::get('/projects/{projectId}/payments', ListProjectPaymentsController::class)->name('admin.projects.payments');
         Route::get('/projects/{projectId}/wallets', ListProjectWalletsController::class)->name('admin.projects.wallets');
         Route::get('/projects/{projectId}/notifications', ListProjectNotificationsController::class)->name('admin.projects.notifications');
+
+        // ADR-0050: operator self-service — create/list/revoke over HTTP,
+        // the last CLI-only gap in the RBAC foundation (ADR-0044).
+        Route::get('/operators', ListOperatorsController::class)->name('admin.operators');
+        Route::post('/operators', CreateOperatorController::class)->name('admin.operators.create');
+        Route::post('/operators/{operatorId}/revoke', RevokeOperatorController::class)->name('admin.operators.revoke');
     });

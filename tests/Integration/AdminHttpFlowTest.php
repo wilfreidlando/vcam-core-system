@@ -7,17 +7,17 @@ namespace Tests\Integration;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Application\Dto\ConfirmOperatorMfaEnrollmentCommand;
-use Core\Identity\Application\Dto\CreateOperatorCommand;
 use Core\Identity\Application\Dto\CreateOrganizationCommand;
 use Core\Identity\Application\Dto\CreateProjectCommand;
 use Core\Identity\Application\Dto\EnrollOperatorMfaCommand;
 use Core\Identity\Application\Dto\LoginOperatorCommand;
 use Core\Identity\Application\UseCase\ConfirmOperatorMfaEnrollment;
-use Core\Identity\Application\UseCase\CreateOperator;
 use Core\Identity\Application\UseCase\CreateOrganization;
 use Core\Identity\Application\UseCase\CreateProject;
 use Core\Identity\Application\UseCase\EnrollOperatorMfa;
 use Core\Identity\Application\UseCase\LoginOperator;
+use Core\Identity\Contracts\CreateOperator;
+use Core\Identity\Contracts\CreateOperatorCommand;
 use Core\Identity\Domain\Model\Operator;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Identity\OperatorRole;
@@ -256,6 +256,69 @@ final class AdminHttpFlowTest extends TestCase
     }
 
     #[Test]
+    public function a_platform_admin_creates_lists_and_revokes_an_operator(): void
+    {
+        // ADR-0050: operator self-service — only PlatformAdmin's `*`
+        // wildcard carries `operators:read`/`operators:write`.
+        $token = $this->authenticatedOperatorToken(OperatorRole::PlatformAdmin);
+        $email = Str::uuid().'@example.com';
+
+        $create = $this->postJson('/v1/admin/operators', [
+            'email' => $email,
+            'name' => 'New Operator',
+            'role' => OperatorRole::SupportOperator->value,
+        ], ['Authorization' => "Bearer {$token}"]);
+        $create->assertStatus(201);
+        $create->assertJsonStructure(['id', 'plaintext_password']);
+        $operatorId = $create->json('id');
+        self::assertIsString($operatorId);
+
+        $list = $this->getJson('/v1/admin/operators', ['Authorization' => "Bearer {$token}"]);
+        $list->assertOk();
+        $list->assertJsonFragment(['id' => $operatorId, 'email' => $email, 'revoked' => false]);
+
+        $this->postJson("/v1/admin/operators/{$operatorId}/revoke", [], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(204);
+
+        // Idempotent — revoking again succeeds without effect.
+        $this->postJson("/v1/admin/operators/{$operatorId}/revoke", [], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(204);
+
+        $this->getJson('/v1/admin/operators', ['Authorization' => "Bearer {$token}"])
+            ->assertJsonFragment(['id' => $operatorId, 'revoked' => true]);
+    }
+
+    #[Test]
+    public function creating_an_operator_with_an_unknown_role_is_rejected_with_a_clean_422(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::PlatformAdmin);
+
+        $this->postJson('/v1/admin/operators', [
+            'email' => Str::uuid().'@example.com',
+            'name' => 'Bad Role',
+            'role' => 'not_a_real_role',
+        ], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(422)
+            ->assertHeader('Content-Type', 'application/problem+json');
+    }
+
+    #[Test]
+    public function an_operator_without_operators_permission_is_forbidden_from_managing_operators(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::ReadOnlyAuditor);
+
+        $this->getJson('/v1/admin/operators', ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(403);
+
+        $this->postJson('/v1/admin/operators', [
+            'email' => Str::uuid().'@example.com',
+            'name' => 'Nope',
+            'role' => OperatorRole::SupportOperator->value,
+        ], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(403);
+    }
+
+    #[Test]
     public function a_malformed_project_or_organization_id_is_rejected_with_a_clean_422_not_a_500(): void
     {
         // Review finding, Lot 6 follow-up: a non-UUID id used to reach the
@@ -275,8 +338,8 @@ final class AdminHttpFlowTest extends TestCase
 
     private function authenticatedOperatorToken(OperatorRole $role): string
     {
-        $created = app(CreateOperator::class)(
-            new CreateOperatorCommand(Str::uuid().'@example.com', 'Ops', $role),
+        $created = app(CreateOperator::class)->create(
+            new CreateOperatorCommand(Str::uuid().'@example.com', 'Ops', $role->value),
             actor: 'service:test',
             correlationId: null,
         );
