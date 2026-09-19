@@ -30,6 +30,7 @@ use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentApiKeyRepository;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOperatorRepository;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOrganizationRepository;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentProjectRepository;
+use Core\Identity\Infrastructure\Security\AlwaysValidTotpProvider;
 use Core\Identity\Infrastructure\Security\EncryptedLoginChallengeCodec;
 use Core\Identity\Infrastructure\Security\Google2faTotpProvider;
 use Core\Identity\Infrastructure\Security\RandomApiKeySecretGenerator;
@@ -42,6 +43,7 @@ use Core\Identity\Presentation\Console\Commands\CreateProjectCommand;
 use Core\Identity\Presentation\Console\Commands\CurrentOperatorOtpCommand;
 use Core\Identity\Presentation\Console\Commands\IssueApiKeyCommand;
 use Core\Identity\Presentation\Console\Commands\RevokeApiKeyCommand;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -67,7 +69,17 @@ final class IdentityServiceProvider extends ServiceProvider
         $this->app->bind(RevokeOperator::class, RevokeOperatorUseCase::class);
 
         $this->app->bind(OperatorRepository::class, EloquentOperatorRepository::class);
-        $this->app->bind(TotpProvider::class, Google2faTotpProvider::class);
+        $this->app->bind(TotpProvider::class, function (Application $app): TotpProvider {
+            // Both checks are required, deliberately — the environment
+            // check happens here in code, not only via the config flag,
+            // so no config value can ever enable this outside `local`
+            // (see config/identity.php).
+            if ($app->environment('local') && (bool) config('identity.disable_totp_in_local', false)) {
+                return $app->make(AlwaysValidTotpProvider::class);
+            }
+
+            return $app->make(Google2faTotpProvider::class);
+        });
         $this->app->bind(OperatorTokenIssuer::class, SanctumOperatorTokenIssuer::class);
         $this->app->bind(OperatorTokenResolver::class, SanctumOperatorTokenResolver::class);
         $this->app->bind(OperatorTokenRevoker::class, SanctumOperatorTokenRevoker::class);
