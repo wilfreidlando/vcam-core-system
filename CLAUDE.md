@@ -120,9 +120,16 @@ de code post-livraison corrigeant une course webhook/réconciliation (verrou
 de ligne), l'expiration des jetons opérateur, l'audit des actions admin, le
 throttle login/MFA, l'anti-rejeu TOTP et la validation d'UUID sur 5 endpoints,
 entre autres
-([ADR-0046](docs/adr/0046-lot-6-revue-de-code-correctifs.md)) —
-reste pour un Lot 6 complet : règles de frais, billing, monitoring opérationnel
-→ Lot 7 migration pilote. Détail de chaque lot :
+([ADR-0046](docs/adr/0046-lot-6-revue-de-code-correctifs.md)), puis une
+correction de la console web admin livrée hors-session (mécanisme d'auth,
+vérifications de permission, retrait d'un déclenchement caché de
+réconciliation, résolution des composants Blade, entre autres —
+[ADR-0047](docs/adr/0047-console-web-admin-correctifs-et-mecanisme-auth.md))
+→ Lot 7 migration pilote. `billing`, `storage`, `fees`, `developer-platform`
+restent des scaffolds Lot 0 vides, **explicitement hors périmètre de la
+version de production** de ce Core
+([ADR-0048](docs/adr/0048-billing-storage-fees-developer-platform-hors-perimetre-production.md)) —
+voir « Ce qui n'est PAS encore construit » ci-dessous. Détail de chaque lot :
 [docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.
 
 **Aucune capacité métier n'est implémentée avant que Lot 0 soit vert**
@@ -245,8 +252,8 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   route `POST`, donc hors du champ G7/`idempotency`. Convention de
   pagination (`page`/`per_page`, `{data, meta}`) reprise telle quelle
   d'`AuditQuery` (ADR-0044). Hors périmètre des deux tranches : règles de
-  frais, billing, monitoring opérationnel/OTel, gestion self-service des
-  opérateurs.
+  frais (module hors périmètre de production, ADR-0048), billing (idem),
+  monitoring opérationnel/OTel, gestion self-service des opérateurs.
 - Identity/Audit sont livrés (Lot 1) : Organization/Project/ApiKey, middleware
   d'auth Project, `GET /v1/whoami`, module Audit minimal. Voir
   `packages/identity/README.md`. Depuis le Lot 6 (ADR-0044), `identity`
@@ -279,8 +286,10 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   une réconciliation par `checkStatus()` pour les webhooks manqués,
   déclenchée par `admin` (planifiée ou à la demande), convergeant sur
   `HandlePaymentStatusChangedUseCase` sans logique dupliquée. Reste à
-  construire : le moteur Fees, les adaptateurs MTN/Orange directs (seul
-  le mécanisme de routage existe). Voir `packages/payment/README.md`.
+  construire, hors périmètre de la version de production (ADR-0048) : le
+  moteur Fees. Les adaptateurs MTN/Orange directs restent à construire
+  indépendamment (seul le mécanisme de routage existe). Voir
+  `packages/payment/README.md`.
 - Idempotence à deux niveaux ([ADR-0025](docs/adr/0025-design-idempotence.md),
   amendé par [ADR-0033](docs/adr/0033-conception-lot-2-money-core.md) §2) —
   **les deux niveaux sont livrés** : le niveau ledger
@@ -312,3 +321,11 @@ baseline Laravel 13/PHP 8.4/PG 18/Valkey ([ADR-0017](docs/adr/0017-baseline-vers
 internals hexagonaux plutôt que l'arborescence plate illustrative du plan de
 delivery ([ADR-0016](docs/adr/0016-internals-hexagonaux.md)), routes possédées
 par chaque module plutôt qu'agrégées ([ADR-0018](docs/adr/0018-routes-possedees-par-les-modules.md)).
+`fees` était en scope MVP dans la spec technique (Lot 3) ; `billing` et
+`developer-platform` en étaient déjà exclus. Les trois, ainsi que `storage`,
+restent des scaffolds vides et sont désormais explicitement hors périmètre
+de la version de production de ce Core, décision de l'utilisateur tranchant
+ce qui était en pause depuis ADR-0044
+([ADR-0048](docs/adr/0048-billing-storage-fees-developer-platform-hors-perimetre-production.md)) —
+les scaffolds restent en place (rien retiré structurellement), seule la
+décision de non-construction est actée.
