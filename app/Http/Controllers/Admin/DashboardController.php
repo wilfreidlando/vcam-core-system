@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use Core\Audit\Contracts\AuditQuery;
+use Core\Audit\Contracts\AuditSearchCriteria;
 use Core\Identity\Contracts\OperatorContext;
-use Core\Payment\Contracts\ListPayments;
-use Core\Payment\Contracts\ReconcileStuckPayments;
+use Core\Payment\Contracts\CountStuckPayments;
+use Core\Payment\Contracts\PaymentActivitySummary;
+use Core\Payment\Contracts\PaymentActivitySummaryWindow;
 use Core\Webhook\Contracts\ListDeadWebhookDeliveries;
+use Core\Webhook\Contracts\ListDeadWebhookDeliveriesCommand;
 use DateTimeImmutable;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -20,6 +22,12 @@ use Throwable;
  * transactional orchestration. They are read views over the same Domain
  * models that use cases mutate.
  *
+ * Every stat here is a pure read (review finding, Lot 6 follow-up: this
+ * controller used to call `ReconcileStuckPayments::reconcile()` — a
+ * live-provider-calling, state-mutating action — just to populate a
+ * "stuck payments" count; any operator opening this page silently
+ * triggered a real reconciliation run with no permission check).
+ *
  * Each query catches its own exceptions and degrades to an empty
  * result, so one failing subsystem never blanks the whole dashboard.
  * If a query fails individually we just show zeros and a log warning —
@@ -27,17 +35,22 @@ use Throwable;
  */
 final class DashboardController
 {
+    private const ACTIVITY_WINDOW_HOURS = 24;
+
     public function __construct(
-        // @phpstan-ignore-next-line — used for future widgets (operator chip in header).
         private readonly OperatorContext $operator,
         private readonly AuditQuery $audit,
-        private readonly ListPayments $listPayments,
+        private readonly PaymentActivitySummary $paymentActivity,
         private readonly ListDeadWebhookDeliveries $listDead,
-        private readonly ReconcileStuckPayments $reconcile,
+        private readonly CountStuckPayments $countStuckPayments,
     ) {}
 
-    public function show(Request $request): Response
+    public function show(): Response
     {
+        if (! $this->operator->hasPermission('audit:read')) {
+            abort(403, 'The audit:read permission is required.');
+        }
+
         $stats = [
             'payments_24h' => $this->paymentsLast24h(),
             'dead_webhooks' => $this->deadWebhookCount(),
@@ -52,30 +65,15 @@ final class DashboardController
         ]);
     }
 
+    /**
+     * @return array{total: int, succeeded: int}
+     */
     private function paymentsLast24h(): array
     {
         try {
-            $since = new DateTimeImmutable('-24 hours');
-            $all = $this->listPayments->list(new \Core\Payment\Contracts\ListPaymentsCommand(
-                projectId: '',
-                status: null,
-                page: 1,
-                perPage: 100,
-            ));
-            // The payment module's listing uses ListPayments which
-            // accepts a projectId — empty projectId is an unsafe wildcard
-            // here, so we filter in PHP. Real fix: add an admin-level
-            // port that accepts no project filter.
-            $total = 0;
-            $succeeded = 0;
-            foreach ($all->items as $p) {
-                $total++;
-                if ($p->status === 'succeeded') {
-                    $succeeded++;
-                }
-            }
+            $summary = $this->paymentActivity->summarize(new PaymentActivitySummaryWindow(self::ACTIVITY_WINDOW_HOURS));
 
-            return ['total' => $total, 'succeeded' => $succeeded];
+            return ['total' => $summary->total, 'succeeded' => $summary->succeeded];
         } catch (Throwable) {
             return ['total' => 0, 'succeeded' => 0];
         }
@@ -84,7 +82,7 @@ final class DashboardController
     private function deadWebhookCount(): int
     {
         try {
-            $page = $this->listDead->list(new \Core\Webhook\Contracts\ListDeadWebhookDeliveriesCommand(
+            $page = $this->listDead->list(new ListDeadWebhookDeliveriesCommand(
                 projectId: null,
                 page: 1,
                 perPage: 1,
@@ -99,23 +97,19 @@ final class DashboardController
     private function stuckPaymentsCount(): int
     {
         try {
-            $summary = $this->reconcile->reconcile(new \Core\Payment\Contracts\ReconcileStuckPaymentsCommand(
-                limitOverride: 1,
-            ));
-
-            return $summary->checked;
+            return $this->countStuckPayments->count();
         } catch (Throwable) {
             return 0;
         }
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<\Core\Audit\Contracts\AuditEntryView>
      */
     private function recentAudit(): array
     {
         try {
-            $result = $this->audit->search(new \Core\Audit\Contracts\AuditSearchCriteria(
+            $result = $this->audit->search(new AuditSearchCriteria(
                 resource: null,
                 actor: null,
                 action: null,

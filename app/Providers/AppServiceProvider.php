@@ -18,6 +18,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -49,7 +50,7 @@ final class AppServiceProvider extends ServiceProvider
         // They live in routes/admin.php (separate from the platform's
         // bare-bones routes/web.php which only exposes the service
         // banner). The 'operator.session' middleware gates them.
-        \Illuminate\Support\Facades\Route::middleware('web')
+        Route::middleware('web')
             ->group(base_path('routes/admin.php'));
 
         $this->configureRateLimiting();

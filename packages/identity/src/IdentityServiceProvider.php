@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Core\Identity;
 
+use Core\Identity\Application\UseCase\GetProjectUseCase;
+use Core\Identity\Application\UseCase\ListOrganizationsUseCase;
 use Core\Identity\Application\UseCase\ListProjectsUseCase;
+use Core\Identity\Contracts\GetProject;
+use Core\Identity\Contracts\ListOrganizations;
 use Core\Identity\Contracts\ListProjects;
 use Core\Identity\Domain\Port\ApiKeyRepository;
 use Core\Identity\Domain\Port\ApiKeySecretGenerator;
@@ -29,6 +33,7 @@ use Core\Identity\Infrastructure\Security\SanctumOperatorTokenRevoker;
 use Core\Identity\Presentation\Console\Commands\CreateOperatorCommand;
 use Core\Identity\Presentation\Console\Commands\CreateOrganizationCommand;
 use Core\Identity\Presentation\Console\Commands\CreateProjectCommand;
+use Core\Identity\Presentation\Console\Commands\CurrentOperatorOtpCommand;
 use Core\Identity\Presentation\Console\Commands\IssueApiKeyCommand;
 use Core\Identity\Presentation\Console\Commands\RevokeApiKeyCommand;
 use Illuminate\Support\Facades\Route;
@@ -49,6 +54,8 @@ final class IdentityServiceProvider extends ServiceProvider
         $this->app->bind(ApiKeyRepository::class, EloquentApiKeyRepository::class);
         $this->app->bind(ApiKeySecretGenerator::class, RandomApiKeySecretGenerator::class);
         $this->app->bind(ListProjects::class, ListProjectsUseCase::class);
+        $this->app->bind(ListOrganizations::class, ListOrganizationsUseCase::class);
+        $this->app->bind(GetProject::class, GetProjectUseCase::class);
 
         $this->app->bind(OperatorRepository::class, EloquentOperatorRepository::class);
         $this->app->bind(TotpProvider::class, Google2faTotpProvider::class);
@@ -71,6 +78,7 @@ final class IdentityServiceProvider extends ServiceProvider
                 IssueApiKeyCommand::class,
                 RevokeApiKeyCommand::class,
                 CreateOperatorCommand::class,
+                CurrentOperatorOtpCommand::class,
             ]);
         }
     }

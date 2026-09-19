@@ -4,9 +4,18 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use Core\Identity\Contracts\OperatorContext;
+use Core\Webhook\Contracts\DeliverWebhookCommand;
 use Core\Webhook\Contracts\ListDeadWebhookDeliveries;
+use Core\Webhook\Contracts\ListDeadWebhookDeliveriesCommand;
+use Core\Webhook\Contracts\QueueWebhookDelivery;
 use Core\Webhook\Contracts\ReplayWebhookDelivery;
+use Core\Webhook\Contracts\ReplayWebhookDeliveryCommand;
+use Core\Webhook\Domain\Exception\WebhookDeliveryNotDead;
+use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -21,15 +30,24 @@ final class WebhookDeliveriesController
     public function __construct(
         private readonly ListDeadWebhookDeliveries $listDead,
         private readonly ReplayWebhookDelivery $replay,
+        private readonly QueueWebhookDelivery $queue,
     ) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request, OperatorContext $operator): Response
     {
+        if (! $operator->hasPermission('webhooks:read')) {
+            abort(403, 'The webhooks:read permission is required.');
+        }
+
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
         $projectId = (string) $request->query('project_id', '');
 
-        $page_result = $this->listDead->list(new \Core\Webhook\Contracts\ListDeadWebhookDeliveriesCommand(
+        if ($projectId !== '') {
+            Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
+        }
+
+        $pageResult = $this->listDead->list(new ListDeadWebhookDeliveriesCommand(
             projectId: $projectId === '' ? null : $projectId,
             page: $page,
             perPage: $perPage,
@@ -37,36 +55,47 @@ final class WebhookDeliveriesController
 
         return response()->view('admin.webhook-deliveries.dead', [
             'title' => 'Webhook DLQ',
-            'deliveries' => $page_result->items,
-            'total' => $page_result->total,
+            'deliveries' => $pageResult->items,
+            'total' => $pageResult->total,
             'page' => $page,
             'perPage' => $perPage,
             'filters' => ['project_id' => $projectId],
         ]);
     }
 
-    public function replay(string $delivery): RedirectResponse
+    public function replay(string $delivery, OperatorContext $operator): RedirectResponse
     {
+        if (! $operator->hasPermission('webhooks:replay')) {
+            abort(403, 'The webhooks:replay permission is required.');
+        }
+
         // Validate UUID shape before delegating — otherwise the contract
         // throws a 404 which is rendered as problem+json (correct for API
         // clients, confusing for the web UI which would rather see a
         // friendlier redirect).
-        if (! preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $delivery)) {
+        if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $delivery) !== 1) {
             return redirect()->route('admin.webhook-deliveries.dead')
                 ->withErrors(['id' => 'Invalid delivery id.']);
         }
 
         try {
-            $result = $this->replay->replay(new \Core\Webhook\Contracts\ReplayWebhookDeliveryCommand(
+            $result = $this->replay->replay(new ReplayWebhookDeliveryCommand(
                 deliveryId: $delivery,
             ));
-        } catch (\Core\Webhook\Domain\Exception\WebhookDeliveryNotFound $e) {
+        } catch (WebhookDeliveryNotFound) {
             return redirect()->route('admin.webhook-deliveries.dead')
                 ->withErrors(['id' => 'Delivery not found.']);
-        } catch (\Core\Webhook\Domain\Exception\WebhookDeliveryNotDead $e) {
+        } catch (WebhookDeliveryNotDead) {
             return redirect()->route('admin.webhook-deliveries.dead')
                 ->withErrors(['id' => 'Delivery is not dead; no need to replay.']);
         }
+
+        // The JSON API's equivalent controller queues the new delivery
+        // for actual dispatch after replay() creates its row — this web
+        // controller used to skip that call entirely, so a "replayed"
+        // delivery was created but never attempted (review finding,
+        // Lot 6 follow-up).
+        $this->queue->queue(new DeliverWebhookCommand($result->newDeliveryId));
 
         return redirect()->route('admin.webhook-deliveries.dead')
             ->with('status', 'Replay queued — new delivery id: '.substr($result->newDeliveryId, 0, 8).'…');

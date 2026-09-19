@@ -21,16 +21,16 @@ parameters:
     excludePaths:
         analyseAndScan:
             - packages/*/vendor/*
-        analyse:
-            # The admin layer (controllers + the operator session
-            # middleware) is a thin HTTP wrapper over Contracts ports and
-            # Laravel facades. PHPStan cannot infer return types through
-            # Sanctum::currentAccessToken(), Session::get(), Request::validate(),
-            # etc. The HTTP integration tests cover the runtime behaviour;
-            # this suppression keeps the gate honest on the modules that
-            # carry real business invariants.
-            - app/Http/Controllers/Admin
-            - app/Http/Middleware/ResolveOperatorSession.php
+        # The blanket exclusion this repo used to carry for
+        # app/Http/Controllers/Admin + ResolveOperatorSession.php is
+        # removed (review finding, Lot 6 follow-up): it suppressed
+        # analysis on exactly the two files that shipped a call to a
+        # nonexistent static method (`Sanctum::currentAccessToken()`)
+        # and an unresolvable return-type hint — the kind of error
+        # Larastan catches immediately. Genuine per-call inference gaps
+        # (Session::get(), Request::validate() dynamic returns) are
+        # suppressed with targeted @phpstan-ignore-next-line comments
+        # instead, scoped to the one line that needs them.
 
     tmpDir: storage/framework/cache/phpstan
 

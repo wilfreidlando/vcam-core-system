@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace Core\Payment;
 
+use Core\Payment\Application\UseCase\CountStuckPaymentsUseCase;
 use Core\Payment\Application\UseCase\GetPaymentStatusUseCase;
 use Core\Payment\Application\UseCase\HandlePaymentStatusChangedUseCase;
 use Core\Payment\Application\UseCase\ListPaymentsUseCase;
+use Core\Payment\Application\UseCase\PaymentActivitySummaryUseCase;
 use Core\Payment\Application\UseCase\ReconcileStuckPaymentsUseCase;
 use Core\Payment\Application\UseCase\StartPaymentUseCase;
+use Core\Payment\Contracts\CountStuckPayments;
 use Core\Payment\Contracts\GetPaymentStatus;
 use Core\Payment\Contracts\ListPayments;
+use Core\Payment\Contracts\PaymentActivitySummary;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Contracts\PaymentProviderRouter;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
@@ -120,5 +124,18 @@ final class PaymentServiceProvider extends ServiceProvider
                 batchSize: $batchSize,
             );
         });
+
+        $this->app->bind(CountStuckPayments::class, function (Application $app): CountStuckPaymentsUseCase {
+            /** @var int $stuckAfterMinutes */
+            $stuckAfterMinutes = $app->make('config')->get('payment.reconciliation.stuck_after_minutes', 15);
+
+            return new CountStuckPaymentsUseCase(
+                payments: $app->make(PaymentRepository::class),
+                clock: $app->make(Clock::class),
+                stuckAfterMinutes: $stuckAfterMinutes,
+            );
+        });
+
+        $this->app->bind(PaymentActivitySummary::class, PaymentActivitySummaryUseCase::class);
     }
 }

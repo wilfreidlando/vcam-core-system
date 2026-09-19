@@ -4,29 +4,45 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use Core\Identity\Contracts\GetProject;
+use Core\Identity\Contracts\GetProjectCommand;
 use Core\Identity\Contracts\ListProjects;
+use Core\Identity\Contracts\ListProjectsCommand;
+use Core\Identity\Contracts\OperatorContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Projects listing + detail. Index accepts `organization_id` filter,
- * detail renders the full `ProjectView` plus the (placeholder) project
- * info — extending to API keys / webhooks / payments counts is left to
- * the corresponding project-scoped admin endpoints to avoid N+1.
+ * detail resolves a single project directly via `GetProject` (review
+ * finding, Lot 6 follow-up: this used to be a permanent stub — no port
+ * existed to resolve a project without already knowing its
+ * organization, so every detail page 404'd).
  */
 final class ProjectsController
 {
     public function __construct(
         private readonly ListProjects $listProjects,
+        private readonly GetProject $getProject,
     ) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request, OperatorContext $operator): Response
     {
+        if (! $operator->hasPermission('projects:read')) {
+            abort(403, 'The projects:read permission is required.');
+        }
+
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
         $orgId = (string) $request->query('organization_id', '');
 
-        $page_result = $this->listProjects->list(new \Core\Identity\Contracts\ListProjectsCommand(
+        if ($orgId !== '') {
+            Validator::make(['organization_id' => $orgId], ['organization_id' => 'uuid'])->validate();
+        }
+
+        $pageResult = $this->listProjects->list(new ListProjectsCommand(
             organizationId: $orgId === '' ? null : $orgId,
             page: $page,
             perPage: $perPage,
@@ -34,38 +50,25 @@ final class ProjectsController
 
         return response()->view('admin.projects.index', [
             'title' => 'Projects',
-            'projects' => $page_result->items,
-            'total' => $page_result->total,
+            'projects' => $pageResult->items,
+            'total' => $pageResult->total,
             'page' => $page,
             'perPage' => $perPage,
             'filters' => ['organization_id' => $orgId],
         ]);
     }
 
-    public function show(string $projectId): Response
+    public function show(string $projectId, OperatorContext $operator): Response
     {
-        // Single-project view: fetch with perPage=1 by filtering on
-        // the org + matching project would need a dedicated contract.
-        // For now we list projects for the parent org and find the one
-        // we want — this is O(N) in project count but acceptable for
-        // admin view traffic.
-        $orgId = $this->inferOrg($projectId);
-        if ($orgId === null) {
-            abort(404, 'Project not found.');
+        if (! $operator->hasPermission('projects:read')) {
+            abort(403, 'The projects:read permission is required.');
         }
-        $page = $this->listProjects->list(new \Core\Identity\Contracts\ListProjectsCommand(
-            organizationId: $orgId,
-            page: 1,
-            perPage: 100,
-        ));
-        $project = null;
-        foreach ($page->items as $p) {
-            if ($p->id === $projectId) {
-                $project = $p;
-                break;
-            }
-        }
-        if ($project === null) {
+
+        Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
+
+        try {
+            $project = $this->getProject->get(new GetProjectCommand($projectId));
+        } catch (RuntimeException) {
             abort(404, 'Project not found.');
         }
 
@@ -73,16 +76,5 @@ final class ProjectsController
             'title' => 'Project '.substr($project->id, 0, 8).'…',
             'project' => $project,
         ]);
-    }
-
-    /**
-     * Resolve the project through the same listing contract — single-project
-     * fetch isn't a published port yet. For the admin UI, this is fine
-     * because project counts per org stay low (double-digit max).
-     */
-    /** @return null — kept as a method stub; the proper fix is a `GetProject` contract. */
-    private function inferOrg(string $projectId): ?string
-    {
-        return null;
     }
 }

@@ -34,14 +34,14 @@
     :empty="'No payments match the filters.'">
     @foreach ($payments as $payment)
         <tr>
-            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $payment['id'] ?? '' }}">
-                {{ substr($payment['id'] ?? '', 0, 8) }}…
+            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $payment->id }}">
+                {{ substr($payment->id, 0, 8) }}…
             </td>
             <td class="px-4 py-2 text-xs font-mono text-slate-700">
-                {{ $payment['channel'] ?? '' }}
+                {{ $payment->channel }}
             </td>
             <td class="px-4 py-2">
-                @php $status = $payment['status'] ?? 'pending'; @endphp
+                @php $status = $payment->status; @endphp
                 <span @class([
                     'inline-flex rounded-md px-2 py-0.5 font-mono text-xs',
                     'bg-emerald-100 text-emerald-700' => $status === 'succeeded',
@@ -54,13 +54,13 @@
                 </span>
             </td>
             <td class="px-4 py-2 text-sm font-mono text-slate-900 tabular-nums">
-                {{ number_format((int) ($payment['amount'] ?? 0)) }}
+                {{ number_format($payment->amount) }}
             </td>
             <td class="px-4 py-2 text-sm font-mono text-slate-700">
-                {{ $payment['currency'] ?? '' }}
+                {{ $payment->currency }}
             </td>
             <td class="px-4 py-2 text-sm">
-                <a href="{{ route('admin.payments.show', ['payment' => $payment['id'] ?? '']) }}"
+                <a href="{{ route('admin.payments.show', ['payment' => $payment->id, 'project_id' => $filters['project_id'] ?? '']) }}"
                    class="text-indigo-600 hover:text-indigo-800 font-medium">
                     View →
                 </a>

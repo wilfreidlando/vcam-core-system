@@ -1,12 +1,16 @@
 @props([
     'headers' => [],
-    'rows' => [],
     'empty' => 'No results.',
 ])
 
 @php
     $headers = collect($headers);
-    $rows = collect($rows);
+    // Callers pass their <tr>...</tr> rows as the component's slot
+    // content, not a `:rows` prop (review finding, Lot 6 follow-up: this
+    // component used to iterate an unused `$rows` prop and silently
+    // discard every caller's slot content, always rendering the empty
+    // state regardless of actual data).
+    $hasRows = trim((string) $slot) !== '';
 @endphp
 
 <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
@@ -21,17 +25,15 @@
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-100 bg-white">
-            @forelse ($rows as $row)
-                <tr class="hover:bg-slate-50 transition-colors">
-                    {{ $row }}
-                </tr>
-            @empty
+            @if ($hasRows)
+                {{ $slot }}
+            @else
                 <tr>
                     <td colspan="{{ $headers->count() }}" class="px-4 py-6 text-center text-sm text-slate-500">
                         {{ $empty }}
                     </td>
                 </tr>
-            @endforelse
+            @endif
         </tbody>
     </table>
 </div>

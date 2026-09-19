@@ -8,34 +8,34 @@
     :empty="'No dead webhook deliveries. 🎉'">
     @foreach ($deliveries as $delivery)
         <tr x-data="{ confirmReplay: false }">
-            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $delivery['id'] ?? '' }}">
-                {{ substr($delivery['id'] ?? '', 0, 8) }}…
+            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $delivery->id }}">
+                {{ substr($delivery->id, 0, 8) }}…
             </td>
-            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $delivery['endpoint_id'] ?? '' }}">
-                {{ substr($delivery['endpoint_id'] ?? '', 0, 8) }}…
+            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $delivery->endpointId }}">
+                {{ substr($delivery->endpointId, 0, 8) }}…
             </td>
-            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $delivery['project_id'] ?? '' }}">
-                {{ substr($delivery['project_id'] ?? '', 0, 8) }}…
+            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $delivery->projectId }}">
+                {{ substr($delivery->projectId, 0, 8) }}…
             </td>
             <td class="px-4 py-2 text-xs">
                 <span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 font-mono text-slate-700">
-                    {{ $delivery['event_type'] ?? '' }}
+                    {{ $delivery->eventType }}
                 </span>
             </td>
             <td class="px-4 py-2 text-xs text-center">
                 <span @class([
                     'inline-flex rounded-full px-2 py-0.5 font-mono',
-                    'bg-rose-100 text-rose-700' => ($delivery['attempts'] ?? 0) >= 8,
-                    'bg-amber-100 text-amber-700' => ($delivery['attempts'] ?? 0) < 8,
+                    'bg-rose-100 text-rose-700' => $delivery->attempts >= 8,
+                    'bg-amber-100 text-amber-700' => $delivery->attempts < 8,
                 ])>
-                    {{ $delivery['attempts'] ?? 0 }}
+                    {{ $delivery->attempts }}
                 </span>
             </td>
-            <td class="px-4 py-2 text-xs text-rose-700 max-w-xs truncate" title="{{ $delivery['last_error'] ?? '' }}">
-                {{ $delivery['last_error'] ?? '' }}
+            <td class="px-4 py-2 text-xs text-rose-700 max-w-xs truncate" title="{{ $delivery->lastError ?? '' }}">
+                {{ $delivery->lastError ?? '' }}
             </td>
             <td class="px-4 py-2 text-xs font-mono text-slate-600 whitespace-nowrap">
-                {{ $delivery['last_attempt_at'] ?? '' }}
+                {{ $delivery->lastAttemptAt?->format('Y-m-d H:i:s') ?? '' }}
             </td>
             <td class="px-4 py-2 text-xs">
                 <button
@@ -50,7 +50,7 @@
                     x-cloak
                     @submit="confirmReplay = false"
                     method="POST"
-                    action="{{ route('admin.webhook-deliveries.replay', ['delivery' => $delivery['id'] ?? '']) }}"
+                    action="{{ route('admin.webhook-deliveries.replay', ['delivery' => $delivery->id]) }}"
                     class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50"
                     @click.self="confirmReplay = false">
                     @csrf

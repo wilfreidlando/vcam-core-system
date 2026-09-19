@@ -30,4 +30,16 @@ interface TotpProvider
      * gets the secret and this URI as plain strings.
      */
     public function buildOtpauthUri(string $secret, string $email): string;
+
+    /**
+     * The current 6-digit TOTP code for the given secret.
+     *
+     * Used by the dev-only `admin:current-otp` console command to surface
+     * a usable code in a terminal (no more grepping docker logs). The
+     * operator's MFA secret stays on the server; this method never logs
+     * it. Implementations MUST return the current window's code only.
+     *
+     * @param string $secret The base32 raw TOTP secret (decrypted).
+     */
+    public function currentCode(string $secret): string;
 }

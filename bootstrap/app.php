@@ -34,6 +34,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\HandleCors;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
@@ -88,9 +89,21 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('admin:reconcile-stuck-payments')->everyFiveMinutes()->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // One error format across the whole Core, which has no HTML surface:
-        // RFC 7807 problem+json, always carrying the correlation id.
-        $exceptions->render(function (Throwable $e) {
+        // One error format across the whole Core's JSON surface: RFC 7807
+        // problem+json, always carrying the correlation id. The admin web
+        // console (routes/admin.php) is the one HTML surface — its form
+        // submissions need Laravel's normal redirect-back-with-$errors
+        // behaviour, not a raw JSON body (review finding, Lot 6
+        // follow-up: every web form's @error() block was dead code
+        // because ValidationException always rendered as problem+json,
+        // regardless of caller).
+        $exceptions->render(function (Throwable $e, Request $request) {
+            if ($e instanceof ValidationException && ! $request->expectsJson()) {
+                // Falls through to ValidationException's own render()
+                // (redirect back with $errors flashed to the session).
+                return null;
+            }
+
             return match (true) {
                 $e instanceof ValidationException => ProblemDetails::make(
                     'validation-failed',

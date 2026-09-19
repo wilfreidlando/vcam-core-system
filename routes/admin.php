@@ -25,12 +25,18 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): void {
 
     // Unauthenticated: login + MFA challenge + logout.
-    Route::get('login', [AuthController::class, 'showLogin'])->name('login.show');
-    Route::post('login', [AuthController::class, 'login'])->name('login');
-    Route::get('mfa/enroll', [AuthController::class, 'showMfaEnroll'])->name('mfa.enroll.show');
-    Route::post('mfa/enroll', [AuthController::class, 'confirmMfaEnrollment'])->name('mfa.confirm');
-    Route::get('mfa/verify', [AuthController::class, 'showMfaVerify'])->name('mfa.verify.show');
-    Route::post('mfa/verify', [AuthController::class, 'verifyMfa'])->name('mfa.verify');
+    // 'operator-auth' (AppServiceProvider::configureRateLimiting) is the
+    // same tighter limiter the JSON API's equivalent routes carry — this
+    // web plane used to have zero throttling at all (review finding,
+    // Lot 6 follow-up).
+    Route::middleware(['throttle:operator-auth'])->group(function (): void {
+        Route::get('login', [AuthController::class, 'showLogin'])->name('login.show');
+        Route::post('login', [AuthController::class, 'login'])->name('login');
+        Route::get('mfa/enroll', [AuthController::class, 'showMfaEnroll'])->name('mfa.enroll.show');
+        Route::post('mfa/enroll', [AuthController::class, 'confirmMfaEnrollment'])->name('mfa.confirm');
+        Route::get('mfa/verify', [AuthController::class, 'showMfaVerify'])->name('mfa.verify.show');
+        Route::post('mfa/verify', [AuthController::class, 'verifyMfa'])->name('mfa.verify');
+    });
     Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
     // Authenticated: the whole operator console.

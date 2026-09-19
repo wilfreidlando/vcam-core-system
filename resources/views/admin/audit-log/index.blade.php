@@ -42,21 +42,21 @@
     @foreach ($entries as $entry)
         <tr>
             <td class="px-4 py-2 text-xs font-mono text-slate-600 whitespace-nowrap">
-                {{ $entry['occurred_at'] ?? '' }}
+                {{ $entry->occurredAt->format('Y-m-d H:i:s') }}
             </td>
             <td class="px-4 py-2 text-xs text-slate-700 truncate max-w-[10rem]">
-                {{ $entry['actor'] ?? '' }}
+                {{ $entry->actor }}
             </td>
             <td class="px-4 py-2">
                 <span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-700">
-                    {{ $entry['action'] ?? '' }}
+                    {{ $entry->action }}
                 </span>
             </td>
             <td class="px-4 py-2 text-xs text-slate-600 truncate max-w-[12rem] font-mono">
-                {{ $entry['resource'] ?? '' }}
+                {{ $entry->resource }}
             </td>
             <td class="px-4 py-2 text-xs text-slate-500 truncate max-w-[8rem] font-mono">
-                {{ $entry['correlation_id'] ?? '' }}
+                {{ $entry->correlationId ?? '' }}
             </td>
         </tr>
     @endforeach

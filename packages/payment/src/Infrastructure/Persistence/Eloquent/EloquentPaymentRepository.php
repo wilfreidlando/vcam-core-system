@@ -144,6 +144,25 @@ final class EloquentPaymentRepository implements PaymentRepository
         return ['items' => $payments, 'total' => $total];
     }
 
+    public function countStuckSince(DateTimeImmutable $threshold): int
+    {
+        // See findStuckSince() above for why whereIn()/count() go through toBase().
+        $base = PaymentRecord::query()->where('updated_at', '<', $threshold)->toBase();
+        $base->whereIn('status', [PaymentStatus::Pending->value, PaymentStatus::Processing->value]);
+
+        return $base->count();
+    }
+
+    public function countRecentByStatus(DateTimeImmutable $since): array
+    {
+        $base = PaymentRecord::query()->where('created_at', '>=', $since)->toBase();
+
+        $total = (clone $base)->count();
+        $succeeded = (clone $base)->where('status', PaymentStatus::Succeeded->value)->count();
+
+        return ['total' => $total, 'succeeded' => $succeeded];
+    }
+
     /**
      * @return array<string, mixed>
      */

@@ -39,4 +39,9 @@ final class FixedTotpProvider implements TotpProvider
     {
         return 'otpauth://totp/Test:'.$email.'?secret='.$secret;
     }
+
+    public function currentCode(string $secret): string
+    {
+        return self::VALID_CODE;
+    }
 }

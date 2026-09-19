@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use Core\Identity\Contracts\OperatorContext;
 use Core\Payment\Contracts\ReconcileStuckPayments;
+use Core\Payment\Contracts\ReconcileStuckPaymentsCommand;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -16,31 +19,51 @@ use Throwable;
  */
 final class ReconciliationController
 {
+    /**
+     * Mirrors TriggerPaymentReconciliationController::ON_DEMAND_BATCH_LIMIT
+     * (the JSON API's own on-demand cap) — the form used to advertise a
+     * cap of 20 while its validation silently allowed up to 10,000,
+     * letting an operator trigger up to 10,000 synchronous live-provider
+     * calls in one request (review finding, Lot 6 follow-up).
+     */
+    private const ON_DEMAND_BATCH_LIMIT = 20;
+
     public function __construct(
         private readonly ReconcileStuckPayments $reconcile,
     ) {}
 
-    public function new(Request $request): Response
+    public function new(OperatorContext $operator): Response
     {
+        if (! $operator->hasPermission('payments:reconcile:write')) {
+            abort(403, 'The payments:reconcile:write permission is required.');
+        }
+
+        // No ->withInput() here (review finding, Lot 6 follow-up): that
+        // method only exists on RedirectResponse, not the plain view
+        // Response response()->view() returns — calling it fatally
+        // errored on every GET to this page. The form has no `old()`
+        // values to restore on a fresh GET anyway.
         return response()->view('admin.reconciliation.new', [
             'title' => 'Run reconciliation',
             'result' => session('admin.reconciliation.last_result'),
-        ])->withInput($request->old());
+        ]);
     }
 
-    public function run(Request $request): \Illuminate\Http\RedirectResponse
+    public function run(Request $request, OperatorContext $operator): RedirectResponse
     {
+        if (! $operator->hasPermission('payments:reconcile:write')) {
+            abort(403, 'The payments:reconcile:write permission is required.');
+        }
+
         /** @var array{limit_override?: string|int} $data */
+        // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
-            'limit_override' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'limit_override' => ['nullable', 'integer', 'min:1', 'max:'.self::ON_DEMAND_BATCH_LIMIT],
         ]);
-        /** @var int|null $limit */
-        $limit = isset($data['limit_override']) && $data['limit_override'] !== null
-            ? (int) $data['limit_override']
-            : null;
+        $limit = isset($data['limit_override']) ? (int) $data['limit_override'] : null;
 
         try {
-            $summary = $this->reconcile->reconcile(new \Core\Payment\Contracts\ReconcileStuckPaymentsCommand(
+            $summary = $this->reconcile->reconcile(new ReconcileStuckPaymentsCommand(
                 limitOverride: $limit,
             ));
         } catch (Throwable $e) {
@@ -49,6 +72,7 @@ final class ReconciliationController
 
         // Persist the last summary in the session so the redirect lands
         // on the form view with results displayed.
+        // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
         session()->flash(
             'admin.reconciliation.last_result',
             [

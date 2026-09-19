@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use Core\Audit\Contracts\AuditQuery;
+use Core\Audit\Contracts\AuditSearchCriteria;
+use Core\Identity\Contracts\OperatorContext;
 use DateTimeImmutable;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,8 +23,12 @@ final class AuditLogController
         private readonly AuditQuery $audit,
     ) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request, OperatorContext $operator): Response
     {
+        if (! $operator->hasPermission('audit:read')) {
+            abort(403, 'The audit:read permission is required.');
+        }
+
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
         $fromRaw = (string) $request->query('from', '');
@@ -31,7 +37,7 @@ final class AuditLogController
         $from = $this->parseDate($fromRaw);
         $to = $this->parseDate($toRaw);
 
-        $result = $this->audit->search(new \Core\Audit\Contracts\AuditSearchCriteria(
+        $result = $this->audit->search(new AuditSearchCriteria(
             resource: $this->optString($request->query('resource')),
             actor: $this->optString($request->query('actor')),
             action: $this->optString($request->query('action')),

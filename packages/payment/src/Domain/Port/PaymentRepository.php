@@ -70,4 +70,25 @@ interface PaymentRepository
      * @return array{items: list<Payment>, total: int}
      */
     public function findByProject(string $projectId, ?PaymentStatus $status, int $page, int $perPage): array;
+
+    /**
+     * A pure count of the same candidate set `findStuckSince()` would
+     * hydrate — for a dashboard stat that must never trigger a real
+     * reconciliation run (review finding, Lot 6 follow-up: the admin
+     * console used to call `ReconcileStuckPayments::reconcile()`, a
+     * live-provider-calling, state-mutating action, just to populate a
+     * "count" widget).
+     */
+    public function countStuckSince(DateTimeImmutable $threshold): int;
+
+    /**
+     * Global (cross-project) counts over a time window — the admin
+     * dashboard's own read, distinct from `findByProject()`'s
+     * project-scoped listing (ADR-0045 deliberately requires a
+     * `projectId` there; this is the one admin-only exception, and it
+     * stays a pure count, never row-level data).
+     *
+     * @return array{total: int, succeeded: int}
+     */
+    public function countRecentByStatus(DateTimeImmutable $since): array;
 }

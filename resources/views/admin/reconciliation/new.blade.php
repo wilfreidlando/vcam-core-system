@@ -19,18 +19,18 @@
 
             <div>
                 <label for="limit" class="block text-sm font-medium text-slate-700 mb-1">
-                    Stuck threshold (minutes)
+                    Row limit (max 20)
                 </label>
                 <input
                     type="number"
                     name="limit_override"
                     id="limit"
                     min="1"
-                    max="10000"
-                    value="15"
+                    max="20"
+                    value="20"
                     class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm" />
                 <p class="mt-1 text-xs text-slate-500">
-                    Payments older than this many minutes in a non-terminal state will be checked against their provider.
+                    How many stuck payments to check against their provider in this run — not an age threshold; the staleness cutoff is a fixed platform setting.
                 </p>
             </div>
 

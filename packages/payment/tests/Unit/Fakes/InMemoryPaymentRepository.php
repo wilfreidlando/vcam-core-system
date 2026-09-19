@@ -112,4 +112,31 @@ final class InMemoryPaymentRepository implements PaymentRepository
 
         return ['items' => array_slice($matching, $offset, $perPage), 'total' => $total];
     }
+
+    /**
+     * Same reasoning as findStuckSince(): no timestamp on the Domain
+     * model, so this fake ignores `$threshold` and counts every
+     * non-terminal payment.
+     */
+    public function countStuckSince(DateTimeImmutable $threshold): int
+    {
+        return count(array_filter(
+            $this->payments,
+            static fn (Payment $payment): bool => in_array($payment->status, [PaymentStatus::Pending, PaymentStatus::Processing], true),
+        ));
+    }
+
+    /**
+     * Same reasoning: ignores `$since`, counts every payment held.
+     */
+    public function countRecentByStatus(DateTimeImmutable $since): array
+    {
+        $total = count($this->payments);
+        $succeeded = count(array_filter(
+            $this->payments,
+            static fn (Payment $payment): bool => $payment->status === PaymentStatus::Succeeded,
+        ));
+
+        return ['total' => $total, 'succeeded' => $succeeded];
+    }
 }

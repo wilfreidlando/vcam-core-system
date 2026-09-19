@@ -43,4 +43,15 @@ final class Google2faTotpProvider implements TotpProvider
     {
         return $this->google2fa->getQRCodeUrl(self::ISSUER, $email, $secret);
     }
+
+    public function currentCode(string $secret): string
+    {
+        // The library's own public method already does exactly this
+        // (current 30s window, no drift tolerance) — simplified from a
+        // hand-rolled HMAC-SHA1 reimplementation that had two type
+        // errors (decbin()/chr() fed possibly-false/float values from
+        // an unvalidated base32 decode) and duplicated logic
+        // Google2FA already exposes.
+        return $this->google2fa->getCurrentOtp($secret);
+    }
 }

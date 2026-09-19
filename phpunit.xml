@@ -30,6 +30,18 @@
             <directory>tests/Contract</directory>
         </testsuite>
 
+        <!-- The admin web console (session/cookie auth, Blade views) —
+             distinct from Integration's bearer-token API tests. Was
+             never actually registered here despite being referenced by
+             an earlier commit's own message and a since-removed PHPStan
+             exclusion comment as covering that code (review finding,
+             Lot 6 follow-up): the directory existed, but php artisan
+             test / vendor/bin/pest would never have discovered anything
+             placed in it. -->
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+
         <!-- Per-module suites. Every bounded context tests itself. -->
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
