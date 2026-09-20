@@ -52,13 +52,28 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
         Route::prefix('organizations')->group(function (): void {
             Route::get('/', [App\Http\Controllers\Admin\OrganizationsController::class, 'index'])
                 ->name('organizations.index');
+            Route::get('create', [App\Http\Controllers\Admin\OrganizationsController::class, 'create'])
+                ->name('organizations.create');
+            Route::post('/', [App\Http\Controllers\Admin\OrganizationsController::class, 'store'])
+                ->name('organizations.store');
         });
 
         Route::prefix('projects')->group(function (): void {
             Route::get('/', [App\Http\Controllers\Admin\ProjectsController::class, 'index'])
                 ->name('projects.index');
+            // Must be registered BEFORE `GET projects/{projectId}` below —
+            // Laravel matches route patterns in registration order, so a
+            // parameterised route registered first would greedily capture
+            // `/admin/projects/create` as `{projectId}='create'` and hit
+            // `show()`, which then 422s on UUID validation.
+            Route::get('create', [App\Http\Controllers\Admin\ProjectsController::class, 'create'])
+                ->name('projects.create');
+            Route::post('/', [App\Http\Controllers\Admin\ProjectsController::class, 'store'])
+                ->name('projects.store');
             Route::get('{projectId}', [App\Http\Controllers\Admin\ProjectsController::class, 'show'])
                 ->name('projects.show');
+            Route::get('{projectId}/wallets', [App\Http\Controllers\Admin\WalletsController::class, 'index'])
+                ->name('projects.wallets');
         });
 
         Route::prefix('payments')->group(function (): void {
@@ -93,6 +108,13 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->name('operators.store');
             Route::post('{operatorId}/revoke', [App\Http\Controllers\Admin\OperatorsController::class, 'revoke'])
                 ->name('operators.revoke');
+            // Literal segments (`create`, `{operatorId}/edit`) always win
+            // over a parameter route for an exact match in Laravel, so
+            // this doesn't collide with `operators/create` above.
+            Route::get('{operatorId}/edit', [App\Http\Controllers\Admin\OperatorsController::class, 'edit'])
+                ->name('operators.edit');
+            Route::put('{operatorId}', [App\Http\Controllers\Admin\OperatorsController::class, 'update'])
+                ->name('operators.update');
         });
     });
 });

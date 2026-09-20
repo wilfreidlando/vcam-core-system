@@ -3,6 +3,19 @@
 @section('title', 'Projects')
 
 @section('content')
+{{-- `$has` from the layout's <aside> scope isn't visible here — Blade
+     renders a child's @section content before the parent layout (and its
+     @php block) runs, so a permission gate in a child view must resolve
+     OperatorContext itself, same as the layout does. --}}
+@if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('projects:write'))
+    <div class="mb-4 flex justify-end">
+        <a href="{{ route('admin.projects.create') }}"
+           class="inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
+            + New project
+        </a>
+    </div>
+@endif
+
 <form method="GET" action="{{ route('admin.projects.index') }}" class="bg-white border border-slate-200 rounded-lg p-4 mb-4">
     <div class="flex items-end gap-3">
         <div class="flex-1">

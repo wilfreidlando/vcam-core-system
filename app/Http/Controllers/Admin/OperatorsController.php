@@ -9,8 +9,11 @@ use Core\Identity\Contracts\CreateOperatorCommand;
 use Core\Identity\Contracts\ListOperators;
 use Core\Identity\Contracts\ListOperatorsCommand;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Identity\Contracts\OperatorSummaryView;
 use Core\Identity\Contracts\RevokeOperator;
 use Core\Identity\Contracts\RevokeOperatorCommand;
+use Core\Identity\Contracts\UpdateOperator;
+use Core\Identity\Contracts\UpdateOperatorCommand;
 use Core\Identity\OperatorRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,10 +31,20 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class OperatorsController
 {
+    /**
+     * `UpdateOperatorCommand` has no single-get port to prefill against
+     * (only `ListOperators`, paginated) — this caps how many rows the
+     * edit form's prefill lookup scans before giving up and rendering a
+     * blank form. Comfortably above any realistic operator headcount for
+     * this Core.
+     */
+    private const PREFILL_LOOKUP_LIMIT = 200;
+
     public function __construct(
         private readonly ListOperators $listOperators,
         private readonly CreateOperator $createOperator,
         private readonly RevokeOperator $revokeOperator,
+        private readonly UpdateOperator $updateOperator,
     ) {}
 
     public function index(Request $request, OperatorContext $operator): Response
@@ -126,5 +139,76 @@ final class OperatorsController
 
         return redirect()->route('admin.operators.index')
             ->with('status', 'Operator revoked.');
+    }
+
+    public function edit(string $operatorId, OperatorContext $operator): Response
+    {
+        if (! $operator->hasPermission('operators:write')) {
+            abort(403, 'The operators:write permission is required.');
+        }
+
+        Validator::make(['operatorId' => $operatorId], ['operatorId' => 'uuid'])->validate();
+
+        return response()->view('admin.operators.edit', [
+            'title' => 'Edit operator',
+            'operatorId' => $operatorId,
+            'operatorRow' => $this->findOperator($operatorId),
+            'roles' => OperatorRole::cases(),
+        ]);
+    }
+
+    public function update(string $operatorId, Request $request, OperatorContext $operator): RedirectResponse
+    {
+        if (! $operator->hasPermission('operators:write')) {
+            abort(403, 'The operators:write permission is required.');
+        }
+
+        Validator::make(['operatorId' => $operatorId], ['operatorId' => 'uuid'])->validate();
+
+        /** @var array{email: string, name: string, role: string} $data */
+        // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'name' => ['required', 'string', 'max:255'],
+            'role' => ['required', 'string'],
+        ]);
+
+        try {
+            $this->updateOperator->update(
+                new UpdateOperatorCommand($operatorId, $data['email'], $data['name'], $data['role']),
+                actor: 'operator:'.$operator->operatorId,
+                correlationId: null,
+            );
+        } catch (RuntimeException $e) {
+            return back()->withInput()->withErrors(['role' => $e->getMessage()]);
+        }
+
+        return redirect()->route('admin.operators.index')
+            ->with('status', 'Operator updated: '.$data['email']);
+    }
+
+    /**
+     * `UpdateOperator`'s only prefill source is `ListOperators` (no
+     * single-get port exists) — this scans up to `PREFILL_LOOKUP_LIMIT`
+     * rows looking for a matching id and returns `null` if it isn't
+     * found there (a large enough operator roster, or one growing while
+     * this page loads, means the edit form falls back to
+     * `operatorId`-only prefill — see admin.operators.edit's blank-field
+     * note).
+     */
+    private function findOperator(string $operatorId): ?OperatorSummaryView
+    {
+        $page = $this->listOperators->list(new ListOperatorsCommand(
+            page: 1,
+            perPage: self::PREFILL_LOOKUP_LIMIT,
+        ));
+
+        foreach ($page->items as $item) {
+            if ($item->id === $operatorId) {
+                return $item;
+            }
+        }
+
+        return null;
     }
 }

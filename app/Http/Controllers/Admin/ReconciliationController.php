@@ -7,6 +7,8 @@ namespace App\Http\Controllers\Admin;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Payment\Contracts\ListStuckPayments;
+use Core\Payment\Contracts\ListStuckPaymentsCommand;
 use Core\Payment\Contracts\ReconcileStuckPayments;
 use Core\Payment\Contracts\ReconcileStuckPaymentsCommand;
 use Core\Support\Clock;
@@ -33,6 +35,7 @@ final class ReconciliationController
 
     public function __construct(
         private readonly ReconcileStuckPayments $reconcile,
+        private readonly ListStuckPayments $listStuck,
         private readonly AuditLogger $audit,
         private readonly Clock $clock,
     ) {}
@@ -51,6 +54,7 @@ final class ReconciliationController
         return response()->view('admin.reconciliation.new', [
             'title' => 'Run reconciliation',
             'result' => session('admin.reconciliation.last_result'),
+            'previewPayments' => $this->previewStuckPayments(),
         ]);
     }
 
@@ -109,5 +113,25 @@ final class ReconciliationController
                 $summary->updated,
                 $summary->errors,
             ));
+    }
+
+    /**
+     * A preview of exactly which payments `run()` would check — shown
+     * above the trigger form so an operator never fires reconciliation
+     * blind (review finding: reconciliation used to run with no
+     * visibility into what it would touch). Same defensive
+     * try/catch-degrade pattern as `DashboardController`'s stats: a
+     * failed preview lookup shows an empty list rather than erroring the
+     * whole page.
+     *
+     * @return list<\Core\Payment\Contracts\StuckPaymentView>
+     */
+    private function previewStuckPayments(): array
+    {
+        try {
+            return $this->listStuck->list(new ListStuckPaymentsCommand(self::ON_DEMAND_BATCH_LIMIT));
+        } catch (Throwable) {
+            return [];
+        }
     }
 }

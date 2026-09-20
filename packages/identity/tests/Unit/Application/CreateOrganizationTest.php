@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Core\Identity\Application\Dto\CreateOrganizationCommand;
 use Core\Identity\Application\UseCase\CreateOrganization;
+use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Tests\Unit\Fakes\FixedClock;
 use Core\Identity\Tests\Unit\Fakes\InMemoryOrganizationRepository;
 use Core\Identity\Tests\Unit\Fakes\RecordingAuditLogger;
@@ -14,10 +14,10 @@ it('creates and persists an active organization, and audits it', function (): vo
     $audit = new RecordingAuditLogger;
     $useCase = new CreateOrganization($organizations, new SequentialIdentifier, $audit, new FixedClock);
 
-    $organization = $useCase(new CreateOrganizationCommand('Acme Corp'), actor: 'operator:1', correlationId: 'corr-1');
+    $organization = $useCase->create(new CreateOrganizationCommand('Acme Corp'), actor: 'operator:1', correlationId: 'corr-1');
 
     expect($organizations->find($organization->id))->not->toBeNull()
-        ->and($organization->isActive())->toBeTrue()
+        ->and($organization->status)->toBe('active')
         ->and($audit->entries)->toHaveCount(1)
         ->and($audit->entries[0]->action)->toBe('organization.created')
         ->and($audit->entries[0]->resource)->toBe('organization:'.$organization->id);

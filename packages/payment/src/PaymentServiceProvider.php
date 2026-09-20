@@ -9,18 +9,22 @@ use Core\Payment\Application\UseCase\CountStuckPaymentsUseCase;
 use Core\Payment\Application\UseCase\GetPaymentStatusUseCase;
 use Core\Payment\Application\UseCase\HandlePaymentStatusChangedUseCase;
 use Core\Payment\Application\UseCase\ListPaymentsUseCase;
+use Core\Payment\Application\UseCase\ListStuckPaymentsUseCase;
 use Core\Payment\Application\UseCase\PaymentActivitySummaryUseCase;
 use Core\Payment\Application\UseCase\ReconcileStuckPaymentsUseCase;
+use Core\Payment\Application\UseCase\RegisterProviderApplication as RegisterProviderApplicationUseCase;
 use Core\Payment\Application\UseCase\StartPaymentUseCase;
 use Core\Payment\Contracts\CountStuckPayments;
 use Core\Payment\Contracts\GetPaymentStatus;
 use Core\Payment\Contracts\ListPayments;
+use Core\Payment\Contracts\ListStuckPayments;
 use Core\Payment\Contracts\PaymentActivitySummary;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Contracts\PaymentProviderRouter;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\PaymentStatusMapper;
 use Core\Payment\Contracts\ReconcileStuckPayments;
+use Core\Payment\Contracts\RegisterProviderApplication;
 use Core\Payment\Contracts\StartPayment;
 use Core\Payment\Domain\Port\PaymentCallbackAuthenticator;
 use Core\Payment\Domain\Port\PaymentCallbackSecretGenerator;
@@ -157,6 +161,7 @@ final class PaymentServiceProvider extends ServiceProvider
         $this->app->bind(GetPaymentStatus::class, GetPaymentStatusUseCase::class);
         $this->app->bind(PaymentStatusChangeHandler::class, HandlePaymentStatusChangedUseCase::class);
         $this->app->bind(ListPayments::class, ListPaymentsUseCase::class);
+        $this->app->bind(RegisterProviderApplication::class, RegisterProviderApplicationUseCase::class);
 
         $this->app->bind(ReconcileStuckPayments::class, function (Application $app): ReconcileStuckPaymentsUseCase {
             /** @var int $stuckAfterMinutes */
@@ -180,6 +185,17 @@ final class PaymentServiceProvider extends ServiceProvider
             $stuckAfterMinutes = $app->make('config')->get('payment.reconciliation.stuck_after_minutes', 15);
 
             return new CountStuckPaymentsUseCase(
+                payments: $app->make(PaymentRepository::class),
+                clock: $app->make(Clock::class),
+                stuckAfterMinutes: $stuckAfterMinutes,
+            );
+        });
+
+        $this->app->bind(ListStuckPayments::class, function (Application $app): ListStuckPaymentsUseCase {
+            /** @var int $stuckAfterMinutes */
+            $stuckAfterMinutes = $app->make('config')->get('payment.reconciliation.stuck_after_minutes', 15);
+
+            return new ListStuckPaymentsUseCase(
                 payments: $app->make(PaymentRepository::class),
                 clock: $app->make(Clock::class),
                 stuckAfterMinutes: $stuckAfterMinutes,

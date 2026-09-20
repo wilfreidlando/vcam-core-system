@@ -261,9 +261,24 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   révoquer via `POST/GET /v1/admin/operators`,
   `POST /v1/admin/operators/{id}/revoke`, réservé à `operators:read`/
   `operators:write` (seul `PlatformAdmin` les porte) ; même capacité côté
-  console web (`/admin/operators`). Reste hors périmètre : règles de frais
-  (module hors périmètre de production, ADR-0048), billing (idem),
-  monitoring opérationnel/OTel.
+  console web (`/admin/operators`). Quatrième tranche (ADR-0052) : CRUD
+  opérateur complet (`PUT /v1/admin/operators/{id}` + `/admin/operators/{id}/edit`
+  en plus de create/list/revoke), création self-service Organizations/Projects
+  (`POST /v1/admin/organizations`, `POST /v1/admin/projects`, permission
+  `projects:write`), enregistrement self-service des applications provider
+  (`POST /v1/admin/payment-provider-applications`, permission
+  `provider-applications:write` — nouvelle, portée par `ProviderManager` ;
+  `payment` ne peut pas dépendre d'`audit` selon `ModuleGraph.php`, donc
+  c'est le contrôleur admin qui audite l'action, pas le use case), une
+  prévisualisation de réconciliation (`GET /v1/admin/payment-reconciliation-preview`,
+  liste les paiements qui seraient contactés avant le déclenchement réel),
+  et une vue wallet en lecture seule par Project (`/admin/projects/{id}/wallets`
+  — ADR-0033/0037 restent intacts, aucune mutation possible depuis
+  l'admin, décision explicite de l'utilisateur). Reste hors périmètre :
+  règles de frais (module hors périmètre de production, ADR-0048), billing
+  (idem), monitoring opérationnel/OTel, détail des écritures ledger par
+  wallet (aucun port de lecture correspondant dans `packages/ledger` à ce
+  jour).
 - Identity/Audit sont livrés (Lot 1) : Organization/Project/ApiKey, middleware
   d'auth Project, `GET /v1/whoami`, module Audit minimal. Voir
   `packages/identity/README.md`. Depuis le Lot 6 (ADR-0044), `identity`

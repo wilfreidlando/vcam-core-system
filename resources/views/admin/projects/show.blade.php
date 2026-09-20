@@ -39,6 +39,11 @@
             <span class="font-medium text-slate-900">This project's payments</span>
             <span class="text-indigo-600">→</span>
         </a>
+        <a href="{{ route('admin.projects.wallets', ['projectId' => $project->id]) }}"
+           class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+            <span class="font-medium text-slate-900">This project's wallets</span>
+            <span class="text-indigo-600">→</span>
+        </a>
     </div>
 
     <div class="text-right">

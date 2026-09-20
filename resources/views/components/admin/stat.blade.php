@@ -18,12 +18,31 @@
         'rose'    => 'text-rose-700',
         default   => 'text-slate-900',
     };
+    $toneIconBg = match ($tone) {
+        'emerald' => 'bg-emerald-100 text-emerald-700',
+        'amber'   => 'bg-amber-100 text-amber-700',
+        'rose'    => 'bg-rose-100 text-rose-700',
+        default   => 'bg-indigo-100 text-indigo-700',
+    };
+    // Optional `icon` slot (admin dashboard cards) — kept backward
+    // compatible: components that never pass it render exactly as
+    // before, no icon box.
+    $hasIcon = isset($icon) && trim((string) $icon) !== '';
 @endphp
 
 <div class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm ring-1 {{ $toneRing }}">
-    <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">{{ $label }}</p>
-    <p class="mt-1 text-3xl font-semibold {{ $toneText }}">{{ number_format((float) $value) }}</p>
-    @if ($hint !== '')
-        <p class="mt-1 text-xs text-slate-500">{{ $hint }}</p>
-    @endif
+    <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+            <p class="text-xs uppercase tracking-wider font-semibold text-slate-500 truncate">{{ $label }}</p>
+            <p class="mt-1 text-3xl font-semibold {{ $toneText }}">{{ number_format((float) $value) }}</p>
+            @if ($hint !== '')
+                <p class="mt-1 text-xs text-slate-500">{{ $hint }}</p>
+            @endif
+        </div>
+        @if ($hasIcon)
+            <div class="shrink-0 rounded-md p-2 {{ $toneIconBg }}">
+                {{ $icon }}
+            </div>
+        @endif
+    </div>
 </div>

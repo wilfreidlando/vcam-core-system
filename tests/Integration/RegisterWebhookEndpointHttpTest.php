@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Integration;
 
-use Core\Identity\Application\Dto\CreateOrganizationCommand;
-use Core\Identity\Application\Dto\CreateProjectCommand;
 use Core\Identity\Application\Dto\IssueApiKeyCommand;
-use Core\Identity\Application\UseCase\CreateOrganization;
-use Core\Identity\Application\UseCase\CreateProject;
 use Core\Identity\Application\UseCase\IssueApiKey;
+use Core\Identity\Contracts\CreateOrganization;
+use Core\Identity\Contracts\CreateOrganizationCommand;
+use Core\Identity\Contracts\CreateProject;
+use Core\Identity\Contracts\CreateProjectCommand;
 use Core\Support\Environment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -73,13 +73,13 @@ final class RegisterWebhookEndpointHttpTest extends TestCase
 
     private function issueTestApiKey(string $scope = 'webhooks:write'): string
     {
-        $organization = app(CreateOrganization::class)(
+        $organization = app(CreateOrganization::class)->create(
             new CreateOrganizationCommand('Test Org'),
             actor: 'service:test',
             correlationId: null,
         );
 
-        $project = app(CreateProject::class)(
+        $project = app(CreateProject::class)->create(
             new CreateProjectCommand($organization->id, 'Test Project'),
             actor: 'service:test',
             correlationId: null,

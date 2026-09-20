@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Core\Identity\Application\Dto\CreateProjectCommand;
 use Core\Identity\Application\UseCase\CreateProject;
+use Core\Identity\Contracts\CreateProjectCommand;
 use Core\Identity\Domain\Exception\OrganizationNotFound;
 use Core\Identity\Domain\Model\Organization;
 use Core\Identity\Tests\Unit\Fakes\FixedClock;
@@ -20,7 +20,7 @@ it('creates a project under an existing organization, and audits it', function (
     $audit = new RecordingAuditLogger;
     $useCase = new CreateProject($organizations, $projects, new SequentialIdentifier, $audit, new FixedClock);
 
-    $project = $useCase(new CreateProjectCommand('org-1', 'Tourism Platform'), actor: 'operator:1', correlationId: 'corr-1');
+    $project = $useCase->create(new CreateProjectCommand('org-1', 'Tourism Platform'), actor: 'operator:1', correlationId: 'corr-1');
 
     expect($projects->find($project->id))->not->toBeNull()
         ->and($project->organizationId)->toBe('org-1')
@@ -36,5 +36,5 @@ it('refuses to create a project under an unknown organization', function (): voi
         new FixedClock,
     );
 
-    $useCase(new CreateProjectCommand('missing-org', 'Some Project'), actor: 'operator:1', correlationId: null);
+    $useCase->create(new CreateProjectCommand('missing-org', 'Some Project'), actor: 'operator:1', correlationId: null);
 })->throws(OrganizationNotFound::class);

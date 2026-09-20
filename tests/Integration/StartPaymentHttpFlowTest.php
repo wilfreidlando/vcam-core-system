@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Integration;
 
-use Core\Identity\Application\Dto\CreateOrganizationCommand;
-use Core\Identity\Application\Dto\CreateProjectCommand;
 use Core\Identity\Application\Dto\IssueApiKeyCommand;
-use Core\Identity\Application\UseCase\CreateOrganization;
-use Core\Identity\Application\UseCase\CreateProject;
 use Core\Identity\Application\UseCase\IssueApiKey;
+use Core\Identity\Contracts\CreateOrganization;
+use Core\Identity\Contracts\CreateOrganizationCommand;
+use Core\Identity\Contracts\CreateProject;
+use Core\Identity\Contracts\CreateProjectCommand;
 use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Support\Environment;
@@ -145,13 +145,13 @@ final class StartPaymentHttpFlowTest extends TestCase
      */
     private function authenticatedProject(string $scope = 'payments:write'): array
     {
-        $organization = app(CreateOrganization::class)(
+        $organization = app(CreateOrganization::class)->create(
             new CreateOrganizationCommand('Test Org'),
             actor: 'service:test',
             correlationId: null,
         );
 
-        $project = app(CreateProject::class)(
+        $project = app(CreateProject::class)->create(
             new CreateProjectCommand($organization->id, 'Test Project'),
             actor: 'service:test',
             correlationId: null,

@@ -3,16 +3,21 @@
 declare(strict_types=1);
 
 use Core\Admin\Presentation\Http\Controllers\CreateOperatorController;
+use Core\Admin\Presentation\Http\Controllers\CreateOrganizationController;
+use Core\Admin\Presentation\Http\Controllers\CreateProjectController;
 use Core\Admin\Presentation\Http\Controllers\ListDeadWebhookDeliveriesController;
 use Core\Admin\Presentation\Http\Controllers\ListOperatorsController;
 use Core\Admin\Presentation\Http\Controllers\ListProjectNotificationsController;
 use Core\Admin\Presentation\Http\Controllers\ListProjectPaymentsController;
 use Core\Admin\Presentation\Http\Controllers\ListProjectsController;
 use Core\Admin\Presentation\Http\Controllers\ListProjectWalletsController;
+use Core\Admin\Presentation\Http\Controllers\ListStuckPaymentsPreviewController;
+use Core\Admin\Presentation\Http\Controllers\RegisterProviderApplicationController;
 use Core\Admin\Presentation\Http\Controllers\ReplayDeadWebhookDeliveryController;
 use Core\Admin\Presentation\Http\Controllers\RevokeOperatorController;
 use Core\Admin\Presentation\Http\Controllers\SearchAuditLogController;
 use Core\Admin\Presentation\Http\Controllers\TriggerPaymentReconciliationController;
+use Core\Admin\Presentation\Http\Controllers\UpdateOperatorController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -40,13 +45,20 @@ Route::middleware(['operator.auth'])
         Route::post('/payment-reconciliation-runs', TriggerPaymentReconciliationController::class)->name('admin.payment-reconciliation-runs');
 
         Route::get('/projects', ListProjectsController::class)->name('admin.projects');
+        Route::post('/projects', CreateProjectController::class)->name('admin.projects.create');
         Route::get('/projects/{projectId}/payments', ListProjectPaymentsController::class)->name('admin.projects.payments');
         Route::get('/projects/{projectId}/wallets', ListProjectWalletsController::class)->name('admin.projects.wallets');
         Route::get('/projects/{projectId}/notifications', ListProjectNotificationsController::class)->name('admin.projects.notifications');
+
+        Route::post('/organizations', CreateOrganizationController::class)->name('admin.organizations.create');
 
         // ADR-0050: operator self-service — create/list/revoke over HTTP,
         // the last CLI-only gap in the RBAC foundation (ADR-0044).
         Route::get('/operators', ListOperatorsController::class)->name('admin.operators');
         Route::post('/operators', CreateOperatorController::class)->name('admin.operators.create');
+        Route::put('/operators/{operatorId}', UpdateOperatorController::class)->name('admin.operators.update');
         Route::post('/operators/{operatorId}/revoke', RevokeOperatorController::class)->name('admin.operators.revoke');
+
+        Route::post('/payment-provider-applications', RegisterProviderApplicationController::class)->name('admin.payment-provider-applications.create');
+        Route::get('/payment-reconciliation-preview', ListStuckPaymentsPreviewController::class)->name('admin.payment-reconciliation-preview');
     });

@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Core\Identity\Presentation\Console\Commands;
 
-use Core\Identity\Application\Dto\CreateOrganizationCommand as Command;
-use Core\Identity\Application\UseCase\CreateOrganization;
+use Core\Identity\Contracts\CreateOrganization;
+use Core\Identity\Contracts\CreateOrganizationCommand as Command;
 use Illuminate\Console\Command as ConsoleCommand;
 use Illuminate\Support\Str;
 
 /**
- * A bootstrap tool, not a replacement for the Core Admin operator console
- * (Lot 6). Organizations and Projects are created rarely enough — by
- * platform operators setting up a new client — that a console command is a
- * reasonable stand-in until then.
+ * A bootstrap tool, kept alongside the admin console's self-service
+ * `POST /v1/admin/organizations` (both converge on the same
+ * `Contracts\CreateOrganization` port) — useful for scripting/seeding
+ * without going through HTTP.
  */
 final class CreateOrganizationCommand extends ConsoleCommand
 {
@@ -23,7 +23,7 @@ final class CreateOrganizationCommand extends ConsoleCommand
 
     public function handle(CreateOrganization $createOrganization): int
     {
-        $organization = $createOrganization(
+        $organization = $createOrganization->create(
             new Command(name: $this->argument('name')),
             actor: 'service:cli',
             correlationId: (string) Str::uuid(),

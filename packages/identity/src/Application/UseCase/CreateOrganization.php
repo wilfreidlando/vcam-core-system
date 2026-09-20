@@ -6,13 +6,21 @@ namespace Core\Identity\Application\UseCase;
 
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
-use Core\Identity\Application\Dto\CreateOrganizationCommand;
+use Core\Identity\Contracts\CreateOrganization as CreateOrganizationPort;
+use Core\Identity\Contracts\CreateOrganizationCommand;
+use Core\Identity\Contracts\OrganizationView;
 use Core\Identity\Domain\Model\Organization;
 use Core\Identity\Domain\Port\OrganizationRepository;
 use Core\Support\Clock;
 use Core\Support\Identifier;
 
-final readonly class CreateOrganization
+/**
+ * Reachable from both the CLI (`identity:create-organization`) and the
+ * admin console's self-service endpoint (`POST /v1/admin/organizations`)
+ * — a single place where an organization is provisioned, whichever
+ * caller triggers it. Mirrors `CreateOperator` (ADR-0050).
+ */
+final readonly class CreateOrganization implements CreateOrganizationPort
 {
     public function __construct(
         private OrganizationRepository $organizations,
@@ -21,7 +29,7 @@ final readonly class CreateOrganization
         private Clock $clock,
     ) {}
 
-    public function __invoke(CreateOrganizationCommand $command, string $actor, ?string $correlationId): Organization
+    public function create(CreateOrganizationCommand $command, string $actor, ?string $correlationId): OrganizationView
     {
         $organization = Organization::create($this->identifier->generate(), $command->name);
 
@@ -38,6 +46,10 @@ final readonly class CreateOrganization
             occurredAt: $this->clock->now(),
         ));
 
-        return $organization;
+        return new OrganizationView(
+            id: $organization->id,
+            name: $organization->name(),
+            status: $organization->status(),
+        );
     }
 }

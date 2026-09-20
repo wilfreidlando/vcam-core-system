@@ -3,6 +3,19 @@
 @section('title', 'Organizations')
 
 @section('content')
+{{-- `$has` from the layout's <aside> scope isn't visible here — Blade
+     renders a child's @section content before the parent layout (and its
+     @php block) runs, so a permission gate in a child view must resolve
+     OperatorContext itself, same as the layout does. --}}
+@if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('projects:write'))
+    <div class="mb-4 flex justify-end">
+        <a href="{{ route('admin.organizations.create') }}"
+           class="inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
+            + New organization
+        </a>
+    </div>
+@endif
+
 <x-admin.table
     :headers="['ID', 'Name', 'Status', 'Action']"
     :empty="'No organizations yet.'">
@@ -23,11 +36,17 @@
                     {{ $org->status }}
                 </span>
             </td>
-            <td class="px-4 py-2 text-sm">
+            <td class="px-4 py-2 text-sm space-x-3 whitespace-nowrap">
                 <a href="{{ route('admin.projects.index', ['organization_id' => $org->id]) }}"
                    class="text-indigo-600 hover:text-indigo-800 font-medium">
                     View projects →
                 </a>
+                @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('projects:write'))
+                    <a href="{{ route('admin.projects.create', ['organization_id' => $org->id]) }}"
+                       class="text-slate-500 hover:text-slate-700 font-medium">
+                        + New project
+                    </a>
+                @endif
             </td>
         </tr>
     @endforeach

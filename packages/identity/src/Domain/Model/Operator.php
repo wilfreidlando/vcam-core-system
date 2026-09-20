@@ -32,10 +32,10 @@ final class Operator
 
     public function __construct(
         public readonly string $id,
-        public readonly string $email,
-        public readonly string $name,
+        public string $email,
+        public string $name,
         private readonly string $passwordHash,
-        public readonly OperatorRole $role,
+        public OperatorRole $role,
         private ?string $mfaSecret,
         private bool $mfaEnabled,
         private ?int $mfaLastVerifiedTimestep,
@@ -120,5 +120,17 @@ final class Operator
     public function revoke(DateTimeImmutable $at): void
     {
         $this->revokedAt ??= $at;
+    }
+
+    /**
+     * Mutates in place — mirrors `revoke()`/`enrollMfa()`'s style. Never
+     * touches credentials (`passwordHash`) or MFA state; those are
+     * separate actions with their own use cases.
+     */
+    public function updateProfile(string $email, string $name, OperatorRole $role): void
+    {
+        $this->email = $email;
+        $this->name = $name;
+        $this->role = $role;
     }
 }

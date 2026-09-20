@@ -4,20 +4,30 @@ declare(strict_types=1);
 
 namespace Core\Payment\Presentation\Console\Commands;
 
-use Core\Payment\Domain\Model\ProviderApplication;
-use Core\Payment\Domain\Port\ProviderApplicationRepository;
+use Core\Payment\Contracts\RegisterProviderApplication;
+use Core\Payment\Contracts\RegisterProviderApplicationCommand as Command;
 use Illuminate\Console\Command as ConsoleCommand;
+use RuntimeException;
 
 /**
- * Bootstrap tool, not self-service (mirrors `identity:issue-api-key`):
- * registers (or rotates, if one already exists — `save()` is an upsert)
- * the Project's own application with a payment provider — e.g. its
- * MyCoolPay public/private key pair, obtained from the MyCoolPay
- * merchant dashboard. There is no HTTP endpoint for this: a Project
- * cannot grant itself another Project's payment credentials, and there
- * is no self-service onboarding flow yet for a new payment provider
- * application (the same gap `identity:create-organization`/
- * `identity:issue-api-key` document for their own concerns).
+ * Bootstrap tool, kept alongside an admin-only HTTP endpoint (built on the
+ * trusted operator-authenticated plane, not the Project/API-key one) that
+ * a sibling agent is adding for the same capability — both converge on the
+ * same `Contracts\RegisterProviderApplication` port. Registers (or
+ * rotates, if one already exists — `save()` is an upsert) a Project's own
+ * application with a payment provider — e.g. its MyCoolPay public/private
+ * key pair, obtained from the MyCoolPay merchant dashboard. There is still
+ * no self-service Project-facing flow for this: a Project cannot grant
+ * itself another Project's payment credentials, so both entry points
+ * remain operator/CLI-only, never `project.auth`.
+ *
+ * Going through the use case now validates the Project exists before
+ * saving (`RuntimeException` on failure) — it does NOT gain an audit
+ * trail: `payment` is not permitted to depend on `audit`
+ * (`tests/Architecture/ModuleGraph.php`, unlike `identity` — ADR-0029),
+ * so this CLI path remains unaudited, same as before. The admin HTTP
+ * endpoint, built on a module that IS permitted to depend on `audit`,
+ * records its own entry after calling this same port.
  */
 final class RegisterProviderApplicationCommand extends ConsoleCommand
 {
@@ -29,7 +39,7 @@ final class RegisterProviderApplicationCommand extends ConsoleCommand
 
     protected $description = "Register (or rotate) a Project's own application/merchant-account with a payment provider.";
 
-    public function handle(ProviderApplicationRepository $applications): int
+    public function handle(RegisterProviderApplication $registerProviderApplication): int
     {
         /** @var string $projectId */
         $projectId = $this->argument('project');
@@ -40,12 +50,18 @@ final class RegisterProviderApplicationCommand extends ConsoleCommand
         /** @var string $privateKey */
         $privateKey = $this->argument('private-key');
 
-        $applications->save(new ProviderApplication(
-            projectId: $projectId,
-            providerCode: $providerCode,
-            publicKey: $publicKey,
-            privateKey: $privateKey,
-        ));
+        try {
+            $registerProviderApplication->register(new Command(
+                projectId: $projectId,
+                providerCode: $providerCode,
+                publicKey: $publicKey,
+                privateKey: $privateKey,
+            ));
+        } catch (RuntimeException $e) {
+            $this->error($e->getMessage());
+
+            return self::FAILURE;
+        }
 
         $this->info("Registered {$providerCode} application for project {$projectId} (public key {$publicKey}).");
 

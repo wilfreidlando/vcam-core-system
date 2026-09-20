@@ -6,6 +6,12 @@ namespace App\Http\Controllers\Admin;
 
 use Core\Audit\Contracts\AuditQuery;
 use Core\Audit\Contracts\AuditSearchCriteria;
+use Core\Identity\Contracts\ListOperators;
+use Core\Identity\Contracts\ListOperatorsCommand;
+use Core\Identity\Contracts\ListOrganizations;
+use Core\Identity\Contracts\ListOrganizationsCommand;
+use Core\Identity\Contracts\ListProjects;
+use Core\Identity\Contracts\ListProjectsCommand;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Payment\Contracts\CountStuckPayments;
 use Core\Payment\Contracts\PaymentActivitySummary;
@@ -43,6 +49,9 @@ final class DashboardController
         private readonly PaymentActivitySummary $paymentActivity,
         private readonly ListDeadWebhookDeliveries $listDead,
         private readonly CountStuckPayments $countStuckPayments,
+        private readonly ListOrganizations $listOrganizations,
+        private readonly ListProjects $listProjects,
+        private readonly ListOperators $listOperators,
     ) {}
 
     public function show(): Response
@@ -55,6 +64,9 @@ final class DashboardController
             'payments_24h' => $this->paymentsLast24h(),
             'dead_webhooks' => $this->deadWebhookCount(),
             'stuck_payments' => $this->stuckPaymentsCount(),
+            'organizations' => $this->organizationsCount(),
+            'projects' => $this->projectsCount(),
+            'operators' => $this->operatorsCount(),
         ];
         $recentAudit = $this->recentAudit();
 
@@ -98,6 +110,38 @@ final class DashboardController
     {
         try {
             return $this->countStuckPayments->count();
+        } catch (Throwable) {
+            return 0;
+        }
+    }
+
+    /**
+     * `perPage: 1` — same trick `deadWebhookCount()` already uses: the
+     * page's `total` is the count, so there's no need to fetch a real
+     * page of rows just to size a KPI card.
+     */
+    private function organizationsCount(): int
+    {
+        try {
+            return $this->listOrganizations->list(new ListOrganizationsCommand(page: 1, perPage: 1))->total;
+        } catch (Throwable) {
+            return 0;
+        }
+    }
+
+    private function projectsCount(): int
+    {
+        try {
+            return $this->listProjects->list(new ListProjectsCommand(page: 1, perPage: 1))->total;
+        } catch (Throwable) {
+            return 0;
+        }
+    }
+
+    private function operatorsCount(): int
+    {
+        try {
+            return $this->listOperators->list(new ListOperatorsCommand(page: 1, perPage: 1))->total;
         } catch (Throwable) {
             return 0;
         }

@@ -7,17 +7,17 @@ namespace Tests\Integration;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Application\Dto\ConfirmOperatorMfaEnrollmentCommand;
-use Core\Identity\Application\Dto\CreateOrganizationCommand;
-use Core\Identity\Application\Dto\CreateProjectCommand;
 use Core\Identity\Application\Dto\EnrollOperatorMfaCommand;
 use Core\Identity\Application\Dto\LoginOperatorCommand;
 use Core\Identity\Application\UseCase\ConfirmOperatorMfaEnrollment;
-use Core\Identity\Application\UseCase\CreateOrganization;
-use Core\Identity\Application\UseCase\CreateProject;
 use Core\Identity\Application\UseCase\EnrollOperatorMfa;
 use Core\Identity\Application\UseCase\LoginOperator;
 use Core\Identity\Contracts\CreateOperator;
 use Core\Identity\Contracts\CreateOperatorCommand;
+use Core\Identity\Contracts\CreateOrganization;
+use Core\Identity\Contracts\CreateOrganizationCommand;
+use Core\Identity\Contracts\CreateProject;
+use Core\Identity\Contracts\CreateProjectCommand;
 use Core\Identity\Domain\Model\Operator;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Identity\OperatorRole;
@@ -26,6 +26,7 @@ use Core\Notification\Domain\Port\NotificationRepository;
 use Core\Notification\NotificationStatus;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Payment\PaymentStatus;
 use Core\Support\Money\Money;
 use Core\Wallet\Domain\Model\Wallet;
@@ -172,10 +173,10 @@ final class AdminHttpFlowTest extends TestCase
     {
         $token = $this->authenticatedOperatorToken(OperatorRole::ReadOnlyAuditor);
 
-        $orgA = app(CreateOrganization::class)(new CreateOrganizationCommand('Org A'), actor: 'service:test', correlationId: null);
-        $orgB = app(CreateOrganization::class)(new CreateOrganizationCommand('Org B'), actor: 'service:test', correlationId: null);
-        app(CreateProject::class)(new CreateProjectCommand($orgA->id, 'Project A1'), actor: 'service:test', correlationId: null);
-        app(CreateProject::class)(new CreateProjectCommand($orgB->id, 'Project B1'), actor: 'service:test', correlationId: null);
+        $orgA = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Org A'), actor: 'service:test', correlationId: null);
+        $orgB = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Org B'), actor: 'service:test', correlationId: null);
+        app(CreateProject::class)->create(new CreateProjectCommand($orgA->id, 'Project A1'), actor: 'service:test', correlationId: null);
+        app(CreateProject::class)->create(new CreateProjectCommand($orgB->id, 'Project B1'), actor: 'service:test', correlationId: null);
 
         $this->getJson('/v1/admin/projects', ['Authorization' => "Bearer {$token}"])
             ->assertOk()
@@ -190,8 +191,8 @@ final class AdminHttpFlowTest extends TestCase
     #[Test]
     public function an_operator_lists_a_projects_payments_wallets_and_notifications(): void
     {
-        $organization = app(CreateOrganization::class)(new CreateOrganizationCommand('Org'), actor: 'service:test', correlationId: null);
-        $project = app(CreateProject::class)(new CreateProjectCommand($organization->id, 'Project'), actor: 'service:test', correlationId: null);
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Org'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Project'), actor: 'service:test', correlationId: null);
         $partyId = (string) Str::uuid();
 
         app(PaymentRepository::class)->create(new Payment(
@@ -334,6 +335,232 @@ final class AdminHttpFlowTest extends TestCase
         $this->getJson('/v1/admin/projects?organization_id=not-a-uuid', ['Authorization' => "Bearer {$token}"])
             ->assertStatus(422)
             ->assertHeader('Content-Type', 'application/problem+json');
+    }
+
+    #[Test]
+    public function a_platform_admin_creates_an_organization_and_a_project_under_it(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::PlatformAdmin);
+
+        $orgResponse = $this->postJson('/v1/admin/organizations', ['name' => 'Acme'], ['Authorization' => "Bearer {$token}"]);
+        $orgResponse->assertStatus(201);
+        $orgResponse->assertJsonStructure(['id', 'name', 'status']);
+        $organizationId = $orgResponse->json('id');
+        self::assertIsString($organizationId);
+
+        $projectResponse = $this->postJson('/v1/admin/projects', [
+            'organization_id' => $organizationId,
+            'name' => 'Acme Project',
+        ], ['Authorization' => "Bearer {$token}"]);
+        $projectResponse->assertStatus(201);
+        $projectResponse->assertJson([
+            'organization_id' => $organizationId,
+            'name' => 'Acme Project',
+        ]);
+    }
+
+    #[Test]
+    public function creating_a_project_under_an_unknown_organization_is_rejected_with_a_clean_422(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::PlatformAdmin);
+
+        $this->postJson('/v1/admin/projects', [
+            'organization_id' => (string) Str::uuid(),
+            'name' => 'Orphan Project',
+        ], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(422)
+            ->assertHeader('Content-Type', 'application/problem+json');
+    }
+
+    #[Test]
+    public function an_operator_without_projects_write_cannot_create_organizations_or_projects(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::ReadOnlyAuditor);
+
+        $this->postJson('/v1/admin/organizations', ['name' => 'Acme'], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(403);
+
+        $this->postJson('/v1/admin/projects', [
+            'organization_id' => (string) Str::uuid(),
+            'name' => 'Acme Project',
+        ], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(403);
+    }
+
+    #[Test]
+    public function a_platform_admin_updates_an_operators_profile(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::PlatformAdmin);
+
+        $created = app(CreateOperator::class)->create(
+            new CreateOperatorCommand(Str::uuid().'@example.com', 'Original Name', OperatorRole::SupportOperator->value),
+            actor: 'service:test',
+            correlationId: null,
+        );
+
+        $newEmail = Str::uuid().'@example.com';
+
+        $this->putJson("/v1/admin/operators/{$created->operatorId}", [
+            'email' => $newEmail,
+            'name' => 'Updated Name',
+            'role' => OperatorRole::FinanceOperator->value,
+        ], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(204);
+
+        $this->getJson('/v1/admin/operators', ['Authorization' => "Bearer {$token}"])
+            ->assertJsonFragment([
+                'id' => $created->operatorId,
+                'email' => $newEmail,
+                'name' => 'Updated Name',
+                'role' => OperatorRole::FinanceOperator->value,
+            ]);
+    }
+
+    #[Test]
+    public function updating_an_unknown_operator_is_rejected_with_a_404(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::PlatformAdmin);
+
+        $this->putJson('/v1/admin/operators/'.Str::uuid(), [
+            'email' => Str::uuid().'@example.com',
+            'name' => 'Nobody',
+            'role' => OperatorRole::SupportOperator->value,
+        ], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(404)
+            ->assertHeader('Content-Type', 'application/problem+json');
+    }
+
+    #[Test]
+    public function updating_an_operator_with_an_unknown_role_is_rejected_with_a_clean_422(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::PlatformAdmin);
+
+        $created = app(CreateOperator::class)->create(
+            new CreateOperatorCommand(Str::uuid().'@example.com', 'Ops', OperatorRole::SupportOperator->value),
+            actor: 'service:test',
+            correlationId: null,
+        );
+
+        $this->putJson("/v1/admin/operators/{$created->operatorId}", [
+            'email' => Str::uuid().'@example.com',
+            'name' => 'Ops',
+            'role' => 'not_a_real_role',
+        ], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(422)
+            ->assertHeader('Content-Type', 'application/problem+json');
+    }
+
+    #[Test]
+    public function updating_an_operator_with_a_malformed_id_is_rejected_with_a_clean_422(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::PlatformAdmin);
+
+        $this->putJson('/v1/admin/operators/not-a-uuid', [
+            'email' => Str::uuid().'@example.com',
+            'name' => 'Nobody',
+            'role' => OperatorRole::SupportOperator->value,
+        ], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(422)
+            ->assertHeader('Content-Type', 'application/problem+json');
+    }
+
+    #[Test]
+    public function an_operator_without_operators_write_cannot_update_an_operator(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::ReadOnlyAuditor);
+
+        $this->putJson('/v1/admin/operators/'.Str::uuid(), [
+            'email' => Str::uuid().'@example.com',
+            'name' => 'Nobody',
+            'role' => OperatorRole::SupportOperator->value,
+        ], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(403);
+    }
+
+    #[Test]
+    public function a_provider_manager_registers_a_projects_provider_application_and_it_is_audited(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::ProviderManager);
+
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Org'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Project'), actor: 'service:test', correlationId: null);
+
+        $response = $this->postJson('/v1/admin/payment-provider-applications', [
+            'project_id' => $project->id,
+            'provider' => 'my-coolpay',
+            'public_key' => 'pub-key-123',
+            'private_key' => 'secret-private-key',
+        ], ['Authorization' => "Bearer {$token}"]);
+
+        $response->assertStatus(201);
+        $response->assertJson([
+            'project_id' => $project->id,
+            'provider_code' => 'my-coolpay',
+            'public_key' => 'pub-key-123',
+        ]);
+        // The private key must never be echoed back.
+        $body = $response->json();
+        self::assertIsArray($body);
+        self::assertArrayNotHasKey('private_key', $body);
+        self::assertStringNotContainsString('secret-private-key', json_encode($body, JSON_THROW_ON_ERROR));
+
+        $application = app(ProviderApplicationRepository::class)->findByProjectAndProvider($project->id, 'my-coolpay');
+        self::assertNotNull($application);
+        self::assertSame('pub-key-123', $application->publicKey);
+
+        $auditorToken = $this->authenticatedOperatorToken(OperatorRole::ReadOnlyAuditor);
+        $this->getJson('/v1/admin/audit-log?action=provider_application.registered', ['Authorization' => "Bearer {$auditorToken}"])
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.resource', 'provider_application:'.$project->id.':my-coolpay');
+    }
+
+    #[Test]
+    public function registering_a_provider_application_for_an_unknown_project_is_rejected_with_a_clean_422(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::ProviderManager);
+
+        $this->postJson('/v1/admin/payment-provider-applications', [
+            'project_id' => (string) Str::uuid(),
+            'provider' => 'my-coolpay',
+            'public_key' => 'pub-key-123',
+            'private_key' => 'secret-private-key',
+        ], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(422)
+            ->assertHeader('Content-Type', 'application/problem+json');
+    }
+
+    #[Test]
+    public function an_operator_without_provider_applications_write_cannot_register_one(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::FinanceOperator);
+
+        $this->postJson('/v1/admin/payment-provider-applications', [
+            'project_id' => (string) Str::uuid(),
+            'provider' => 'my-coolpay',
+            'public_key' => 'pub-key-123',
+            'private_key' => 'secret-private-key',
+        ], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(403);
+    }
+
+    #[Test]
+    public function an_operator_with_reconcile_permission_previews_stuck_payments_with_nothing_stuck(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::FinanceOperator);
+
+        $this->getJson('/v1/admin/payment-reconciliation-preview', ['Authorization' => "Bearer {$token}"])
+            ->assertOk()
+            ->assertJson(['data' => []]);
+    }
+
+    #[Test]
+    public function an_operator_without_reconcile_permission_cannot_preview_stuck_payments(): void
+    {
+        $token = $this->authenticatedOperatorToken(OperatorRole::ReadOnlyAuditor);
+
+        $this->getJson('/v1/admin/payment-reconciliation-preview', ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(403);
     }
 
     private function authenticatedOperatorToken(OperatorRole $role): string

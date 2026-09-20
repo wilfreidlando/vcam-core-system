@@ -53,7 +53,11 @@
             <td class="px-4 py-2 text-xs font-mono text-slate-600 whitespace-nowrap">
                 {{ $op->createdAt->format('Y-m-d H:i:s') }}
             </td>
-            <td class="px-4 py-2 text-xs">
+            <td class="px-4 py-2 text-xs space-x-1 whitespace-nowrap">
+                <a href="{{ route('admin.operators.edit', ['operatorId' => $op->id]) }}"
+                   class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-700 hover:bg-slate-200">
+                    Edit
+                </a>
                 @unless ($op->revoked)
                     <button
                         @click="confirmRevoke = true"

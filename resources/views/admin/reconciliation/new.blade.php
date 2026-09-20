@@ -3,7 +3,51 @@
 @section('title', 'Run reconciliation')
 
 @section('content')
-<div class="max-w-md mx-auto">
+<div class="max-w-2xl mx-auto space-y-6">
+
+    {{-- Preview: exactly which payments a run would touch, before the
+         operator commits to running it (review finding: reconciliation
+         used to run blind, with no visibility into what it would
+         check). --}}
+    <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
+        <div class="px-5 py-3 border-b border-slate-200">
+            <h2 class="font-semibold text-slate-900">
+                @if (count($previewPayments) > 0)
+                    These {{ count($previewPayments) }} payment{{ count($previewPayments) === 1 ? '' : 's' }} will be checked when you run reconciliation
+                @else
+                    No payments currently need reconciliation
+                @endif
+            </h2>
+        </div>
+
+        @if (count($previewPayments) > 0)
+            <x-admin.table :headers="['ID', 'Project', 'Channel', 'Status', 'Amount']" :empty="''">
+                @foreach ($previewPayments as $payment)
+                    <tr>
+                        <td class="px-4 py-2 text-xs font-mono text-slate-700" title="{{ $payment->id }}">
+                            {{ substr($payment->id, 0, 8) }}…
+                        </td>
+                        <td class="px-4 py-2 text-xs font-mono text-slate-700" title="{{ $payment->projectId }}">
+                            {{ substr($payment->projectId, 0, 8) }}…
+                        </td>
+                        <td class="px-4 py-2 text-sm text-slate-700">{{ $payment->channel }}</td>
+                        <td class="px-4 py-2 text-xs">
+                            <span class="inline-flex rounded-md bg-amber-100 px-2 py-0.5 font-mono text-amber-700">
+                                {{ $payment->status }}
+                            </span>
+                        </td>
+                        {{-- Minor units -> major units assumes a 2-decimal
+                             currency (true for every currency this Core
+                             currently routes payments in). --}}
+                        <td class="px-4 py-2 text-sm font-mono text-slate-900 tabular-nums text-right">
+                            {{ number_format($payment->amount / 100, 2) }} {{ $payment->currency }}
+                        </td>
+                    </tr>
+                @endforeach
+            </x-admin.table>
+        @endif
+    </div>
+
     <div class="bg-white border border-slate-200 rounded-lg p-6">
 
         <h2 class="text-base font-semibold text-slate-900 mb-1">Trigger reconciliation</h2>
@@ -36,7 +80,12 @@
 
             <button
                 type="submit"
-                class="w-full inline-flex justify-center items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
+                @disabled(count($previewPayments) === 0)
+                @class([
+                    'w-full inline-flex justify-center items-center rounded-md px-4 py-2 text-sm font-medium shadow-sm',
+                    'bg-indigo-600 hover:bg-indigo-700 text-white' => count($previewPayments) > 0,
+                    'bg-slate-200 text-slate-500 cursor-not-allowed' => count($previewPayments) === 0,
+                ])>
                 Run reconciliation now
             </button>
         </form>
