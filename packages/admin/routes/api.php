@@ -34,9 +34,24 @@ use Illuminate\Support\Facades\Route;
 | sense — they trigger or read already-idempotent internal operations.
 | The reconciliation route name deliberately avoids the bare "payments"
 | substring IdempotencyTest guards against.
+|
+| EncryptCookies + StartSession are pulled in so a browser-authenticated
+| operator can hit `/v1/admin/*` URLs (Scramble docs UI, links shared in
+| chat, manual address-bar navigation) — the `operator.auth` middleware
+| falls back to the encrypted operator session when no `Authorization:
+| Bearer …` header is present. API clients still authenticate via Bearer
+| only; the session lookup is a no-op when there's no session cookie.
+| VerifyCsrfToken is intentionally NOT included: API clients don't carry
+| CSRF tokens, and the admin web UI doesn't hit these endpoints via
+| state-changing AJAX — every mutation here is a synchronous form POST
+| handled by `routes/admin.php`.
 */
 
-Route::middleware(['operator.auth'])
+Route::middleware([
+    Illuminate\Cookie\Middleware\EncryptCookies::class,
+    Illuminate\Session\Middleware\StartSession::class,
+    'operator.auth',
+])
     ->prefix('v1/admin')
     ->group(function (): void {
         Route::get('/audit-log', SearchAuditLogController::class)->name('admin.audit-log');

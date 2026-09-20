@@ -79,7 +79,7 @@ final class WebhookDeliveriesController
         // clients, confusing for the web UI which would rather see a
         // friendlier redirect).
         if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $delivery) !== 1) {
-            return redirect()->route('admin.webhook-deliveries.dead')
+            return redirect()->route('admin.webhook-deliveries.dead.web')
                 ->withErrors(['id' => 'Invalid delivery id.']);
         }
 
@@ -88,10 +88,10 @@ final class WebhookDeliveriesController
                 deliveryId: $delivery,
             ));
         } catch (WebhookDeliveryNotFound) {
-            return redirect()->route('admin.webhook-deliveries.dead')
+            return redirect()->route('admin.webhook-deliveries.dead.web')
                 ->withErrors(['id' => 'Delivery not found.']);
         } catch (WebhookDeliveryNotDead) {
-            return redirect()->route('admin.webhook-deliveries.dead')
+            return redirect()->route('admin.webhook-deliveries.dead.web')
                 ->withErrors(['id' => 'Delivery is not dead; no need to replay.']);
         }
 
@@ -117,7 +117,7 @@ final class WebhookDeliveriesController
             occurredAt: $this->clock->now(),
         ));
 
-        return redirect()->route('admin.webhook-deliveries.dead')
+        return redirect()->route('admin.webhook-deliveries.dead.web')
             ->with('status', 'Replay queued — new delivery id: '.substr($result->newDeliveryId, 0, 8).'…');
     }
 }

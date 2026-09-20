@@ -50,7 +50,7 @@
                     x-cloak
                     @submit="confirmReplay = false"
                     method="POST"
-                    action="{{ route('admin.webhook-deliveries.replay', ['delivery' => $delivery->id]) }}"
+                    action="{{ route('admin.webhook-deliveries.replay.web', ['delivery' => $delivery->id]) }}"
                     class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50"
                     @click.self="confirmReplay = false">
                     @csrf

@@ -4,6 +4,17 @@
 
 @section('content')
 <div class="max-w-md mx-auto mt-12">
+    @if (app()->environment('local'))
+        <div class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <p class="font-semibold">Local development mode</p>
+            <p class="mt-1">
+                <code class="font-mono">IDENTITY_DISABLE_TOTP_IN_LOCAL=true</code>
+                is set: any 6-digit code is accepted — submit
+                <code class="font-mono">123456</code> (or anything else).
+            </p>
+        </div>
+    @endif
+
     <div class="bg-white shadow-sm border border-slate-200 rounded-lg p-6 sm:p-8">
 
         <h2 class="text-xl font-semibold text-slate-900 mb-1">Verify your authenticator</h2>

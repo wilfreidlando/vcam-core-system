@@ -84,5 +84,15 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Both MFA dev-convenience flags pinned off regardless of the
+             developer's local .env — IDENTITY_DISABLE_MFA is explicitly
+             NOT environment-gated in code (unlike DISABLE_TOTP_IN_LOCAL,
+             which the ServiceProvider only honours under APP_ENV=local
+             and so is already safe here; pinned anyway for defense in
+             depth), so a local .env override otherwise leaks straight
+             into the test run and silently skips the MFA step every
+             test that expects it relies on. -->
+        <env name="IDENTITY_DISABLE_TOTP_IN_LOCAL" value="false"/>
+        <env name="IDENTITY_DISABLE_MFA" value="false"/>
     </php>
 </phpunit>

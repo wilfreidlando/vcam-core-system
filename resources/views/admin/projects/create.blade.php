@@ -34,7 +34,7 @@
                 @enderror
                 @if (count($organizations) === 0)
                     <p class="mt-1 text-xs text-amber-600">
-                        No organizations exist yet — <a href="{{ route('admin.organizations.create') }}" class="underline">create one first</a>.
+                        No organizations exist yet — <a href="{{ route('admin.organizations.new') }}" class="underline">create one first</a>.
                     </p>
                 @endif
             </div>

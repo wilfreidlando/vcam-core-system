@@ -13,6 +13,9 @@ namespace App\Http\Controllers\Admin;
  * a nonexistent method in this same file).
  */
 
+use chillerlan\QRCode\Common\EccLevel;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 use Core\Identity\Application\Dto\ConfirmOperatorMfaEnrollmentCommand;
 use Core\Identity\Application\Dto\EnrollOperatorMfaCommand;
 use Core\Identity\Application\Dto\LoginOperatorCommand;
@@ -29,6 +32,8 @@ use Core\Identity\Domain\Exception\MfaAlreadyEnrolled;
 use Core\Identity\Domain\Exception\MfaChallengeInvalid;
 use Core\Identity\Domain\Exception\MfaNotEnrolled;
 use Core\Identity\Domain\Exception\OperatorNotFound;
+use Core\Identity\Domain\Port\OperatorTokenIssuer;
+use Core\Identity\Presentation\Http\Middleware\ResolveOperatorMiddleware;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
@@ -60,7 +65,7 @@ use Throwable;
 final class AuthController
 {
     /** Session key holding the operator's plaintext bearer token. */
-    private const SESSION_KEY = 'operator_bearer_token';
+    private const SESSION_KEY = ResolveOperatorMiddleware::SESSION_KEY;
 
     public function __construct(
         private readonly LoginOperator $loginOperator,
@@ -68,6 +73,7 @@ final class AuthController
         private readonly ConfirmOperatorMfaEnrollment $confirmMfaEnrollment,
         private readonly VerifyOperatorMfa $verifyMfa,
         private readonly LogoutOperator $logoutOperator,
+        private readonly OperatorTokenIssuer $tokenIssuer,
     ) {}
 
     public function showLogin(): Response
@@ -96,6 +102,23 @@ final class AuthController
             return back()
                 ->withInput($only)
                 ->withErrors(['email' => 'Invalid credentials.']);
+        }
+
+        // `IDENTITY_DISABLE_MFA=true` removes the MFA step from the login
+        // flow entirely — the password has just been verified, so the
+        // same operator can immediately get a session token. Unlike
+        // `IDENTITY_DISABLE_TOTP_IN_LOCAL` this is NOT env-gated: every
+        // runtime where the flag is set behaves this way. The runtime is
+        // expected to only set it in non-production environments; the
+        // audit log still records `operator.mfa_skipped` on every such
+        // login so post-incident review is possible.
+        if ((bool) config('identity.disable_mfa', false)) {
+            $token = $this->tokenIssuer->issue(
+                $challenge->operatorId,
+                'web:'.now()->getTimestamp().':mfa-disabled',
+            );
+
+            return $this->completeLogin($token, 'MFA is disabled in this environment.');
         }
 
         // Persist the challenge token in the session so the next request
@@ -143,6 +166,11 @@ final class AuthController
             'secret' => $enrolment->secret,
             'otpauthUri' => $enrolment->otpauthUri,
             'confirmChallengeToken' => $enrolment->confirmChallengeToken,
+            // Server-rendered SVG so the operator can scan without
+            // needing JS or a third-party CDN. chillerlan/php-qrcode is
+            // pure PHP (no GD/Imagick dependency), 25% redundancy is
+            // plenty for a short otpauth:// URI.
+            'qrSvg' => $this->renderQrSvg($enrolment->otpauthUri),
         ]);
     }
 
@@ -218,6 +246,29 @@ final class AuthController
 
         return redirect()->route('admin.login.show')
             ->with('status', 'Signed out.');
+    }
+
+    /**
+     * Renders the otpauth URI as a self-contained inline SVG.
+     */
+    private function renderQrSvg(string $otpauthUri): string
+    {
+        $options = new QROptions([
+            'eccLevel' => EccLevel::M,    // 15% — sufficient for a short URI
+            'quietzoneSize' => 2,
+            'addQuietzone' => true,
+            // outputInterface defaults to QRMarkupSVG::class — inline SVG
+            // output, no GD / Imagick dependency required.
+        ]);
+
+        // chillerlan/php-qrcode's QROutputInterface::render() is typed
+        // `mixed` in its own stubs (it supports non-string output formats
+        // for other renderers); QRMarkupSVG, the default here, always
+        // returns a string.
+        /** @var string $svg */
+        $svg = (new QRCode($options))->render($otpauthUri);
+
+        return $svg;
     }
 
     /**

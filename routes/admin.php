@@ -52,8 +52,13 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
         Route::prefix('organizations')->group(function (): void {
             Route::get('/', [App\Http\Controllers\Admin\OrganizationsController::class, 'index'])
                 ->name('organizations.index');
+            // Named `organizations.new`, not `.create` — `packages/admin/routes/api.php`
+            // already owns `admin.organizations.create` for its JSON POST
+            // endpoint (this GET-form route and that JSON route used to
+            // collide under the same final name; see the `wallets.index`
+            // comment above for how this class of bug was found).
             Route::get('create', [App\Http\Controllers\Admin\OrganizationsController::class, 'create'])
-                ->name('organizations.create');
+                ->name('organizations.new');
             Route::post('/', [App\Http\Controllers\Admin\OrganizationsController::class, 'store'])
                 ->name('organizations.store');
         });
@@ -66,14 +71,29 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             // parameterised route registered first would greedily capture
             // `/admin/projects/create` as `{projectId}='create'` and hit
             // `show()`, which then 422s on UUID validation.
+            // Named `projects.new`, not `.create` — same collision as
+            // `organizations.new` above, against `packages/admin/routes/api.php`'s
+            // `admin.projects.create` JSON POST endpoint.
             Route::get('create', [App\Http\Controllers\Admin\ProjectsController::class, 'create'])
-                ->name('projects.create');
+                ->name('projects.new');
             Route::post('/', [App\Http\Controllers\Admin\ProjectsController::class, 'store'])
                 ->name('projects.store');
             Route::get('{projectId}', [App\Http\Controllers\Admin\ProjectsController::class, 'show'])
                 ->name('projects.show');
+            // Named `projects.wallets.index`, not `projects.wallets` —
+            // `packages/admin/routes/api.php` already owns the route name
+            // `admin.projects.wallets` for its pre-existing JSON endpoint
+            // (ADR-0045, `GET /v1/admin/projects/{id}/wallets`). Both
+            // routes shared the same final name before this fix
+            // (`admin.` + `projects.wallets`), and Laravel's `route()`
+            // helper silently resolved to whichever was registered last —
+            // the JSON one — so every "Wallets" link in the console sent
+            // a signed-in operator's browser to a Bearer-token-only API
+            // route, which correctly 401'd (bug found via live report:
+            // clicking through the console hit `/v1/admin/...` with no
+            // Authorization header).
             Route::get('{projectId}/wallets', [App\Http\Controllers\Admin\WalletsController::class, 'index'])
-                ->name('projects.wallets');
+                ->name('projects.wallets.index');
         });
 
         Route::prefix('payments')->group(function (): void {
@@ -84,10 +104,17 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
         });
 
         Route::prefix('webhook-deliveries')->group(function (): void {
+            // Named `webhook-deliveries.dead.web`, not `.dead` —
+            // `packages/admin/routes/api.php` already owns
+            // `admin.webhook-deliveries.dead` for its JSON GET endpoint;
+            // same collision class as the routes above.
             Route::get('dead', [App\Http\Controllers\Admin\WebhookDeliveriesController::class, 'index'])
-                ->name('webhook-deliveries.dead');
+                ->name('webhook-deliveries.dead.web');
+            // Named `.replay.web` — `packages/admin/routes/api.php` also
+            // owns `admin.webhook-deliveries.replay` for its JSON POST
+            // endpoint.
             Route::post('{delivery}/replay', [App\Http\Controllers\Admin\WebhookDeliveriesController::class, 'replay'])
-                ->name('webhook-deliveries.replay');
+                ->name('webhook-deliveries.replay.web');
         });
 
         Route::prefix('reconciliation')->group(function (): void {
@@ -102,19 +129,24 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
         Route::prefix('operators')->group(function (): void {
             Route::get('/', [App\Http\Controllers\Admin\OperatorsController::class, 'index'])
                 ->name('operators.index');
+            // Named `operators.new`, not `.create` — `packages/admin/routes/api.php`
+            // owns `admin.operators.create` (JSON POST). Same collision
+            // class as `organizations.new`/`projects.new` above.
             Route::get('create', [App\Http\Controllers\Admin\OperatorsController::class, 'create'])
-                ->name('operators.create');
+                ->name('operators.new');
             Route::post('/', [App\Http\Controllers\Admin\OperatorsController::class, 'store'])
                 ->name('operators.store');
+            // `.revoke.web` — JSON owns `admin.operators.revoke` (also POST).
             Route::post('{operatorId}/revoke', [App\Http\Controllers\Admin\OperatorsController::class, 'revoke'])
-                ->name('operators.revoke');
+                ->name('operators.revoke.web');
             // Literal segments (`create`, `{operatorId}/edit`) always win
             // over a parameter route for an exact match in Laravel, so
             // this doesn't collide with `operators/create` above.
             Route::get('{operatorId}/edit', [App\Http\Controllers\Admin\OperatorsController::class, 'edit'])
                 ->name('operators.edit');
+            // `.update.web` — JSON owns `admin.operators.update` (also PUT).
             Route::put('{operatorId}', [App\Http\Controllers\Admin\OperatorsController::class, 'update'])
-                ->name('operators.update');
+                ->name('operators.update.web');
         });
     });
 });

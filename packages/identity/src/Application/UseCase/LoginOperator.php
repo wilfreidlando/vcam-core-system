@@ -56,6 +56,10 @@ final readonly class LoginOperator
         $expiresAt = $this->clock->now()->modify('+'.self::CHALLENGE_TTL_SECONDS.' seconds');
         $token = $this->challenges->issue($operator->id, $purpose, $expiresAt);
 
-        return new OperatorLoginChallenge($token, $purpose);
+        return new OperatorLoginChallenge(
+            purpose: $purpose,
+            challengeToken: $token,
+            operatorId: $operator->id,
+        );
     }
 }

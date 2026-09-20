@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-50">
+<html lang="en" class="h-full bg-slate-50" style="font-size: 18px;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +7,11 @@
     <title>@yield('title', 'Admin') · Enterprise Core</title>
 
     {{-- Tailwind via CDN. Pinning keeps the layout stable across builds
-         without a bundler. --}}
+         without a bundler. The font-size override on <html> above scales
+         every `rem` unit up by 12.5% (16px → 18px) — Tailwind's text-sm,
+         text-base, text-lg, etc. all become proportionally larger without
+         touching the 100+ call sites that already use them. (Bumped from
+         an earlier 17px, which the user reported still read too small.) --}}
     <script src="https://cdn.tailwindcss.com/3.4.16"></script>
     {{-- Alpine.js for the small interactive bits (mobile nav,
          confirmation dialogs). Loaded as a defer script. --}}
@@ -228,7 +232,7 @@
                         <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Platform</p>
 
                         @if($canWebhooks)
-                            <a href="{{ route('admin.webhook-deliveries.dead') }}" class="flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.webhook-deliveries.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
+                            <a href="{{ route('admin.webhook-deliveries.dead.web') }}" class="flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.webhook-deliveries.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
                                 <span class="flex items-center gap-3 min-w-0">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                                     <span class="truncate">Webhooks (DLQ)</span>

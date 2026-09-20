@@ -66,6 +66,37 @@ final class WalletsController
             'total' => $pageResult->total,
             'page' => $page,
             'perPage' => $perPage,
+            'stats' => $this->summarize($projectId),
         ]);
+    }
+
+    /**
+     * Per-currency wallet totals for the stats cards at the top of the
+     * page. `ListWallets` is paginated with no "get everything" mode, so
+     * this fetches a separate, larger page (capped at 500) purely to
+     * aggregate — same documented-limitation pattern already used for
+     * the organizations dropdown (`ProjectsController::create()`, capped
+     * at 100). A project with more wallets than that undercounts here;
+     * acceptable for this MVP-scale read-only visibility pass.
+     *
+     * @return array{total: int, byCurrency: array<string, array{count: int, availableMinor: int, heldMinor: int}>}
+     */
+    private function summarize(string $projectId): array
+    {
+        $page = $this->listWallets->list(new ListWalletsCommand(
+            projectId: $projectId,
+            page: 1,
+            perPage: 500,
+        ));
+
+        $byCurrency = [];
+        foreach ($page->items as $wallet) {
+            $byCurrency[$wallet->currency] ??= ['count' => 0, 'availableMinor' => 0, 'heldMinor' => 0];
+            $byCurrency[$wallet->currency]['count']++;
+            $byCurrency[$wallet->currency]['availableMinor'] += $wallet->availableMinor;
+            $byCurrency[$wallet->currency]['heldMinor'] += $wallet->heldMinor;
+        }
+
+        return ['total' => $page->total, 'byCurrency' => $byCurrency];
     }
 }

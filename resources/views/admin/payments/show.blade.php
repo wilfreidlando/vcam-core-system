@@ -32,7 +32,9 @@
             </div>
             <div>
                 <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Amount</p>
-                <p class="font-mono text-slate-900 tabular-nums">{{ number_format($payment->amount) }} {{ $payment->currency }}</p>
+                {{-- Minor units (G5) → major units. Same pattern as
+                     reconciliation/new.blade.php and admin/payments/index. --}}
+                <p class="font-mono text-slate-900 tabular-nums">{{ number_format($payment->amount / 100, 2) }} {{ $payment->currency }}</p>
             </div>
             <div>
                 <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Requires action</p>

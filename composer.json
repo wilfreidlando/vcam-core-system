@@ -13,6 +13,7 @@
     "require": {
         "php": "^8.4",
         "brick/money": "^0.15",
+        "chillerlan/php-qrcode": "^6.0",
         "core/admin": "*@dev",
         "core/audit": "*@dev",
         "core/billing": "*@dev",

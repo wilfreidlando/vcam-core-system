@@ -9,6 +9,7 @@ use Core\Identity\Application\UseCase\ResolveOperatorFromBearerToken;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Identity\Domain\Exception\InvalidOperatorCredentials;
 use Core\Identity\Domain\Exception\OperatorRevoked;
+use Core\Identity\Presentation\Http\Middleware\ResolveOperatorMiddleware;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
@@ -38,7 +39,7 @@ use Illuminate\Support\Facades\Session;
  */
 final class ResolveOperatorSession
 {
-    private const SESSION_KEY = 'operator_bearer_token';
+    private const SESSION_KEY = ResolveOperatorMiddleware::SESSION_KEY;
 
     public function __construct(
         private readonly ResolveOperatorFromBearerToken $resolve,

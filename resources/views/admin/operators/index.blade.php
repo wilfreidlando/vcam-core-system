@@ -14,7 +14,7 @@
 @endif
 
 <div class="mb-4 flex justify-end">
-    <a href="{{ route('admin.operators.create') }}"
+    <a href="{{ route('admin.operators.new') }}"
        class="inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
         New operator
     </a>
@@ -70,7 +70,7 @@
                         x-cloak
                         @submit="confirmRevoke = false"
                         method="POST"
-                        action="{{ route('admin.operators.revoke', ['operatorId' => $op->id]) }}"
+                        action="{{ route('admin.operators.revoke.web', ['operatorId' => $op->id]) }}"
                         class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50"
                         @click.self="confirmRevoke = false">
                         @csrf

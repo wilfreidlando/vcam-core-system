@@ -9,7 +9,7 @@
      OperatorContext itself, same as the layout does. --}}
 @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('projects:write'))
     <div class="mb-4 flex justify-end">
-        <a href="{{ route('admin.projects.create') }}"
+        <a href="{{ route('admin.projects.new') }}"
            class="inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
             + New project
         </a>

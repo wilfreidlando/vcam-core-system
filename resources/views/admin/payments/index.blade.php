@@ -54,7 +54,13 @@
                 </span>
             </td>
             <td class="px-4 py-2 text-sm font-mono text-slate-900 tabular-nums">
-                {{ number_format($payment->amount) }}
+                {{-- Minor units (G5) → major units. The 2-decimal split is
+                     correct for every currency this Core currently routes
+                     payments in; a currency-decimals registry would be
+                     needed to make this exact for every ISO 4217 currency,
+                     out of scope for this read-only visibility pass. Same
+                     pattern as reconciliation/new.blade.php. --}}
+                {{ number_format($payment->amount / 100, 2) }}
             </td>
             <td class="px-4 py-2 text-sm font-mono text-slate-700">
                 {{ $payment->currency }}

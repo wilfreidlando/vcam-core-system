@@ -4,6 +4,18 @@
 
 @section('content')
 <div class="max-w-lg mx-auto mt-10">
+    @if (app()->environment('local'))
+        <div class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <p class="font-semibold">Local development mode</p>
+            <p class="mt-1">
+                <code class="font-mono">IDENTITY_DISABLE_TOTP_IN_LOCAL=true</code> is set:
+                any 6-digit code is accepted — no need to scan the QR.
+                Submit <code class="font-mono">123456</code> (or anything else)
+                to enroll.
+            </p>
+        </div>
+    @endif
+
     <div class="bg-white shadow-sm border border-slate-200 rounded-lg p-6 sm:p-8">
 
         <h2 class="text-xl font-semibold text-slate-900 mb-1">Set up an authenticator</h2>
@@ -15,14 +27,11 @@
 
         <div class="grid sm:grid-cols-2 gap-6 mb-6">
             <div class="flex justify-center">
-                <div id="qr-target" class="bg-white border border-slate-200 rounded-md p-2">
-                    {{-- QR rendered client-side from the otpauth URI. Alpine.js
-                         uses qrcode-svg-style inline; if the user can't scan,
-                         they can paste the secret manually below. --}}
-                    <img src="data:image/svg+xml;utf8,{{-- placeholder --}}"
-                         alt="QR code"
-                         class="h-44 w-44"
-                         data-otpauth="{{ $otpauthUri }}" />
+                <div class="bg-white border border-slate-200 rounded-md p-3 inline-block">
+                    {{-- Server-rendered QR (chillerlan/php-qrcode) — scans
+                         directly into Google Authenticator / 1Password /
+                         Bitwarden. No JS, no CDN, no flash of placeholder. --}}
+                    {!! $qrSvg !!}
                 </div>
             </div>
 
@@ -35,6 +44,11 @@
                     <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Secret (manual entry)</p>
                     <code class="block text-sm font-mono bg-slate-50 border border-slate-200 rounded px-2 py-1.5 break-all select-all">{{ $secret }}</code>
                 </div>
+                <p class="text-xs text-slate-500 leading-relaxed">
+                    Can't scan? Paste the secret above into your authenticator's
+                    "manual entry" flow. The QR and the secret encode the
+                    same TOTP parameters.
+                </p>
             </div>
         </div>
 
@@ -69,20 +83,4 @@
         </form>
     </div>
 </div>
-
-{{-- Tiny QR generator inline: read the otpauth URI, render an SVG with the
-     right payload. Avoids a third-party dep. Kept deliberately simple:
-     a production-quality QR would use a battle-tested library. --}}
-<script>
-document.addEventListener('alpine:init', () => {
-    const target = document.querySelector('[data-otpauth]');
-    if (! target) return;
-    const uri = target.dataset.otpauth;
-    // We replace the placeholder with an inline SVG. The QR library
-    // would normally go here — for the bootstrap admin UI this is a
-    // placeholder that the next iteration will replace with `qrcode-svg`.
-    target.removeAttribute('src');
-    target.outerHTML = '<div class="h-44 w-44 flex items-center justify-center bg-slate-50 border border-dashed border-slate-300 rounded text-xs text-slate-500 text-center p-2">QR code placeholder<br><span class="font-mono text-[10px] mt-1 block truncate w-full">'+uri.slice(0,40)+'…</span></div>';
-});
-</script>
 @endsection

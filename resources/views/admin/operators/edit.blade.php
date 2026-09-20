@@ -24,7 +24,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('admin.operators.update', ['operatorId' => $operatorId]) }}" class="space-y-4">
+        <form method="POST" action="{{ route('admin.operators.update.web', ['operatorId' => $operatorId]) }}" class="space-y-4">
             @csrf
             @method('PUT')
 

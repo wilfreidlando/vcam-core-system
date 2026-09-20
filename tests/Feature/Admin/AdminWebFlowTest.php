@@ -194,7 +194,7 @@ final class AdminWebFlowTest extends TestCase
         ));
 
         $this->post("/admin/webhook-deliveries/{$deadDeliveryId}/replay")
-            ->assertRedirect(route('admin.webhook-deliveries.dead'));
+            ->assertRedirect(route('admin.webhook-deliveries.dead.web'));
 
         // Security review finding: replaying from the web console used
         // to leave no audit trail at all, unlike the identical JSON API
@@ -216,6 +216,77 @@ final class AdminWebFlowTest extends TestCase
             ->assertRedirect(route('admin.reconciliation.new'));
 
         $this->get('/admin/audit-log')->assertSee('payment_reconciliation.triggered');
+    }
+
+    #[Test]
+    public function a_browser_session_can_reach_v1_admin_routes_without_a_bearer_header(): void
+    {
+        // Review finding: an operator who is logged in via the web console
+        // used to get a 401 "A Bearer operator token is required." every
+        // time they navigated to a `/v1/admin/*` URL (e.g. the Scramble
+        // docs UI, a link shared in chat, manual address-bar typing). The
+        // session held the plaintext bearer token server-side but the
+        // API middleware never read it. Now the `operator.auth` middleware
+        // falls back to that session when no `Authorization: Bearer …`
+        // header is present, and the route group wires in the session
+        // middleware so the fallback is reachable.
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $created = app(CreateOperator::class)->create(
+            new CreateOperatorCommand('session-fallback@example.com', 'Session Fallback', OperatorRole::PlatformAdmin->value),
+            actor: 'service:test',
+            correlationId: null,
+        );
+
+        $this->post('/admin/login', [
+            'email' => 'session-fallback@example.com',
+            'password' => $created->plaintextPassword,
+        ])->assertRedirect(route('admin.mfa.enroll.show'));
+
+        $enroll = $this->get('/admin/mfa/enroll');
+        $secret = $this->extractSecret($enroll);
+        $challengeToken = $this->extractHiddenField($enroll, 'challenge_token');
+        $code = (new Google2FA)->getCurrentOtp($secret);
+
+        $this->post('/admin/mfa/enroll', [
+            'challenge_token' => $challengeToken,
+            'code' => $code,
+        ])->assertRedirect(route('admin.dashboard'));
+
+        // Browser navigation (Accept: text/html, no Bearer header) to a
+        // /v1/admin/* endpoint now succeeds — the operator auth middleware
+        // resolves the operator from the encrypted server-side session.
+        // The Scramble docs UI ("Try it out") and any operator who pastes a
+        // v1 URL into the address bar hit this exact path.
+        $this->get('/v1/admin/operators', ['Accept' => 'text/html'])
+            ->assertOk()
+            ->assertJsonPath('data.0.email', 'session-fallback@example.com');
+
+        // JSON client with a Bearer header still authenticates the same
+        // way it always did — the fallback is opt-in, not a replacement.
+        $bearer = $created->plaintextPassword === ''
+            ? null
+            : $this->extractOperatorBearerToken();
+        if ($bearer !== null) {
+            $this->getJson('/v1/admin/operators', ['Authorization' => "Bearer {$bearer}"])
+                ->assertOk();
+        }
+    }
+
+    /**
+     * Pulls the operator's plaintext bearer token out of the encrypted
+     * session that `AuthController::completeLogin()` wrote at login time.
+     * The session middleware doesn't expose a public getter, but
+     * `Session::get()` does — and the key is a single source of truth
+     * between `ResolveOperatorMiddleware` and `AuthController`.
+     */
+    private function extractOperatorBearerToken(): ?string
+    {
+        $value = \Illuminate\Support\Facades\Session::get(
+            \Core\Identity\Presentation\Http\Middleware\ResolveOperatorMiddleware::SESSION_KEY,
+        );
+
+        return is_string($value) && $value !== '' ? $value : null;
     }
 
     /**
