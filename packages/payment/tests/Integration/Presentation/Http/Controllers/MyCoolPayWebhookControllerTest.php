@@ -7,18 +7,18 @@ namespace Core\Payment\Tests\Integration\Presentation\Http\Controllers;
 use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\PaymentStatusMapper;
+use Core\Payment\Domain\Model\ProviderApplication;
+use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayCallbackAuthenticator;
 use Core\Payment\PaymentStatus;
 use Core\Payment\Presentation\Http\Controllers\MyCoolPayWebhookController;
 use Core\Support\Clock;
-use Core\Support\Integration\Configuration\ArrayProviderConfigRegistry;
-use Core\Support\Integration\Configuration\ProviderConfigRegistry;
-use Core\Support\Integration\Configuration\ProviderNotConfigured;
 use Core\Support\Integration\Provider\ProviderCode;
 use DateTimeImmutable;
 use Illuminate\Http\Request;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -95,10 +95,14 @@ final class MyCoolPayWebhookControllerTest extends TestCase
     }
 
     #[Test]
-    public function a_webhook_from_a_different_application_is_rejected(): void
+    public function a_webhook_from_an_unregistered_application_is_rejected(): void
     {
+        // Signed correctly, but for an `application` (public key) that no
+        // Project has registered — ADR-0051's per-application model has
+        // no private key to verify it against, so it cannot be trusted
+        // regardless of the signature's own shape.
         $body = self::signedBody([
-            'application' => 'pub-OTHER-application',
+            'application' => 'pub-UNREGISTERED-application',
             'transaction_ref' => 'tx-x',
             'transaction_type' => 'PAYIN',
             'transaction_amount' => 1000,
@@ -109,8 +113,8 @@ final class MyCoolPayWebhookControllerTest extends TestCase
 
         $response = $this->invoke($this->webhookRequest($body));
 
-        self::assertSame(200, $response->getStatusCode());
-        self::assertCount(0, $this->handler->handled, 'A different application key must not be handled.');
+        self::assertSame(403, $response->getStatusCode());
+        self::assertCount(0, $this->handler->handled, 'An unregistered application must not be handled.');
     }
 
     #[Test]
@@ -278,7 +282,7 @@ final class MyCoolPayWebhookControllerTest extends TestCase
             statusChangeHandler: $this->handler,
             statusMapper: $this->getStatusMapper(),
             clock: $this->getClock(),
-            configRegistry: $this->makeConfigRegistry(),
+            applications: $this->makeApplications(),
             authenticator: new MyCoolPayCallbackAuthenticator(['203.0.113.5']), // not the test client's IP
             logger: new NullLogger,
         );
@@ -300,55 +304,31 @@ final class MyCoolPayWebhookControllerTest extends TestCase
     }
 
     #[Test]
-    public function a_webhook_is_rejected_when_the_provider_has_no_private_key_configured(): void
+    public function a_webhook_with_no_application_field_is_rejected(): void
     {
-        // Security review finding: this used to accept the webhook
-        // anyway, only skipping the (non-authenticating) application-key
-        // sanity check. Without a private key there is no way to verify
-        // a signature at all, so the only safe behaviour is to refuse —
-        // never fall back to trusting the payload.
-        $emptyRegistry = new class implements ProviderConfigRegistry
-        {
-            public function configFor(ProviderCode $code): \Core\Support\Integration\Configuration\ProviderConfig
-            {
-                throw new ProviderNotConfigured($code);
-            }
-
-            public function defaultCredentialsFor(ProviderCode $code): \Core\Support\Integration\Credentials
-            {
-                throw new ProviderNotConfigured($code);
-            }
-
-            public function has(ProviderCode $code): bool
-            {
-                return false;
-            }
-
-            public function availableProviders(): array
-            {
-                return [];
-            }
-        };
-
+        // Security review finding: this used to fall back to a single
+        // platform-wide config key when present. Under the per-application
+        // model (ADR-0051), there is no such fallback at all — a missing
+        // `application` field gives no basis to resolve a private key,
+        // so the only safe behaviour is to refuse.
         $controller = new MyCoolPayWebhookController(
             statusChangeHandler: $this->handler,
             statusMapper: $this->getStatusMapper(),
             clock: $this->getClock(),
-            configRegistry: $emptyRegistry,
+            applications: $this->makeApplications(),
             authenticator: new MyCoolPayCallbackAuthenticator([]),
             logger: new NullLogger,
         );
 
         $body = [
-            'application' => 'whatever',
             'transaction_ref' => 'tx-x',
             'transaction_type' => 'PAYIN',
             'transaction_amount' => 1000,
             'transaction_currency' => 'XAF',
             'transaction_operator' => 'CM_OM',
             'transaction_status' => 'SUCCESS',
-            // Any signature at all — there is no private key to check
-            // it against, so this must be rejected regardless.
+            // No 'application' field, so no private key can be resolved
+            // to check any signature against.
             'signature' => 'irrelevant',
         ];
 
@@ -368,7 +348,7 @@ final class MyCoolPayWebhookControllerTest extends TestCase
             statusChangeHandler: $this->handler,
             statusMapper: $this->getStatusMapper(),
             clock: $this->getClock(),
-            configRegistry: $this->makeConfigRegistry(),
+            applications: $this->makeApplications(),
             // Empty allowlist = permissive on IP (matches
             // config/providers.php's own documented default) — this
             // test class is about signature/business-filter behaviour,
@@ -378,22 +358,38 @@ final class MyCoolPayWebhookControllerTest extends TestCase
         );
     }
 
-    private function makeConfigRegistry(): ArrayProviderConfigRegistry
+    private function makeApplications(): ProviderApplicationRepository
     {
-        return new ArrayProviderConfigRegistry([
-            'payment' => [
-                'my_coolpay' => [
-                    'code' => 'my-coolpay',
-                    'base_url' => 'https://my-coolpay.com',
-                    'auth' => ['kind' => 'api-key'],
-                    'credentials' => ['api_key' => self::PRIVATE_KEY],
-                    'timeouts' => [],
-                    'retries' => [],
-                    'breaker' => [],
-                    'extras' => ['public_key' => 'pub-test-1234'],
-                ],
-            ],
-        ]);
+        $privateKey = self::PRIVATE_KEY;
+
+        return new class($privateKey) implements ProviderApplicationRepository
+        {
+            public function __construct(private string $privateKey) {}
+
+            public function save(ProviderApplication $application): void
+            {
+                throw new RuntimeException('Not needed by this fake.');
+            }
+
+            public function findByProjectAndProvider(string $projectId, string $providerCode): ?ProviderApplication
+            {
+                throw new RuntimeException('Not needed by this fake — inbound path only.');
+            }
+
+            public function findByProviderAndPublicKey(string $providerCode, string $publicKey): ?ProviderApplication
+            {
+                if ($providerCode === 'my-coolpay' && $publicKey === 'pub-test-1234') {
+                    return new ProviderApplication(
+                        projectId: 'project-1',
+                        providerCode: 'my-coolpay',
+                        publicKey: 'pub-test-1234',
+                        privateKey: $this->privateKey,
+                    );
+                }
+
+                return null;
+            }
+        };
     }
 
     /**

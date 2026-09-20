@@ -8,10 +8,8 @@ use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\PaymentStatusMapper;
 use Core\Payment\Domain\Port\PaymentCallbackAuthenticator;
+use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Support\Clock;
-use Core\Support\Integration\Configuration\ProviderConfigRegistry;
-use Core\Support\Integration\Configuration\ProviderNotConfigured;
-use Core\Support\Integration\Provider\ProviderCode;
 use DateTimeZone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,19 +26,27 @@ use Psr\Log\LoggerInterface;
  * # Authenticity (security review finding — this used to be entirely
  * unauthenticated)
  *
- * Two checks, per MyCoolPay's own documented procedure (API docs §7.5
- * "Callback requests integrity"), BOTH required before anything else is
- * even considered — see `MyCoolPayCallbackAuthenticator`:
+ * Three checks, per MyCoolPay's own documented procedure (API docs §7.5
+ * "Callback requests integrity") plus this Core's own multi-tenant model
+ * (ADR-0051 — each Project has its own MyCoolPay application/key pair),
+ * ALL required before anything else is even considered — see
+ * `MyCoolPayCallbackAuthenticator` and `ProviderApplicationRepository`:
  *  1. The request's source IP must be MyCoolPay's server.
- *  2. The payload's `signature` must match
+ *  2. The payload's `application` (public key) must resolve to a
+ *     registered `ProviderApplication` — an unrecognised application has
+ *     no private key to verify against and is rejected outright.
+ *  3. The payload's `signature` must match
  *     `md5(transaction_ref+transaction_type+transaction_amount+
- *     transaction_currency+transaction_operator+private_key)`.
- * Either failing means the request is not from MyCoolPay: rejected with
- * 403, not silently ignored with 200 — this is the actual trust
- * boundary, not a business-logic filter.
- *
- * If the private key cannot even be loaded (provider misconfigured),
- * the webhook is likewise rejected — we would have no basis to trust it.
+ *     transaction_currency+transaction_operator+private_key)`, using
+ *     THAT application's own private key — never a shared platform-wide
+ *     one. This is what actually proves the caller knows the secret for
+ *     the Project it claims to be notifying, since the public key alone
+ *     proves nothing (MyCoolPay's own docs confirm it isn't secret — it's
+ *     shown in every checkout link).
+ * Any of these failing means the request is not authentically from
+ * MyCoolPay for the application it claims: rejected with 403, not
+ * silently ignored with 200 — this is the actual trust boundary, not a
+ * business-logic filter.
  *
  * # No outbound call — everything happens from the inbound payload.
  *
@@ -49,12 +55,7 @@ use Psr\Log\LoggerInterface;
  *  1. `transaction_type` must be `'PAYIN'`. Payout webhooks are
  *     ignored here — they will be handled by a dedicated controller
  *     when payout support lands.
- *  2. `application` (the public key) must match the configured one.
- *     MyCoolPay's own docs confirm this key is NOT secret — it's shown
- *     in every checkout link — so it proves nothing about the caller by
- *     itself; kept only as a secondary cross-tenant sanity check now
- *     that the signature above is the real authenticity gate.
- * Both reply 200 OK to keep MyCoolPay from retrying — but log a
+ * Replies 200 OK to keep MyCoolPay from retrying — but logs a
  * `warning` so operators see the noise.
  */
 final class MyCoolPayWebhookController
@@ -83,7 +84,7 @@ final class MyCoolPayWebhookController
         private PaymentStatusChangeHandler $statusChangeHandler,
         private PaymentStatusMapper $statusMapper,
         private Clock $clock,
-        private ProviderConfigRegistry $configRegistry,
+        private ProviderApplicationRepository $applications,
         private PaymentCallbackAuthenticator $authenticator,
         private LoggerInterface $logger,
     ) {}
@@ -143,23 +144,34 @@ final class MyCoolPayWebhookController
             return false;
         }
 
-        try {
-            $privateKey = $this->configRegistry->configFor(
-                ProviderCode::fromString('my-coolpay'),
-            )->defaultCredentials->apiKey;
-        } catch (ProviderNotConfigured) {
-            $privateKey = null;
-        }
-
-        if ($privateKey === null || $privateKey === '') {
-            // No key means no way to verify — never fall back to
-            // trusting the payload.
-            $this->logger->error('my-coolpay.webhook.no_private_key_configured');
+        // The `application` field identifies WHICH Project's MyCoolPay
+        // application this callback claims to be for — each Project has
+        // its own key pair (ADR-0051), so the private key to verify
+        // against is resolved from it, never a single platform-wide
+        // config value. This also makes the old "application must match
+        // our one configured key" business filter obsolete: a forged
+        // `application` can no longer pass, because it would need that
+        // application's own private key too, which is exactly what the
+        // signature check below proves.
+        $publicKey = $body['application'] ?? null;
+        if (! is_string($publicKey) || $publicKey === '') {
+            $this->logger->error('my-coolpay.webhook.missing_application');
 
             return false;
         }
 
-        if (! $this->authenticator->hasValidSignature($body, $privateKey)) {
+        $application = $this->applications->findByProviderAndPublicKey('my-coolpay', $publicKey);
+        if ($application === null) {
+            // No fallback to a shared/default key — an application we
+            // don't recognise has no basis to be trusted.
+            $this->logger->error('my-coolpay.webhook.unknown_application', [
+                'application_prefix' => substr($publicKey, 0, 8).'...',
+            ]);
+
+            return false;
+        }
+
+        if (! $this->authenticator->hasValidSignature($body, $application->privateKey)) {
             $this->logger->error('my-coolpay.webhook.invalid_signature', [
                 'transaction_ref' => $body['transaction_ref'] ?? null,
             ]);
@@ -180,19 +192,6 @@ final class MyCoolPayWebhookController
         if ($type !== 'PAYIN') {
             $this->logger->warning('my-coolpay.webhook.unsupported_type', [
                 'transaction_type' => $type === '' ? null : $type,
-            ]);
-
-            return null;
-        }
-
-        // Filter 2: the public key in the payload must match the one this
-        // controller is bound to. Prevents cross-tenant event injection.
-        $application = self::stringField($body, 'application');
-        $expectedKey = $this->expectedPublicKey();
-        if ($expectedKey !== null && $application !== '' && $application !== $expectedKey) {
-            $this->logger->warning('my-coolpay.webhook.application_mismatch', [
-                'expected_prefix' => substr($expectedKey, 0, 8).'...',
-                'got_prefix' => substr($application, 0, 8).'...',
             ]);
 
             return null;
@@ -240,26 +239,6 @@ final class MyCoolPayWebhookController
             reason: $reason,
             occurredAt: $occurredAt,
         );
-    }
-
-    /**
-     * Return the public_key configured for our MyCoolPay application, or
-     * null if the config registry doesn't know about it. Returning null
-     * means "no application key check possible" — the webhook is
-     * accepted on that point but logged for review.
-     */
-    private function expectedPublicKey(): ?string
-    {
-        try {
-            $config = $this->configRegistry->configFor(
-                ProviderCode::fromString('my-coolpay'),
-            );
-        } catch (ProviderNotConfigured) {
-            return null;
-        }
-        $value = $config->extra('public_key', '');
-
-        return is_string($value) && $value !== '' ? $value : null;
     }
 
     /**

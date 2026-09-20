@@ -19,6 +19,7 @@ use Core\Payment\Contracts\PaymentActivitySummary;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Contracts\PaymentProviderRouter;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
+use Core\Payment\Contracts\PaymentStatusMapper;
 use Core\Payment\Contracts\ReconcileStuckPayments;
 use Core\Payment\Contracts\StartPayment;
 use Core\Payment\Domain\Port\PaymentCallbackAuthenticator;
@@ -91,6 +92,17 @@ final class PaymentServiceProvider extends ServiceProvider
 
             return new MyCoolPayStatusMapper($code);
         });
+
+        // Bug found by empirical verification (not exercised by any
+        // test — every existing test constructs MyCoolPayWebhookController
+        // by hand with a fake mapper, never resolving it through the
+        // container): the Contracts port was never bound to a concrete
+        // implementation, so the real webhook route 500'd on every call
+        // with "Target [PaymentStatusMapper] is not instantiable."
+        // Single provider today, so binding directly to it is correct;
+        // this becomes a routed binding once a second provider's own
+        // webhook controller needs its own mapper.
+        $this->app->bind(PaymentStatusMapper::class, MyCoolPayStatusMapper::class);
 
         $this->app->singleton(MyCoolPayAdapter::class, function (Application $app): MyCoolPayAdapter {
             $configs = $app->make(\Core\Support\Integration\Configuration\ProviderConfigRegistry::class);
