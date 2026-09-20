@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Payment;
 
+use Core\Events\Contracts\OutboxEventPublished;
 use Core\Payment\Application\UseCase\CountStuckPaymentsUseCase;
 use Core\Payment\Application\UseCase\GetPaymentStatusUseCase;
 use Core\Payment\Application\UseCase\HandlePaymentStatusChangedUseCase;
@@ -20,16 +21,27 @@ use Core\Payment\Contracts\PaymentProviderRouter;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\ReconcileStuckPayments;
 use Core\Payment\Contracts\StartPayment;
+use Core\Payment\Domain\Port\PaymentCallbackAuthenticator;
+use Core\Payment\Domain\Port\PaymentCallbackSecretGenerator;
+use Core\Payment\Domain\Port\PaymentCallbackSender;
 use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Payment\Domain\Port\ProviderApplicationRepository;
+use Core\Payment\Infrastructure\Delivery\HttpPaymentCallbackSender;
 use Core\Payment\Infrastructure\Persistence\Eloquent\EloquentPaymentRepository;
+use Core\Payment\Infrastructure\Persistence\Eloquent\EloquentProviderApplicationRepository;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayAdapter;
+use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayCallbackAuthenticator;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayStatusMapper;
 use Core\Payment\Infrastructure\Provider\PaymentGatewayRegistryImpl;
 use Core\Payment\Infrastructure\Routing\ConfigPaymentProviderRouter;
+use Core\Payment\Infrastructure\Security\RandomPaymentCallbackSecretGenerator;
+use Core\Payment\Presentation\Console\Commands\RegisterProviderApplicationCommand;
+use Core\Payment\Presentation\Listeners\DeliverPaymentCallbackListener;
 use Core\Support\Clock;
 use Core\Support\Integration\Provider\ProviderCode;
 use Core\Support\Integration\Provider\ProviderRegistry;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -55,6 +67,18 @@ final class PaymentServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadRoutesFrom(__DIR__.'/../routes/webhooks.php');
         Route::middleware('api')->group(__DIR__.'/../routes/api.php');
+
+        // Mirrors Core\Webhook\Presentation\Listeners\FanOutRelayedEventListener —
+        // registered explicitly (this codebase's convention, no
+        // auto-discovery), reacts to the outbox relay, never a second
+        // physical reader of event_outbox (ADR-0040 §1).
+        Event::listen(OutboxEventPublished::class, DeliverPaymentCallbackListener::class);
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                RegisterProviderApplicationCommand::class,
+            ]);
+        }
     }
 
     public function register(): void
@@ -77,10 +101,21 @@ final class PaymentServiceProvider extends ServiceProvider
                 caller: $app->make(\Core\Support\Integration\ExternalApiCaller::class),
                 config: $config,
                 statusMapper: $app->make(MyCoolPayStatusMapper::class),
+                applications: $app->make(ProviderApplicationRepository::class),
             );
         });
 
         $this->app->tag([MyCoolPayAdapter::class], 'provider.gateway');
+
+        $this->app->singleton(PaymentCallbackAuthenticator::class, function (Application $app): PaymentCallbackAuthenticator {
+            $configs = $app->make(\Core\Support\Integration\Configuration\ProviderConfigRegistry::class);
+            $config = $configs->configFor(ProviderCode::fromString('my-coolpay'));
+
+            /** @var list<string> $trustedIps */
+            $trustedIps = $config->extra('callback_trusted_ips', []);
+
+            return new MyCoolPayCallbackAuthenticator($trustedIps);
+        });
 
         // Typed registry — see ADR-0037. Use cases in the payment module
         // depend on PaymentGatewayRegistry (the typed version) rather than
@@ -102,6 +137,9 @@ final class PaymentServiceProvider extends ServiceProvider
         });
 
         $this->app->bind(PaymentRepository::class, EloquentPaymentRepository::class);
+        $this->app->bind(ProviderApplicationRepository::class, EloquentProviderApplicationRepository::class);
+        $this->app->bind(PaymentCallbackSecretGenerator::class, RandomPaymentCallbackSecretGenerator::class);
+        $this->app->bind(PaymentCallbackSender::class, HttpPaymentCallbackSender::class);
 
         $this->app->bind(StartPayment::class, StartPaymentUseCase::class);
         $this->app->bind(GetPaymentStatus::class, GetPaymentStatusUseCase::class);

@@ -93,6 +93,16 @@ return [
 
             'extras' => [
                 'public_key' => env('MYCOOLPAY_PUBLIC_KEY'),
+                // Callback ("webhook") authenticity, per MyCoolPay's own
+                // docs §7.5 "Callback requests integrity" — the single IP
+                // their servers send callbacks from, at time of writing.
+                // Comma-separated for a future multi-IP allowlist; empty
+                // disables the IP check (signature check stays mandatory
+                // regardless — see MyCoolPayCallbackAuthenticator).
+                'callback_trusted_ips' => array_values(array_filter(
+                    array_map('trim', explode(',', (string) env('MYCOOLPAY_CALLBACK_TRUSTED_IPS', '15.236.140.89'))),
+                    static fn (string $ip): bool => $ip !== '',
+                )),
             ],
         ],
     ],

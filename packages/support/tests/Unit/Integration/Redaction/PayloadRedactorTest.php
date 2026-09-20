@@ -70,6 +70,21 @@ final class PayloadRedactorTest extends TestCase
     }
 
     #[Test]
+    public function mycoolpays_private_key_header_is_redacted(): void
+    {
+        // Security review finding: this header was missing from the
+        // list entirely — a provider debug flag (MYCOOLPAY_DEBUG) would
+        // have logged the live private key in cleartext.
+        $redactor = new PayloadRedactor(new SensitiveKeySet);
+
+        $redacted = $redactor->redactHeaders([
+            'X-PRIVATE-KEY' => 'sk_live_should_never_appear_in_logs',
+        ]);
+
+        self::assertSame('***REDACTED***', $redacted['X-PRIVATE-KEY']);
+    }
+
+    #[Test]
     public function camelcase_secret_keys_match_via_substring(): void
     {
         $redactor = new PayloadRedactor(new SensitiveKeySet);

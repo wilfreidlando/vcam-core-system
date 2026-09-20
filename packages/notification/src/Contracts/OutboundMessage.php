@@ -29,5 +29,14 @@ final readonly class OutboundMessage
         public string $recipientRef,
         public array $variables,
         public array $body,
+        /**
+         * Lets a multi-tenant-aware adapter scope a caller-supplied
+         * session identifier (e.g. WAHA's `variables['session']`) to
+         * this Project — security review finding: a caller-chosen
+         * session name forwarded to the provider unscoped let one
+         * Project hijack another Project's linked WhatsApp session by
+         * guessing/supplying its name.
+         */
+        public string $projectId,
     ) {}
 }

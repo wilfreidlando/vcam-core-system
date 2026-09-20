@@ -21,6 +21,7 @@ use Core\Wallet\Contracts\DebitWalletCommand;
 use Core\Wallet\Contracts\WalletBalanceView;
 use Core\Wallet\Domain\Exception\InsufficientFunds;
 use Core\Wallet\Domain\Exception\WalletNotFound;
+use Core\Wallet\Domain\Exception\WalletProjectMismatch;
 use Core\Wallet\Domain\Model\WalletBalance;
 use Core\Wallet\Domain\Port\WalletBalanceRepository;
 use Core\Wallet\Domain\Port\WalletRepository;
@@ -53,6 +54,10 @@ final readonly class DebitWalletUseCase implements DebitWallet
         return $this->unitOfWork->transactional(function () use ($command): WalletBalanceView {
             $wallet = $this->wallets->find($command->walletId)
                 ?? throw WalletNotFound::withId($command->walletId);
+
+            if ($wallet->projectId !== $command->projectId) {
+                throw WalletProjectMismatch::forWallet($wallet->id, $command->projectId);
+            }
 
             // The lock is taken before checking funds, and before posting to
             // the ledger: two concurrent debits must serialise here, or both

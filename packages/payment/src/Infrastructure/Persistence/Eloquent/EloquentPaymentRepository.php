@@ -10,6 +10,7 @@ use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\PaymentStatus;
 use DateTimeImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 
 final class EloquentPaymentRepository implements PaymentRepository
@@ -184,6 +185,8 @@ final class EloquentPaymentRepository implements PaymentRepository
             'error_message' => $payment->errorMessage,
             'return_url' => $payment->returnUrl,
             'wallet_recipient_external_ref' => $payment->walletRecipientExternalRef,
+            'callback_url' => $payment->callbackUrl,
+            'callback_secret_encrypted' => $payment->callbackSecret === null ? null : Crypt::encryptString($payment->callbackSecret),
         ];
     }
 
@@ -205,6 +208,8 @@ final class EloquentPaymentRepository implements PaymentRepository
             errorMessage: $record->error_message,
             returnUrl: $record->return_url,
             walletRecipientExternalRef: $record->wallet_recipient_external_ref,
+            callbackUrl: $record->callback_url,
+            callbackSecret: $record->callback_secret_encrypted === null ? null : Crypt::decryptString($record->callback_secret_encrypted),
         );
     }
 }

@@ -9,8 +9,15 @@ use Core\Identity\Contracts\CreateOperatorCommand;
 use Core\Identity\Domain\Model\Operator;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Identity\OperatorRole;
+use Core\Webhook\Contracts\RegisterWebhookEndpoint;
+use Core\Webhook\Contracts\RegisterWebhookEndpointCommand;
+use Core\Webhook\Domain\Model\WebhookDelivery;
+use Core\Webhook\Domain\Model\WebhookDeliveryStatus;
+use Core\Webhook\Domain\Port\WebhookDeliveryRepository;
+use DateTimeImmutable;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
@@ -156,6 +163,59 @@ final class AdminWebFlowTest extends TestCase
         $response = $this->get('/admin/projects?organization_id=not-a-uuid');
         $response->assertStatus(302);
         $response->assertSessionHasErrors('organization_id');
+    }
+
+    #[Test]
+    public function replaying_a_dead_webhook_delivery_from_the_web_console_is_audited(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $projectId = (string) Str::uuid();
+        $endpoint = app(RegisterWebhookEndpoint::class)->register(
+            new RegisterWebhookEndpointCommand($projectId, 'https://example.com/hook', ['*']),
+        );
+
+        $deadDeliveryId = (string) Str::uuid();
+        app(WebhookDeliveryRepository::class)->create(new WebhookDelivery(
+            id: $deadDeliveryId,
+            endpointId: $endpoint->id,
+            projectId: $projectId,
+            eventId: (string) Str::uuid(),
+            eventType: 'payment.status_changed',
+            payload: ['foo' => 'bar'],
+            status: WebhookDeliveryStatus::Dead,
+            attempts: 8,
+            nextRetryAt: null,
+            lastAttemptAt: new DateTimeImmutable,
+            lastError: 'connection timed out',
+            deliveredAt: null,
+        ));
+
+        $this->post("/admin/webhook-deliveries/{$deadDeliveryId}/replay")
+            ->assertRedirect(route('admin.webhook-deliveries.dead'));
+
+        // Security review finding: replaying from the web console used
+        // to leave no audit trail at all, unlike the identical JSON API
+        // action.
+        $this->get('/admin/audit-log')->assertSee('webhook_delivery.replayed');
+    }
+
+    #[Test]
+    public function triggering_reconciliation_from_the_web_console_is_audited(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        // No stuck payments seeded — proves the audit trail without
+        // needing a fake HTTP provider call, mirroring the JSON API's
+        // equivalent "nothing stuck" test.
+        $this->post('/admin/reconciliation')
+            ->assertRedirect(route('admin.reconciliation.new'));
+
+        $this->get('/admin/audit-log')->assertSee('payment_reconciliation.triggered');
     }
 
     /**

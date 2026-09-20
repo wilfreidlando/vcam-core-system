@@ -6,6 +6,9 @@ namespace Core\Payment\Tests\Integration\Infrastructure\Provider\MyCoolPay;
 
 use Core\Payment\Contracts\InitiatePaymentCommand;
 use Core\Payment\Contracts\PaymentAction;
+use Core\Payment\Domain\Exception\ProviderApplicationNotFound;
+use Core\Payment\Domain\Model\ProviderApplication;
+use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayAdapter;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayStatusMapper;
 use Core\Payment\PaymentFlow;
@@ -62,6 +65,7 @@ final class MyCoolPayAdapterTest extends TestCase
         ]);
 
         $command = new InitiatePaymentCommand(
+            projectId: 'project-1',
             amount: 100,
             currency: 'XAF',
             reason: 'Order #42',
@@ -101,6 +105,7 @@ final class MyCoolPayAdapterTest extends TestCase
         ]);
 
         $command = new InitiatePaymentCommand(
+            projectId: 'project-1',
             amount: 100,
             currency: 'XAF',
             reason: 'r',
@@ -129,6 +134,7 @@ final class MyCoolPayAdapterTest extends TestCase
         ]);
 
         $command = new InitiatePaymentCommand(
+            projectId: 'project-1',
             amount: 500,
             currency: 'XAF',
             reason: 'Order #43',
@@ -159,7 +165,7 @@ final class MyCoolPayAdapterTest extends TestCase
             ], 201),
         ]);
 
-        $receipt = $this->adapter->submitAction(new PaymentAction('tx-otp', '1234'));
+        $receipt = $this->adapter->submitAction(new PaymentAction('project-1', 'tx-otp', '1234'));
 
         self::assertSame('tx-otp', $receipt->transactionRef);
         self::assertSame(PaymentStatus::Pending, $receipt->status);
@@ -186,7 +192,7 @@ final class MyCoolPayAdapterTest extends TestCase
             ], 200),
         ]);
 
-        $receipt = $this->adapter->checkStatus('tx-settled');
+        $receipt = $this->adapter->checkStatus('tx-settled', 'project-1');
 
         self::assertSame(PaymentStatus::Succeeded, $receipt->status);
         self::assertTrue($receipt->isTerminal());
@@ -212,6 +218,7 @@ final class MyCoolPayAdapterTest extends TestCase
         ]);
 
         $command = new InitiatePaymentCommand(
+            projectId: 'project-1',
             amount: 100,
             currency: 'XAF',
             reason: 'r',
@@ -238,7 +245,7 @@ final class MyCoolPayAdapterTest extends TestCase
         ]);
 
         $this->expectException(\Core\Support\Integration\Exception\ProviderPermanentError::class);
-        $this->adapter->checkStatus('whatever');
+        $this->adapter->checkStatus('whatever', 'project-1');
     }
 
     #[Test]
@@ -249,7 +256,7 @@ final class MyCoolPayAdapterTest extends TestCase
         ]);
 
         $this->expectException(\Core\Support\Integration\Exception\ProviderTransientError::class);
-        $this->adapter->checkStatus('whatever');
+        $this->adapter->checkStatus('whatever', 'project-1');
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -257,25 +264,17 @@ final class MyCoolPayAdapterTest extends TestCase
     // ─────────────────────────────────────────────────────────────────────
 
     #[Test]
-    public function missing_public_key_in_extras_throws_a_runtime_exception(): void
+    public function initiate_throws_when_no_application_is_registered_for_the_project(): void
     {
-        $config = ProviderConfig::fromArray([
-            'code' => 'my-coolpay-no-key',
-            'base_url' => 'https://x',
-            'auth' => ['kind' => 'api-key'],
-            'credentials' => ['api_key' => 'k'],
-            'timeouts' => [],
-            'retries' => [],
-            'breaker' => [],
-            'extras' => [], // no public_key
-        ]);
+        // Security review finding, user-directed expansion: each Project
+        // has its own MyCoolPay application (public/private key pair) —
+        // there is no platform-wide fallback key anymore.
+        $adapter = $this->makeAdapter($this->makeConfig(), applications: []);
 
-        $adapter = $this->makeAdapter($config);
-
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('missing extras.public_key');
+        $this->expectException(ProviderApplicationNotFound::class);
 
         $adapter->initiate(new InitiatePaymentCommand(
+            projectId: 'project-without-an-application',
             amount: 1,
             currency: 'XAF',
             reason: 'r',
@@ -305,11 +304,17 @@ final class MyCoolPayAdapterTest extends TestCase
             'retries' => ['max_attempts' => 1, 'base_delay_ms' => 10, 'max_delay_ms' => 50],
             'breaker' => ['failure_threshold' => 5, 'open_duration_seconds' => 60],
             'enabled' => true,
-            'extras' => ['public_key' => 'pub-123'],
+            'extras' => [],
         ]);
     }
 
-    private function makeAdapter(ProviderConfig $config): MyCoolPayAdapter
+    /**
+     * @param list<ProviderApplication>|null $applications Defaults to a
+     *                                                     single application for 'project-1' with public key 'pub-123' — matches
+     *                                                     every fixture URL above. Pass an empty array to simulate a Project
+     *                                                     with no registered application.
+     */
+    private function makeAdapter(ProviderConfig $config, ?array $applications = null): MyCoolPayAdapter
     {
         $factory = new HttpFactory;
         Http::swap($factory);
@@ -339,10 +344,46 @@ final class MyCoolPayAdapterTest extends TestCase
             correlationIds: new LaravelContextCorrelationIdProvider,
         );
 
+        $applications ??= [new ProviderApplication('project-1', 'my-coolpay', 'pub-123', 'private-key')];
+
         return new MyCoolPayAdapter(
             caller: $caller,
             config: $config,
             statusMapper: new MyCoolPayStatusMapper($config->code),
+            applications: new class($applications) implements ProviderApplicationRepository
+            {
+                /**
+                 * @param list<ProviderApplication> $applications
+                 */
+                public function __construct(private array $applications) {}
+
+                public function save(ProviderApplication $application): void
+                {
+                    throw new RuntimeException('Not needed by this fake.');
+                }
+
+                public function findByProjectAndProvider(string $projectId, string $providerCode): ?ProviderApplication
+                {
+                    foreach ($this->applications as $application) {
+                        if ($application->projectId === $projectId && $application->providerCode === $providerCode) {
+                            return $application;
+                        }
+                    }
+
+                    return null;
+                }
+
+                public function findByProviderAndPublicKey(string $providerCode, string $publicKey): ?ProviderApplication
+                {
+                    foreach ($this->applications as $application) {
+                        if ($application->providerCode === $providerCode && $application->publicKey === $publicKey) {
+                            return $application;
+                        }
+                    }
+
+                    return null;
+                }
+            },
         );
     }
 }

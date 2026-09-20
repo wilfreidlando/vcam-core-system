@@ -18,10 +18,12 @@ use Tests\TestCase;
  * explicit requirement (plan de delivery §9): "tests de concurrence verts".
  *
  * A single PHP process cannot hold two overlapping database transactions at
- * once, so this test spawns real OS processes — `php artisan wallet:debit`,
- * the same console entrypoint an operator would use — each with its own
- * PostgreSQL connection, all targeting the same wallet at once. The
- * pessimistic row lock (`SELECT ... FOR UPDATE`, ADR-0006) taken in
+ * once, so this test spawns real OS processes — `php artisan
+ * test:debit-wallet-once`, a test-infrastructure-only command registered
+ * solely in the testing environment (no ops CLI exists for this anymore —
+ * security review finding, removed) — each with its own PostgreSQL
+ * connection, all targeting the same wallet at once. The pessimistic row
+ * lock (`SELECT ... FOR UPDATE`, ADR-0006) taken in
  * `DebitWalletUseCase::debit()` is what must serialise them.
  *
  * Deliberately does NOT use RefreshDatabase: that trait wraps the test in a
@@ -121,7 +123,7 @@ final class WalletConcurrencyTest extends TestCase
             'APP_ENV' => 'testing',
         ];
 
-        $command = [PHP_BINARY, base_path('artisan'), 'wallet:debit', $walletId, (string) $amountMinor];
+        $command = [PHP_BINARY, base_path('artisan'), 'test:debit-wallet-once', self::PROJECT_ID, $walletId, (string) $amountMinor];
 
         $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, base_path(), $env);
 

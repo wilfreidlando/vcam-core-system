@@ -20,7 +20,10 @@ final class OperatorMfaCodeRequest extends FormRequest
     {
         return [
             'challenge_token' => ['required', 'string'],
-            'code' => ['required', 'string'],
+            // min/max mirror the web form's equivalent field (security
+            // review finding — this used to have no upper bound, an
+            // oversized-payload gap on a public, throttle-only endpoint).
+            'code' => ['required', 'string', 'min:6', 'max:8'],
         ];
     }
 }

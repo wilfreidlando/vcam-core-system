@@ -47,9 +47,18 @@ return [
     | should be encrypted before it's stored. All encryption is performed
     | automatically by Laravel and you may use the session like normal.
     |
+    | Default true here (Laravel's own stock default is false): the admin
+    | web console stores a live, fully-authenticated Sanctum bearer token
+    | in the session (app/Http/Controllers/Admin/AuthController — no
+    | other way to keep it re-readable across requests for a stateful
+    | web session). Security review finding: with encryption off, anyone
+    | with read access to the session store (Redis/Valkey) can lift that
+    | token directly and bypass MFA entirely, since it's already fully
+    | authenticated.
+    |
     */
 
-    'encrypt' => env('SESSION_ENCRYPT', false),
+    'encrypt' => env('SESSION_ENCRYPT', true),
 
     /*
     |--------------------------------------------------------------------------

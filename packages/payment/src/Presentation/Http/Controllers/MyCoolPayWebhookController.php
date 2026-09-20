@@ -7,8 +7,10 @@ namespace Core\Payment\Presentation\Http\Controllers;
 use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\PaymentStatusMapper;
+use Core\Payment\Domain\Port\PaymentCallbackAuthenticator;
 use Core\Support\Clock;
 use Core\Support\Integration\Configuration\ProviderConfigRegistry;
+use Core\Support\Integration\Configuration\ProviderNotConfigured;
 use Core\Support\Integration\Provider\ProviderCode;
 use DateTimeZone;
 use Illuminate\Http\JsonResponse;
@@ -23,24 +25,37 @@ use Psr\Log\LoggerInterface;
  * caller asked for one at initiation (ADR-0037), and publishes the
  * event to the outbox, all in one transaction (ADR-0036, ADR-0038 §4/§5).
  *
- * # What it does (and doesn't)
+ * # Authenticity (security review finding — this used to be entirely
+ * unauthenticated)
  *
- * - **No signature verification** at this point — the MyCoolPay docs
- *   give no clear algorithm; we keep the hook ready to plug in as
- *   soon as we have a real signed body sample.
- * - **No outbound call**. Everything happens from the inbound payload.
+ * Two checks, per MyCoolPay's own documented procedure (API docs §7.5
+ * "Callback requests integrity"), BOTH required before anything else is
+ * even considered — see `MyCoolPayCallbackAuthenticator`:
+ *  1. The request's source IP must be MyCoolPay's server.
+ *  2. The payload's `signature` must match
+ *     `md5(transaction_ref+transaction_type+transaction_amount+
+ *     transaction_currency+transaction_operator+private_key)`.
+ * Either failing means the request is not from MyCoolPay: rejected with
+ * 403, not silently ignored with 200 — this is the actual trust
+ * boundary, not a business-logic filter.
  *
- * # Security filters
+ * If the private key cannot even be loaded (provider misconfigured),
+ * the webhook is likewise rejected — we would have no basis to trust it.
  *
- * Two filters are applied BEFORE the handler is called:
+ * # No outbound call — everything happens from the inbound payload.
+ *
+ * # Business filters (applied only AFTER authenticity is established)
+ *
  *  1. `transaction_type` must be `'PAYIN'`. Payout webhooks are
  *     ignored here — they will be handled by a dedicated controller
  *     when payout support lands.
  *  2. `application` (the public key) must match the configured one.
- *     This prevents a different tenant's webhook from injecting
- *     events into our system.
- * Both filters reply 200 OK to keep MyCoolPay from retrying — but
- * they log a `warning` so operators see the noise.
+ *     MyCoolPay's own docs confirm this key is NOT secret — it's shown
+ *     in every checkout link — so it proves nothing about the caller by
+ *     itself; kept only as a secondary cross-tenant sanity check now
+ *     that the signature above is the real authenticity gate.
+ * Both reply 200 OK to keep MyCoolPay from retrying — but log a
+ * `warning` so operators see the noise.
  */
 final class MyCoolPayWebhookController
 {
@@ -69,6 +84,7 @@ final class MyCoolPayWebhookController
         private PaymentStatusMapper $statusMapper,
         private Clock $clock,
         private ProviderConfigRegistry $configRegistry,
+        private PaymentCallbackAuthenticator $authenticator,
         private LoggerInterface $logger,
     ) {}
 
@@ -81,10 +97,21 @@ final class MyCoolPayWebhookController
         /** @var array<string, mixed> $body */
         $body = $request->json()->all();
 
+        if (! $this->isAuthentic($request, $body)) {
+            // Not a business-logic filter — this is the actual trust
+            // boundary. A 403 here (unlike the 200s below) is a
+            // deliberate, visible signal: MyCoolPay doesn't retry
+            // callbacks regardless of the response, so this costs
+            // nothing on their side, and it keeps a forged or
+            // misconfigured request from ever looking like a normally
+            // "ignored" one in our own logs/metrics.
+            return new JsonResponse(['status' => 'forbidden'], 403);
+        }
+
         $event = $this->buildEvent($body);
         if ($event === null) {
-            // The payload was structurally valid but the controller chose
-            // not to proceed (wrong transaction type, wrong application,
+            // The payload was authentic but the controller chose not to
+            // proceed (wrong transaction type, wrong application,
             // missing fields, or unknown status). We have already logged
             // a warning. Reply 200 OK anyway: MyCoolPay considers any 2xx
             // a successful delivery; bouncing 4xx would make them retry
@@ -101,6 +128,46 @@ final class MyCoolPayWebhookController
         ]);
 
         return new JsonResponse(['status' => 'received'], 200);
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     */
+    private function isAuthentic(Request $request, array $body): bool
+    {
+        if (! $this->authenticator->isFromTrustedIp($request->ip())) {
+            $this->logger->error('my-coolpay.webhook.untrusted_ip', [
+                'ip' => $request->ip(),
+            ]);
+
+            return false;
+        }
+
+        try {
+            $privateKey = $this->configRegistry->configFor(
+                ProviderCode::fromString('my-coolpay'),
+            )->defaultCredentials->apiKey;
+        } catch (ProviderNotConfigured) {
+            $privateKey = null;
+        }
+
+        if ($privateKey === null || $privateKey === '') {
+            // No key means no way to verify — never fall back to
+            // trusting the payload.
+            $this->logger->error('my-coolpay.webhook.no_private_key_configured');
+
+            return false;
+        }
+
+        if (! $this->authenticator->hasValidSignature($body, $privateKey)) {
+            $this->logger->error('my-coolpay.webhook.invalid_signature', [
+                'transaction_ref' => $body['transaction_ref'] ?? null,
+            ]);
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -187,7 +254,7 @@ final class MyCoolPayWebhookController
             $config = $this->configRegistry->configFor(
                 ProviderCode::fromString('my-coolpay'),
             );
-        } catch (\Core\Support\Integration\Configuration\ProviderNotConfigured) {
+        } catch (ProviderNotConfigured) {
             return null;
         }
         $value = $config->extra('public_key', '');

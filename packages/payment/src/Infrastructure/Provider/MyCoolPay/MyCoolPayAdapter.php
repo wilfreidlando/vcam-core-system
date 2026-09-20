@@ -8,10 +8,11 @@ use Core\Payment\Contracts\InitiatePaymentCommand;
 use Core\Payment\Contracts\PaymentAction;
 use Core\Payment\Contracts\PaymentGateway;
 use Core\Payment\Contracts\PaymentReceipt;
+use Core\Payment\Domain\Exception\ProviderApplicationNotFound;
+use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Payment\PaymentFlow;
 use Core\Payment\PaymentStatus;
 use Core\Support\Integration\Configuration\ProviderConfig;
-use Core\Support\Integration\Credentials;
 use Core\Support\Integration\ExternalApiCaller;
 use Core\Support\Integration\ExternalRequest;
 use Core\Support\Integration\HttpMethod;
@@ -55,8 +56,14 @@ use RuntimeException;
  * `requiresAuth: true` and the bearer auth provider will attach the
  * `X-PRIVATE-KEY` header.
  *
- * Per-call credential override is supported via the `Credentials` VO
- * (multi-tenant — see ADR-0034 and Core\Support\Integration\Credentials).
+ * **Multi-tenant**: each Project has its own MyCoolPay application (its
+ * own public/private key pair), registered via
+ * `payment:register-provider-application` and resolved here per call
+ * through `ProviderApplicationRepository` — never a single platform-wide
+ * key pair (security review finding, user-directed expansion: "chaque
+ * application a ses clés"). `$config` still supplies infra-level
+ * settings shared across every application (base URL, timeouts,
+ * retries, breaker), just not the key pair itself.
  */
 final readonly class MyCoolPayAdapter implements PaymentGateway
 {
@@ -64,6 +71,7 @@ final readonly class MyCoolPayAdapter implements PaymentGateway
         private ExternalApiCaller $caller,
         private ProviderConfig $config,
         private MyCoolPayStatusMapper $statusMapper,
+        private ProviderApplicationRepository $applications,
     ) {}
 
     public function providerCode(): ProviderCode
@@ -78,13 +86,7 @@ final readonly class MyCoolPayAdapter implements PaymentGateway
 
     public function initiate(InitiatePaymentCommand $command): PaymentReceipt
     {
-        $publicKey = self::publicKey($this->config);
-        if ($publicKey === '') {
-            throw new RuntimeException(sprintf(
-                'MyCoolPay provider "%s" is missing extras.public_key in its configuration.',
-                $this->config->code->toString(),
-            ));
-        }
+        $publicKey = $this->publicKeyForProject($command->projectId);
 
         // Build the request body once — shared shape between /payin and /paylink.
         $body = [
@@ -131,7 +133,7 @@ final readonly class MyCoolPayAdapter implements PaymentGateway
 
     public function submitAction(PaymentAction $action): PaymentReceipt
     {
-        $publicKey = self::publicKey($this->config);
+        $publicKey = $this->publicKeyForProject($action->projectId);
 
         $request = new ExternalRequest(
             method: HttpMethod::POST,
@@ -151,9 +153,9 @@ final readonly class MyCoolPayAdapter implements PaymentGateway
         return $this->buildReceiptFromInitResponse($response->body, PaymentFlow::Payin);
     }
 
-    public function checkStatus(string $transactionRef): PaymentReceipt
+    public function checkStatus(string $transactionRef, string $projectId): PaymentReceipt
     {
-        $publicKey = self::publicKey($this->config);
+        $publicKey = $this->publicKeyForProject($projectId);
 
         $request = new ExternalRequest(
             method: HttpMethod::GET,
@@ -171,15 +173,17 @@ final readonly class MyCoolPayAdapter implements PaymentGateway
     }
 
     /**
-     * Read the provider's public key from `extras` with a runtime type
-     * assertion. The extras array is `array<string, mixed>` by design;
-     * we narrow here to keep the rest of the adapter strictly typed.
+     * Resolve this Project's own MyCoolPay application public key — never
+     * a single platform-wide one. Throws rather than falling back to any
+     * default: a Project without its own registered application cannot
+     * pay through MyCoolPay, full stop (security review finding).
      */
-    private static function publicKey(ProviderConfig $config): string
+    private function publicKeyForProject(string $projectId): string
     {
-        $value = $config->extra('public_key', '');
+        $application = $this->applications->findByProjectAndProvider($projectId, $this->config->code->toString())
+            ?? throw ProviderApplicationNotFound::forProject($projectId, $this->config->code->toString());
 
-        return is_string($value) ? $value : '';
+        return $application->publicKey;
     }
 
     /**

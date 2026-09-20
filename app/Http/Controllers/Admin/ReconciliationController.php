@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use Core\Audit\Contracts\AuditEntry;
+use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Payment\Contracts\ReconcileStuckPayments;
 use Core\Payment\Contracts\ReconcileStuckPaymentsCommand;
+use Core\Support\Clock;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,6 +33,8 @@ final class ReconciliationController
 
     public function __construct(
         private readonly ReconcileStuckPayments $reconcile,
+        private readonly AuditLogger $audit,
+        private readonly Clock $clock,
     ) {}
 
     public function new(OperatorContext $operator): Response
@@ -69,6 +74,21 @@ final class ReconciliationController
         } catch (Throwable $e) {
             return back()->withErrors(['limit_override' => 'Reconciliation failed: '.$e->getMessage()]);
         }
+
+        // The JSON API's equivalent controller audits this action; this
+        // web controller used to skip it entirely, leaving no audit
+        // trail for a reconciliation run triggered from the console
+        // (security review finding).
+        $this->audit->record(new AuditEntry(
+            actor: 'operator:'.$operator->operatorId,
+            action: 'payment_reconciliation.triggered',
+            resource: 'payment_reconciliation_run',
+            before: null,
+            after: ['checked' => $summary->checked, 'updated' => $summary->updated, 'errors' => $summary->errors],
+            context: [],
+            correlationId: null,
+            occurredAt: $this->clock->now(),
+        ));
 
         // Persist the last summary in the session so the redirect lands
         // on the form view with results displayed.

@@ -134,6 +134,7 @@ final readonly class NotificationSendCascade
                 recipientRef: $toPartyRef,
                 variables: $variables,
                 body: $body,
+                projectId: $projectId,
             );
 
             try {

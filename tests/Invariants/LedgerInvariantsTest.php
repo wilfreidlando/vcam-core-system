@@ -114,8 +114,8 @@ final class LedgerInvariantsTest extends TestCase
         $credited = app(CreditWallet::class)->credit(new CreditWalletCommand(
             self::PROJECT_ID, $partyId, 10_000, 'XAF', null, (string) Str::uuid(),
         ));
-        app(DebitWallet::class)->debit(new DebitWalletCommand($credited->walletId, 2_500, null, (string) Str::uuid()));
-        $final = app(DebitWallet::class)->debit(new DebitWalletCommand($credited->walletId, 1_500, null, (string) Str::uuid()));
+        app(DebitWallet::class)->debit(new DebitWalletCommand(self::PROJECT_ID, $credited->walletId, 2_500, null, (string) Str::uuid()));
+        $final = app(DebitWallet::class)->debit(new DebitWalletCommand(self::PROJECT_ID, $credited->walletId, 1_500, null, (string) Str::uuid()));
 
         $walletAccountId = DB::table('ledger_accounts')
             ->where('project_id', self::PROJECT_ID)

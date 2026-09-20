@@ -11,6 +11,7 @@ use Core\Notification\Contracts\NotificationChannelProviderRegistry;
 use Core\Notification\Contracts\NotificationProviderRouter;
 use Core\Notification\Contracts\RequestChannelSessionPairingCode;
 use Core\Notification\Contracts\RequestChannelSessionPairingCodeCommand;
+use Core\Notification\Domain\Model\ScopedSessionRef;
 
 final readonly class RequestChannelSessionPairingCodeUseCase implements RequestChannelSessionPairingCode
 {
@@ -28,10 +29,11 @@ final readonly class RequestChannelSessionPairingCodeUseCase implements RequestC
             throw new ChannelDoesNotSupportSessions($providerCode, $gateway::class);
         }
 
-        $gateway->startSession($command->sessionRef);
+        $sessionRef = ScopedSessionRef::for($command->projectId, $command->sessionRef)->value;
+        $gateway->startSession($sessionRef);
 
         return new ChannelSessionPairingCodeView(
-            $gateway->requestPairingCode($command->sessionRef, $command->phoneNumber),
+            $gateway->requestPairingCode($sessionRef, $command->phoneNumber),
         );
     }
 }

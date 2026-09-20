@@ -32,5 +32,14 @@ final readonly class PaymentView
         public ?string $actionHint,
         public ?string $paymentUrl,
         public ?string $errorMessage,
+        /**
+         * Populated ONLY by `StartPaymentUseCase::start()`, on the
+         * response that creates the payment — the one-shot-secret
+         * pattern (API keys, webhook endpoint secrets). Every other
+         * producer of a `PaymentView` (`GetPaymentStatusUseCase`,
+         * `ListPaymentsUseCase`) MUST pass `null` here; it is never
+         * re-derivable from stored state on purpose.
+         */
+        public ?string $callbackSecret = null,
     ) {}
 }

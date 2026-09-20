@@ -276,7 +276,14 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   wallets crédit/débit (aucun endpoint HTTP de mutation — ADR-0033 §1),
   parties à création paresseuse. Voir `packages/ledger/README.md`,
   `packages/wallet/README.md`, `packages/parties/README.md` — et
-  [ADR-0033](docs/adr/0033-conception-lot-2-money-core.md).
+  [ADR-0033](docs/adr/0033-conception-lot-2-money-core.md). Depuis
+  ADR-0051 : `CreditWallet`/`DebitWallet` vérifient que le wallet résolu
+  appartient bien au `projectId` déclaré (`WalletProjectMismatch` sinon) ;
+  les commandes CLI `wallet:credit`/`wallet:debit` ont été **retirées**
+  (aucun besoin opérationnel identifié, aucun garde-fou) — le seul appel
+  encore possible à `CreditWallet`/`DebitWallet` en pratique est
+  `HandlePaymentStatusChangedUseCase`, qui dérive toujours son `partyId`
+  du même `projectId`.
 - Module `payment` : **orchestration Lot 3 livrée** — voir
   [ADR-0038](docs/adr/0038-conception-lot-3-payment-channel-routage-etat-callback.md)
   et [ADR-0039](docs/adr/0039-payment-gateway-registry-typed.md). Le champ
@@ -284,12 +291,23 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   `provider` interne jamais exposé ; `ConfigPaymentProviderRouter` résout
   `(channel, Project) → provider` ; l'agrégat `Payment` possède son propre
   état (il sait quel provider le traite, le statut et les webhooks entrants
-  n'ont donc jamais à deviner) ; `StartPaymentUseCase` (`POST /v1/payments`),
-  `GetPaymentStatusUseCase` (`GET /v1/payments/{id}`, lit l'état du Core
-  seulement, pas de réconciliation live avec le provider) et
-  `HandlePaymentStatusChangedUseCase` (webhook → statut → crédit wallet
-  optionnel, transactionnel, idempotent au rejeu). Adaptateur concret livré :
-  MyCoolPay (`initiate`, `submitAction`, `checkStatus`, webhook).
+  n'ont donc jamais à deviner) ; `StartPaymentUseCase`, exposé sur
+  **trois** routes (ADR-0051) — `POST /v1/payments/paylink` (lien de
+  paiement hébergé) et `POST /v1/payments/payin` (charge directe,
+  app-driven) sont les points d'entrée documentés ; `POST /v1/payments`
+  reste actif pour compatibilité (G9) mais n'est plus le chemin
+  recommandé. Les trois acceptent un `callback_url` optionnel — le canal
+  fiable serveur-à-serveur (signé HMAC, secret à usage unique retourné
+  dans la réponse) distinct de `return_url` (redirection navigateur,
+  best-effort). `GetPaymentStatusUseCase` (`GET /v1/payments/{id}`, lit
+  l'état du Core seulement, pas de réconciliation live avec le provider)
+  et `HandlePaymentStatusChangedUseCase` (webhook → statut → crédit
+  wallet optionnel, transactionnel, idempotent au rejeu). Adaptateur
+  concret livré : MyCoolPay (`initiate`, `submitAction`, `checkStatus`,
+  webhook — **authentifié** depuis ADR-0051 : IP + signature MD5, plus
+  une application MyCoolPay distincte **par Project**, jamais une clé
+  partagée — voir `payment_provider_applications`,
+  `payment:register-provider-application`).
   `PaymentGatewayRegistry` détecte les codes provider dupliqués au boot
   plutôt que d'écraser silencieusement (ADR-0039). Depuis le Lot 6
   (ADR-0044), `payment` expose aussi `Contracts\ReconcileStuckPayments` —

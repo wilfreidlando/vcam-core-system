@@ -11,6 +11,7 @@ use Core\Notification\Contracts\GetChannelSessionCommand;
 use Core\Notification\Contracts\GetChannelSessionScreenshot;
 use Core\Notification\Contracts\NotificationChannelProviderRegistry;
 use Core\Notification\Contracts\NotificationProviderRouter;
+use Core\Notification\Domain\Model\ScopedSessionRef;
 
 final readonly class GetChannelSessionScreenshotUseCase implements GetChannelSessionScreenshot
 {
@@ -28,8 +29,9 @@ final readonly class GetChannelSessionScreenshotUseCase implements GetChannelSes
             throw new ChannelDoesNotSupportSessions($providerCode, $gateway::class);
         }
 
-        $gateway->startSession($command->sessionRef);
+        $sessionRef = ScopedSessionRef::for($command->projectId, $command->sessionRef)->value;
+        $gateway->startSession($sessionRef);
 
-        return $gateway->getScreenshot($command->sessionRef);
+        return $gateway->getScreenshot($sessionRef);
     }
 }

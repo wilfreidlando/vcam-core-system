@@ -9,12 +9,14 @@ use Core\Ledger\Contracts\LedgerEntryInput;
 use Core\Ledger\Contracts\LedgerPoster;
 use Core\Ledger\Contracts\LedgerTransactionRef;
 use Core\Ledger\Contracts\PostLedgerTransactionCommand;
+use Core\Ledger\Domain\Exception\LedgerTransactionAlreadyExists;
 use Core\Ledger\Domain\Model\Direction;
 use Core\Ledger\Domain\Model\LedgerEntry;
 use Core\Ledger\Domain\Model\LedgerTransaction;
 use Core\Ledger\Domain\Port\LedgerTransactionRepository;
 use Core\Support\Identifier;
 use Core\Support\Money\Money;
+use LogicException;
 
 /**
  * The ledger-level idempotence mechanism (ADR-0033 §2): replaying the same
@@ -50,7 +52,21 @@ final readonly class PostLedgerTransaction implements LedgerPoster
             array_map($this->toDomainEntry(...), $command->entries),
         );
 
-        $this->transactions->save($transaction);
+        try {
+            $this->transactions->save($transaction);
+        } catch (LedgerTransactionAlreadyExists) {
+            // Lost a genuine concurrent race: another call with the same
+            // (projectId, idempotencyKey) committed first, between this
+            // call's read above and its own insert. The unique
+            // constraint already guarantees no double-post happened —
+            // this just re-reads the winner instead of letting the
+            // violation bubble up as an unhandled 500 (security review
+            // finding).
+            $winner = $this->transactions->findByIdempotencyKey($command->projectId, $command->idempotencyKey)
+                ?? throw new LogicException('Ledger transaction insert conflicted but no transaction was found afterwards.');
+
+            return $this->toRef($winner, wasAlreadyPosted: true);
+        }
 
         return $this->toRef($transaction, wasAlreadyPosted: false);
     }

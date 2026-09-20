@@ -25,8 +25,25 @@ it('ensures the session is started before returning the qr code', function (): v
 
     $qr = $useCase->get(new GetChannelSessionCommand('project-1', NotificationChannel::fromString('whatsapp'), 'shop-1'));
 
-    expect($provider->startedSessions)->toBe(['shop-1'])
+    // Security review finding: sessionRef is namespaced by projectId
+    // before it ever reaches the provider — never forwarded as the
+    // caller supplied it.
+    expect($provider->startedSessions)->toBe(['project-1:shop-1'])
         ->and($qr)->toBe($provider->nextQrCode);
+});
+
+it('scopes the same caller-supplied session ref differently per project', function (): void {
+    $provider = new FakeChannelSessionProvider(ProviderCode::fromString('whatsapp-waha'));
+    $registry = new FakeNotificationChannelProviderRegistry;
+    $registry->register($provider);
+    $router = new FakeNotificationProviderRouter(['whatsapp-waha']);
+
+    $useCase = new GetChannelSessionQrCodeUseCase($router, $registry);
+
+    $useCase->get(new GetChannelSessionCommand('project-A', NotificationChannel::fromString('whatsapp'), 'shop-1'));
+    $useCase->get(new GetChannelSessionCommand('project-B', NotificationChannel::fromString('whatsapp'), 'shop-1'));
+
+    expect($provider->startedSessions)->toBe(['project-A:shop-1', 'project-B:shop-1']);
 });
 
 it('ensures the session is started before returning the screenshot', function (): void {
@@ -39,7 +56,7 @@ it('ensures the session is started before returning the screenshot', function ()
 
     $screenshot = $useCase->get(new GetChannelSessionCommand('project-1', NotificationChannel::fromString('whatsapp'), 'shop-1'));
 
-    expect($provider->startedSessions)->toBe(['shop-1'])
+    expect($provider->startedSessions)->toBe(['project-1:shop-1'])
         ->and($screenshot)->toBe($provider->nextScreenshot);
 });
 
@@ -59,7 +76,7 @@ it('requests a pairing code after ensuring the session is started', function ():
         '237699009900',
     ));
 
-    expect($provider->startedSessions)->toBe(['shop-1'])
+    expect($provider->startedSessions)->toBe(['project-1:shop-1'])
         ->and($view->code)->toBe('WXYZ-1234');
 });
 

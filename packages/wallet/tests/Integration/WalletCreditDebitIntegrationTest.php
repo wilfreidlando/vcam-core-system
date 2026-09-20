@@ -62,7 +62,7 @@ final class WalletCreditDebitIntegrationTest extends TestCase
         ));
 
         $debited = app(DebitWallet::class)->debit(new DebitWalletCommand(
-            $credited->walletId, 4_000, null, (string) Str::uuid(),
+            self::PROJECT_ID, $credited->walletId, 4_000, null, (string) Str::uuid(),
         ));
 
         self::assertSame(6_000, $debited->availableMinor);
@@ -95,7 +95,7 @@ final class WalletCreditDebitIntegrationTest extends TestCase
         ));
 
         try {
-            app(DebitWallet::class)->debit(new DebitWalletCommand($credited->walletId, 101, null, (string) Str::uuid()));
+            app(DebitWallet::class)->debit(new DebitWalletCommand(self::PROJECT_ID, $credited->walletId, 101, null, (string) Str::uuid()));
             self::fail('Expected InsufficientFunds.');
         } catch (InsufficientFunds) {
             // expected
@@ -120,8 +120,8 @@ final class WalletCreditDebitIntegrationTest extends TestCase
             self::PROJECT_ID, $partyId, 1_000, 'XAF', null, (string) Str::uuid(),
         ));
 
-        $first = app(DebitWallet::class)->debit(new DebitWalletCommand($credited->walletId, 400, null, $idempotencyKey));
-        $second = app(DebitWallet::class)->debit(new DebitWalletCommand($credited->walletId, 400, null, $idempotencyKey));
+        $first = app(DebitWallet::class)->debit(new DebitWalletCommand(self::PROJECT_ID, $credited->walletId, 400, null, $idempotencyKey));
+        $second = app(DebitWallet::class)->debit(new DebitWalletCommand(self::PROJECT_ID, $credited->walletId, 400, null, $idempotencyKey));
 
         self::assertSame($first->availableMinor, $second->availableMinor);
         self::assertSame(600, $second->availableMinor);

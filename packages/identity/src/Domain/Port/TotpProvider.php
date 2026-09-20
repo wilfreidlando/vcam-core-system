@@ -32,12 +32,16 @@ interface TotpProvider
     public function buildOtpauthUri(string $secret, string $email): string;
 
     /**
-     * The current 6-digit TOTP code for the given secret.
+     * The current 6-digit TOTP code for the given secret. The operator's
+     * MFA secret stays on the server; this method never logs it.
+     * Implementations MUST return the current window's code only.
      *
-     * Used by the dev-only `admin:current-otp` console command to surface
-     * a usable code in a terminal (no more grepping docker logs). The
-     * operator's MFA secret stays on the server; this method never logs
-     * it. Implementations MUST return the current window's code only.
+     * Security review finding: the dev-only `admin:current-otp` console
+     * command this used to back was removed — it let anyone with CLI
+     * access read any operator's live MFA code (an MFA bypass), and the
+     * local-testing friction it solved is now covered by
+     * `IDENTITY_DISABLE_TOTP_IN_LOCAL` instead. This method stays on the
+     * port because `AlwaysValidTotpProvider`/tests still use it.
      *
      * @param string $secret The base32 raw TOTP secret (decrypted).
      */

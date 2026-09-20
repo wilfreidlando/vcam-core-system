@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Core\Ledger\Contracts\Direction;
 use Core\Wallet\Application\UseCase\CreditWalletUseCase;
 use Core\Wallet\Contracts\CreditWalletCommand;
+use Core\Wallet\Domain\Exception\WalletProjectMismatch;
 use Core\Wallet\Tests\Unit\Fakes\FakeAccountResolver;
 use Core\Wallet\Tests\Unit\Fakes\FakeLedgerPoster;
 use Core\Wallet\Tests\Unit\Fakes\FixedClock;
@@ -84,6 +85,14 @@ it('appends a wallet.credited event to the outbox', function (): void {
         ->and($outbox->events[0]->payload['wallet_id'])->toBe($view->walletId)
         ->and($outbox->events[0]->payload['amount_minor'])->toBe(1_000);
 });
+
+it('rejects crediting a party whose existing wallet belongs to a different project', function (): void {
+    [$useCase] = makeCreditUseCase();
+
+    $useCase->credit(new CreditWalletCommand('project-1', 'party-1', 1_000, 'XAF', null, 'idem-1'));
+
+    $useCase->credit(new CreditWalletCommand('project-2', 'party-1', 500, 'XAF', null, 'idem-2'));
+})->throws(WalletProjectMismatch::class);
 
 it('replaying the same idempotency key does not double the balance or the outbox', function (): void {
     [$useCase, , $balances, , $outbox] = makeCreditUseCase();

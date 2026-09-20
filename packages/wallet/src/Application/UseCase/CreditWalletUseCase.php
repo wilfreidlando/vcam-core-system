@@ -20,6 +20,7 @@ use Core\Wallet\Contracts\CreditWallet;
 use Core\Wallet\Contracts\CreditWalletCommand;
 use Core\Wallet\Contracts\WalletBalanceView;
 use Core\Wallet\Domain\Exception\WalletAlreadyExists;
+use Core\Wallet\Domain\Exception\WalletProjectMismatch;
 use Core\Wallet\Domain\Model\Wallet;
 use Core\Wallet\Domain\Model\WalletBalance;
 use Core\Wallet\Domain\Port\WalletBalanceRepository;
@@ -124,6 +125,10 @@ final readonly class CreditWalletUseCase implements CreditWallet
         $existing = $this->wallets->findByPartyAndCurrency($partyId, $currency);
 
         if ($existing !== null) {
+            if ($existing->projectId !== $projectId) {
+                throw WalletProjectMismatch::forWallet($existing->id, $projectId);
+            }
+
             return $existing;
         }
 

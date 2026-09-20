@@ -100,9 +100,41 @@ final class WahaAdapterTest extends TestCase
         $this->adapter->send($this->message(
             body: ['type' => 'text', 'text' => 'hi'],
             variables: ['phone_number' => '237699009900', 'session' => 'shop-1'],
+            projectId: 'project-1',
         ));
 
-        Http::assertSent(fn (Request $r): bool => $r['session'] === 'shop-1');
+        // Security review finding: a caller-supplied session name is
+        // namespaced by the calling Project before it ever reaches WAHA
+        // — not forwarded verbatim — so one Project can never send
+        // through a session name it merely guessed belongs to another.
+        Http::assertSent(fn (Request $r): bool => $r['session'] === 'project-1:shop-1');
+    }
+
+    #[Test]
+    public function two_projects_supplying_the_same_session_name_are_scoped_to_different_waha_sessions(): void
+    {
+        Http::fake([
+            'waha.test/api/sendText' => Http::response(['id' => 'msg-4'], 201),
+        ]);
+
+        $this->adapter->send($this->message(
+            body: ['type' => 'text', 'text' => 'hi'],
+            variables: ['phone_number' => '237699009900', 'session' => 'shop-1'],
+            projectId: 'project-A',
+        ));
+        $this->adapter->send($this->message(
+            body: ['type' => 'text', 'text' => 'hi'],
+            variables: ['phone_number' => '237699009900', 'session' => 'shop-1'],
+            projectId: 'project-B',
+        ));
+
+        $sessions = collect(Http::recorded())
+            ->map(fn (array $pair) => $pair[0]['session'] ?? null)
+            ->all();
+
+        self::assertContains('project-A:shop-1', $sessions);
+        self::assertContains('project-B:shop-1', $sessions);
+        self::assertNotContains('shop-1', $sessions);
     }
 
     #[Test]
@@ -206,7 +238,7 @@ final class WahaAdapterTest extends TestCase
      * @param array<string, mixed> $body
      * @param array<string, mixed> $variables
      */
-    private function message(array $body, array $variables): OutboundMessage
+    private function message(array $body, array $variables, string $projectId = 'project-1'): OutboundMessage
     {
         return new OutboundMessage(
             appMessageRef: 'app-msg-1',
@@ -214,6 +246,7 @@ final class WahaAdapterTest extends TestCase
             recipientRef: 'party-ref-1',
             variables: $variables,
             body: $body,
+            projectId: $projectId,
         );
     }
 

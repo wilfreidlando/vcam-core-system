@@ -41,5 +41,12 @@ final readonly class StartPaymentCommand
         public PaymentFlow $flow = PaymentFlow::Payin,
         public ?string $returnUrl = null,
         public ?string $walletRecipientExternalRef = null,
+        /**
+         * The reliable, server-to-server notification target for this
+         * payment — distinct from `returnUrl`. Validated for SSRF safety
+         * at the Presentation layer (`SafeOutboundUrlRule`, shared with
+         * `POST /v1/webhook-endpoints`) before it ever reaches this DTO.
+         */
+        public ?string $callbackUrl = null,
     ) {}
 }

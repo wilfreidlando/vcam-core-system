@@ -99,7 +99,7 @@ final readonly class ReconcileStuckPaymentsUseCase implements ReconcileStuckPaym
     private function reconcileOne(Payment $payment): bool
     {
         $gateway = $this->gateways->gatewayFor(ProviderCode::fromString($payment->providerCode));
-        $receipt = $gateway->checkStatus($payment->providerTransactionRef);
+        $receipt = $gateway->checkStatus($payment->providerTransactionRef, $payment->projectId);
 
         if ($receipt->status === $payment->status) {
             return false;

@@ -11,6 +11,7 @@ use Core\Payment\PaymentStatus;
 use Core\Payment\Tests\Unit\Fakes\FakePaymentGateway;
 use Core\Payment\Tests\Unit\Fakes\FakePaymentGatewayRegistry;
 use Core\Payment\Tests\Unit\Fakes\FakePaymentProviderRouter;
+use Core\Payment\Tests\Unit\Fakes\FixedPaymentCallbackSecretGenerator;
 use Core\Payment\Tests\Unit\Fakes\InMemoryPaymentRepository;
 use Core\Payment\Tests\Unit\Fakes\SequentialIdentifier;
 use Core\Support\Integration\Provider\ProviderCode;
@@ -27,7 +28,7 @@ function makeStartPaymentUseCase(): array
     $gateway = new FakePaymentGateway(ProviderCode::fromString('my-coolpay'));
     $registry->register($gateway);
 
-    $useCase = new StartPaymentUseCase($payments, $router, $registry, new SequentialIdentifier);
+    $useCase = new StartPaymentUseCase($payments, $router, $registry, new SequentialIdentifier, new FixedPaymentCallbackSecretGenerator);
 
     return [$useCase, $payments, $gateway];
 }
@@ -152,4 +153,44 @@ it('returns receipt fields (requires_action, payment_url) from the gateway', fun
     expect($view->paymentUrl)->toBe('https://pay.example/session/2')
         ->and($view->requiresAction)->toBeTrue()
         ->and($view->actionHint)->toBe('Enter the OTP sent by SMS');
+});
+
+it('generates and returns a callback secret once, only when a callback_url was requested', function (): void {
+    [$useCase] = makeStartPaymentUseCase();
+
+    $withCallback = $useCase->start(new StartPaymentCommand(
+        projectId: 'project-1',
+        channel: PaymentChannel::fromString('mtn_momo'),
+        amount: 1_000,
+        currency: 'XAF',
+        reason: 'a',
+        idempotencyKey: 'idem-with-callback',
+        callbackUrl: 'https://merchant.example/callbacks/payments',
+    ));
+
+    expect($withCallback->callbackSecret)->toBe('fixed-callback-secret');
+
+    $withoutCallback = $useCase->start(startCommand('idem-without-callback'));
+
+    expect($withoutCallback->callbackSecret)->toBeNull();
+});
+
+it('never re-exposes the callback secret on an idempotent replay', function (): void {
+    [$useCase] = makeStartPaymentUseCase();
+
+    $command = new StartPaymentCommand(
+        projectId: 'project-1',
+        channel: PaymentChannel::fromString('mtn_momo'),
+        amount: 1_000,
+        currency: 'XAF',
+        reason: 'a',
+        idempotencyKey: 'idem-replayed',
+        callbackUrl: 'https://merchant.example/callbacks/payments',
+    );
+
+    $first = $useCase->start($command);
+    $second = $useCase->start($command);
+
+    expect($first->callbackSecret)->toBe('fixed-callback-secret')
+        ->and($second->callbackSecret)->toBeNull();
 });

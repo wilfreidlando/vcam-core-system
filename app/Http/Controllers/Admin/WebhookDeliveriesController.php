@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use Core\Audit\Contracts\AuditEntry;
+use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Support\Clock;
 use Core\Webhook\Contracts\DeliverWebhookCommand;
 use Core\Webhook\Contracts\ListDeadWebhookDeliveries;
 use Core\Webhook\Contracts\ListDeadWebhookDeliveriesCommand;
@@ -31,6 +34,8 @@ final class WebhookDeliveriesController
         private readonly ListDeadWebhookDeliveries $listDead,
         private readonly ReplayWebhookDelivery $replay,
         private readonly QueueWebhookDelivery $queue,
+        private readonly AuditLogger $audit,
+        private readonly Clock $clock,
     ) {}
 
     public function index(Request $request, OperatorContext $operator): Response
@@ -96,6 +101,21 @@ final class WebhookDeliveriesController
         // delivery was created but never attempted (review finding,
         // Lot 6 follow-up).
         $this->queue->queue(new DeliverWebhookCommand($result->newDeliveryId));
+
+        // The JSON API's equivalent controller audits this action; this
+        // web controller used to skip it entirely, leaving no audit
+        // trail for a replay triggered from the console (security
+        // review finding).
+        $this->audit->record(new AuditEntry(
+            actor: 'operator:'.$operator->operatorId,
+            action: 'webhook_delivery.replayed',
+            resource: 'webhook_delivery:'.$delivery,
+            before: null,
+            after: ['new_delivery_id' => $result->newDeliveryId],
+            context: [],
+            correlationId: null,
+            occurredAt: $this->clock->now(),
+        ));
 
         return redirect()->route('admin.webhook-deliveries.dead')
             ->with('status', 'Replay queued — new delivery id: '.substr($result->newDeliveryId, 0, 8).'…');

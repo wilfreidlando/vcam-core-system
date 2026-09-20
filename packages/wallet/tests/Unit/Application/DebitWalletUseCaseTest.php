@@ -8,6 +8,7 @@ use Core\Wallet\Application\UseCase\DebitWalletUseCase;
 use Core\Wallet\Contracts\DebitWalletCommand;
 use Core\Wallet\Domain\Exception\InsufficientFunds;
 use Core\Wallet\Domain\Exception\WalletNotFound;
+use Core\Wallet\Domain\Exception\WalletProjectMismatch;
 use Core\Wallet\Domain\Model\Wallet;
 use Core\Wallet\Domain\Model\WalletBalance;
 use Core\Wallet\Tests\Unit\Fakes\FakeAccountResolver;
@@ -50,7 +51,7 @@ function makeDebitUseCase(int $initialAvailableMinor = 1_000, string $currency =
 it('debits an existing wallet with sufficient funds', function (): void {
     [$useCase, $balances, , , $walletId] = makeDebitUseCase(1_000);
 
-    $view = $useCase->debit(new DebitWalletCommand($walletId, 400, null, 'idem-1'));
+    $view = $useCase->debit(new DebitWalletCommand('project-1', $walletId, 400, null, 'idem-1'));
 
     expect($view->availableMinor)->toBe(600)
         ->and($balances->find($walletId)?->available->amountMinor())->toBe(600);
@@ -59,19 +60,25 @@ it('debits an existing wallet with sufficient funds', function (): void {
 it('rejects a debit against an unknown wallet', function (): void {
     [$useCase] = makeDebitUseCase();
 
-    $useCase->debit(new DebitWalletCommand('unknown-wallet', 100, null, 'idem-1'));
+    $useCase->debit(new DebitWalletCommand('project-1', 'unknown-wallet', 100, null, 'idem-1'));
 })->throws(WalletNotFound::class);
+
+it('rejects a debit claiming a project that does not own the wallet', function (): void {
+    [$useCase, , , , $walletId] = makeDebitUseCase(1_000);
+
+    $useCase->debit(new DebitWalletCommand('project-2', $walletId, 400, null, 'idem-1'));
+})->throws(WalletProjectMismatch::class);
 
 it('rejects a debit that would overdraw the available balance', function (): void {
     [$useCase, , , , $walletId] = makeDebitUseCase(100);
 
-    $useCase->debit(new DebitWalletCommand($walletId, 101, null, 'idem-1'));
+    $useCase->debit(new DebitWalletCommand('project-1', $walletId, 101, null, 'idem-1'));
 })->throws(InsufficientFunds::class);
 
 it('posts a balanced double-entry transaction: debit wallet, credit clearing', function (): void {
     [$useCase, , $ledgerPoster, , $walletId] = makeDebitUseCase(1_000);
 
-    $useCase->debit(new DebitWalletCommand($walletId, 400, null, 'idem-1'));
+    $useCase->debit(new DebitWalletCommand('project-1', $walletId, 400, null, 'idem-1'));
 
     expect($ledgerPoster->posted)->toHaveCount(1);
 
@@ -83,7 +90,7 @@ it('posts a balanced double-entry transaction: debit wallet, credit clearing', f
 it('appends a wallet.debited event to the outbox', function (): void {
     [$useCase, , , $outbox, $walletId] = makeDebitUseCase(1_000);
 
-    $useCase->debit(new DebitWalletCommand($walletId, 400, null, 'idem-1'));
+    $useCase->debit(new DebitWalletCommand('project-1', $walletId, 400, null, 'idem-1'));
 
     expect($outbox->events)->toHaveCount(1)
         ->and($outbox->events[0]->type)->toBe('wallet.debited')
@@ -93,8 +100,8 @@ it('appends a wallet.debited event to the outbox', function (): void {
 it('replaying the same idempotency key does not double-debit or append a second event', function (): void {
     [$useCase, $balances, , $outbox, $walletId] = makeDebitUseCase(1_000);
 
-    $first = $useCase->debit(new DebitWalletCommand($walletId, 400, null, 'idem-1'));
-    $second = $useCase->debit(new DebitWalletCommand($walletId, 400, null, 'idem-1'));
+    $first = $useCase->debit(new DebitWalletCommand('project-1', $walletId, 400, null, 'idem-1'));
+    $second = $useCase->debit(new DebitWalletCommand('project-1', $walletId, 400, null, 'idem-1'));
 
     expect($second->availableMinor)->toBe($first->availableMinor)
         ->and($balances->find($walletId)?->available->amountMinor())->toBe(600)
@@ -112,12 +119,12 @@ it('replaying the same idempotency key does not double-debit or append a second 
 it('replays successfully even when the reduced balance would no longer cover the original amount', function (): void {
     [$useCase, $balances, , , $walletId] = makeDebitUseCase(400);
 
-    $first = $useCase->debit(new DebitWalletCommand($walletId, 400, null, 'idem-1'));
+    $first = $useCase->debit(new DebitWalletCommand('project-1', $walletId, 400, null, 'idem-1'));
     expect($first->availableMinor)->toBe(0);
 
     // A naive "check funds first" implementation would throw InsufficientFunds
     // here, because the balance is now 0 and the request asks for 400 again.
-    $second = $useCase->debit(new DebitWalletCommand($walletId, 400, null, 'idem-1'));
+    $second = $useCase->debit(new DebitWalletCommand('project-1', $walletId, 400, null, 'idem-1'));
 
     expect($second->availableMinor)->toBe(0)
         ->and($balances->find($walletId)?->available->amountMinor())->toBe(0);

@@ -23,6 +23,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $error_message
  * @property string|null $return_url
  * @property string|null $wallet_recipient_external_ref
+ * @property string|null $callback_url
+ * @property string|null $callback_secret_encrypted
  */
 final class PaymentRecord extends Model
 {
@@ -46,6 +48,8 @@ final class PaymentRecord extends Model
         'error_message',
         'return_url',
         'wallet_recipient_external_ref',
+        'callback_url',
+        'callback_secret_encrypted',
     ];
 
     protected $casts = [

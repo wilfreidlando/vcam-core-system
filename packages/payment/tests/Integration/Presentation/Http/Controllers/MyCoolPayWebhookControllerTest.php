@@ -7,6 +7,7 @@ namespace Core\Payment\Tests\Integration\Presentation\Http\Controllers;
 use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\PaymentStatusMapper;
+use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayCallbackAuthenticator;
 use Core\Payment\PaymentStatus;
 use Core\Payment\Presentation\Http\Controllers\MyCoolPayWebhookController;
 use Core\Support\Clock;
@@ -28,6 +29,12 @@ use Tests\TestCase;
  * the Payment, crediting a wallet, publishing to the outbox) has its
  * own dedicated test, `HandlePaymentStatusChangedUseCaseTest`.
  *
+ * Security review finding: this controller used to have NO real
+ * authenticity check — every test body below now carries a correctly
+ * computed MD5 signature (`signedBody()`), per MyCoolPay's documented
+ * formula (API docs §7.5), or is specifically testing that an
+ * unauthentic request is rejected.
+ *
  * Why Integration, not Unit: the controller's dependencies come from
  * the Laravel container (test framework, container facade). The actual
  * HTTP handler is exercised; the persistence layer is replaced by a
@@ -35,6 +42,8 @@ use Tests\TestCase;
  */
 final class MyCoolPayWebhookControllerTest extends TestCase
 {
+    private const PRIVATE_KEY = 'sk';
+
     private FakePaymentStatusChangeHandler $handler;
 
     private MyCoolPayWebhookController $webhook;
@@ -42,14 +51,17 @@ final class MyCoolPayWebhookControllerTest extends TestCase
     #[Test]
     public function a_valid_payin_webhook_is_handed_to_the_status_change_handler(): void
     {
-        $body = [
+        $body = self::signedBody([
             'application' => 'pub-test-1234',
             'app_transaction_ref' => 'order-42',
             'transaction_ref' => 'tx-abc',
             'transaction_type' => 'PAYIN',
+            'transaction_amount' => 1000,
+            'transaction_currency' => 'XAF',
+            'transaction_operator' => 'CM_OM',
             'transaction_status' => 'SUCCESS',
             'transaction_reason' => 'Order #42',
-        ];
+        ]);
 
         $response = $this->invoke($this->webhookRequest($body));
 
@@ -66,12 +78,15 @@ final class MyCoolPayWebhookControllerTest extends TestCase
     #[Test]
     public function a_payout_webhook_is_ignored(): void
     {
-        $body = [
+        $body = self::signedBody([
             'application' => 'pub-test-1234',
             'transaction_ref' => 'tx-payout',
             'transaction_type' => 'PAYOUT',
+            'transaction_amount' => 1000,
+            'transaction_currency' => 'XAF',
+            'transaction_operator' => 'CM_OM',
             'transaction_status' => 'SUCCESS',
-        ];
+        ]);
 
         $response = $this->invoke($this->webhookRequest($body));
 
@@ -82,12 +97,15 @@ final class MyCoolPayWebhookControllerTest extends TestCase
     #[Test]
     public function a_webhook_from_a_different_application_is_rejected(): void
     {
-        $body = [
+        $body = self::signedBody([
             'application' => 'pub-OTHER-application',
             'transaction_ref' => 'tx-x',
             'transaction_type' => 'PAYIN',
+            'transaction_amount' => 1000,
+            'transaction_currency' => 'XAF',
+            'transaction_operator' => 'CM_OM',
             'transaction_status' => 'SUCCESS',
-        ];
+        ]);
 
         $response = $this->invoke($this->webhookRequest($body));
 
@@ -98,11 +116,14 @@ final class MyCoolPayWebhookControllerTest extends TestCase
     #[Test]
     public function a_webhook_missing_transaction_ref_is_ignored(): void
     {
-        $body = [
+        $body = self::signedBody([
             'application' => 'pub-test-1234',
             'transaction_type' => 'PAYIN',
+            'transaction_amount' => 1000,
+            'transaction_currency' => 'XAF',
+            'transaction_operator' => 'CM_OM',
             'transaction_status' => 'SUCCESS',
-        ];
+        ]);
 
         $response = $this->invoke($this->webhookRequest($body));
 
@@ -113,11 +134,14 @@ final class MyCoolPayWebhookControllerTest extends TestCase
     #[Test]
     public function a_webhook_missing_transaction_status_is_ignored(): void
     {
-        $body = [
+        $body = self::signedBody([
             'application' => 'pub-test-1234',
             'transaction_ref' => 'tx-x',
             'transaction_type' => 'PAYIN',
-        ];
+            'transaction_amount' => 1000,
+            'transaction_currency' => 'XAF',
+            'transaction_operator' => 'CM_OM',
+        ]);
 
         $response = $this->invoke($this->webhookRequest($body));
 
@@ -128,12 +152,15 @@ final class MyCoolPayWebhookControllerTest extends TestCase
     #[Test]
     public function an_unknown_status_is_ignored(): void
     {
-        $body = [
+        $body = self::signedBody([
             'application' => 'pub-test-1234',
             'transaction_ref' => 'tx-x',
             'transaction_type' => 'PAYIN',
+            'transaction_amount' => 1000,
+            'transaction_currency' => 'XAF',
+            'transaction_operator' => 'CM_OM',
             'transaction_status' => 'PARTIALLY_PAID',
-        ];
+        ]);
 
         $response = $this->invoke($this->webhookRequest($body));
 
@@ -144,12 +171,15 @@ final class MyCoolPayWebhookControllerTest extends TestCase
     #[Test]
     public function a_canceled_webhook_maps_to_the_canceled_canonical_status(): void
     {
-        $body = [
+        $body = self::signedBody([
             'application' => 'pub-test-1234',
             'transaction_ref' => 'tx-cancel',
             'transaction_type' => 'PAYIN',
+            'transaction_amount' => 1000,
+            'transaction_currency' => 'XAF',
+            'transaction_operator' => 'CM_OM',
             'transaction_status' => 'CANCELED',
-        ];
+        ]);
 
         $this->invoke($this->webhookRequest($body));
 
@@ -159,12 +189,15 @@ final class MyCoolPayWebhookControllerTest extends TestCase
     #[Test]
     public function a_failed_webhook_maps_to_the_failed_canonical_status(): void
     {
-        $body = [
+        $body = self::signedBody([
             'application' => 'pub-test-1234',
             'transaction_ref' => 'tx-fail',
             'transaction_type' => 'PAYIN',
+            'transaction_amount' => 1000,
+            'transaction_currency' => 'XAF',
+            'transaction_operator' => 'CM_OM',
             'transaction_status' => 'FAILED',
-        ];
+        ]);
 
         $this->invoke($this->webhookRequest($body));
 
@@ -172,12 +205,13 @@ final class MyCoolPayWebhookControllerTest extends TestCase
     }
 
     #[Test]
-    public function an_empty_body_is_accepted_and_ignored(): void
+    public function an_empty_body_carries_no_signature_and_is_rejected_as_unauthentic(): void
     {
-        // Laravel's `Request::json()->all()` always returns an array
-        // (empty for non-JSON bodies). The controller treats an empty
-        // body as missing-fields → not handled → 200 with `ignored` (so
-        // MyCoolPay does not retry forever).
+        // Security review finding: an empty/malformed body used to be
+        // treated as "structurally valid but missing fields" (200,
+        // ignored). Now authenticity is checked FIRST and
+        // unconditionally — a body with no `signature` field can never
+        // pass, so this is correctly a 403, not a soft ignore.
         $request = Request::create(
             '/webhooks/my-coolpay',
             'POST',
@@ -191,16 +225,88 @@ final class MyCoolPayWebhookControllerTest extends TestCase
 
         $response = $this->invoke($request);
 
-        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(403, $response->getStatusCode());
         self::assertCount(0, $this->handler->handled);
     }
 
     #[Test]
-    public function missing_config_registry_still_accepts_webhooks_but_skips_key_check(): void
+    public function a_missing_signature_is_rejected(): void
     {
-        // Build a fresh controller with a config registry that doesn't
-        // know about 'my-coolpay' — the application-key check should be
-        // skipped, the rest of the validation should still apply.
+        $body = [
+            'application' => 'pub-test-1234',
+            'transaction_ref' => 'tx-x',
+            'transaction_type' => 'PAYIN',
+            'transaction_amount' => 1000,
+            'transaction_currency' => 'XAF',
+            'transaction_operator' => 'CM_OM',
+            'transaction_status' => 'SUCCESS',
+            // no 'signature' key at all
+        ];
+
+        $response = $this->invoke($this->webhookRequest($body));
+
+        self::assertSame(403, $response->getStatusCode());
+        self::assertCount(0, $this->handler->handled);
+    }
+
+    #[Test]
+    public function a_tampered_signature_is_rejected(): void
+    {
+        $body = self::signedBody([
+            'application' => 'pub-test-1234',
+            'transaction_ref' => 'tx-x',
+            'transaction_type' => 'PAYIN',
+            'transaction_amount' => 1000,
+            'transaction_currency' => 'XAF',
+            'transaction_operator' => 'CM_OM',
+            'transaction_status' => 'SUCCESS',
+        ]);
+        // Attacker changes the amount after the signature was computed
+        // for a different one — the classic tamper scenario.
+        $body['transaction_amount'] = 999999;
+
+        $response = $this->invoke($this->webhookRequest($body));
+
+        self::assertSame(403, $response->getStatusCode());
+        self::assertCount(0, $this->handler->handled);
+    }
+
+    #[Test]
+    public function a_request_from_an_untrusted_ip_is_rejected_even_with_a_valid_signature(): void
+    {
+        $controller = new MyCoolPayWebhookController(
+            statusChangeHandler: $this->handler,
+            statusMapper: $this->getStatusMapper(),
+            clock: $this->getClock(),
+            configRegistry: $this->makeConfigRegistry(),
+            authenticator: new MyCoolPayCallbackAuthenticator(['203.0.113.5']), // not the test client's IP
+            logger: new NullLogger,
+        );
+
+        $body = self::signedBody([
+            'application' => 'pub-test-1234',
+            'transaction_ref' => 'tx-x',
+            'transaction_type' => 'PAYIN',
+            'transaction_amount' => 1000,
+            'transaction_currency' => 'XAF',
+            'transaction_operator' => 'CM_OM',
+            'transaction_status' => 'SUCCESS',
+        ]);
+
+        $response = $controller($this->webhookRequest($body));
+
+        self::assertSame(403, $response->getStatusCode());
+        self::assertCount(0, $this->handler->handled);
+    }
+
+    #[Test]
+    public function a_webhook_is_rejected_when_the_provider_has_no_private_key_configured(): void
+    {
+        // Security review finding: this used to accept the webhook
+        // anyway, only skipping the (non-authenticating) application-key
+        // sanity check. Without a private key there is no way to verify
+        // a signature at all, so the only safe behaviour is to refuse —
+        // never fall back to trusting the payload.
         $emptyRegistry = new class implements ProviderConfigRegistry
         {
             public function configFor(ProviderCode $code): \Core\Support\Integration\Configuration\ProviderConfig
@@ -229,6 +335,7 @@ final class MyCoolPayWebhookControllerTest extends TestCase
             statusMapper: $this->getStatusMapper(),
             clock: $this->getClock(),
             configRegistry: $emptyRegistry,
+            authenticator: new MyCoolPayCallbackAuthenticator([]),
             logger: new NullLogger,
         );
 
@@ -236,13 +343,19 @@ final class MyCoolPayWebhookControllerTest extends TestCase
             'application' => 'whatever',
             'transaction_ref' => 'tx-x',
             'transaction_type' => 'PAYIN',
+            'transaction_amount' => 1000,
+            'transaction_currency' => 'XAF',
+            'transaction_operator' => 'CM_OM',
             'transaction_status' => 'SUCCESS',
+            // Any signature at all — there is no private key to check
+            // it against, so this must be rejected regardless.
+            'signature' => 'irrelevant',
         ];
 
-        $response = ($controller)($this->webhookRequest($body));
+        $response = $controller($this->webhookRequest($body));
 
-        self::assertSame(200, $response->getStatusCode());
-        self::assertCount(1, $this->handler->handled);
+        self::assertSame(403, $response->getStatusCode());
+        self::assertCount(0, $this->handler->handled);
     }
 
     protected function setUp(): void
@@ -251,13 +364,29 @@ final class MyCoolPayWebhookControllerTest extends TestCase
 
         $this->handler = new FakePaymentStatusChangeHandler;
 
-        $configRegistry = new ArrayProviderConfigRegistry([
+        $this->webhook = new MyCoolPayWebhookController(
+            statusChangeHandler: $this->handler,
+            statusMapper: $this->getStatusMapper(),
+            clock: $this->getClock(),
+            configRegistry: $this->makeConfigRegistry(),
+            // Empty allowlist = permissive on IP (matches
+            // config/providers.php's own documented default) — this
+            // test class is about signature/business-filter behaviour,
+            // not IP trust, which has its own dedicated test above.
+            authenticator: new MyCoolPayCallbackAuthenticator([]),
+            logger: new NullLogger,
+        );
+    }
+
+    private function makeConfigRegistry(): ArrayProviderConfigRegistry
+    {
+        return new ArrayProviderConfigRegistry([
             'payment' => [
                 'my_coolpay' => [
                     'code' => 'my-coolpay',
                     'base_url' => 'https://my-coolpay.com',
                     'auth' => ['kind' => 'api-key'],
-                    'credentials' => ['api_key' => 'sk'],
+                    'credentials' => ['api_key' => self::PRIVATE_KEY],
                     'timeouts' => [],
                     'retries' => [],
                     'breaker' => [],
@@ -265,14 +394,34 @@ final class MyCoolPayWebhookControllerTest extends TestCase
                 ],
             ],
         ]);
+    }
 
-        $this->webhook = new MyCoolPayWebhookController(
-            statusChangeHandler: $this->handler,
-            statusMapper: $this->getStatusMapper(),
-            clock: $this->getClock(),
-            configRegistry: $configRegistry,
-            logger: new NullLogger,
+    /**
+     * @param array<string, mixed> $body
+     * @return array<string, mixed>
+     */
+    private static function signedBody(array $body, string $privateKey = self::PRIVATE_KEY): array
+    {
+        $body['signature'] = md5(
+            self::field($body, 'transaction_ref')
+            .self::field($body, 'transaction_type')
+            .self::field($body, 'transaction_amount')
+            .self::field($body, 'transaction_currency')
+            .self::field($body, 'transaction_operator')
+            .$privateKey,
         );
+
+        return $body;
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     */
+    private static function field(array $body, string $key): string
+    {
+        $value = $body[$key] ?? '';
+
+        return is_string($value) || is_int($value) ? (string) $value : '';
     }
 
     /**

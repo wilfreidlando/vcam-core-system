@@ -568,6 +568,192 @@
                 }
             }
         },
+        "/v1/admin/operators": {
+            "get": {
+                "operationId": "admin.operators",
+                "description": "Requires `operators:read` (Platform Admin only).",
+                "summary": "List platform operators",
+                "tags": [
+                    "Admin"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {}
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "page": {
+                                                    "type": "integer"
+                                                },
+                                                "per_page": {
+                                                    "type": "integer"
+                                                },
+                                                "total": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "required": [
+                                                "page",
+                                                "per_page",
+                                                "total"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "admin.operators.create",
+                "description": "The plaintext password is returned once in this response and never\nstored \u2014 the same one-shot-secret pattern as API key issuance and\nthe `identity:create-operator` CLI command, which this endpoint is\na self-service alternative to. Requires `operators:write` (Platform\nAdmin only). MFA enrollment happens on first login, not here.",
+                "summary": "Create a platform operator",
+                "tags": [
+                    "Admin"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "role": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "email",
+                                    "name",
+                                    "role"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "plaintext_password": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "plaintext_password"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/operators/{operatorId}/revoke": {
+            "post": {
+                "operationId": "admin.operators.revoke",
+                "description": "Idempotent \u2014 revoking an already-revoked operator succeeds without\neffect. Requires `operators:write` (Platform Admin only). A\nrevoked operator's existing bearer tokens are rejected on their\nvery next request (`ResolveOperatorFromBearerToken` re-checks\nrevocation every time), so this takes effect immediately.",
+                "summary": "Revoke a platform operator's access",
+                "tags": [
+                    "Admin"
+                ],
+                "parameters": [
+                    {
+                        "name": "operatorId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No content"
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {}
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
         "/v1/operators/login": {
             "post": {
                 "operationId": "operators.login",
@@ -951,7 +1137,10 @@
                         "type": "string"
                     },
                     "code": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "min/max mirror the web form's equivalent field (security\nreview finding \u2014 this used to have no upper bound, an\noversized-payload gap on a public, throttle-only endpoint).",
+                        "minLength": 6,
+                        "maxLength": 8
                     }
                 },
                 "required": [

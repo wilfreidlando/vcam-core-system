@@ -42,6 +42,20 @@ final readonly class Payment
         public ?string $errorMessage,
         public ?string $returnUrl,
         public ?string $walletRecipientExternalRef,
+        /**
+         * The reliable, server-to-server notification target for THIS
+         * payment — distinct from `returnUrl` (browser redirect,
+         * best-effort UX, may never fire). `null` means no per-payment
+         * callback was requested at initiation.
+         */
+        public ?string $callbackUrl = null,
+        /**
+         * Signs every delivery to `callbackUrl` (HMAC-SHA256). Generated
+         * once at initiation, shown once in the initiation response,
+         * never re-exposed after — same one-shot-secret pattern as an
+         * API key or a webhook endpoint's secret.
+         */
+        public ?string $callbackSecret = null,
     ) {
         if (trim($providerTransactionRef) === '') {
             throw new InvalidArgumentException('A Payment must carry a non-blank provider transaction reference.');
@@ -73,6 +87,8 @@ final readonly class Payment
             errorMessage: $reason,
             returnUrl: $this->returnUrl,
             walletRecipientExternalRef: $this->walletRecipientExternalRef,
+            callbackUrl: $this->callbackUrl,
+            callbackSecret: $this->callbackSecret,
         );
     }
 

@@ -15,6 +15,7 @@ use Core\Notification\Contracts\NotificationChannelProvider;
 use Core\Notification\Contracts\NotificationStatusMapper;
 use Core\Notification\Contracts\OutboundMessage;
 use Core\Notification\Contracts\ProviderDispatchResult;
+use Core\Notification\Domain\Model\ScopedSessionRef;
 use Core\Notification\NotificationStatus;
 use Core\Support\Integration\Configuration\ProviderConfig;
 use Core\Support\Integration\Exception\ProviderPermanentError;
@@ -91,7 +92,7 @@ final readonly class WahaAdapter implements ChannelSessionProvider, Notification
         }
 
         $chatId = self::toChatId($phoneNumber);
-        $sessionRef = self::sessionRefFor($message->variables, $this->config);
+        $sessionRef = self::sessionRefFor($message->variables, $this->config, $message->projectId);
         $type = self::str($message->body, 'type', 'text');
 
         $response = match ($type) {
@@ -284,13 +285,21 @@ final readonly class WahaAdapter implements ChannelSessionProvider, Notification
     }
 
     /**
+     * A caller-supplied `variables['session']` is namespaced by
+     * `projectId` before it ever reaches WAHA — security review finding:
+     * unscoped, it let one Project send through another Project's
+     * linked WhatsApp session by supplying/guessing its name. The
+     * config-level `default_session` fallback is NOT scoped: it's a
+     * deliberately shared platform default a caller never named, not
+     * caller input, so there's nothing to hijack.
+     *
      * @param array<string, mixed> $variables
      */
-    private static function sessionRefFor(array $variables, ProviderConfig $config): string
+    private static function sessionRefFor(array $variables, ProviderConfig $config, string $projectId): string
     {
         $fromVariables = self::str($variables, 'session');
         if ($fromVariables !== '') {
-            return $fromVariables;
+            return ScopedSessionRef::for($projectId, $fromVariables)->value;
         }
 
         $default = $config->extra('default_session', self::DEFAULT_SESSION);

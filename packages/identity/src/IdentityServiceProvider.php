@@ -40,7 +40,6 @@ use Core\Identity\Infrastructure\Security\SanctumOperatorTokenRevoker;
 use Core\Identity\Presentation\Console\Commands\CreateOperatorCommand;
 use Core\Identity\Presentation\Console\Commands\CreateOrganizationCommand;
 use Core\Identity\Presentation\Console\Commands\CreateProjectCommand;
-use Core\Identity\Presentation\Console\Commands\CurrentOperatorOtpCommand;
 use Core\Identity\Presentation\Console\Commands\IssueApiKeyCommand;
 use Core\Identity\Presentation\Console\Commands\RevokeApiKeyCommand;
 use Illuminate\Contracts\Foundation\Application;
@@ -99,7 +98,6 @@ final class IdentityServiceProvider extends ServiceProvider
                 IssueApiKeyCommand::class,
                 RevokeApiKeyCommand::class,
                 CreateOperatorCommand::class,
-                CurrentOperatorOtpCommand::class,
             ]);
         }
     }

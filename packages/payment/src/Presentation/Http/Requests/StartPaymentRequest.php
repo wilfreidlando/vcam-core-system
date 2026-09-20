@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Payment\Presentation\Http\Requests;
 
 use Core\Payment\PaymentFlow;
+use Core\Support\Integration\Security\SafeOutboundUrlRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -46,6 +47,10 @@ final class StartPaymentRequest extends FormRequest
             'flow' => ['nullable', Rule::enum(PaymentFlow::class)],
             'return_url' => ['nullable', 'url'],
             'wallet_recipient_external_ref' => ['nullable', 'string', 'max:255'],
+            // The reliable server-to-server notification target — SSRF
+            // validated the same way as POST /v1/webhook-endpoints
+            // (security review finding, user-directed expansion).
+            'callback_url' => ['nullable', 'url', 'starts_with:http://,https://', new SafeOutboundUrlRule],
         ];
     }
 }

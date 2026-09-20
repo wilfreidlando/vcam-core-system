@@ -40,6 +40,11 @@ final class SensitiveKeySet
         'x-secret',
         'x-signature',
         'signature',
+        // MyCoolPay's private-key header (security review finding — this
+        // was missing, so a provider debug flag like MYCOOLPAY_DEBUG
+        // would log it in cleartext). Any `X-*-KEY` header naming
+        // convention is covered by the same entry, case-insensitively.
+        'x-private-key',
         'x-hub-signature',
         'x-hub-signature-256',
         'cookie',

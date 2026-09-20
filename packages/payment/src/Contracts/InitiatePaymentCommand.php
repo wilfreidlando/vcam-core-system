@@ -30,10 +30,17 @@ use Core\Payment\PaymentFlow;
  * `Paylink` flow only — a best-effort UX aid, never a delivery-guaranteed
  * notification; see `Core\Payment\Application\UseCase\HandlePaymentStatusChangedUseCase`
  * for the actual (reliable) outcome notification.
+ *
+ * `projectId` lets a multi-tenant-aware adapter (MyCoolPay) resolve
+ * *this* Project's own provider application/credentials
+ * (`Core\Payment\Domain\Port\ProviderApplicationRepository`) rather than
+ * a single platform-wide key pair shared by every Project — security
+ * review finding.
  */
 final readonly class InitiatePaymentCommand
 {
     public function __construct(
+        public string $projectId,
         public int $amount,
         public string $currency,
         public string $reason,

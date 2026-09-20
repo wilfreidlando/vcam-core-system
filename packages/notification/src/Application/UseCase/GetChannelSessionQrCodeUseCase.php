@@ -11,6 +11,7 @@ use Core\Notification\Contracts\GetChannelSessionCommand;
 use Core\Notification\Contracts\GetChannelSessionQrCode;
 use Core\Notification\Contracts\NotificationChannelProviderRegistry;
 use Core\Notification\Contracts\NotificationProviderRouter;
+use Core\Notification\Domain\Model\ScopedSessionRef;
 
 /**
  * Thin pass-through (ADR-0042 §4): resolves the channel's primary
@@ -35,8 +36,9 @@ final readonly class GetChannelSessionQrCodeUseCase implements GetChannelSession
             throw new ChannelDoesNotSupportSessions($providerCode, $gateway::class);
         }
 
-        $gateway->startSession($command->sessionRef);
+        $sessionRef = ScopedSessionRef::for($command->projectId, $command->sessionRef)->value;
+        $gateway->startSession($sessionRef);
 
-        return $gateway->getQrCode($command->sessionRef);
+        return $gateway->getQrCode($sessionRef);
     }
 }

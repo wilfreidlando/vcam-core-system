@@ -41,8 +41,12 @@ interface PaymentGateway extends ProviderGateway
      * Look up the current canonical status of a previously-initiated
      * payment at the provider. Used by background reconciliation when
      * no webhook has arrived within the expected window.
+     *
+     * `projectId` lets a multi-tenant-aware adapter resolve this
+     * Project's own provider application/credentials — mirrors
+     * `InitiatePaymentCommand::$projectId`.
      */
-    public function checkStatus(string $transactionRef): PaymentReceipt;
+    public function checkStatus(string $transactionRef, string $projectId): PaymentReceipt;
 
     /**
      * The provider code identifying this gateway. Inherited from

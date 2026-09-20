@@ -44,10 +44,15 @@ final class WalletServiceProvider extends ServiceProvider
 
         Route::middleware('api')->group(__DIR__.'/../routes/api.php');
 
-        if ($this->app->runningInConsole()) {
+        // No ops CLI for credit/debit (security review finding — removed:
+        // neither caller-side command verified wallet ownership, and
+        // manual wallet adjustment has no real operational need today;
+        // automatic crediting happens via HandlePaymentStatusChangedUseCase).
+        // The one remaining command is test-infrastructure only, never
+        // registered outside the testing environment.
+        if ($this->app->runningInConsole() && $this->app->environment('testing')) {
             $this->commands([
-                Presentation\Console\Commands\CreditWalletCommand::class,
-                Presentation\Console\Commands\DebitWalletCommand::class,
+                Presentation\Console\Commands\DebitWalletForConcurrencyTestingCommand::class,
             ]);
         }
     }

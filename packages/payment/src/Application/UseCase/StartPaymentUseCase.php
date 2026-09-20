@@ -12,6 +12,7 @@ use Core\Payment\Contracts\StartPayment;
 use Core\Payment\Contracts\StartPaymentCommand;
 use Core\Payment\Domain\Exception\PaymentAlreadyExists;
 use Core\Payment\Domain\Model\Payment;
+use Core\Payment\Domain\Port\PaymentCallbackSecretGenerator;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Support\Identifier;
 use LogicException;
@@ -52,6 +53,7 @@ final readonly class StartPaymentUseCase implements StartPayment
         private PaymentProviderRouter $router,
         private PaymentGatewayRegistry $gateways,
         private Identifier $identifier,
+        private PaymentCallbackSecretGenerator $callbackSecrets,
     ) {}
 
     public function start(StartPaymentCommand $command): PaymentView
@@ -65,6 +67,7 @@ final readonly class StartPaymentUseCase implements StartPayment
         $gateway = $this->gateways->gatewayFor($providerCode);
 
         $receipt = $gateway->initiate(new InitiatePaymentCommand(
+            projectId: $command->projectId,
             amount: $command->amount,
             currency: $command->currency,
             reason: $command->reason,
@@ -94,6 +97,8 @@ final readonly class StartPaymentUseCase implements StartPayment
             errorMessage: $receipt->errorMessage,
             returnUrl: $command->returnUrl,
             walletRecipientExternalRef: $command->walletRecipientExternalRef,
+            callbackUrl: $command->callbackUrl,
+            callbackSecret: $command->callbackUrl === null ? null : $this->callbackSecrets->generate(),
         );
 
         try {
@@ -107,10 +112,14 @@ final readonly class StartPaymentUseCase implements StartPayment
             return $this->toView($winner);
         }
 
-        return $this->toView($payment);
+        // `includeCallbackSecret: true` only here — the one moment this
+        // payment is actually created. Every other path through
+        // toView() (idempotent replay above, or GetPaymentStatusUseCase/
+        // ListPaymentsUseCase entirely) must never re-expose it.
+        return $this->toView($payment, includeCallbackSecret: true);
     }
 
-    private function toView(Payment $payment): PaymentView
+    private function toView(Payment $payment, bool $includeCallbackSecret = false): PaymentView
     {
         return new PaymentView(
             id: $payment->id,
@@ -122,6 +131,7 @@ final readonly class StartPaymentUseCase implements StartPayment
             actionHint: $payment->actionHint,
             paymentUrl: $payment->paymentUrl,
             errorMessage: $payment->errorMessage,
+            callbackSecret: $includeCallbackSecret ? $payment->callbackSecret : null,
         );
     }
 }

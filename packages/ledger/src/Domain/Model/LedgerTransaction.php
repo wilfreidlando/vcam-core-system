@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Ledger\Domain\Model;
 
+use Core\Ledger\Domain\Exception\NonPositiveLedgerEntryAmount;
 use Core\Ledger\Domain\Exception\UnbalancedTransaction;
 use InvalidArgumentException;
 
@@ -31,8 +32,18 @@ final readonly class LedgerTransaction
             throw new InvalidArgumentException('A ledger transaction needs at least two entries.');
         }
 
+        $this->assertPositiveAmounts();
         $this->assertSingleCurrency();
         $this->assertBalances();
+    }
+
+    private function assertPositiveAmounts(): void
+    {
+        foreach ($this->entries as $entry) {
+            if (! $entry->amount->isPositive()) {
+                throw NonPositiveLedgerEntryAmount::forAccount($entry->accountId);
+            }
+        }
     }
 
     private function assertSingleCurrency(): void
