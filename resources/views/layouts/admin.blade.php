@@ -267,9 +267,7 @@
             </aside>
         @endif
 
-        {{-- Main content — always rendered. On unauthenticated pages the
-             content takes the full width (login form uses max-w-md mx-auto
-             mt-12 to center itself). Scrolls internally
+        {{-- Main content — always rendered. Scrolls internally
              (`h-screen overflow-y-auto`) so the sidebar next to it never
              moves or resizes, whatever the page's content length. --}}
         <main class="flex-1 min-w-0 h-screen overflow-y-auto">
@@ -307,10 +305,22 @@
                 </div>
             @endif
 
-            {{-- Page content --}}
-            <div class="px-4 sm:px-6 lg:px-8 py-6">
-                @yield('content')
-            </div>
+            {{-- Page content. Unauthenticated pages (login, MFA) get a
+                 dedicated full-height, truly centered shell — both
+                 horizontally and vertically, not just `mt-12` pushing the
+                 card down from the top (review finding: the login page
+                 sat near the top of a tall viewport instead of looking
+                 centered). Authenticated pages keep the normal padded
+                 content area. --}}
+            @if (app()->bound(\Core\Identity\Contracts\OperatorContext::class))
+                <div class="px-4 sm:px-6 lg:px-8 py-6">
+                    @yield('content')
+                </div>
+            @else
+                <div class="min-h-full flex items-center justify-center px-4 py-12 bg-gradient-to-b from-slate-50 to-slate-100">
+                    @yield('content')
+                </div>
+            @endif
         </main>
 
     </div>
