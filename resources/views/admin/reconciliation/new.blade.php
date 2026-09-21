@@ -21,7 +21,7 @@
         </div>
 
         @if (count($previewPayments) > 0)
-            <x-admin.table :headers="['ID', 'Project', 'Channel', 'Status', 'Amount']" :empty="''">
+            <x-admin.table :headers="['ID', 'Project', 'Channel', 'Status', 'Amount', 'Stuck for']" :empty="''">
                 @foreach ($previewPayments as $payment)
                     <tr>
                         <td class="px-4 py-2 text-xs font-mono text-slate-700" title="{{ $payment->id }}">
@@ -41,6 +41,17 @@
                              currently routes payments in). --}}
                         <td class="px-4 py-2 text-sm font-mono text-slate-900 tabular-nums text-right">
                             {{ number_format($payment->amount / 100, 2) }} {{ $payment->currency }}
+                        </td>
+                        {{-- How long this payment has actually sat
+                             untouched — the detail an operator needs to
+                             judge whether the run is worth trusting, not
+                             just which rows it would touch. --}}
+                        <td class="px-4 py-2 text-xs text-slate-500 whitespace-nowrap" title="{{ $payment->updatedAt?->format('Y-m-d H:i:s') ?? '' }}">
+                            {{-- Payment::$updatedAt is a native DateTimeImmutable
+                                 (Domain layer stays framework-free, G3b) — wrap
+                                 in Carbon here, in the view, just for the
+                                 human-readable diff. --}}
+                            {{ $payment->updatedAt !== null ? \Illuminate\Support\Carbon::instance($payment->updatedAt)->diffForHumans() : '—' }}
                         </td>
                     </tr>
                 @endforeach

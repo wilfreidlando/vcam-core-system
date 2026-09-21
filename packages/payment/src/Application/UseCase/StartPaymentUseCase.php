@@ -123,6 +123,7 @@ final readonly class StartPaymentUseCase implements StartPayment
     {
         return new PaymentView(
             id: $payment->id,
+            projectId: $payment->projectId,
             channel: $payment->channel,
             status: $payment->status->value,
             amount: $payment->amount,

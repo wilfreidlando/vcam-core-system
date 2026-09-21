@@ -56,8 +56,25 @@ final class PaymentGatewayRegistryImpl implements PaymentGatewayRegistry
         return $this->generic->defaultCredentialsFor($code);
     }
 
+    /**
+     * The generic registry's own `availableProviders()` returns every
+     * configured provider platform-wide — payment AND notification alike
+     * (both share the same `provider.gateway` tag and the same
+     * `ProviderConfigRegistry`, per `TaggedProviderRegistry`) — so a bare
+     * delegation here used to leak notification-only providers (e.g.
+     * `waha`) into a payment-scoped listing (review finding: the admin
+     * console's provider-application dropdown offered a WhatsApp adapter
+     * as if it were a payment option). Filtering through `gatewayFor()`'s
+     * own `PaymentGateway` check is the same narrowing `gatewayFor()`
+     * already does for a single code, just applied to the whole list.
+     *
+     * @return list<ProviderCode>
+     */
     public function availableProviders(): array
     {
-        return $this->generic->availableProviders();
+        return array_values(array_filter(
+            $this->generic->availableProviders(),
+            fn (ProviderCode $code): bool => $this->generic->gatewayFor($code) instanceof PaymentGateway,
+        ));
     }
 }

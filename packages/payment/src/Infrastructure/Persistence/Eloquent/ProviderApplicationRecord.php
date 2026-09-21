@@ -13,8 +13,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $provider_code
  * @property string $public_key
  * @property string $private_key_encrypted
- * @property \Carbon\CarbonImmutable $created_at
- * @property \Carbon\CarbonImmutable $updated_at
+ * @property \Illuminate\Support\Carbon $created_at
+ * @property \Illuminate\Support\Carbon $updated_at
  */
 final class ProviderApplicationRecord extends Model
 {

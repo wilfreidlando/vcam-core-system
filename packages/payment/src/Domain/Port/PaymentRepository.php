@@ -64,12 +64,18 @@ interface PaymentRepository
     public function findStuckSince(DateTimeImmutable $threshold, int $limit): array;
 
     /**
-     * Newest first, optionally narrowed to one canonical `status`
-     * (ADR-0045 — the operator console's project-scoped listing).
+     * Newest first, optionally narrowed to one `projectId` and/or one
+     * canonical `status` (ADR-0045 — the operator console's listing).
+     * `$projectId` is nullable — a null value lists across every
+     * Project, reachable only from the trusted operator-authenticated
+     * admin plane (never from a Project/API-key caller, which has no
+     * access to this port at all), same nullable-filter convention
+     * already used by `ListProjectsCommand::$organizationId` and
+     * `ListDeadWebhookDeliveriesCommand::$projectId`.
      *
      * @return array{items: list<Payment>, total: int}
      */
-    public function findByProject(string $projectId, ?PaymentStatus $status, int $page, int $perPage): array;
+    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage): array;
 
     /**
      * A pure count of the same candidate set `findStuckSince()` would

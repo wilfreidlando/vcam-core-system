@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Payment\Domain\Model;
 
 use Core\Payment\PaymentStatus;
+use DateTimeImmutable;
 use InvalidArgumentException;
 
 /**
@@ -56,6 +57,19 @@ final readonly class Payment
          * API key or a webhook endpoint's secret.
          */
         public ?string $callbackSecret = null,
+        /**
+         * When this row last changed — persistence metadata, not
+         * domain state, so it's nullable and defaults to null for every
+         * caller that doesn't need it (a freshly-created Payment that
+         * hasn't been persisted yet has no meaningful value here). Only
+         * `EloquentPaymentRepository::toDomain()` populates it, from the
+         * `updated_at` column, for read paths that need to show how long
+         * a payment has sat untouched (the reconciliation preview:
+         * review finding, "toutes les infos" — an operator deciding
+         * whether to trust a reconciliation run needs to see how stale
+         * each candidate actually is, not just that it's stuck).
+         */
+        public ?DateTimeImmutable $updatedAt = null,
     ) {
         if (trim($providerTransactionRef) === '') {
             throw new InvalidArgumentException('A Payment must carry a non-blank provider transaction reference.');

@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $wallet_recipient_external_ref
  * @property string|null $callback_url
  * @property string|null $callback_secret_encrypted
+ * @property \Illuminate\Support\Carbon $updated_at
  */
 final class PaymentRecord extends Model
 {

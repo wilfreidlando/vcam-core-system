@@ -114,10 +114,14 @@ final class EloquentPaymentRepository implements PaymentRepository
         return $payments;
     }
 
-    public function findByProject(string $projectId, ?PaymentStatus $status, int $page, int $perPage): array
+    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage): array
     {
         // See findStuckSince() above for why this goes through toBase()/hydrate().
-        $base = PaymentRecord::query()->where('project_id', $projectId)->toBase();
+        $query = PaymentRecord::query();
+        if ($projectId !== null) {
+            $query->where('project_id', $projectId);
+        }
+        $base = $query->toBase();
 
         if ($status !== null) {
             $base->where('status', $status->value);
@@ -210,6 +214,15 @@ final class EloquentPaymentRepository implements PaymentRepository
             walletRecipientExternalRef: $record->wallet_recipient_external_ref,
             callbackUrl: $record->callback_url,
             callbackSecret: $record->callback_secret_encrypted === null ? null : Crypt::decryptString($record->callback_secret_encrypted),
+            // At runtime this is a mutable Illuminate\Support\Carbon, not
+            // CarbonImmutable — confirmed by a real TypeError a direct
+            // assignment triggered (ProviderApplicationRecord's identical
+            // `@property \Carbon\CarbonImmutable` docblock elsewhere in
+            // this module turned out to be inaccurate too, just never
+            // exercised strictly enough to be caught). Domain stays
+            // framework-free (G3b), so this is where the conversion has
+            // to happen.
+            updatedAt: DateTimeImmutable::createFromInterface($record->updated_at),
         );
     }
 }

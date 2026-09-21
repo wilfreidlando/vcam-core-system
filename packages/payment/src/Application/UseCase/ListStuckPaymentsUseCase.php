@@ -33,6 +33,7 @@ final readonly class ListStuckPaymentsUseCase implements ListStuckPayments
                 status: $payment->status->value,
                 amount: $payment->amount,
                 currency: $payment->currency,
+                updatedAt: $payment->updatedAt,
             ),
             $stuck,
         );

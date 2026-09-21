@@ -23,6 +23,7 @@ final readonly class PaymentView
 {
     public function __construct(
         public string $id,
+        public string $projectId,
         public string $channel,
         public string $status,
         /** Minor units (e.g. cents) — never a float, per G5. */

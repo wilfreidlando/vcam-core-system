@@ -61,38 +61,24 @@ final class PaymentsController
         $channel = (string) $request->query('channel', '');
         $status = (string) $request->query('status', '');
 
-        $projects = $this->listProjects->list(new ListProjectsCommand(page: 1, perPage: self::PROJECT_OPTIONS_LIMIT));
-
-        // The ListPayments contract accepts a project_id filter. We require
-        // a non-empty value here — without one, we'd list every project in
-        // the Core (privacy issue). The admin must know which project to
-        // scope to.
-        if ($projectId === '') {
-            return response()->view('admin.payments.index', [
-                'title' => 'Payments',
-                'payments' => [],
-                'total' => 0,
-                'page' => 1,
-                'perPage' => $perPage,
-                'filters' => [
-                    'project_id' => '',
-                    'channel' => $channel,
-                    'status' => $status,
-                ],
-                'needs_project' => true,
-                'projects' => $projects->items,
-                'selectedProjectName' => null,
-            ]);
-        }
-
         // A malformed (non-UUID) project_id would otherwise reach a
         // `WHERE project_id = ?` against a Postgres `uuid` column and
         // crash with an uncaught QueryException (review finding, Lot 6
         // follow-up — same class of bug already fixed on the JSON API).
-        Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
+        if ($projectId !== '') {
+            Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
+        }
 
+        $projects = $this->listProjects->list(new ListProjectsCommand(page: 1, perPage: self::PROJECT_OPTIONS_LIMIT));
+
+        // Project is an optional narrowing filter, not a requirement —
+        // `ListPayments` lists across every Project when none is given
+        // (review finding: this used to force picking a project before
+        // showing anything at all; the admin plane is trusted-operator-
+        // only, so a platform-wide paginated view is the expected
+        // default, the same way payments/webhooks/audit already work).
         $pageResult = $this->listPayments->list(new ListPaymentsCommand(
-            projectId: $projectId,
+            projectId: $projectId === '' ? null : $projectId,
             status: $status === '' ? null : $status,
             page: $page,
             perPage: $perPage,
@@ -105,7 +91,10 @@ final class PaymentsController
             static fn ($p) => $channel === '' || $p->channel === $channel,
         ));
 
-        $projectNames = $this->resolveProjectNames($this->getProject, [$projectId]);
+        $projectNames = $this->resolveProjectNames(
+            $this->getProject,
+            array_map(static fn ($p): string => $p->projectId, $items),
+        );
 
         return response()->view('admin.payments.index', [
             'title' => 'Payments',
@@ -118,9 +107,8 @@ final class PaymentsController
                 'channel' => $channel,
                 'status' => $status,
             ],
-            'needs_project' => false,
             'projects' => $projects->items,
-            'selectedProjectName' => $projectNames[$projectId] ?? null,
+            'projectNames' => $projectNames,
         ]);
     }
 

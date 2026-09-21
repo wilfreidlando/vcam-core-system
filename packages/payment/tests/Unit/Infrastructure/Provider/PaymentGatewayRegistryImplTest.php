@@ -88,7 +88,7 @@ final class PaymentGatewayRegistryImplTest extends TestCase
     }
 
     #[Test]
-    public function available_providers_delegates_to_the_generic_registry(): void
+    public function available_providers_returns_every_payment_gateway_from_the_generic_registry(): void
     {
         $a = $this->makePaymentGateway('mtn-momo');
         $b = $this->makePaymentGateway('cinetpay');
@@ -101,6 +101,29 @@ final class PaymentGatewayRegistryImplTest extends TestCase
         );
         sort($codes);
         self::assertSame(['cinetpay', 'mtn-momo'], $codes);
+    }
+
+    #[Test]
+    public function available_providers_excludes_gateways_that_are_not_payment_gateways(): void
+    {
+        // Review finding: the generic registry's availableProviders()
+        // returns every provider platform-wide — payment AND
+        // notification alike, since both share the same
+        // 'provider.gateway' tag — so a bare delegation used to leak a
+        // notification-only provider (e.g. WAHA/WhatsApp) into a
+        // payment-scoped listing (the admin console's provider-
+        // application dropdown).
+        $payment = $this->makePaymentGateway('my-coolpay');
+        $notification = $this->makeNonPaymentGateway('waha');
+        $generic = $this->makeGenericRegistryWithMixedGateways([$payment, $notification]);
+        $typed = new PaymentGatewayRegistryImpl($generic);
+
+        $codes = array_map(
+            static fn ($c) => $c->toString(),
+            $typed->availableProviders(),
+        );
+
+        self::assertSame(['my-coolpay'], $codes);
     }
 
     private function makeProviderConfig(string $code = 'my-coolpay'): ProviderConfig
@@ -186,6 +209,78 @@ final class PaymentGatewayRegistryImplTest extends TestCase
             public function config(): ProviderConfig
             {
                 throw new LogicException('not used in this test');
+            }
+        };
+    }
+
+    /**
+     * Same as `makeGenericRegistry()`, but for a mix of payment and
+     * non-payment gateways — the domain label (`payment`/`notification`)
+     * is purely informational to `ArrayProviderConfigRegistry` (ignored
+     * by the loader), so each gateway just needs its own top-level key
+     * to avoid overwriting another's config entry.
+     *
+     * @param list<ProviderGateway> $gateways
+     */
+    private function makeGenericRegistryWithMixedGateways(array $gateways): ProviderRegistry
+    {
+        $configs = [];
+        foreach ($gateways as $i => $gateway) {
+            $code = $gateway->providerCode()->toString();
+            $configs['domain_'.$i][$code] = [
+                'code' => $code,
+                'base_url' => 'https://x',
+                'auth' => ['kind' => 'api-key'],
+                'credentials' => ['api_key' => 'k'],
+                'timeouts' => [],
+                'retries' => [],
+                'breaker' => [],
+            ];
+        }
+        $configRegistry = new ArrayProviderConfigRegistry($configs);
+
+        return new class($gateways, $configRegistry) implements ProviderRegistry
+        {
+            /** @var array<string, ProviderGateway> */
+            private readonly array $indexed;
+
+            /**
+             * @param list<ProviderGateway> $gateways
+             */
+            public function __construct(array $gateways, private readonly ProviderConfigRegistry $configs)
+            {
+                $byCode = [];
+                foreach ($gateways as $gateway) {
+                    $byCode[$gateway->providerCode()->toString()] = $gateway;
+                }
+                $this->indexed = $byCode;
+            }
+
+            public function gatewayFor(ProviderCode $code): ProviderGateway
+            {
+                if (! isset($this->indexed[$code->toString()])) {
+                    throw new UnsupportedProviderException($code);
+                }
+
+                return $this->indexed[$code->toString()];
+            }
+
+            public function configFor(ProviderCode $code): ProviderConfig
+            {
+                return $this->configs->configFor($code);
+            }
+
+            public function defaultCredentialsFor(ProviderCode $code): Credentials
+            {
+                return $this->configs->defaultCredentialsFor($code);
+            }
+
+            /**
+             * @return list<ProviderCode>
+             */
+            public function availableProviders(): array
+            {
+                return $this->configs->availableProviders();
             }
         };
     }

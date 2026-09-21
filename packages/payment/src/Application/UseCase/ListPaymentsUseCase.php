@@ -27,6 +27,7 @@ final readonly class ListPaymentsUseCase implements ListPayments
         $items = array_map(
             static fn (Payment $payment): PaymentView => new PaymentView(
                 id: $payment->id,
+                projectId: $payment->projectId,
                 channel: $payment->channel,
                 status: $payment->status->value,
                 amount: $payment->amount,
