@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ResolvesProjectNames;
+use Core\Identity\Contracts\GetProject;
+use Core\Identity\Contracts\GetProjectCommand;
+use Core\Identity\Contracts\ListProjects;
+use Core\Identity\Contracts\ListProjectsCommand;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Payment\Contracts\GetPaymentStatus;
 use Core\Payment\Contracts\GetPaymentStatusCommand;
@@ -25,9 +30,23 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class PaymentsController
 {
+    use ResolvesProjectNames;
+
+    /**
+     * The project dropdown fetches one page of `ListProjects` and renders
+     * every row as an <option> — same documented-limitation pattern as
+     * `ProjectsController::create()`'s organization dropdown (review
+     * finding: the project picker used to be a free-text field the
+     * operator had to paste a raw UUID into — "on ne voit pas les données
+     * qui parlent à l'utilisateur, tu mets les IDs au lieu des noms").
+     */
+    private const PROJECT_OPTIONS_LIMIT = 100;
+
     public function __construct(
         private readonly ListPayments $listPayments,
         private readonly GetPaymentStatus $getPaymentStatus,
+        private readonly ListProjects $listProjects,
+        private readonly GetProject $getProject,
     ) {}
 
     public function index(Request $request, OperatorContext $operator): Response
@@ -41,6 +60,8 @@ final class PaymentsController
         $projectId = (string) $request->query('project_id', '');
         $channel = (string) $request->query('channel', '');
         $status = (string) $request->query('status', '');
+
+        $projects = $this->listProjects->list(new ListProjectsCommand(page: 1, perPage: self::PROJECT_OPTIONS_LIMIT));
 
         // The ListPayments contract accepts a project_id filter. We require
         // a non-empty value here — without one, we'd list every project in
@@ -59,6 +80,8 @@ final class PaymentsController
                     'status' => $status,
                 ],
                 'needs_project' => true,
+                'projects' => $projects->items,
+                'selectedProjectName' => null,
             ]);
         }
 
@@ -82,6 +105,8 @@ final class PaymentsController
             static fn ($p) => $channel === '' || $p->channel === $channel,
         ));
 
+        $projectNames = $this->resolveProjectNames($this->getProject, [$projectId]);
+
         return response()->view('admin.payments.index', [
             'title' => 'Payments',
             'payments' => $items,
@@ -94,6 +119,8 @@ final class PaymentsController
                 'status' => $status,
             ],
             'needs_project' => false,
+            'projects' => $projects->items,
+            'selectedProjectName' => $projectNames[$projectId] ?? null,
         ]);
     }
 
@@ -126,9 +153,17 @@ final class PaymentsController
             ]);
         }
 
+        try {
+            $project = $this->getProject->get(new GetProjectCommand($projectId));
+        } catch (RuntimeException) {
+            $project = null;
+        }
+
         return response()->view('admin.payments.show', [
             'title' => 'Payment '.substr($view->id, 0, 8).'…',
             'payment' => $view,
+            'project' => $project,
+            'projectId' => $projectId,
         ]);
     }
 }

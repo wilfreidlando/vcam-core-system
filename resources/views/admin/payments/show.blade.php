@@ -11,6 +11,18 @@
                 <p class="font-mono text-slate-700 break-all">{{ $payment->id }}</p>
             </div>
             <div>
+                <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Project</p>
+                @if ($project !== null)
+                    <p class="text-slate-900">
+                        <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-indigo-600 hover:text-indigo-800 font-medium">
+                            {{ $project->name }}
+                        </a>
+                    </p>
+                @else
+                    <p class="font-mono text-slate-700 break-all">{{ $projectId }}</p>
+                @endif
+            </div>
+            <div>
                 <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Channel</p>
                 <p class="font-mono text-slate-700">{{ $payment->channel }}</p>
             </div>

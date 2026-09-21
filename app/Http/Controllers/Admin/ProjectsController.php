@@ -68,6 +68,18 @@ final class ProjectsController
             search: $searchRaw === '' ? null : $searchRaw,
         ));
 
+        // Same organization fetch the create-form dropdown already does
+        // (capped at ORGANIZATION_OPTIONS_LIMIT) — reused here to resolve
+        // each row's organization NAME instead of a raw truncated UUID
+        // (review finding: "tu mets les IDs sur les listings au lieu des
+        // noms"). No `GetOrganization` single-lookup port exists, only
+        // `ListOrganizations`, so this fetches the whole (small, capped)
+        // set once rather than one call per row.
+        $organizationNames = [];
+        foreach ($this->listOrganizations->list(new ListOrganizationsCommand(page: 1, perPage: self::ORGANIZATION_OPTIONS_LIMIT))->items as $organization) {
+            $organizationNames[$organization->id] = $organization->name;
+        }
+
         return response()->view('admin.projects.index', [
             'title' => 'Projects',
             'projects' => $pageResult->items,
@@ -76,6 +88,7 @@ final class ProjectsController
             'perPage' => $perPage,
             'filters' => ['organization_id' => $orgId],
             'search' => $searchRaw,
+            'organizationNames' => $organizationNames,
         ]);
     }
 

@@ -27,8 +27,8 @@
                         <td class="px-4 py-2 text-xs font-mono text-slate-700" title="{{ $payment->id }}">
                             {{ substr($payment->id, 0, 8) }}…
                         </td>
-                        <td class="px-4 py-2 text-xs font-mono text-slate-700" title="{{ $payment->projectId }}">
-                            {{ substr($payment->projectId, 0, 8) }}…
+                        <td class="px-4 py-2 text-sm text-slate-900 truncate max-w-[10rem]" title="{{ $payment->projectId }}">
+                            {{ $projectNames[$payment->projectId] ?? substr($payment->projectId, 0, 8).'…' }}
                         </td>
                         <td class="px-4 py-2 text-sm text-slate-700">{{ $payment->channel }}</td>
                         <td class="px-4 py-2 text-xs">

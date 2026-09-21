@@ -4,18 +4,18 @@
 
 @section('content')
 <x-admin.table
-    :headers="['ID', 'Endpoint', 'Project', 'Event type', 'Attempts', 'Last error', 'Last attempt', 'Action']"
+    :headers="['ID', 'Endpoint URL', 'Project', 'Event type', 'Attempts', 'Last error', 'Last attempt', 'Action']"
     :empty="'No dead webhook deliveries. 🎉'">
     @foreach ($deliveries as $delivery)
         <tr x-data="{ confirmReplay: false }">
-            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $delivery->id }}">
+            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[8rem]" title="{{ $delivery->id }}">
                 {{ substr($delivery->id, 0, 8) }}…
             </td>
-            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $delivery->endpointId }}">
-                {{ substr($delivery->endpointId, 0, 8) }}…
+            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[16rem]" title="{{ $endpointUrls[$delivery->endpointId] ?? $delivery->endpointId }}">
+                {{ $endpointUrls[$delivery->endpointId] ?? substr($delivery->endpointId, 0, 8).'…' }}
             </td>
-            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $delivery->projectId }}">
-                {{ substr($delivery->projectId, 0, 8) }}…
+            <td class="px-4 py-2 text-sm text-slate-900 truncate max-w-[10rem]" title="{{ $delivery->projectId }}">
+                {{ $projectNames[$delivery->projectId] ?? substr($delivery->projectId, 0, 8).'…' }}
             </td>
             <td class="px-4 py-2 text-xs">
                 <span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 font-mono text-slate-700">

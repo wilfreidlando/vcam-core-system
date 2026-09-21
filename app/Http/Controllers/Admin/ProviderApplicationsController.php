@@ -11,6 +11,7 @@ use Core\Identity\Contracts\GetProjectCommand;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Payment\Contracts\ListProviderApplications;
 use Core\Payment\Contracts\ListProviderApplicationsCommand;
+use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Contracts\RegisterProviderApplication;
 use Core\Payment\Contracts\RegisterProviderApplicationCommand;
 use Core\Support\Clock;
@@ -33,6 +34,20 @@ use Symfony\Component\HttpFoundation\Response;
  * (there is no read port for it; `ProviderApplicationRepository::save()`
  * is upsert-only), so rotating an application means re-entering both
  * keys, not editing one field.
+ *
+ * Two clarity gaps the form used to have (review finding): `provider` was
+ * a free-text field an operator could mistype or fill with a provider
+ * that has no adapter at all — it's now a `<select>` sourced from
+ * `PaymentGatewayRegistry::availableProviders()`, the actual registered
+ * gateways, never a made-up code. And nothing explained that one Project
+ * has at most ONE application per provider (`save()` is upsert-keyed on
+ * `(project_id, provider_code)`, per ADR-0051) — a MyCoolPay merchant
+ * account can hold several distinct applications on MyCoolPay's own
+ * side, each with its own key pair, but this Core pins exactly one of
+ * them per (Project, provider) at a time; registering again for a
+ * provider that already has one *rotates* it, it does not add a second.
+ * The view now says this explicitly and highlights which of the
+ * available providers already have an application registered.
  */
 final class ProviderApplicationsController
 {
@@ -40,6 +55,7 @@ final class ProviderApplicationsController
         private readonly RegisterProviderApplication $registerProviderApplication,
         private readonly ListProviderApplications $listProviderApplications,
         private readonly GetProject $getProject,
+        private readonly PaymentGatewayRegistry $gateways,
         private readonly AuditLogger $audit,
         private readonly Clock $clock,
     ) {}
@@ -59,11 +75,26 @@ final class ProviderApplicationsController
         }
 
         $applications = $this->listProviderApplications->list(new ListProviderApplicationsCommand($projectId));
+        $registeredProviderCodes = array_map(
+            static fn ($application): string => $application->providerCode,
+            $applications,
+        );
+
+        // `availableProviders()` — the Core's real, adapter-backed
+        // provider codes (today: just `my-coolpay`; grows automatically
+        // when MTN/Orange adapters are added) — never a free-text field
+        // an operator could fill with a code that has no adapter at all.
+        $availableProviders = array_map(
+            static fn ($code): string => $code->value,
+            $this->gateways->availableProviders(),
+        );
 
         return response()->view('admin.provider-applications.create', [
             'title' => 'Provider applications · '.$project->name,
             'project' => $project,
             'applications' => $applications,
+            'availableProviders' => $availableProviders,
+            'registeredProviderCodes' => $registeredProviderCodes,
         ]);
     }
 
@@ -75,10 +106,20 @@ final class ProviderApplicationsController
 
         Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
 
+        // The dropdown already constrains this, but a raw POST could
+        // still submit anything — `in:` re-validates against the same
+        // real, adapter-backed provider list server-side, so a made-up
+        // provider code can never be persisted regardless of how the
+        // request was built.
+        $availableProviders = array_map(
+            static fn ($code): string => $code->value,
+            $this->gateways->availableProviders(),
+        );
+
         /** @var array{provider: string, public_key: string, private_key: string} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
-            'provider' => ['required', 'string', 'max:255'],
+            'provider' => ['required', 'string', 'in:'.implode(',', $availableProviders)],
             'public_key' => ['required', 'string', 'max:1024'],
             'private_key' => ['required', 'string', 'max:1024'],
         ]);

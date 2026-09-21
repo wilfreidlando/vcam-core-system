@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ResolvesProjectNames;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
+use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Support\Clock;
 use Core\Webhook\Contracts\DeliverWebhookCommand;
 use Core\Webhook\Contracts\ListDeadWebhookDeliveries;
 use Core\Webhook\Contracts\ListDeadWebhookDeliveriesCommand;
+use Core\Webhook\Contracts\ListWebhookEndpoints;
+use Core\Webhook\Contracts\ListWebhookEndpointsCommand;
 use Core\Webhook\Contracts\QueueWebhookDelivery;
 use Core\Webhook\Contracts\ReplayWebhookDelivery;
 use Core\Webhook\Contracts\ReplayWebhookDeliveryCommand;
@@ -30,12 +34,16 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class WebhookDeliveriesController
 {
+    use ResolvesProjectNames;
+
     public function __construct(
         private readonly ListDeadWebhookDeliveries $listDead,
         private readonly ReplayWebhookDelivery $replay,
         private readonly QueueWebhookDelivery $queue,
         private readonly AuditLogger $audit,
         private readonly Clock $clock,
+        private readonly GetProject $getProject,
+        private readonly ListWebhookEndpoints $listEndpoints,
     ) {}
 
     public function index(Request $request, OperatorContext $operator): Response
@@ -58,6 +66,11 @@ final class WebhookDeliveriesController
             perPage: $perPage,
         ));
 
+        $projectIds = array_map(
+            static fn ($delivery): string => $delivery->projectId,
+            $pageResult->items,
+        );
+
         return response()->view('admin.webhook-deliveries.dead', [
             'title' => 'Webhook DLQ',
             'deliveries' => $pageResult->items,
@@ -65,6 +78,8 @@ final class WebhookDeliveriesController
             'page' => $page,
             'perPage' => $perPage,
             'filters' => ['project_id' => $projectId],
+            'projectNames' => $this->resolveProjectNames($this->getProject, $projectIds),
+            'endpointUrls' => $this->resolveEndpointUrls($projectIds),
         ]);
     }
 
@@ -119,5 +134,29 @@ final class WebhookDeliveriesController
 
         return redirect()->route('admin.webhook-deliveries.dead.web')
             ->with('status', 'Replay queued — new delivery id: '.substr($result->newDeliveryId, 0, 8).'…');
+    }
+
+    /**
+     * The endpoint URL — not carried by `DeadWebhookDeliveryView`, only
+     * its id — is the single most useful piece of context on this page
+     * (review finding: "les webhooks tu n'as même pas de détails"; a
+     * truncated endpoint UUID tells an operator nothing about which
+     * receiver is failing). `ListWebhookEndpoints` is project-scoped, not
+     * a global lookup-by-id, so this fetches each unique project's
+     * endpoint list once and flattens the results into one id => url map.
+     *
+     * @param list<string> $projectIds
+     * @return array<string, string> endpointId => url
+     */
+    private function resolveEndpointUrls(array $projectIds): array
+    {
+        $urls = [];
+        foreach (array_unique($projectIds) as $projectId) {
+            foreach ($this->listEndpoints->list(new ListWebhookEndpointsCommand($projectId)) as $endpoint) {
+                $urls[$endpoint->id] = $endpoint->url;
+            }
+        }
+
+        return $urls;
     }
 }

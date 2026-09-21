@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ResolvesProjectNames;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
+use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Payment\Contracts\ListStuckPayments;
 use Core\Payment\Contracts\ListStuckPaymentsCommand;
@@ -24,6 +26,8 @@ use Throwable;
  */
 final class ReconciliationController
 {
+    use ResolvesProjectNames;
+
     /**
      * Mirrors TriggerPaymentReconciliationController::ON_DEMAND_BATCH_LIMIT
      * (the JSON API's own on-demand cap) — the form used to advertise a
@@ -38,6 +42,7 @@ final class ReconciliationController
         private readonly ListStuckPayments $listStuck,
         private readonly AuditLogger $audit,
         private readonly Clock $clock,
+        private readonly GetProject $getProject,
     ) {}
 
     public function new(OperatorContext $operator): Response
@@ -45,6 +50,12 @@ final class ReconciliationController
         if (! $operator->hasPermission('payments:reconcile:write')) {
             abort(403, 'The payments:reconcile:write permission is required.');
         }
+
+        $previewPayments = $this->previewStuckPayments();
+        $projectIds = array_map(
+            static fn ($payment): string => $payment->projectId,
+            $previewPayments,
+        );
 
         // No ->withInput() here (review finding, Lot 6 follow-up): that
         // method only exists on RedirectResponse, not the plain view
@@ -54,7 +65,8 @@ final class ReconciliationController
         return response()->view('admin.reconciliation.new', [
             'title' => 'Run reconciliation',
             'result' => session('admin.reconciliation.last_result'),
-            'previewPayments' => $this->previewStuckPayments(),
+            'previewPayments' => $previewPayments,
+            'projectNames' => $this->resolveProjectNames($this->getProject, $projectIds),
         ]);
     }
 

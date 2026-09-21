@@ -1,13 +1,19 @@
 @extends('layouts.admin')
 
 @section('title', 'Payments')
+@section('subtitle', $selectedProjectName ?? '')
 
 @section('content')
 <form method="GET" action="{{ route('admin.payments.index') }}" class="bg-white border border-slate-200 rounded-lg p-4 mb-4">
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
         <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Project ID</label>
-            <input type="text" name="project_id" value="{{ $filters['project_id'] ?? '' }}" class="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm font-mono" />
+            <label class="block text-xs font-medium text-slate-700 mb-1">Project</label>
+            <select name="project_id" class="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm bg-white">
+                <option value="">(select a project)</option>
+                @foreach ($projects as $project)
+                    <option value="{{ $project->id }}" @selected(($filters['project_id'] ?? '') === $project->id)>{{ $project->name }}</option>
+                @endforeach
+            </select>
         </div>
         <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">Channel</label>

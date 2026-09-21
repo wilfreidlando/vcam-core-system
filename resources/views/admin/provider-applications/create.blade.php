@@ -30,30 +30,56 @@
     <div class="bg-white border border-slate-200 rounded-lg p-6">
 
         <h2 class="text-base font-semibold text-slate-900 mb-1">Register provider application</h2>
-        <p class="text-sm text-slate-600 mb-4">
-            Registers (or rotates) this Project's own application/merchant
-            account with a payment provider — e.g. its MyCoolPay public/
-            private key pair, obtained from the provider's own merchant
-            dashboard. Saving again with the same provider code overwrites
-            the previous key pair; neither key is ever shown again once
-            saved.
+        <p class="text-sm text-slate-600 mb-3">
+            An "application" is this Project's own merchant credentials
+            with a payment provider — e.g. a MyCoolPay public/private key
+            pair, obtained from that provider's own merchant dashboard.
         </p>
+
+        {{-- The two conceptual points that used to be missing from this
+             form entirely (review finding): the provider list is real,
+             and a project has AT MOST ONE application per provider. --}}
+        <div class="mb-5 rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2.5 text-xs text-indigo-900 leading-relaxed">
+            <p>
+                <span class="font-semibold">Provider</span> below lists only
+                providers this Core actually has an adapter for — not a
+                free-text code you have to get right by hand.
+            </p>
+            <p class="mt-1.5">
+                <span class="font-semibold">One application per provider.</span>
+                A single provider account (e.g. MyCoolPay) can itself hold
+                several distinct applications on its own dashboard, each
+                with its own keys — but this Project pins exactly <em>one</em>
+                of them per provider at a time. Saving again for a provider
+                that already has one <span class="font-semibold">rotates</span>
+                it (overwrites the key pair); it does not register a second
+                one alongside it.
+            </p>
+        </div>
 
         <form method="POST" action="{{ route('admin.projects.provider-applications.store', ['projectId' => $project->id]) }}" class="space-y-4">
             @csrf
 
             <div>
-                <label for="provider" class="block text-sm font-medium text-slate-700 mb-1">Provider code</label>
-                <input
-                    type="text"
-                    name="provider"
-                    id="provider"
-                    value="{{ old('provider') }}"
-                    required
-                    autofocus
-                    autocomplete="off"
-                    placeholder="my-coolpay"
-                    class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm font-mono" />
+                <label for="provider" class="block text-sm font-medium text-slate-700 mb-1">Provider</label>
+                @if (count($availableProviders) === 0)
+                    <p class="text-sm text-rose-600">
+                        No payment provider adapter is registered in this Core yet — there is nothing to select.
+                    </p>
+                @else
+                    <select
+                        name="provider"
+                        id="provider"
+                        required
+                        autofocus
+                        class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm font-mono bg-white">
+                        @foreach ($availableProviders as $code)
+                            <option value="{{ $code }}" @selected(old('provider') === $code)>
+                                {{ $code }}@if (in_array($code, $registeredProviderCodes, true)) — already registered, saving will rotate it @endif
+                            </option>
+                        @endforeach
+                    </select>
+                @endif
                 @error('provider')
                     <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
                 @enderror
@@ -91,7 +117,12 @@
 
             <button
                 type="submit"
-                class="w-full inline-flex justify-center items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
+                @disabled(count($availableProviders) === 0)
+                @class([
+                    'w-full inline-flex justify-center items-center rounded-md px-4 py-2 text-sm font-medium shadow-sm',
+                    'bg-indigo-600 hover:bg-indigo-700 text-white' => count($availableProviders) > 0,
+                    'bg-slate-200 text-slate-500 cursor-not-allowed' => count($availableProviders) === 0,
+                ])>
                 Save application
             </button>
 
