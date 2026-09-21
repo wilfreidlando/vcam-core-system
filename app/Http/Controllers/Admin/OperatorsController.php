@@ -50,7 +50,7 @@ final class OperatorsController
     public function index(Request $request, OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('operators:read')) {
-            abort(403, 'The operators:read permission is required.');
+            abort(403, 'La permission operators:read est requise.');
         }
 
         $page = max(1, (int) $request->query('page', 1));
@@ -64,7 +64,7 @@ final class OperatorsController
         ));
 
         return response()->view('admin.operators.index', [
-            'title' => 'Operators',
+            'title' => 'Opérateurs',
             'operators' => $pageResult->items,
             'total' => $pageResult->total,
             'page' => $page,
@@ -77,11 +77,11 @@ final class OperatorsController
     public function create(OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('operators:write')) {
-            abort(403, 'The operators:write permission is required.');
+            abort(403, 'La permission operators:write est requise.');
         }
 
         return response()->view('admin.operators.create', [
-            'title' => 'New operator',
+            'title' => 'Nouvel opérateur',
             'roles' => OperatorRole::cases(),
         ]);
     }
@@ -89,7 +89,7 @@ final class OperatorsController
     public function store(Request $request, OperatorContext $operator): RedirectResponse
     {
         if (! $operator->hasPermission('operators:write')) {
-            abort(403, 'The operators:write permission is required.');
+            abort(403, 'La permission operators:write est requise.');
         }
 
         /** @var array{email: string, name: string, role: string} $data */
@@ -125,7 +125,7 @@ final class OperatorsController
     public function revoke(string $operatorId, OperatorContext $operator): RedirectResponse
     {
         if (! $operator->hasPermission('operators:write')) {
-            abort(403, 'The operators:write permission is required.');
+            abort(403, 'La permission operators:write est requise.');
         }
 
         Validator::make(['operatorId' => $operatorId], ['operatorId' => 'uuid'])->validate();
@@ -141,19 +141,19 @@ final class OperatorsController
         }
 
         return redirect()->route('admin.operators.index')
-            ->with('status', 'Operator revoked.');
+            ->with('status', 'Opérateur révoqué.');
     }
 
     public function edit(string $operatorId, OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('operators:write')) {
-            abort(403, 'The operators:write permission is required.');
+            abort(403, 'La permission operators:write est requise.');
         }
 
         Validator::make(['operatorId' => $operatorId], ['operatorId' => 'uuid'])->validate();
 
         return response()->view('admin.operators.edit', [
-            'title' => 'Edit operator',
+            'title' => "Modifier l'opérateur",
             'operatorId' => $operatorId,
             'operatorRow' => $this->findOperator($operatorId),
             'roles' => OperatorRole::cases(),
@@ -163,7 +163,7 @@ final class OperatorsController
     public function update(string $operatorId, Request $request, OperatorContext $operator): RedirectResponse
     {
         if (! $operator->hasPermission('operators:write')) {
-            abort(403, 'The operators:write permission is required.');
+            abort(403, 'La permission operators:write est requise.');
         }
 
         Validator::make(['operatorId' => $operatorId], ['operatorId' => 'uuid'])->validate();
@@ -187,7 +187,7 @@ final class OperatorsController
         }
 
         return redirect()->route('admin.operators.index')
-            ->with('status', 'Operator updated: '.$data['email']);
+            ->with('status', 'Opérateur mis à jour : '.$data['email']);
     }
 
     /**

@@ -1,25 +1,27 @@
 @extends('layouts.admin')
 
-@section('title', 'Edit operator')
+@section('title', "Modifier l'opérateur")
 
 @section('content')
 <div class="max-w-md mx-auto">
     <div class="bg-white border border-slate-200 rounded-lg p-6">
 
-        <h2 class="text-base font-semibold text-slate-900 mb-1">Edit operator</h2>
+        <h2 class="text-base font-semibold text-slate-900 mb-1">Modifier l'opérateur</h2>
         <p class="text-sm text-slate-600 mb-4">
-            Profile only — email, name and role. Credentials and MFA
-            enrollment aren't touched here.
+            Profil uniquement — email, nom et rôle. Les identifiants et la
+            configuration MFA ne sont pas touchés ici.
         </p>
 
         @if (! $operatorRow)
             <div class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
                 <p class="text-sm text-amber-800">
-                    Current values couldn't be loaded for this operator
+                    Les valeurs actuelles n'ont pas pu être chargées pour cet
+                    opérateur
                     (id <code class="font-mono">{{ substr($operatorId, 0, 8) }}…</code>)
-                    — only listing lookups are available, and this id
-                    wasn't found among the first 200 operators. Fill in the fields below from scratch;
-                    submitting still updates the correct operator.
+                    — seule la recherche par liste est disponible, et cet id
+                    n'a pas été trouvé parmi les 200 premiers opérateurs.
+                    Remplissez les champs ci-dessous depuis zéro ;
+                    la soumission mettra bien à jour le bon opérateur.
                 </p>
             </div>
         @endif
@@ -45,7 +47,7 @@
             </div>
 
             <div>
-                <label for="name" class="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                <label for="name" class="block text-sm font-medium text-slate-700 mb-1">Nom</label>
                 <input
                     type="text"
                     name="name"
@@ -59,7 +61,7 @@
             </div>
 
             <div>
-                <label for="role" class="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                <label for="role" class="block text-sm font-medium text-slate-700 mb-1">Rôle</label>
                 <select
                     name="role"
                     id="role"
@@ -79,7 +81,7 @@
             <button
                 type="submit"
                 class="w-full inline-flex justify-center items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
-                Save changes
+                Enregistrer les modifications
             </button>
         </form>
     </div>

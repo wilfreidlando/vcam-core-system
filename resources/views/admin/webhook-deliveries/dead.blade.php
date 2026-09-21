@@ -1,11 +1,11 @@
 @extends('layouts.admin')
 
-@section('title', 'Webhook DLQ')
+@section('title', 'Webhooks en échec')
 
 @section('content')
 <x-admin.table
-    :headers="['ID', 'Endpoint URL', 'Project', 'Event type', 'Attempts', 'Last error', 'Last attempt', 'Action']"
-    :empty="'No dead webhook deliveries. 🎉'">
+    :headers="['ID', 'URL du endpoint', 'Projet', 'Type d\'événement', 'Tentatives', 'Dernière erreur', 'Dernière tentative', 'Action']"
+    :empty="'Aucune livraison de webhook en échec. 🎉'">
     @foreach ($deliveries as $delivery)
         <tr x-data="{ confirmReplay: false }">
             <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[8rem]" title="{{ $delivery->id }}">
@@ -43,7 +43,7 @@
                     type="button"
                     class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 font-medium text-indigo-700 hover:bg-indigo-100">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5.197m0 0v5.197M15 4v5h.582M19.418 15A8.003 8.003 0 0115 19.418M4.582 9H9"/></svg>
-                    Replay
+                    Rejouer
                 </button>
                 <form
                     x-show="confirmReplay"
@@ -55,16 +55,17 @@
                     @click.self="confirmReplay = false">
                     @csrf
                     <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4" @click.stop>
-                        <p class="font-semibold text-slate-900 mb-2">Replay this delivery?</p>
+                        <p class="font-semibold text-slate-900 mb-2">Rejouer cette livraison ?</p>
                         <p class="text-sm text-slate-600 mb-4">
-                            The original dead row is kept intact; a new
-                            delivery row will be created and re-queued.
+                            La ligne en échec d'origine est conservée telle
+                            quelle ; une nouvelle livraison sera créée et
+                            remise en file.
                         </p>
                         <div class="flex justify-end gap-2">
                             <button type="button" @click="confirmReplay = false"
-                                    class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Cancel</button>
+                                    class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Annuler</button>
                             <button type="submit"
-                                    class="rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white">Confirm</button>
+                                    class="rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white">Confirmer</button>
                         </div>
                     </div>
                 </form>

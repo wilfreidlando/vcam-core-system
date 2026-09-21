@@ -52,7 +52,7 @@ final class PaymentsController
     public function index(Request $request, OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('payments:read')) {
-            abort(403, 'The payments:read permission is required.');
+            abort(403, 'La permission payments:read est requise.');
         }
 
         $page = max(1, (int) $request->query('page', 1));
@@ -97,7 +97,7 @@ final class PaymentsController
         );
 
         return response()->view('admin.payments.index', [
-            'title' => 'Payments',
+            'title' => 'Paiements',
             'payments' => $items,
             'total' => $pageResult->total,
             'page' => $page,
@@ -115,13 +115,13 @@ final class PaymentsController
     public function show(string $payment, Request $request, OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('payments:read')) {
-            abort(403, 'The payments:read permission is required.');
+            abort(403, 'La permission payments:read est requise.');
         }
 
         $projectId = (string) $request->query('project_id', '');
         if ($projectId === '') {
             return redirect()->route('admin.payments.index')->withErrors([
-                'project_id' => 'A project_id is required to look up a payment.',
+                'project_id' => 'Un project_id est requis pour rechercher un paiement.',
             ]);
         }
 
@@ -137,7 +137,7 @@ final class PaymentsController
             ));
         } catch (RuntimeException) {
             return redirect()->route('admin.payments.index', ['project_id' => $projectId])->withErrors([
-                'payment' => 'Payment not found for that project.',
+                'payment' => 'Paiement introuvable pour ce projet.',
             ]);
         }
 
@@ -148,7 +148,7 @@ final class PaymentsController
         }
 
         return response()->view('admin.payments.show', [
-            'title' => 'Payment '.substr($view->id, 0, 8).'…',
+            'title' => 'Paiement '.substr($view->id, 0, 8).'…',
             'payment' => $view,
             'project' => $project,
             'projectId' => $projectId,

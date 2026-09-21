@@ -6,18 +6,18 @@
 @section('content')
 <div class="mb-4 flex items-center justify-between">
     <div class="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-        Read-only — wallets are never mutated from the admin console
-        (ADR-0033 §1). A wallet is credited only as an explicit,
-        caller-supplied side effect of a payment's own initiation
-        (ADR-0037), never manually.
+        Lecture seule — les wallets ne peuvent jamais être modifiés depuis
+        la console admin. Un wallet n'est crédité qu'en conséquence
+        explicite de l'initiation d'un paiement par l'appelant, jamais
+        manuellement.
     </div>
     <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap ml-4">
-        ← Back to project
+        ← Retour au projet
     </a>
 </div>
 
 <div class="mb-4">
-    <x-admin.search-box placeholder="Search by party ID or currency…" :value="$search" />
+    <x-admin.search-box placeholder="Rechercher par ID de tiers ou devise…" :value="$search" />
 </div>
 
 {{-- Stats — per-currency totals across this project's wallets (capped
@@ -29,20 +29,20 @@
     </div>
     @forelse ($stats['byCurrency'] as $currency => $totals)
         <div class="bg-white border border-slate-200 rounded-lg p-4">
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ $currency }} available</p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ $currency }} disponible</p>
             <p class="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">{{ number_format($totals['availableMinor'] / 100, 2) }}</p>
-            <p class="mt-0.5 text-xs text-slate-500">{{ $totals['count'] }} wallet{{ $totals['count'] === 1 ? '' : 's' }} · {{ number_format($totals['heldMinor'] / 100, 2) }} held</p>
+            <p class="mt-0.5 text-xs text-slate-500">{{ $totals['count'] }} wallet{{ $totals['count'] === 1 ? '' : 's' }} · {{ number_format($totals['heldMinor'] / 100, 2) }} bloqué</p>
         </div>
     @empty
         <div class="bg-white border border-slate-200 rounded-lg p-4 sm:col-span-2 lg:col-span-3 flex items-center">
-            <p class="text-sm text-slate-500">No wallets to summarize yet.</p>
+            <p class="text-sm text-slate-500">Aucun wallet à résumer pour le moment.</p>
         </div>
     @endforelse
 </div>
 
 <x-admin.table
-    :headers="['Wallet ID', 'Party', 'Currency', 'Status', 'Available', 'Held']"
-    :empty="'No wallets for this project yet.'">
+    :headers="['ID wallet', 'Tiers', 'Devise', 'Statut', 'Disponible', 'Bloqué']"
+    :empty="'Aucun wallet pour ce projet pour le moment.'">
     @foreach ($wallets as $wallet)
         <tr>
             <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[8rem]" title="{{ $wallet->id }}">

@@ -1,6 +1,6 @@
 @props([
     'headers' => [],
-    'empty' => 'No results.',
+    'empty' => 'Aucun résultat.',
 ])
 
 @php

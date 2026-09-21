@@ -49,7 +49,7 @@ final class WebhookDeliveriesController
     public function index(Request $request, OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('webhooks:read')) {
-            abort(403, 'The webhooks:read permission is required.');
+            abort(403, 'La permission webhooks:read est requise.');
         }
 
         $page = max(1, (int) $request->query('page', 1));
@@ -72,7 +72,7 @@ final class WebhookDeliveriesController
         );
 
         return response()->view('admin.webhook-deliveries.dead', [
-            'title' => 'Webhook DLQ',
+            'title' => 'Webhooks en échec',
             'deliveries' => $pageResult->items,
             'total' => $pageResult->total,
             'page' => $page,
@@ -86,7 +86,7 @@ final class WebhookDeliveriesController
     public function replay(string $delivery, OperatorContext $operator): RedirectResponse
     {
         if (! $operator->hasPermission('webhooks:replay')) {
-            abort(403, 'The webhooks:replay permission is required.');
+            abort(403, 'La permission webhooks:replay est requise.');
         }
 
         // Validate UUID shape before delegating — otherwise the contract
@@ -95,7 +95,7 @@ final class WebhookDeliveriesController
         // friendlier redirect).
         if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $delivery) !== 1) {
             return redirect()->route('admin.webhook-deliveries.dead.web')
-                ->withErrors(['id' => 'Invalid delivery id.']);
+                ->withErrors(['id' => 'Identifiant de livraison invalide.']);
         }
 
         try {
@@ -104,10 +104,10 @@ final class WebhookDeliveriesController
             ));
         } catch (WebhookDeliveryNotFound) {
             return redirect()->route('admin.webhook-deliveries.dead.web')
-                ->withErrors(['id' => 'Delivery not found.']);
+                ->withErrors(['id' => 'Livraison introuvable.']);
         } catch (WebhookDeliveryNotDead) {
             return redirect()->route('admin.webhook-deliveries.dead.web')
-                ->withErrors(['id' => 'Delivery is not dead; no need to replay.']);
+                ->withErrors(['id' => "Cette livraison n'est pas en échec ; aucun rejeu nécessaire."]);
         }
 
         // The JSON API's equivalent controller queues the new delivery
@@ -133,7 +133,7 @@ final class WebhookDeliveriesController
         ));
 
         return redirect()->route('admin.webhook-deliveries.dead.web')
-            ->with('status', 'Replay queued — new delivery id: '.substr($result->newDeliveryId, 0, 8).'…');
+            ->with('status', 'Rejeu mis en file — nouvel id de livraison : '.substr($result->newDeliveryId, 0, 8).'…');
     }
 
     /**

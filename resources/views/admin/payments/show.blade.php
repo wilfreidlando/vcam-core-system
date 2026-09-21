@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Payment')
+@section('title', 'Paiement')
 
 @section('content')
 <div class="space-y-6">
@@ -11,7 +11,7 @@
                 <p class="font-mono text-slate-700 break-all">{{ $payment->id }}</p>
             </div>
             <div>
-                <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Project</p>
+                <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Projet</p>
                 @if ($project !== null)
                     <p class="text-slate-900">
                         <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-indigo-600 hover:text-indigo-800 font-medium">
@@ -23,11 +23,11 @@
                 @endif
             </div>
             <div>
-                <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Channel</p>
+                <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Canal</p>
                 <p class="font-mono text-slate-700">{{ $payment->channel }}</p>
             </div>
             <div>
-                <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Status</p>
+                <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Statut</p>
                 <p>
                     @php $status = $payment->status; @endphp
                     <span @class([
@@ -43,17 +43,17 @@
                 </p>
             </div>
             <div>
-                <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Amount</p>
+                <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Montant</p>
                 {{-- Minor units (G5) → major units. Same pattern as
                      reconciliation/new.blade.php and admin/payments/index. --}}
                 <p class="font-mono text-slate-900 tabular-nums">{{ number_format($payment->amount / 100, 2) }} {{ $payment->currency }}</p>
             </div>
             <div>
-                <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Requires action</p>
-                <p class="text-slate-700">{{ $payment->requiresAction ? 'Yes' : 'No' }}</p>
+                <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Action requise</p>
+                <p class="text-slate-700">{{ $payment->requiresAction ? 'Oui' : 'Non' }}</p>
             </div>
             <div>
-                <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Action hint</p>
+                <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Indication d'action</p>
                 <p class="text-slate-700">{{ $payment->actionHint ?? '—' }}</p>
             </div>
         </div>
@@ -61,13 +61,13 @@
 
     @if (! empty($payment->errorMessage))
         <div class="bg-rose-50 border border-rose-200 rounded-md px-4 py-3 text-sm text-rose-800">
-            <span class="font-semibold">Error:</span> {{ $payment->errorMessage }}
+            <span class="font-semibold">Erreur :</span> {{ $payment->errorMessage }}
         </div>
     @endif
 
     <div class="text-right">
         <a href="{{ route('admin.payments.index') }}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
-            ← Back to payments
+            ← Retour aux paiements
         </a>
     </div>
 </div>

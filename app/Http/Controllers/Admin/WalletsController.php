@@ -39,7 +39,7 @@ final class WalletsController
     public function index(string $projectId, Request $request, OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('wallets:read')) {
-            abort(403, 'The wallets:read permission is required.');
+            abort(403, 'La permission wallets:read est requise.');
         }
 
         Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
@@ -47,7 +47,7 @@ final class WalletsController
         try {
             $project = $this->getProject->get(new GetProjectCommand($projectId));
         } catch (RuntimeException) {
-            abort(404, 'Project not found.');
+            abort(404, 'Projet introuvable.');
         }
 
         $page = max(1, (int) $request->query('page', 1));
@@ -62,7 +62,7 @@ final class WalletsController
         ));
 
         return response()->view('admin.wallets.index', [
-            'title' => 'Wallets · '.$project->name,
+            'title' => $project->name,
             'project' => $project,
             'wallets' => $pageResult->items,
             'total' => $pageResult->total,

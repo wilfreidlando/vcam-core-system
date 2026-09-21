@@ -11,8 +11,8 @@
 @if ($pages > 1)
 <nav class="flex items-center justify-between mt-4" aria-label="Pagination">
     <p class="text-xs text-slate-500">
-        Page {{ $page }} of {{ $pages }}
-        · {{ $total }} {{ $total === 1 ? 'item' : 'items' }}
+        Page {{ $page }} sur {{ $pages }}
+        · {{ $total }} {{ $total === 1 ? 'élément' : 'éléments' }}
     </p>
     <div class="inline-flex gap-1">
         @php
@@ -28,7 +28,7 @@
                 'pointer-events-none opacity-50' => $page <= 1,
             ])
             aria-disabled="{{ $page <= 1 ? 'true' : 'false' }}">
-            Previous
+            Précédent
         </a>
         <a
             href="{{ request()->url() }}?{{ http_build_query($nextParams) }}"
@@ -37,7 +37,7 @@
                 'pointer-events-none opacity-50' => $page >= $pages,
             ])
             aria-disabled="{{ $page >= $pages ? 'true' : 'false' }}">
-            Next
+            Suivant
         </a>
     </div>
 </nav>

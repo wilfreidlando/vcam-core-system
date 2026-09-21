@@ -1,28 +1,28 @@
 @extends('layouts.admin')
 
-@section('title', 'New project')
+@section('title', 'Nouveau projet')
 
 @section('content')
 <div class="max-w-md mx-auto">
     <div class="bg-white border border-slate-200 rounded-lg p-6">
 
-        <h2 class="text-base font-semibold text-slate-900 mb-1">New project</h2>
+        <h2 class="text-base font-semibold text-slate-900 mb-1">Nouveau projet</h2>
         <p class="text-sm text-slate-600 mb-4">
-            A project belongs to exactly one organization and is the unit
-            everything else (API keys, payments, wallets) is scoped to.
+            Un projet appartient à exactement une organisation et sert
+            d'unité à tout le reste (clés API, paiements, wallets).
         </p>
 
         <form method="POST" action="{{ route('admin.projects.store') }}" class="space-y-4">
             @csrf
 
             <div>
-                <label for="organization_id" class="block text-sm font-medium text-slate-700 mb-1">Organization</label>
+                <label for="organization_id" class="block text-sm font-medium text-slate-700 mb-1">Organisation</label>
                 <select
                     name="organization_id"
                     id="organization_id"
                     required
                     class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm">
-                    <option value="" disabled @selected(old('organization_id', $selectedOrganizationId) === '')>Select an organization…</option>
+                    <option value="" disabled @selected(old('organization_id', $selectedOrganizationId) === '')>Sélectionner une organisation…</option>
                     @foreach ($organizations as $org)
                         <option value="{{ $org->id }}" @selected(old('organization_id', $selectedOrganizationId) === $org->id)>
                             {{ $org->name }}
@@ -34,13 +34,13 @@
                 @enderror
                 @if (count($organizations) === 0)
                     <p class="mt-1 text-xs text-amber-600">
-                        No organizations exist yet — <a href="{{ route('admin.organizations.new') }}" class="underline">create one first</a>.
+                        Aucune organisation n'existe encore — <a href="{{ route('admin.organizations.new') }}" class="underline">créez-en une d'abord</a>.
                     </p>
                 @endif
             </div>
 
             <div>
-                <label for="name" class="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                <label for="name" class="block text-sm font-medium text-slate-700 mb-1">Nom</label>
                 <input
                     type="text"
                     name="name"
@@ -56,7 +56,7 @@
             <button
                 type="submit"
                 class="w-full inline-flex justify-center items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
-                Create project
+                Créer le projet
             </button>
         </form>
     </div>

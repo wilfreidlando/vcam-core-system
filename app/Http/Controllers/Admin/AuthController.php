@@ -83,7 +83,7 @@ final class AuthController
 
     public function showLogin(): Response
     {
-        return $this->render('admin.auth.login', 'Sign in');
+        return $this->render('admin.auth.login', 'Connexion');
     }
 
     public function login(Request $request): Response
@@ -106,7 +106,7 @@ final class AuthController
 
             return back()
                 ->withInput($only)
-                ->withErrors(['email' => 'Invalid credentials.']);
+                ->withErrors(['email' => 'Identifiants invalides.']);
         }
 
         // `IDENTITY_DISABLE_MFA=true` removes the MFA step from the login
@@ -134,7 +134,7 @@ final class AuthController
                 occurredAt: $this->clock->now(),
             ));
 
-            return $this->completeLogin($token, 'MFA is disabled in this environment.');
+            return $this->completeLogin($token, 'MFA désactivée sur cet environnement.');
         }
 
         // Persist the challenge token in the session so the next request
@@ -151,7 +151,7 @@ final class AuthController
             default => null,
         };
         if ($redirect === null) {
-            return back()->withErrors(['email' => 'Unsupported MFA challenge purpose.']);
+            return back()->withErrors(['email' => 'Type de challenge MFA non pris en charge.']);
         }
 
         return redirect()->route($redirect);
@@ -161,7 +161,7 @@ final class AuthController
     {
         $token = Session::get('admin.challenge_token');
         if (! is_string($token)) {
-            return $this->redirectToLogin('Please sign in again.');
+            return $this->redirectToLogin('Merci de vous reconnecter.');
         }
         $emailRaw = Session::get('admin.email', '');
         $email = is_string($emailRaw) ? $emailRaw : '';
@@ -171,13 +171,13 @@ final class AuthController
                 challengeToken: $token,
             ));
         } catch (MfaChallengeInvalid) {
-            return $this->redirectToLogin('MFA challenge expired or invalid. Please sign in again.');
+            return $this->redirectToLogin('Challenge MFA expiré ou invalide. Merci de vous reconnecter.');
         } catch (MfaAlreadyEnrolled) {
             return redirect()->route('admin.mfa.verify.show')
-                ->with('status', 'MFA already enrolled. Please verify.');
+                ->with('status', 'MFA déjà configurée. Merci de vérifier.');
         }
 
-        return $this->render('admin.auth.mfa-enroll', 'Set up MFA', [
+        return $this->render('admin.auth.mfa-enroll', 'Configuration MFA', [
             'email' => $email,
             'secret' => $enrolment->secret,
             'otpauthUri' => $enrolment->otpauthUri,
@@ -205,21 +205,21 @@ final class AuthController
                 code: $data['code'],
             ));
         } catch (InvalidMfaCode|MfaChallengeInvalid) {
-            return back()->withErrors(['code' => 'Invalid or expired code.']);
+            return back()->withErrors(['code' => 'Code invalide ou expiré.']);
         }
 
-        return $this->completeLogin($session->accessToken, 'MFA enrolled.');
+        return $this->completeLogin($session->accessToken, 'MFA configurée.');
     }
 
     public function showMfaVerify(): Response
     {
         if (Session::get('admin.challenge_token') === null) {
-            return $this->redirectToLogin('Please sign in again.');
+            return $this->redirectToLogin('Merci de vous reconnecter.');
         }
         $emailRaw = Session::get('admin.email', '');
         $email = is_string($emailRaw) ? $emailRaw : '';
 
-        return $this->render('admin.auth.mfa-verify', 'Verify MFA', ['email' => $email]);
+        return $this->render('admin.auth.mfa-verify', 'Vérification MFA', ['email' => $email]);
     }
 
     public function verifyMfa(Request $request): Response
@@ -237,10 +237,10 @@ final class AuthController
                 code: $data['code'],
             ));
         } catch (InvalidMfaCode|MfaChallengeInvalid|MfaNotEnrolled) {
-            return back()->withErrors(['code' => 'Invalid code or MFA not enrolled.']);
+            return back()->withErrors(['code' => 'Code invalide ou MFA non configurée.']);
         }
 
-        return $this->completeLogin($session->accessToken, 'Welcome back.');
+        return $this->completeLogin($session->accessToken, 'Bienvenue.');
     }
 
     public function logout(): RedirectResponse
@@ -261,7 +261,7 @@ final class AuthController
         Session::regenerateToken();
 
         return redirect()->route('admin.login.show')
-            ->with('status', 'Signed out.');
+            ->with('status', 'Déconnecté.');
     }
 
     /**

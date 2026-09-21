@@ -49,7 +49,7 @@ final class ProjectsController
     public function index(Request $request, OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('projects:read')) {
-            abort(403, 'The projects:read permission is required.');
+            abort(403, 'La permission projects:read est requise.');
         }
 
         $page = max(1, (int) $request->query('page', 1));
@@ -81,7 +81,7 @@ final class ProjectsController
         }
 
         return response()->view('admin.projects.index', [
-            'title' => 'Projects',
+            'title' => 'Projets',
             'projects' => $pageResult->items,
             'total' => $pageResult->total,
             'page' => $page,
@@ -95,7 +95,7 @@ final class ProjectsController
     public function show(string $projectId, OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('projects:read')) {
-            abort(403, 'The projects:read permission is required.');
+            abort(403, 'La permission projects:read est requise.');
         }
 
         Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
@@ -103,11 +103,11 @@ final class ProjectsController
         try {
             $project = $this->getProject->get(new GetProjectCommand($projectId));
         } catch (RuntimeException) {
-            abort(404, 'Project not found.');
+            abort(404, 'Projet introuvable.');
         }
 
         return response()->view('admin.projects.show', [
-            'title' => 'Project '.substr($project->id, 0, 8).'…',
+            'title' => 'Projet '.substr($project->id, 0, 8).'…',
             'project' => $project,
         ]);
     }
@@ -115,7 +115,7 @@ final class ProjectsController
     public function create(Request $request, OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('projects:write')) {
-            abort(403, 'The projects:write permission is required.');
+            abort(403, 'La permission projects:write est requise.');
         }
 
         $organizations = $this->listOrganizations->list(new ListOrganizationsCommand(
@@ -124,7 +124,7 @@ final class ProjectsController
         ));
 
         return response()->view('admin.projects.create', [
-            'title' => 'New project',
+            'title' => 'Nouveau projet',
             'organizations' => $organizations->items,
             'selectedOrganizationId' => (string) $request->query('organization_id', ''),
         ]);
@@ -133,7 +133,7 @@ final class ProjectsController
     public function store(Request $request, OperatorContext $operator): RedirectResponse
     {
         if (! $operator->hasPermission('projects:write')) {
-            abort(403, 'The projects:write permission is required.');
+            abort(403, 'La permission projects:write est requise.');
         }
 
         /** @var array{name: string, organization_id: string} $data */
@@ -154,6 +154,6 @@ final class ProjectsController
         }
 
         return redirect()->route('admin.projects.show', ['projectId' => $project->id])
-            ->with('status', 'Project created: '.$project->name);
+            ->with('status', 'Projet créé : '.$project->name);
     }
 }

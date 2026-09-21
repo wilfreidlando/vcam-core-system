@@ -29,7 +29,7 @@ final class OrganizationsController
     public function index(Request $request, OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('projects:read')) {
-            abort(403, 'The projects:read permission is required.');
+            abort(403, 'La permission projects:read est requise.');
         }
 
         $page = max(1, (int) $request->query('page', 1));
@@ -44,7 +44,7 @@ final class OrganizationsController
         ));
 
         return response()->view('admin.organizations.index', [
-            'title' => 'Organizations',
+            'title' => 'Organisations',
             'organizations' => $pageResult->items,
             'total' => $pageResult->total,
             'page' => $page,
@@ -56,18 +56,18 @@ final class OrganizationsController
     public function create(OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('projects:write')) {
-            abort(403, 'The projects:write permission is required.');
+            abort(403, 'La permission projects:write est requise.');
         }
 
         return response()->view('admin.organizations.create', [
-            'title' => 'New organization',
+            'title' => 'Nouvelle organisation',
         ]);
     }
 
     public function store(Request $request, OperatorContext $operator): RedirectResponse
     {
         if (! $operator->hasPermission('projects:write')) {
-            abort(403, 'The projects:write permission is required.');
+            abort(403, 'La permission projects:write est requise.');
         }
 
         /** @var array{name: string} $data */
@@ -83,6 +83,6 @@ final class OrganizationsController
         );
 
         return redirect()->route('admin.organizations.index')
-            ->with('status', 'Organization created: '.$data['name']);
+            ->with('status', 'Organisation créée : '.$data['name']);
     }
 }

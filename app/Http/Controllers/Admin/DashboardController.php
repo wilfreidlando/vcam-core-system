@@ -57,7 +57,7 @@ final class DashboardController
     public function show(): Response
     {
         if (! $this->operator->hasPermission('audit:read')) {
-            abort(403, 'The audit:read permission is required.');
+            abort(403, 'La permission audit:read est requise.');
         }
 
         $stats = [
@@ -71,7 +71,7 @@ final class DashboardController
         $recentAudit = $this->recentAudit();
 
         return response()->view('admin.dashboard', [
-            'title' => 'Dashboard',
+            'title' => 'Tableau de bord',
             'stats' => $stats,
             'recentAudit' => $recentAudit,
         ]);

@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Projects')
+@section('title', 'Projets')
 
 @section('content')
 {{-- `$has` from the layout's <aside> scope isn't visible here — Blade
@@ -11,7 +11,7 @@
     <div class="mb-4 flex justify-end">
         <a href="{{ route('admin.projects.new') }}"
            class="inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
-            + New project
+            + Nouveau projet
         </a>
     </div>
 @endif
@@ -19,23 +19,23 @@
 <form method="GET" action="{{ route('admin.projects.index') }}" class="bg-white border border-slate-200 rounded-lg p-4 mb-4">
     <div class="flex items-end gap-3">
         <div class="flex-1">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Search by name</label>
-            <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Project name…" class="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+            <label class="block text-xs font-medium text-slate-700 mb-1">Rechercher par nom</label>
+            <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Nom du projet…" class="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
         </div>
         <div class="flex-1">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Organization ID</label>
+            <label class="block text-xs font-medium text-slate-700 mb-1">ID de l'organisation</label>
             <input type="text" name="organization_id" value="{{ $filters['organization_id'] ?? '' }}" class="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm font-mono" />
         </div>
         <div class="flex items-end gap-2">
-            <a href="{{ route('admin.projects.index') }}" class="text-xs text-slate-500 hover:text-slate-700">Reset</a>
-            <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white">Filter</button>
+            <a href="{{ route('admin.projects.index') }}" class="text-xs text-slate-500 hover:text-slate-700">Réinitialiser</a>
+            <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white">Filtrer</button>
         </div>
     </div>
 </form>
 
 <x-admin.table
-    :headers="['ID', 'Organization', 'Name', 'Status', 'Action']"
-    :empty="'No projects match the filter.'">
+    :headers="['ID', 'Organisation', 'Nom', 'Statut', 'Action']"
+    :empty="'Aucun projet ne correspond au filtre.'">
     @foreach ($projects as $project)
         <tr>
             <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $project->id }}">
@@ -59,7 +59,7 @@
             <td class="px-4 py-2 text-sm">
                 <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}"
                    class="text-indigo-600 hover:text-indigo-800 font-medium">
-                    View →
+                    Voir →
                 </a>
             </td>
         </tr>

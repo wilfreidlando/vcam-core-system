@@ -1,42 +1,42 @@
 @extends('layouts.admin')
 
-@section('title', 'Payments')
+@section('title', 'Paiements')
 
 @section('content')
 <form method="GET" action="{{ route('admin.payments.index') }}" class="bg-white border border-slate-200 rounded-lg p-4 mb-4">
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
         <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Project</label>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Projet</label>
             <select name="project_id" class="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm bg-white">
-                <option value="">(all projects)</option>
+                <option value="">(tous les projets)</option>
                 @foreach ($projects as $project)
                     <option value="{{ $project->id }}" @selected(($filters['project_id'] ?? '') === $project->id)>{{ $project->name }}</option>
                 @endforeach
             </select>
         </div>
         <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Channel</label>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Canal</label>
             <input type="text" name="channel" value="{{ $filters['channel'] ?? '' }}" class="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm font-mono" />
         </div>
         <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Status</label>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Statut</label>
             <select name="status" class="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm bg-white">
-                <option value="">(any)</option>
+                <option value="">(tous)</option>
                 @foreach (['pending', 'processing', 'succeeded', 'failed', 'expired', 'refunded', 'canceled'] as $s)
                     <option value="{{ $s }}" @selected(($filters['status'] ?? '') === $s)>{{ ucfirst($s) }}</option>
                 @endforeach
             </select>
         </div>
         <div class="flex items-end gap-2 justify-end">
-            <a href="{{ route('admin.payments.index') }}" class="text-xs text-slate-500 hover:text-slate-700">Reset</a>
-            <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white">Filter</button>
+            <a href="{{ route('admin.payments.index') }}" class="text-xs text-slate-500 hover:text-slate-700">Réinitialiser</a>
+            <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white">Filtrer</button>
         </div>
     </div>
 </form>
 
 <x-admin.table
-    :headers="['ID', 'Project', 'Channel', 'Status', 'Amount', 'Currency', 'Actions']"
-    :empty="'No payments match the filters.'">
+    :headers="['ID', 'Projet', 'Canal', 'Statut', 'Montant', 'Devise', 'Actions']"
+    :empty="'Aucun paiement ne correspond aux filtres.'">
     @foreach ($payments as $payment)
         <tr>
             <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[8rem]" title="{{ $payment->id }}">
@@ -79,7 +79,7 @@
                      differ from this row's actual project. --}}
                 <a href="{{ route('admin.payments.show', ['payment' => $payment->id, 'project_id' => $payment->projectId]) }}"
                    class="text-indigo-600 hover:text-indigo-800 font-medium">
-                    View →
+                    Voir →
                 </a>
             </td>
         </tr>

@@ -63,7 +63,7 @@ final class ProviderApplicationsController
     public function create(string $projectId, OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('provider-applications:write')) {
-            abort(403, 'The provider-applications:write permission is required.');
+            abort(403, 'La permission provider-applications:write est requise.');
         }
 
         Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
@@ -71,7 +71,7 @@ final class ProviderApplicationsController
         try {
             $project = $this->getProject->get(new GetProjectCommand($projectId));
         } catch (RuntimeException) {
-            abort(404, 'Project not found.');
+            abort(404, 'Projet introuvable.');
         }
 
         $applications = $this->listProviderApplications->list(new ListProviderApplicationsCommand($projectId));
@@ -90,7 +90,7 @@ final class ProviderApplicationsController
         );
 
         return response()->view('admin.provider-applications.create', [
-            'title' => 'Provider applications · '.$project->name,
+            'title' => 'Applications provider · '.$project->name,
             'project' => $project,
             'applications' => $applications,
             'availableProviders' => $availableProviders,
@@ -101,7 +101,7 @@ final class ProviderApplicationsController
     public function store(string $projectId, Request $request, OperatorContext $operator): RedirectResponse
     {
         if (! $operator->hasPermission('provider-applications:write')) {
-            abort(403, 'The provider-applications:write permission is required.');
+            abort(403, 'La permission provider-applications:write est requise.');
         }
 
         Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
@@ -151,6 +151,6 @@ final class ProviderApplicationsController
         ));
 
         return redirect()->route('admin.projects.show', ['projectId' => $projectId])
-            ->with('status', "Provider application registered for '{$data['provider']}'.");
+            ->with('status', "Application provider enregistrée pour « {$data['provider']} ».");
     }
 }

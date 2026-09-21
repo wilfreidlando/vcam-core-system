@@ -1,29 +1,29 @@
 @extends('layouts.admin')
 
-@section('title', 'Operators')
+@section('title', 'Opérateurs')
 
 @section('content')
 @if (! empty($created))
     <div class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3">
-        <p class="text-sm font-semibold text-emerald-800">Operator created: {{ $created['email'] }}</p>
+        <p class="text-sm font-semibold text-emerald-800">Opérateur créé : {{ $created['email'] }}</p>
         <p class="mt-1 text-sm text-emerald-700">
-            One-time password — shown only now, never stored or logged:
+            Mot de passe à usage unique — affiché uniquement maintenant, jamais stocké ni journalisé :
             <code class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900">{{ $created['plaintext_password'] }}</code>
         </p>
     </div>
 @endif
 
 <div class="mb-4 flex items-center justify-between gap-4">
-    <x-admin.search-box placeholder="Search by email or name…" :value="$search" />
+    <x-admin.search-box placeholder="Rechercher par email ou nom…" :value="$search" />
     <a href="{{ route('admin.operators.new') }}"
        class="shrink-0 inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
-        New operator
+        Nouvel opérateur
     </a>
 </div>
 
 <x-admin.table
-    :headers="['Email', 'Name', 'Role', 'MFA', 'Status', 'Created', 'Action']"
-    :empty="'No operators yet.'">
+    :headers="['Email', 'Nom', 'Rôle', 'MFA', 'Statut', 'Créé le', 'Action']"
+    :empty="'Aucun opérateur pour le moment.'">
     @foreach ($operators as $op)
         <tr x-data="{ confirmRevoke: false }">
             <td class="px-4 py-2 text-sm text-slate-900">{{ $op->email }}</td>
@@ -39,7 +39,7 @@
                     'bg-emerald-100 text-emerald-700' => $op->mfaEnabled,
                     'bg-slate-100 text-slate-700' => ! $op->mfaEnabled,
                 ])>
-                    {{ $op->mfaEnabled ? 'Enrolled' : 'Not enrolled' }}
+                    {{ $op->mfaEnabled ? 'Configuré' : 'Non configuré' }}
                 </span>
             </td>
             <td class="px-4 py-2 text-xs">
@@ -48,7 +48,7 @@
                     'bg-rose-100 text-rose-700' => $op->revoked,
                     'bg-emerald-100 text-emerald-700' => ! $op->revoked,
                 ])>
-                    {{ $op->revoked ? 'Revoked' : 'Active' }}
+                    {{ $op->revoked ? 'Révoqué' : 'Actif' }}
                 </span>
             </td>
             <td class="px-4 py-2 text-xs font-mono text-slate-600 whitespace-nowrap">
@@ -57,14 +57,14 @@
             <td class="px-4 py-2 text-xs space-x-1 whitespace-nowrap">
                 <a href="{{ route('admin.operators.edit', ['operatorId' => $op->id]) }}"
                    class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-700 hover:bg-slate-200">
-                    Edit
+                    Modifier
                 </a>
                 @unless ($op->revoked)
                     <button
                         @click="confirmRevoke = true"
                         type="button"
                         class="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-1 font-medium text-rose-700 hover:bg-rose-100">
-                        Revoke
+                        Révoquer
                     </button>
                     <form
                         x-show="confirmRevoke"
@@ -76,17 +76,17 @@
                         @click.self="confirmRevoke = false">
                         @csrf
                         <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4" @click.stop>
-                            <p class="font-semibold text-slate-900 mb-2">Revoke {{ $op->email }}?</p>
+                            <p class="font-semibold text-slate-900 mb-2">Révoquer {{ $op->email }} ?</p>
                             <p class="text-sm text-slate-600 mb-4">
-                                Their bearer tokens are rejected on their
-                                very next request. This cannot be undone
-                                from here.
+                                Ses jetons d'accès seront rejetés dès sa
+                                prochaine requête. Cette action est
+                                irréversible depuis cet écran.
                             </p>
                             <div class="flex justify-end gap-2">
                                 <button type="button" @click="confirmRevoke = false"
-                                        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Cancel</button>
+                                        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Annuler</button>
                                 <button type="submit"
-                                        class="rounded-md bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-sm font-medium text-white">Confirm</button>
+                                        class="rounded-md bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-sm font-medium text-white">Confirmer</button>
                             </div>
                         </div>
                     </form>

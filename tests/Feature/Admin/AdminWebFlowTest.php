@@ -75,14 +75,14 @@ final class AdminWebFlowTest extends TestCase
         // Every authenticated page renders 200 with real content — the
         // exact set that used to fatally error end to end.
         foreach ([
-            '/admin' => 'Payments (24h)',
-            '/admin/organizations' => 'Organizations',
-            '/admin/projects' => 'Projects',
-            '/admin/payments' => 'Payments',
-            '/admin/webhook-deliveries/dead' => 'Webhook DLQ',
-            '/admin/audit-log' => 'Audit log',
-            '/admin/reconciliation/new' => 'Trigger reconciliation',
-            '/admin/operators' => 'Operators',
+            '/admin' => 'Paiements (24h)',
+            '/admin/organizations' => 'Organisations',
+            '/admin/projects' => 'Projets',
+            '/admin/payments' => 'Paiements',
+            '/admin/webhook-deliveries/dead' => 'Webhooks en échec',
+            '/admin/audit-log' => "Journal d'audit",
+            '/admin/reconciliation/new' => 'Déclencher la réconciliation',
+            '/admin/operators' => 'Opérateurs',
         ] as $path => $expectedText) {
             $response = $this->get($path);
             $response->assertOk();
@@ -137,7 +137,7 @@ final class AdminWebFlowTest extends TestCase
         $index = $this->get('/admin/operators');
         $index->assertOk();
         $index->assertSee($email);
-        $index->assertSee('One-time password');
+        $index->assertSee('Mot de passe à usage unique');
 
         $created = app(OperatorRepository::class)->findByEmail($email);
         assert($created instanceof Operator);
@@ -145,7 +145,7 @@ final class AdminWebFlowTest extends TestCase
         $this->post("/admin/operators/{$created->id}/revoke")
             ->assertRedirect(route('admin.operators.index'));
 
-        $this->get('/admin/operators')->assertSee('Revoked');
+        $this->get('/admin/operators')->assertSee('Révoqué');
     }
 
     #[Test]

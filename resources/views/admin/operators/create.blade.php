@@ -1,16 +1,17 @@
 @extends('layouts.admin')
 
-@section('title', 'New operator')
+@section('title', 'Nouvel opérateur')
 
 @section('content')
 <div class="max-w-md mx-auto">
     <div class="bg-white border border-slate-200 rounded-lg p-6">
 
-        <h2 class="text-base font-semibold text-slate-900 mb-1">New operator</h2>
+        <h2 class="text-base font-semibold text-slate-900 mb-1">Nouvel opérateur</h2>
         <p class="text-sm text-slate-600 mb-4">
-            The generated password is shown once on the next page and
-            never stored in the clear — MFA enrollment happens on the
-            operator's first login, not here.
+            Le mot de passe généré ne s'affiche qu'une seule fois, sur la
+            page suivante, et n'est jamais stocké en clair — la
+            configuration MFA se fait à la première connexion de
+            l'opérateur, pas ici.
         </p>
 
         <form method="POST" action="{{ route('admin.operators.store') }}" class="space-y-4">
@@ -33,7 +34,7 @@
             </div>
 
             <div>
-                <label for="name" class="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                <label for="name" class="block text-sm font-medium text-slate-700 mb-1">Nom</label>
                 <input
                     type="text"
                     name="name"
@@ -47,7 +48,7 @@
             </div>
 
             <div>
-                <label for="role" class="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                <label for="role" class="block text-sm font-medium text-slate-700 mb-1">Rôle</label>
                 <select
                     name="role"
                     id="role"
@@ -67,7 +68,7 @@
             <button
                 type="submit"
                 class="w-full inline-flex justify-center items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
-                Create operator
+                Créer l'opérateur
             </button>
         </form>
     </div>

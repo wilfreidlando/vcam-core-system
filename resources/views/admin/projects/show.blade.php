@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Project')
+@section('title', 'Projet')
 
 @section('content')
 <div class="space-y-6">
@@ -11,15 +11,15 @@
                 <p class="font-mono text-slate-700 break-all">{{ $project->id }}</p>
             </div>
             <div>
-                <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Organization</p>
+                <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Organisation</p>
                 <p class="font-mono text-slate-700 break-all">{{ $project->organizationId }}</p>
             </div>
             <div>
-                <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Name</p>
+                <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Nom</p>
                 <p class="text-slate-900">{{ $project->name }}</p>
             </div>
             <div>
-                <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Status</p>
+                <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Statut</p>
                 <p>
                     <span @class([
                         'inline-flex rounded-md px-2 py-0.5 text-xs font-mono',
@@ -36,12 +36,12 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <a href="{{ route('admin.payments.index', ['project_id' => $project->id]) }}"
            class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
-            <span class="font-medium text-slate-900">This project's payments</span>
+            <span class="font-medium text-slate-900">Paiements de ce projet</span>
             <span class="text-indigo-600">→</span>
         </a>
         <a href="{{ route('admin.projects.wallets.index', ['projectId' => $project->id]) }}"
            class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
-            <span class="font-medium text-slate-900">This project's wallets</span>
+            <span class="font-medium text-slate-900">Wallets de ce projet</span>
             <span class="text-indigo-600">→</span>
         </a>
         {{-- Permission checked here, not just in the controller (same
@@ -52,7 +52,7 @@
         @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('provider-applications:write'))
             <a href="{{ route('admin.projects.provider-applications.create', ['projectId' => $project->id]) }}"
                class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
-                <span class="font-medium text-slate-900">Register a payment provider application</span>
+                <span class="font-medium text-slate-900">Enregistrer une application provider de paiement</span>
                 <span class="text-indigo-600">→</span>
             </a>
         @endif
@@ -60,7 +60,7 @@
 
     <div class="text-right">
         <a href="{{ route('admin.projects.index', ['organization_id' => $project->organizationId]) }}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
-            ← Back to projects
+            ← Retour aux projets
         </a>
     </div>
 </div>

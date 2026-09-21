@@ -1,5 +1,5 @@
 @props([
-    'placeholder' => 'Search…',
+    'placeholder' => 'Rechercher…',
     'value' => '',
 ])
 
@@ -21,11 +21,11 @@
             class="block w-full rounded-md border border-slate-300 pl-8 pr-3 py-1.5 text-sm shadow-sm" />
     </div>
     <button type="submit" class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
-        Search
+        Rechercher
     </button>
     @if ($value !== '')
         <a href="{{ request()->url() }}" class="text-sm text-slate-500 hover:text-slate-700">
-            Clear
+            Effacer
         </a>
     @endif
 </form>

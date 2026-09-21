@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Provider applications')
+@section('title', 'Applications provider')
 @section('subtitle', $project->name)
 
 @section('content')
@@ -10,9 +10,9 @@
          read path for it; ProviderApplicationRepository::save() is
          upsert-only), just confirmation of what's registered. --}}
     <div class="bg-white border border-slate-200 rounded-lg p-6">
-        <h2 class="text-base font-semibold text-slate-900 mb-3">Registered applications</h2>
+        <h2 class="text-base font-semibold text-slate-900 mb-3">Applications enregistrées</h2>
         @if (count($applications) === 0)
-            <p class="text-sm text-slate-500">No provider application registered for this project yet.</p>
+            <p class="text-sm text-slate-500">Aucune application provider enregistrée pour ce projet pour le moment.</p>
         @else
             <ul class="divide-y divide-slate-100">
                 @foreach ($applications as $application)
@@ -29,11 +29,12 @@
 
     <div class="bg-white border border-slate-200 rounded-lg p-6">
 
-        <h2 class="text-base font-semibold text-slate-900 mb-1">Register provider application</h2>
+        <h2 class="text-base font-semibold text-slate-900 mb-1">Enregistrer une application provider</h2>
         <p class="text-sm text-slate-600 mb-3">
-            An "application" is this Project's own merchant credentials
-            with a payment provider — e.g. a MyCoolPay public/private key
-            pair, obtained from that provider's own merchant dashboard.
+            Une « application » correspond aux identifiants marchands
+            propres à ce projet chez un provider de paiement — par exemple
+            une paire de clés publique/privée MyCoolPay, obtenue depuis le
+            tableau de bord marchand de ce provider.
         </p>
 
         {{-- The two conceptual points that used to be missing from this
@@ -41,19 +42,21 @@
              and a project has AT MOST ONE application per provider. --}}
         <div class="mb-5 rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2.5 text-xs text-indigo-900 leading-relaxed">
             <p>
-                <span class="font-semibold">Provider</span> below lists only
-                providers this Core actually has an adapter for — not a
-                free-text code you have to get right by hand.
+                Le champ <span class="font-semibold">Provider</span> ci-dessous
+                ne liste que les providers pour lesquels ce Core a
+                effectivement un adaptateur — pas un code en texte libre à
+                saisir soi-même correctement.
             </p>
             <p class="mt-1.5">
-                <span class="font-semibold">One application per provider.</span>
-                A single provider account (e.g. MyCoolPay) can itself hold
-                several distinct applications on its own dashboard, each
-                with its own keys — but this Project pins exactly <em>one</em>
-                of them per provider at a time. Saving again for a provider
-                that already has one <span class="font-semibold">rotates</span>
-                it (overwrites the key pair); it does not register a second
-                one alongside it.
+                <span class="font-semibold">Une seule application par provider.</span>
+                Un même compte provider (par exemple MyCoolPay) peut avoir
+                plusieurs applications distinctes sur son propre tableau de
+                bord, chacune avec ses propres clés — mais ce projet n'en
+                retient <em>qu'une seule</em> à la fois par provider.
+                Enregistrer à nouveau pour un provider qui en a déjà une
+                <span class="font-semibold">la remplace</span>
+                (écrase la paire de clés) ; cela n'en crée pas une seconde
+                à côté.
             </p>
         </div>
 
@@ -64,7 +67,7 @@
                 <label for="provider" class="block text-sm font-medium text-slate-700 mb-1">Provider</label>
                 @if (count($availableProviders) === 0)
                     <p class="text-sm text-rose-600">
-                        No payment provider adapter is registered in this Core yet — there is nothing to select.
+                        Aucun adaptateur de provider de paiement n'est encore enregistré dans ce Core — il n'y a rien à sélectionner.
                     </p>
                 @else
                     <select
@@ -75,7 +78,7 @@
                         class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm font-mono bg-white">
                         @foreach ($availableProviders as $code)
                             <option value="{{ $code }}" @selected(old('provider') === $code)>
-                                {{ $code }}@if (in_array($code, $registeredProviderCodes, true)) — already registered, saving will rotate it @endif
+                                {{ $code }}@if (in_array($code, $registeredProviderCodes, true)) — déjà enregistrée, l'enregistrement la remplacera @endif
                             </option>
                         @endforeach
                     </select>
@@ -86,7 +89,7 @@
             </div>
 
             <div>
-                <label for="public_key" class="block text-sm font-medium text-slate-700 mb-1">Public key</label>
+                <label for="public_key" class="block text-sm font-medium text-slate-700 mb-1">Clé publique</label>
                 <input
                     type="text"
                     name="public_key"
@@ -101,7 +104,7 @@
             </div>
 
             <div>
-                <label for="private_key" class="block text-sm font-medium text-slate-700 mb-1">Private key</label>
+                <label for="private_key" class="block text-sm font-medium text-slate-700 mb-1">Clé privée</label>
                 <input
                     type="password"
                     name="private_key"
@@ -109,7 +112,7 @@
                     required
                     autocomplete="off"
                     class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm font-mono" />
-                <p class="mt-1 text-xs text-slate-500">Encrypted at rest, never displayed again after saving.</p>
+                <p class="mt-1 text-xs text-slate-500">Chiffrée au repos, plus jamais affichée après l'enregistrement.</p>
                 @error('private_key')
                     <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
                 @enderror
@@ -123,11 +126,11 @@
                     'bg-indigo-600 hover:bg-indigo-700 text-white' => count($availableProviders) > 0,
                     'bg-slate-200 text-slate-500 cursor-not-allowed' => count($availableProviders) === 0,
                 ])>
-                Save application
+                Enregistrer l'application
             </button>
 
             <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="block text-center text-sm text-slate-500 hover:text-slate-700">
-                Cancel
+                Annuler
             </a>
         </form>
     </div>

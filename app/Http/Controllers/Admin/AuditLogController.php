@@ -26,7 +26,7 @@ final class AuditLogController
     public function index(Request $request, OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('audit:read')) {
-            abort(403, 'The audit:read permission is required.');
+            abort(403, 'La permission audit:read est requise.');
         }
 
         $page = max(1, (int) $request->query('page', 1));
@@ -49,7 +49,7 @@ final class AuditLogController
         ));
 
         return response()->view('admin.audit-log.index', [
-            'title' => 'Audit log',
+            'title' => "Journal d'audit",
             'entries' => $result->items,
             'total' => $result->total,
             'page' => $page,
