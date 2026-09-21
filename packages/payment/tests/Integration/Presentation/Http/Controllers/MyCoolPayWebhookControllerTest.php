@@ -389,6 +389,11 @@ final class MyCoolPayWebhookControllerTest extends TestCase
 
                 return null;
             }
+
+            public function findAllByProject(string $projectId): array
+            {
+                throw new RuntimeException('Not needed by this fake — inbound path only.');
+            }
         };
     }
 

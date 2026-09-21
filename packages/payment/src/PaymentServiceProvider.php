@@ -9,6 +9,7 @@ use Core\Payment\Application\UseCase\CountStuckPaymentsUseCase;
 use Core\Payment\Application\UseCase\GetPaymentStatusUseCase;
 use Core\Payment\Application\UseCase\HandlePaymentStatusChangedUseCase;
 use Core\Payment\Application\UseCase\ListPaymentsUseCase;
+use Core\Payment\Application\UseCase\ListProviderApplicationsUseCase;
 use Core\Payment\Application\UseCase\ListStuckPaymentsUseCase;
 use Core\Payment\Application\UseCase\PaymentActivitySummaryUseCase;
 use Core\Payment\Application\UseCase\ReconcileStuckPaymentsUseCase;
@@ -17,6 +18,7 @@ use Core\Payment\Application\UseCase\StartPaymentUseCase;
 use Core\Payment\Contracts\CountStuckPayments;
 use Core\Payment\Contracts\GetPaymentStatus;
 use Core\Payment\Contracts\ListPayments;
+use Core\Payment\Contracts\ListProviderApplications;
 use Core\Payment\Contracts\ListStuckPayments;
 use Core\Payment\Contracts\PaymentActivitySummary;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
@@ -162,6 +164,7 @@ final class PaymentServiceProvider extends ServiceProvider
         $this->app->bind(PaymentStatusChangeHandler::class, HandlePaymentStatusChangedUseCase::class);
         $this->app->bind(ListPayments::class, ListPaymentsUseCase::class);
         $this->app->bind(RegisterProviderApplication::class, RegisterProviderApplicationUseCase::class);
+        $this->app->bind(ListProviderApplications::class, ListProviderApplicationsUseCase::class);
 
         $this->app->bind(ReconcileStuckPayments::class, function (Application $app): ReconcileStuckPaymentsUseCase {
             /** @var int $stuckAfterMinutes */

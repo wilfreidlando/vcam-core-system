@@ -51,6 +51,27 @@ final class EloquentProviderApplicationRepository implements ProviderApplication
         return $record === null ? null : $this->toDomain($record);
     }
 
+    public function findAllByProject(string $projectId): array
+    {
+        // `orderBy` is forwarded by Eloquent\Builder to the underlying
+        // query builder rather than declared on it directly; going
+        // through `toBase()` first avoids a Larastan false positive
+        // ("dynamic call to static method") — same pattern as
+        // EloquentWalletRepository::findByProject().
+        $base = ProviderApplicationRecord::query()->where('project_id', $projectId)->toBase();
+        $base->orderBy('provider_code');
+
+        $rows = $base->get()->map(static fn (object $row): array => (array) $row)->all();
+        $records = ProviderApplicationRecord::hydrate($rows);
+
+        $applications = [];
+        foreach ($records as $record) {
+            $applications[] = $this->toDomain($record);
+        }
+
+        return $applications;
+    }
+
     private function toDomain(ProviderApplicationRecord $record): ProviderApplication
     {
         return new ProviderApplication(

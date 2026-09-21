@@ -32,4 +32,16 @@ final class InMemoryProviderApplicationRepository implements ProviderApplication
 
         return null;
     }
+
+    public function findAllByProject(string $projectId): array
+    {
+        $applications = array_values(array_filter(
+            $this->applications,
+            static fn (ProviderApplication $application): bool => $application->projectId === $projectId,
+        ));
+
+        usort($applications, static fn (ProviderApplication $a, ProviderApplication $b): int => $a->providerCode <=> $b->providerCode);
+
+        return $applications;
+    }
 }

@@ -22,9 +22,17 @@ final class InMemoryOrganizationRepository implements OrganizationRepository
         return $this->organizations[$id] ?? null;
     }
 
-    public function findAll(int $page, int $perPage): array
+    public function findAll(int $page, int $perPage, ?string $search = null): array
     {
         $all = array_values($this->organizations);
+
+        if ($search !== null && $search !== '') {
+            $all = array_values(array_filter(
+                $all,
+                static fn (Organization $organization): bool => stripos($organization->name(), $search) !== false,
+            ));
+        }
+
         $total = count($all);
         $offset = ($page - 1) * $perPage;
 

@@ -19,6 +19,10 @@
 <form method="GET" action="{{ route('admin.projects.index') }}" class="bg-white border border-slate-200 rounded-lg p-4 mb-4">
     <div class="flex items-end gap-3">
         <div class="flex-1">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Search by name</label>
+            <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Project name…" class="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+        </div>
+        <div class="flex-1">
             <label class="block text-xs font-medium text-slate-700 mb-1">Organization ID</label>
             <input type="text" name="organization_id" value="{{ $filters['organization_id'] ?? '' }}" class="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm font-mono" />
         </div>

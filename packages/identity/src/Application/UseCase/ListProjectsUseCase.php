@@ -19,7 +19,7 @@ final readonly class ListProjectsUseCase implements ListProjectsPort
 
     public function list(ListProjectsCommand $command): ProjectPage
     {
-        $result = $this->projects->findAll($command->organizationId, $command->page, $command->perPage);
+        $result = $this->projects->findAll($command->organizationId, $command->page, $command->perPage, $command->search);
 
         $items = array_map(
             static fn (Project $project): ProjectView => new ProjectView(

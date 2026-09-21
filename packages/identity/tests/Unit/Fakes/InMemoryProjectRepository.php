@@ -22,11 +22,12 @@ final class InMemoryProjectRepository implements ProjectRepository
         return $this->projects[$id] ?? null;
     }
 
-    public function findAll(?string $organizationId, int $page, int $perPage): array
+    public function findAll(?string $organizationId, int $page, int $perPage, ?string $search = null): array
     {
         $matching = array_values(array_filter(
             $this->projects,
-            static fn (Project $project): bool => $organizationId === null || $project->organizationId === $organizationId,
+            static fn (Project $project): bool => ($organizationId === null || $project->organizationId === $organizationId)
+                && ($search === null || $search === '' || stripos($project->name(), $search) !== false),
         ));
 
         $total = count($matching);

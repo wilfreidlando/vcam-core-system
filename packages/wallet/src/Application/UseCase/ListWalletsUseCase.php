@@ -24,7 +24,7 @@ final readonly class ListWalletsUseCase implements ListWallets
 
     public function list(ListWalletsCommand $command): WalletPage
     {
-        $result = $this->wallets->findByProject($command->projectId, $command->page, $command->perPage);
+        $result = $this->wallets->findByProject($command->projectId, $command->page, $command->perPage, $command->search);
 
         $walletIds = array_map(static fn (Wallet $wallet): string => $wallet->id, $result['items']);
         $balances = $this->balances->findMany($walletIds);

@@ -19,7 +19,7 @@ final readonly class ListOrganizationsUseCase implements ListOrganizations
 
     public function list(ListOrganizationsCommand $command): OrganizationPage
     {
-        $result = $this->organizations->findAll($command->page, $command->perPage);
+        $result = $this->organizations->findAll($command->page, $command->perPage, $command->search);
 
         $items = array_map(
             static fn (Organization $organization): OrganizationView => new OrganizationView(

@@ -17,9 +17,11 @@ interface OperatorRepository
     public function findByEmail(string $email): ?Operator;
 
     /**
-     * Newest first — the admin console's self-service listing.
+     * Newest first — the admin console's self-service listing. `$search`,
+     * when given, matches a case-insensitive substring of `email` OR
+     * `name`.
      *
      * @return array{items: list<Operator>, total: int}
      */
-    public function findAll(int $page, int $perPage): array;
+    public function findAll(int $page, int $perPage, ?string $search = null): array;
 }

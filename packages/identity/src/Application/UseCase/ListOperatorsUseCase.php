@@ -19,7 +19,7 @@ final readonly class ListOperatorsUseCase implements ListOperators
 
     public function list(ListOperatorsCommand $command): OperatorPage
     {
-        $result = $this->operators->findAll($command->page, $command->perPage);
+        $result = $this->operators->findAll($command->page, $command->perPage, $command->search);
 
         $items = array_map(
             static fn (Operator $operator): OperatorSummaryView => new OperatorSummaryView(

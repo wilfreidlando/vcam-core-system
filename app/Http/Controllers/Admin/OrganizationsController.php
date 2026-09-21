@@ -34,10 +34,13 @@ final class OrganizationsController
 
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
+        $searchRaw = (string) $request->query('search', '');
+        $search = $searchRaw === '' ? null : $searchRaw;
 
         $pageResult = $this->listOrganizations->list(new ListOrganizationsCommand(
             page: $page,
             perPage: $perPage,
+            search: $search,
         ));
 
         return response()->view('admin.organizations.index', [
@@ -46,6 +49,7 @@ final class OrganizationsController
             'total' => $pageResult->total,
             'page' => $page,
             'perPage' => $perPage,
+            'search' => $searchRaw,
         ]);
     }
 

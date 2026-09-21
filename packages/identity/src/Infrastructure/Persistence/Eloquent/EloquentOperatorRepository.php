@@ -40,7 +40,7 @@ final class EloquentOperatorRepository implements OperatorRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findAll(int $page, int $perPage): array
+    public function findAll(int $page, int $perPage, ?string $search = null): array
     {
         // `orderBy`/`skip`/`take`/`count` are forwarded by Eloquent\Builder
         // to the underlying query builder rather than declared on it
@@ -48,7 +48,14 @@ final class EloquentOperatorRepository implements OperatorRepository
         // positive ("dynamic call to static method") on those forwarded
         // calls, and `OperatorRecord::hydrate()` restores the casts after.
         // Tiebreaker on the primary key: two rows can share a created_at.
-        $base = OperatorRecord::query()->toBase();
+        $query = OperatorRecord::query();
+        if ($search !== null && $search !== '') {
+            $query->where(function (\Illuminate\Database\Eloquent\Builder $inner) use ($search): void {
+                $inner->where('email', 'ilike', '%'.$search.'%')
+                    ->orWhere('name', 'ilike', '%'.$search.'%');
+            });
+        }
+        $base = $query->toBase();
 
         $total = (clone $base)->count();
 

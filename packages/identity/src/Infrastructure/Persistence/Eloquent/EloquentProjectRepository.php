@@ -24,11 +24,14 @@ final class EloquentProjectRepository implements ProjectRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findAll(?string $organizationId, int $page, int $perPage): array
+    public function findAll(?string $organizationId, int $page, int $perPage, ?string $search = null): array
     {
         $query = ProjectRecord::query();
         if ($organizationId !== null) {
             $query->where('organization_id', $organizationId);
+        }
+        if ($search !== null && $search !== '') {
+            $query->where('name', 'ilike', '%'.$search.'%');
         }
 
         // `orderBy`/`skip`/`take`/`count` are forwarded by Eloquent\Builder

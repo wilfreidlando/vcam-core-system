@@ -13,9 +13,10 @@
     </div>
 @endif
 
-<div class="mb-4 flex justify-end">
+<div class="mb-4 flex items-center justify-between gap-4">
+    <x-admin.search-box placeholder="Search by email or name…" :value="$search" />
     <a href="{{ route('admin.operators.new') }}"
-       class="inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
+       class="shrink-0 inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
         New operator
     </a>
 </div>

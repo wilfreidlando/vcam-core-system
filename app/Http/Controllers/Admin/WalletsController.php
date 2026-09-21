@@ -52,11 +52,13 @@ final class WalletsController
 
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
+        $searchRaw = (string) $request->query('search', '');
 
         $pageResult = $this->listWallets->list(new ListWalletsCommand(
             projectId: $projectId,
             page: $page,
             perPage: $perPage,
+            search: $searchRaw === '' ? null : $searchRaw,
         ));
 
         return response()->view('admin.wallets.index', [
@@ -67,6 +69,7 @@ final class WalletsController
             'page' => $page,
             'perPage' => $perPage,
             'stats' => $this->summarize($projectId),
+            'search' => $searchRaw,
         ]);
     }
 

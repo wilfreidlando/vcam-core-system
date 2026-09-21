@@ -55,10 +55,12 @@ final class OperatorsController
 
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
+        $searchRaw = (string) $request->query('search', '');
 
         $pageResult = $this->listOperators->list(new ListOperatorsCommand(
             page: $page,
             perPage: $perPage,
+            search: $searchRaw === '' ? null : $searchRaw,
         ));
 
         return response()->view('admin.operators.index', [
@@ -68,6 +70,7 @@ final class OperatorsController
             'page' => $page,
             'perPage' => $perPage,
             'created' => session('admin.operators.created'),
+            'search' => $searchRaw,
         ]);
     }
 

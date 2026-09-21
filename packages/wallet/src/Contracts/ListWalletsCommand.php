@@ -10,5 +10,6 @@ final readonly class ListWalletsCommand
         public string $projectId,
         public int $page = 1,
         public int $perPage = 25,
+        public ?string $search = null,
     ) {}
 }

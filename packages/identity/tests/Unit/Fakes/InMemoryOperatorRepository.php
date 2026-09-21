@@ -38,9 +38,18 @@ final class InMemoryOperatorRepository implements OperatorRepository
         return null;
     }
 
-    public function findAll(int $page, int $perPage): array
+    public function findAll(int $page, int $perPage, ?string $search = null): array
     {
         $all = array_values($this->operators);
+
+        if ($search !== null && $search !== '') {
+            $all = array_values(array_filter(
+                $all,
+                static fn (Operator $operator): bool => stripos($operator->email, $search) !== false
+                    || stripos($operator->name, $search) !== false,
+            ));
+        }
+
         $total = count($all);
         $offset = ($page - 1) * $perPage;
 

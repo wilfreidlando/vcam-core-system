@@ -7,14 +7,15 @@
      renders a child's @section content before the parent layout (and its
      @php block) runs, so a permission gate in a child view must resolve
      OperatorContext itself, same as the layout does. --}}
-@if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('projects:write'))
-    <div class="mb-4 flex justify-end">
+<div class="mb-4 flex items-center justify-between gap-4">
+    <x-admin.search-box placeholder="Search by name…" :value="$search" />
+    @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('projects:write'))
         <a href="{{ route('admin.organizations.new') }}"
-           class="inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
+           class="shrink-0 inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
             + New organization
         </a>
-    </div>
-@endif
+    @endif
+</div>
 
 <x-admin.table
     :headers="['ID', 'Name', 'Status', 'Action']"

@@ -55,6 +55,7 @@ final class ProjectsController
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
         $orgId = (string) $request->query('organization_id', '');
+        $searchRaw = (string) $request->query('search', '');
 
         if ($orgId !== '') {
             Validator::make(['organization_id' => $orgId], ['organization_id' => 'uuid'])->validate();
@@ -64,6 +65,7 @@ final class ProjectsController
             organizationId: $orgId === '' ? null : $orgId,
             page: $page,
             perPage: $perPage,
+            search: $searchRaw === '' ? null : $searchRaw,
         ));
 
         return response()->view('admin.projects.index', [
@@ -73,6 +75,7 @@ final class ProjectsController
             'page' => $page,
             'perPage' => $perPage,
             'filters' => ['organization_id' => $orgId],
+            'search' => $searchRaw,
         ]);
     }
 

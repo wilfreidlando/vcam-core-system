@@ -16,6 +16,10 @@
     </a>
 </div>
 
+<div class="mb-4">
+    <x-admin.search-box placeholder="Search by party ID or currency…" :value="$search" />
+</div>
+
 {{-- Stats — per-currency totals across this project's wallets (capped
      at 500 wallets for the aggregate, see WalletsController::summarize()). --}}
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

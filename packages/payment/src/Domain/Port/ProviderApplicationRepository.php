@@ -25,4 +25,16 @@ interface ProviderApplicationRepository
      * authenticator finds the right private key to verify against.
      */
     public function findByProviderAndPublicKey(string $providerCode, string $publicKey): ?ProviderApplication;
+
+    /**
+     * Every application registered for a Project — the admin console's
+     * visibility need (an operator registering a second provider, or
+     * confirming a rotation landed, has no way to see what's already
+     * there without this). Ordered by `providerCode` for a stable,
+     * predictable listing; a Project realistically has a handful of
+     * these, so no pagination.
+     *
+     * @return list<ProviderApplication>
+     */
+    public function findAllByProject(string $projectId): array;
 }

@@ -14,9 +14,10 @@ interface ProjectRepository
 
     /**
      * Newest first, optionally narrowed to one `organizationId` (ADR-0045
-     * — the operator console's project listing).
+     * — the operator console's project listing). `$search`, when given,
+     * matches a case-insensitive substring of `name`.
      *
      * @return array{items: list<Project>, total: int}
      */
-    public function findAll(?string $organizationId, int $page, int $perPage): array;
+    public function findAll(?string $organizationId, int $page, int $perPage, ?string $search = null): array;
 }

@@ -24,7 +24,7 @@ final class EloquentOrganizationRepository implements OrganizationRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findAll(int $page, int $perPage): array
+    public function findAll(int $page, int $perPage, ?string $search = null): array
     {
         // `orderBy`/`skip`/`take`/`count` are forwarded by Eloquent\Builder
         // to the underlying query builder rather than declared on it
@@ -35,6 +35,10 @@ final class EloquentOrganizationRepository implements OrganizationRepository
         // created_at, and without it a row can duplicate or vanish across
         // pages.
         $base = OrganizationRecord::query()->toBase();
+
+        if ($search !== null && $search !== '') {
+            $base->where('name', 'ilike', '%'.$search.'%');
+        }
 
         $total = (clone $base)->count();
 

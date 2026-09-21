@@ -94,6 +94,10 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             // Authorization header).
             Route::get('{projectId}/wallets', [App\Http\Controllers\Admin\WalletsController::class, 'index'])
                 ->name('projects.wallets.index');
+            Route::get('{projectId}/provider-applications/create', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'create'])
+                ->name('projects.provider-applications.create');
+            Route::post('{projectId}/provider-applications', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'store'])
+                ->name('projects.provider-applications.store');
         });
 
         Route::prefix('payments')->group(function (): void {

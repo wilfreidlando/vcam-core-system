@@ -44,6 +44,18 @@
             <span class="font-medium text-slate-900">This project's wallets</span>
             <span class="text-indigo-600">→</span>
         </a>
+        {{-- Permission checked here, not just in the controller (same
+             pattern as organizations/index.blade.php's "+ New organization"
+             button): OperatorContext resolved directly since $has() is
+             only defined in the layout's own @php block, out of scope for
+             a child @section('content'). --}}
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('provider-applications:write'))
+            <a href="{{ route('admin.projects.provider-applications.create', ['projectId' => $project->id]) }}"
+               class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+                <span class="font-medium text-slate-900">Register a payment provider application</span>
+                <span class="text-indigo-600">→</span>
+            </a>
+        @endif
     </div>
 
     <div class="text-right">
