@@ -16,6 +16,8 @@ namespace App\Http\Controllers\Admin;
 use chillerlan\QRCode\Common\EccLevel;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
+use Core\Audit\Contracts\AuditEntry;
+use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Application\Dto\ConfirmOperatorMfaEnrollmentCommand;
 use Core\Identity\Application\Dto\EnrollOperatorMfaCommand;
 use Core\Identity\Application\Dto\LoginOperatorCommand;
@@ -34,6 +36,7 @@ use Core\Identity\Domain\Exception\MfaNotEnrolled;
 use Core\Identity\Domain\Exception\OperatorNotFound;
 use Core\Identity\Domain\Port\OperatorTokenIssuer;
 use Core\Identity\Presentation\Http\Middleware\ResolveOperatorMiddleware;
+use Core\Support\Clock;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
@@ -74,6 +77,8 @@ final class AuthController
         private readonly VerifyOperatorMfa $verifyMfa,
         private readonly LogoutOperator $logoutOperator,
         private readonly OperatorTokenIssuer $tokenIssuer,
+        private readonly AuditLogger $audit,
+        private readonly Clock $clock,
     ) {}
 
     public function showLogin(): Response
@@ -117,6 +122,17 @@ final class AuthController
                 $challenge->operatorId,
                 'web:'.now()->getTimestamp().':mfa-disabled',
             );
+
+            $this->audit->record(new AuditEntry(
+                actor: 'operator:'.$challenge->operatorId,
+                action: 'operator.mfa_skipped',
+                resource: 'operator:'.$challenge->operatorId,
+                before: null,
+                after: ['reason' => 'IDENTITY_DISABLE_MFA', 'plane' => 'web'],
+                context: [],
+                correlationId: null,
+                occurredAt: $this->clock->now(),
+            ));
 
             return $this->completeLogin($token, 'MFA is disabled in this environment.');
         }
