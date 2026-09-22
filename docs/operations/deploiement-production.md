@@ -1,0 +1,273 @@
+# Déploiement en production
+
+Guide opérationnel complet, du premier déploiement sur un VPS vierge jusqu'au
+premier opérateur connecté et au premier paiement prêt à être encaissé. Pour
+le *pourquoi* des choix (FrankenPHP, sidecar nginx, isolation réseau),
+voir [ADR-0053](../adr/0053-deploiement-production-frankenphp-vps-nginx-proxy.md).
+
+## 0. Prérequis
+
+- Un VPS avec Docker + le plugin Docker Compose installés.
+- `nginx-proxy` + `acme-companion` déjà démarrés sur ce VPS, sur un réseau
+  Docker externe nommé `nginx-proxy` (`docker network ls` doit le lister).
+  C'est ce qui donne à chaque projet du VPS son certificat Let's Encrypt et
+  son routage par nom d'hôte — ce dépôt ne les installe pas.
+- Le nom de domaine de ce déploiement pointe déjà (DNS `A`/`AAAA`) vers l'IP
+  du VPS.
+- Un accès SSH au VPS avec les droits Docker.
+
+## 1. Récupérer le dépôt
+
+```bash
+git clone <url-du-dépôt> core-system
+cd core-system
+```
+
+Pour une mise à jour ultérieure, voir [§12](#12-déployer-une-mise-à-jour).
+
+## 2. Configurer l'environnement
+
+```bash
+cp .env.production.example .env
+```
+
+Puis éditer `.env` et renseigner chaque valeur. Deux à générer, pas à
+inventer :
+
+```bash
+# APP_KEY — à générer UNE SEULE FOIS, ailleurs (ex. le conteneur de dev sur
+# ta machine), jamais dans le conteneur de prod qui n'a pas de .env sur
+# disque à réécrire. La coller telle quelle dans APP_KEY=.
+docker compose exec app php artisan key:generate --show
+
+# DB_PASSWORD — un vrai secret.
+openssl rand -base64 32
+```
+
+Points d'attention en le remplissant :
+
+| Variable | Valeur attendue |
+| --- | --- |
+| `APP_KEY` | Générée une fois (ci-dessus), **stable pour toujours** — la faire tourner invalide chaque session chiffrée et chaque secret déjà chiffré en base (secrets webhook, applications provider). |
+| `APP_DEBUG` | `false` |
+| `APP_URL` | `https://<ton-domaine>` |
+| `DB_PASSWORD` | Générée ci-dessus |
+| `SESSION_SECURE_COOKIE` | `true` |
+| `CORE_ENVIRONMENT` | `sandbox` tant que tu testes ; `live` seulement quand tu es prêt à faire circuler du vrai argent (spec technique §14) |
+| `VIRTUAL_HOST` | Le domaine, sans schéma (ex. `core.mon-domaine.tld`) |
+| `LETSENCRYPT_EMAIL` | L'adresse qui recevra les alertes d'expiration de certificat |
+| `MTN_MOMO_*` / `ORANGE_MONEY_*` / `WHATSAPP_*` | Laisser vide tant que ces adaptateurs ne sont pas construits (hors périmètre actuel — voir `CLAUDE.md`) ; MyCoolPay ne passe pas par ces variables, voir [§9](#9-enregistrer-une-application-provider-mycoolpay) |
+
+`.env` ne doit **jamais** être commité — il ne l'est pas
+(`.gitignore`/`.dockerignore` l'excluent déjà tous les deux).
+
+## 3. Construire les images
+
+```bash
+make prod-build
+```
+
+`app`, `horizon` et `scheduler` partagent la même image FrankenPHP
+(cible `production` du `Dockerfile`) ; seule la commande lancée diffère.
+
+## 4. Démarrer la stack
+
+```bash
+make prod-up
+docker compose -f compose.prod.yaml ps
+```
+
+Attendre que tous les services affichent `healthy` (`app`, `webserver`,
+`postgres`, `valkey`). `horizon`/`scheduler` n'ont pas de healthcheck dédié —
+vérifier leurs logs (`docker compose -f compose.prod.yaml logs horizon`) s'ils
+ne semblent pas tourner.
+
+## 5. Migrations
+
+```bash
+make prod-migrate
+```
+
+Jamais automatique au démarrage du conteneur (voir ADR-0053) — toujours cette
+étape manuelle, après `up`, avant d'utiliser l'application.
+
+## 6. Vérifier que tout répond
+
+```bash
+curl -f https://<ton-domaine>/up
+```
+
+Doit répondre avec le statut de santé Laravel. Si ça échoue : vérifier que le
+DNS pointe bien vers le VPS, que `nginx-proxy`/`acme-companion` ont bien émis
+le certificat (`docker logs nginx-proxy-acme-companion` côté VPS, hors de ce
+dépôt), et que `docker compose -f compose.prod.yaml logs webserver` ne montre
+pas d'erreur de connexion vers `app:8000`.
+
+Optionnel, pour confirmer que la documentation API est aussi accessible :
+`https://<ton-domaine>/docs/api` et `https://<ton-domaine>/docs/admin`.
+
+## 7. Provisionner le premier opérateur (admin)
+
+Aucun opérateur n'existe encore — impossible de se connecter à la console
+tant que celui-ci n'est pas créé. C'est la seule étape qui **doit** passer
+par la CLI (tout le reste peut ensuite se faire depuis la console web) :
+
+```bash
+docker compose -f compose.prod.yaml exec app php artisan identity:create-operator \
+    "toi@ton-domaine.tld" \
+    "Ton Nom" \
+    platform_admin
+```
+
+Rôles possibles : `platform_admin`, `finance_operator`, `support_operator`,
+`provider_manager`, `read_only_auditor` — voir `packages/identity/src/OperatorRole.php`
+pour ce que chacun autorise. Le premier opérateur doit être `platform_admin` :
+c'est le seul rôle qui peut ensuite créer/lister/révoquer d'autres
+opérateurs.
+
+La commande affiche un mot de passe en clair, **une seule fois** — le noter
+immédiatement dans un gestionnaire de secrets, il ne sera plus jamais
+récupérable.
+
+### 7.1 Première connexion et activation MFA
+
+1. Aller sur `https://<ton-domaine>/admin/login`.
+2. Se connecter avec l'email et le mot de passe générés à l'étape précédente.
+3. Première connexion → redirection automatique vers l'enrôlement MFA : un
+   secret TOTP et une URI `otpauth://` sont affichés (QR code si ton
+   application d'authentification sait scanner une URI collée, sinon saisir
+   le secret manuellement — Google Authenticator, Aegis, 1Password, etc.).
+4. Entrer le code à 6 chiffres généré par l'application pour confirmer.
+5. Tu arrives sur le dashboard — MFA est désormais **obligatoire** à chaque
+   connexion suivante (`/admin/mfa/verify`).
+
+À partir d'ici, créer d'autres opérateurs (`finance_operator`,
+`support_operator`, …) peut se faire depuis la console
+(`/admin/operators/create`, réservé à `platform_admin` — ADR-0050) plutôt
+qu'en CLI.
+
+## 8. Provisionner le premier client (Organization / Project / clé API)
+
+Depuis la console (self-service, ADR-0052) — **recommandé** : `/admin/organizations/create`
+puis `/admin/projects/create`, puis générer une clé API depuis la fiche du
+Project. La console n'y demande jamais de choisir des scopes : une clé de
+Project est toujours émise avec `ApiKeyScopes::ALL` (décision explicite,
+voir son docblock) — une clé d'intégration est faite pour utiliser le Core
+en entier, pas un sous-ensemble choisi à la main.
+
+Équivalent CLI (utile pour scripter un provisioning) — la commande CLI, elle,
+accepte `--scope` à la carte (c'est un outil de bootstrap plus bas niveau) ;
+pour obtenir le même résultat que la console, lister les 9 scopes de
+`ApiKeyScopes::ALL` (`packages/identity/src/Contracts/ApiKeyScopes.php`) :
+
+```bash
+docker compose -f compose.prod.yaml exec app php artisan identity:create-organization "Nom du client"
+# → note l'Organization id affiché
+
+docker compose -f compose.prod.yaml exec app php artisan identity:create-project <organization-id> "Nom du projet"
+# → note le Project id affiché
+
+docker compose -f compose.prod.yaml exec app php artisan identity:issue-api-key <project-id> live \
+    --scope=payments:read --scope=payments:write \
+    --scope=webhooks:read --scope=webhooks:write \
+    --scope=notifications:read --scope=notifications:write \
+    --scope=notification_channel_sessions:read --scope=notification_channel_sessions:write \
+    --scope=wallets:read
+```
+
+`environment` est `sandbox` ou `live` — une clé sandbox ne touche jamais de
+vrai argent (spec technique §14). La clé est affichée en clair une seule
+fois, comme le mot de passe opérateur.
+
+## 9. Enregistrer une application provider (MyCoolPay)
+
+Un paiement ne peut être traité que si le Project a sa propre application
+MyCoolPay enregistrée (clé publique/privée obtenues depuis le dashboard
+marchand MyCoolPay — jamais une clé partagée entre Projects, ADR-0051) :
+
+```bash
+docker compose -f compose.prod.yaml exec app php artisan payment:register-provider-application \
+    <project-id> my-coolpay <clé-publique> <clé-privée>
+```
+
+Équivalent console : `/admin/projects/{id}/provider-applications/create` (réservé à
+`provider-applications:write`). Ré-exécuter la même commande/le même
+formulaire avec de nouvelles clés **remplace** l'application existante (upsert)
+plutôt que d'en créer une deuxième.
+
+Le webhook entrant de MyCoolPay est vérifié par IP source
+(`MYCOOLPAY_CALLBACK_TRUSTED_IPS`, déjà pré-rempli avec l'IP officielle
+documentée par MyCoolPay) et par signature MD5 — rien à faire de plus ici
+sauf si MyCoolPay change son IP source un jour.
+
+## 10. Enregistrer un webhook endpoint (optionnel)
+
+Si le client veut recevoir les événements (`payment.status_changed`,
+`wallet.credited`, …) sur son propre serveur, plutôt que de ne compter que
+sur `callback_url` par paiement ou le polling `GET /v1/payments/{id}` :
+`/admin/projects/{id}/webhook-endpoints/create` en console, ou
+`POST /v1/webhook-endpoints` avec la clé API du Project.
+
+## 11. Vérifications post-déploiement
+
+```bash
+docker compose -f compose.prod.yaml ps                          # tout "healthy"
+docker compose -f compose.prod.yaml exec app php artisan horizon:status
+make prod-logs                                                  # logs JSON structurés, tous services
+```
+
+Deux tâches planifiées tournent dans `scheduler`, à vérifier dans ses logs :
+`events:relay` (chaque minute — seul lecteur de l'outbox, relaie vers les
+webhooks) et `admin:reconcile-stuck-payments` (toutes les 5 minutes).
+
+## 12. Déployer une mise à jour
+
+```bash
+git pull
+make prod-build
+docker compose -f compose.prod.yaml up -d
+make prod-migrate   # seulement si de nouvelles migrations existent
+```
+
+`up -d` ne recrée que les conteneurs dont l'image a changé — `postgres`/
+`valkey` ne redémarrent pas, leurs volumes sont intacts. Il y a une brève
+coupure (pas de rolling update avec ce montage à un seul réplica par
+service) : prévenir si une fenêtre de maintenance est nécessaire.
+
+## 13. Opérations courantes
+
+```bash
+# Redémarrer un seul service (ex. après un souci Horizon)
+docker compose -f compose.prod.yaml restart horizon
+
+# Ouvrir un shell dans l'app
+make prod-shell
+
+# Revenir en arrière sur les migrations (chaque migration a un down())
+docker compose -f compose.prod.yaml exec app php artisan migrate:rollback
+
+# Sauvegarder Postgres
+docker compose -f compose.prod.yaml exec postgres \
+    pg_dump -U core core > backup-$(date +%F).sql
+
+# Restaurer
+cat backup-2026-09-22.sql | docker compose -f compose.prod.yaml exec -T postgres \
+    psql -U core core
+```
+
+## 14. Check-list de sécurité avant de passer un Project en `live`
+
+- [ ] `APP_DEBUG=false`, `SESSION_SECURE_COOKIE=true`, `IDENTITY_DISABLE_MFA`
+      et `IDENTITY_DISABLE_TOTP_IN_LOCAL` absents ou `false`.
+- [ ] `APP_KEY` généré une fois, sauvegardé dans un gestionnaire de secrets
+      (pas seulement dans `.env` sur le VPS).
+- [ ] Le mot de passe du premier opérateur et sa clé API sandbox ont été
+      notés au provisioning puis effacés de tout historique de terminal.
+- [ ] `postgres`/`valkey` ne sont accessibles que sur le réseau Docker
+      interne (`core-system-internal`) — jamais exposés sur `nginx-proxy` ni
+      sur l'hôte (confirmé par construction dans `compose.prod.yaml`, à ne
+      pas modifier sans relire ADR-0053 §isolation réseau).
+- [ ] `MYCOOLPAY_CALLBACK_TRUSTED_IPS` reflète toujours l'IP officielle
+      documentée par MyCoolPay.
+- [ ] Sauvegarde Postgres planifiée (cron externe au conteneur — rien dans
+      cette stack ne le fait automatiquement aujourd'hui).
