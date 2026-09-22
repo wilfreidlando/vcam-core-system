@@ -3853,13 +3853,33 @@
                     "url": {
                         "type": "string",
                         "format": "uri",
-                        "description": "`SafeOutboundUrlRule` (security review finding \u2014 this used\nto accept any http(s) URL, including internal/private\ntargets: SSRF, and a persistent one at that, since a\nregistered endpoint is retried and DLQ-replayed)."
+                        "description": "`SafeOutboundUrlRule` (security review finding \u2014 this\nused to accept any http(s) URL, including\ninternal/private targets: SSRF, and a persistent one at\nthat, since a registered endpoint is retried and\nDLQ-replayed). Publicly reachable, no localhost, no\nRFC1918 ranges, no link-local. Must be https in\nproduction but http is accepted for local development.",
+                        "examples": [
+                            "https://my-app.example.com/webhooks/core"
+                        ]
                     },
                     "events": {
                         "type": "array",
+                        "description": "Event types this endpoint subscribes to. `*`\n(single-element array) means \"every event the Core\n             * emits\" \u2014 useful as a debugging crutch, avoid in\nproduction (an endpoint subscribed to all events gets\nevery domain change). The currently-emitted event\ntypes are listed in the enum on `events.*`; the Core\nowns the event-type vocabulary, so adding a new event\ntype requires a Core release, not just a config change.",
+                        "examples": [
+                            [
+                                "payment.status_changed"
+                            ]
+                        ],
                         "items": {
                             "type": "string",
-                            "maxLength": 100
+                            "description": "One event-type name per array element.",
+                            "enum": [
+                                "*",
+                                "payment.status_changed",
+                                "notification.status_changed",
+                                "notification.failed",
+                                "wallet.credited",
+                                "wallet.debited"
+                            ],
+                            "examples": [
+                                "payment.status_changed"
+                            ]
                         },
                         "minItems": 1
                     }
@@ -3875,6 +3895,10 @@
                 "properties": {
                     "phone_number": {
                         "type": "string",
+                        "description": "Phone number of the WhatsApp device that will display\nthe pairing code (E.164 preferred, e.g. `+2376XXXXXXXX`).\nForwarded to WAHA as the device identifier for the\nlinking flow. The Core never persists this \u2014 the\nprovider (WAHA) is the single source of truth for the\nsession state.",
+                        "examples": [
+                            "+237690000000"
+                        ],
                         "maxLength": 32
                     }
                 },
@@ -3887,34 +3911,67 @@
                 "type": "object",
                 "properties": {
                     "channel": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Channel the caller asks for \u2014 routed by\n`ConfigNotificationProviderRouter`. The only channel\ncurrently routed platform-wide is `whatsapp` (via WAHA,\nADR-0042).",
+                        "enum": [
+                            "whatsapp"
+                        ],
+                        "examples": [
+                            "whatsapp"
+                        ]
                     },
                     "to_party_ref": {
                         "type": "string",
+                        "description": "Caller-supplied correlation reference for the recipient\n\u2014 NOT a phone number, NOT an email address. Resolving it\nto an actual delivery address is the provider adapter's\njob (ADR-0041 \u00a75). For WhatsApp via WAHA the adapter\nreads the address from `variables.phone_number` (G4).",
+                        "examples": [
+                            "customer-42"
+                        ],
                         "maxLength": 255
                     },
                     "media_url": {
                         "type": "string",
+                        "description": "Publicly reachable HTTP(S) URL of the file to send.\nMust be `SafeOutboundUrlRule`-clean (no internal/private\ntargets, no SSRF). The adapter fetches it server-side\nand re-hosts.",
+                        "examples": [
+                            "https://cdn.example.com/invoice-1234.pdf"
+                        ],
                         "maxLength": 2048
                     },
                     "filename": {
                         "type": "string",
+                        "description": "Filename to present to the recipient (e.g.\n`invoice-1234.pdf`). Used for the attachment's display\nname and content-disposition; the file's actual content\nis fetched from `media_url`.",
+                        "examples": [
+                            "invoice-1234.pdf"
+                        ],
                         "maxLength": 255
                     },
                     "mimetype": {
                         "type": "string",
+                        "description": "MIME type of the file (e.g. `application/pdf`,\n`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`).\nRequired because file extensions are not reliable\nsignals \u2014 the adapter uses this to set `Content-Type`\nwhen re-uploading.",
+                        "examples": [
+                            "application/pdf"
+                        ],
                         "maxLength": 255
                     },
                     "caption": {
                         "type": [
                             "string",
                             "null"
+                        ],
+                        "description": "Optional caption rendered above the file in the\nrecipient's client (WhatsApp supports a short text +\nfile combo). UTF-8, no length cap at this layer.",
+                        "examples": [
+                            "Your invoice for order #1234"
                         ]
                     },
                     "variables": {
                         "type": [
                             "array",
                             "null"
+                        ],
+                        "description": "Adapter-specific variables (e.g. `{phone_number}` for\nWhatsApp). Shape is provider-defined; the Core forwards\nthe array as-is.",
+                        "examples": [
+                            [
+                                "+237690000000"
+                            ]
                         ],
                         "items": {
                             "type": "string"
@@ -3934,26 +3991,49 @@
                 "type": "object",
                 "properties": {
                     "channel": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Channel the caller asks for \u2014 routed by\n`ConfigNotificationProviderRouter` to whichever provider\nchain is configured for this Project. The only channel\ncurrently routed platform-wide is `whatsapp` (via WAHA,\nADR-0042); adding `sms`, `email`, etc. is a config +\nadapter change, never an endpoint change.",
+                        "enum": [
+                            "whatsapp"
+                        ],
+                        "examples": [
+                            "whatsapp"
+                        ]
                     },
                     "to_party_ref": {
                         "type": "string",
+                        "description": "Caller-supplied correlation reference for the recipient\n\u2014 NOT a phone number, NOT an email address. Resolving it\nto an actual delivery address is the provider adapter's\njob (ADR-0041 \u00a75). For WhatsApp via WAHA the adapter\nreads the address from `variables.phone_number` (G4).",
+                        "examples": [
+                            "customer-42"
+                        ],
                         "maxLength": 255
                     },
                     "media_url": {
                         "type": "string",
+                        "description": "Publicly reachable HTTP(S) URL of the image to send.\nMust be `SafeOutboundUrlRule`-clean (no internal/private\ntargets, no SSRF \u2014 same rule as webhook endpoints). The\nadapter fetches it server-side and re-hosts on the\nprovider; the caller does not upload binary.",
+                        "examples": [
+                            "https://cdn.example.com/order-1234.png"
+                        ],
                         "maxLength": 2048
                     },
                     "caption": {
                         "type": [
                             "string",
                             "null"
+                        ],
+                        "description": "Optional caption rendered alongside the image in the\nrecipient's client. UTF-8, no length cap at this layer;\nprovider limits apply downstream.",
+                        "examples": [
+                            "Your order confirmation"
                         ]
                     },
                     "filename": {
                         "type": [
                             "string",
                             "null"
+                        ],
+                        "description": "Optional filename hint for the image (used by the\nadapter when the provider forwards the media as a file\nattachment).",
+                        "examples": [
+                            "order-1234.png"
                         ],
                         "maxLength": 255
                     },
@@ -3962,12 +4042,22 @@
                             "string",
                             "null"
                         ],
+                        "description": "Optional MIME type hint (e.g. `image/png`). When\nomitted, the adapter infers from the URL extension or\nthe upstream `Content-Type`.",
+                        "examples": [
+                            "image/png"
+                        ],
                         "maxLength": 255
                     },
                     "variables": {
                         "type": [
                             "array",
                             "null"
+                        ],
+                        "description": "Adapter-specific variables (e.g.\n`{phone_number, caption_locale}` for WhatsApp). Shape\nis provider-defined; the Core forwards the array as-is.",
+                        "examples": [
+                            [
+                                "+237690000000"
+                            ]
                         ],
                         "items": {
                             "type": "string"
@@ -3985,19 +4075,40 @@
                 "type": "object",
                 "properties": {
                     "channel": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Channel the caller asks for \u2014 routed by\n`ConfigNotificationProviderRouter` to whichever provider\nchain is configured for this Project. Mirrors\n`Core\\Notification\\Contracts\\NotificationChannel`: a\nstring value (not a closed enum) because the channel set\ngrows by config. The only channel currently routed\nplatform-wide is `whatsapp` (via WAHA, ADR-0042); adding\n`sms`, `email`, etc. is a config + adapter change, never\nan endpoint change.",
+                        "enum": [
+                            "whatsapp"
+                        ],
+                        "examples": [
+                            "whatsapp"
+                        ]
                     },
                     "to_party_ref": {
                         "type": "string",
+                        "description": "Caller-supplied correlation reference for the recipient\n\u2014 NOT a phone number, NOT an email address. Resolving it\nto an actual delivery address is the provider adapter's\njob (ADR-0041 \u00a75). For WhatsApp via WAHA the adapter\nreads the address from `variables.phone_number` (G4 \u2014\nnever from `to_party_ref`). Typical value: a Project's\nown user id, an order id, or any opaque token stable\nper recipient.",
+                        "examples": [
+                            "customer-42"
+                        ],
                         "maxLength": 255
                     },
                     "text": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "The message body \u2014 UTF-8, no length cap enforced here\n(provider-specific limits apply downstream). Rendered\nverbatim by the adapter; the Core does not interpolate\n`variables` into it.",
+                        "examples": [
+                            "Hello Marie, your order #1234 is confirmed."
+                        ]
                     },
                     "variables": {
                         "type": [
                             "array",
                             "null"
+                        ],
+                        "description": "Adapter-specific variables (e.g.\n`{phone_number, template_id, locale}` for WhatsApp).\nShape is provider-defined; the Core forwards the array\nas-is and never inspects it.",
+                        "examples": [
+                            [
+                                "+237690000000"
+                            ]
                         ],
                         "items": {
                             "type": "string"
@@ -4016,25 +4127,50 @@
                 "description": "Validates `POST /v1/payments`. Authorization (the `payments:write`\nscope) is checked in the controller against `ProjectContext`, not\nhere \u2014 this class only validates shape, never identity.\n\nNo `idempotency_key` body field: the `Idempotency-Key` HTTP header\n(required by the `idempotency` middleware ahead of this request ever\nreaching validation \u2014 ADR-0025, G7) is the one value used for both\nthe HTTP-level response cache and `StartPaymentUseCase`'s own\nprovider-call protection. One key, not two.\n\n`amount` is in minor units (e.g. cents) \u2014 never a decimal amount,\nmatching how it is stored (`bigint`, G5).",
                 "properties": {
                     "channel": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Channel the caller asks for \u2014 routed by\n`ConfigPaymentProviderRouter` to whichever provider is\nconfigured for this Project. Mirrors\n`Core\\Payment\\Contracts\\PaymentChannel`: a string value\n(not a closed enum) because the channel set grows by\nconfig, not by Core code change.",
+                        "enum": [
+                            "mtn_momo",
+                            "orange_money",
+                            "card"
+                        ],
+                        "examples": [
+                            "mtn_momo"
+                        ]
                     },
                     "amount": {
                         "type": "integer",
+                        "description": "Amount in MINOR units (e.g. cents for USD/EUR, centimes\nfor XAF) \u2014 `bigint`, never a decimal (G5). The\ndecimal-to-minor conversion is the caller's\nresponsibility. `100000` here means 1000.00 in the\ncurrency's major unit.",
+                        "examples": [
+                            100000
+                        ],
                         "minimum": 1
                     },
                     "currency": {
                         "type": "string",
+                        "description": "ISO 4217 three-letter currency code. The provider\nconfigured for `channel` must support it; otherwise the\nrequest fails with 422 `unsupported-currency` before\nreaching the wire.",
+                        "examples": [
+                            "XAF"
+                        ],
                         "minLength": 3,
                         "maxLength": 3
                     },
                     "reason": {
                         "type": "string",
+                        "description": "Free-text label for the payment \u2014 shown to the customer\non the provider-hosted page (Paylink flow) and forwarded\nto the provider as `description`. Not user-visible in the\nAPI response.",
+                        "examples": [
+                            "Order #1234 \u2014 Premium plan"
+                        ],
                         "maxLength": 255
                     },
                     "customer_phone_number": {
                         "type": [
                             "string",
                             "null"
+                        ],
+                        "description": "Customer phone number in international format\n(E.164 preferred, e.g. `+2376XXXXXXXX`). Forwarded to the\nprovider so USSD / OTP prompts reach the right line for\nmobile-money channels. May be required by some\nproviders \u2014 check the channel's adapter contract.",
+                        "examples": [
+                            "+237690000000"
                         ],
                         "maxLength": 32
                     },
@@ -4043,6 +4179,10 @@
                             "string",
                             "null"
                         ],
+                        "description": "Customer display name \u2014 optional. Forwarded to the\nprovider where supported; rendered on the Paylink page\nwhen present.",
+                        "examples": [
+                            "Marie Dupont"
+                        ],
                         "maxLength": 255
                     },
                     "customer_email": {
@@ -4050,18 +4190,30 @@
                             "string",
                             "null"
                         ],
-                        "format": "email"
+                        "format": "email",
+                        "description": "Customer email \u2014 optional. Forwarded to the provider for\nreceipt delivery where supported. Not used by the Core\nitself (no PII persisted at this layer \u2014 ADR-0033 \u00a74).",
+                        "examples": [
+                            "marie.dupont@example.com"
+                        ]
                     },
                     "customer_lang": {
                         "type": [
                             "string",
                             "null"
                         ],
+                        "description": "BCP-47 language tag for the customer's locale (e.g.\n`fr`, `en`, `fr-CM`). Forwarded to the provider so the\nhosted page is rendered in the customer's language.",
+                        "examples": [
+                            "fr-CM"
+                        ],
                         "maxLength": 8
                     },
                     "flow": {
                         "anyOf": [
                             {
+                                "description": "Discriminator between the two payment initiation flows\n(ADR-0038). `payin` is the synchronous, app-driven flow\n\u2014 caller drives the customer through their own UX.\n`paylink` is the hosted-link, redirect-driven flow \u2014\ncaller hands the customer off to a provider-hosted page.\nWhen omitted, the provider default applies (typically\n`payin`).",
+                                "examples": [
+                                    "payin"
+                                ],
                                 "$ref": "#/components/schemas/PaymentFlow"
                             },
                             {
@@ -4074,12 +4226,20 @@
                             "string",
                             "null"
                         ],
-                        "format": "uri"
+                        "format": "uri",
+                        "description": "Browser redirect URL after the customer completes (or\ncancels) the payment on the provider-hosted page.\nBest-effort: this is browser-side only, never a reliable\nsignal. For the reliable server-to-server notification,\nuse `callback_url` instead.",
+                        "examples": [
+                            "https://my-app.example.com/payments/return"
+                        ]
                     },
                     "wallet_recipient_external_ref": {
                         "type": [
                             "string",
                             "null"
+                        ],
+                        "description": "External reference of the wallet to credit on payment\nsuccess (ADR-0037). When present AND the payment reaches\na successful terminal state, the wallet is credited\nsynchronously in the same transaction (ADR-0036). When\nabsent, the payment is a pure collection \u2014 no wallet,\nno Party touched. The value must match a wallet owned\nby the calling Project (ADR-0051) or the call fails\nwith 422 `wallet-project-mismatch`.",
+                        "examples": [
+                            "wallet-customer-42"
                         ],
                         "maxLength": 255
                     },
@@ -4089,7 +4249,10 @@
                             "null"
                         ],
                         "format": "uri",
-                        "description": "The reliable server-to-server notification target \u2014 SSRF\nvalidated the same way as POST /v1/webhook-endpoints\n(security review finding, user-directed expansion)."
+                        "description": "The reliable server-to-server notification target \u2014\nSSRF validated the same way as POST /v1/webhook-endpoints\n(security review finding, user-directed expansion,\nADR-0051). Delivered signed (HMAC-SHA256, secret\nreturned once at registration) per ADR-0009. Distinct\nfrom `return_url` which is browser-side best-effort.",
+                        "examples": [
+                            "https://my-app.example.com/webhooks/core"
+                        ]
                     }
                 },
                 "required": [
