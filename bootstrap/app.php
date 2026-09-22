@@ -33,6 +33,16 @@ return Application::configure(basePath: dirname(__DIR__))
         // logs, events, webhooks and audit entries are traceable end to end.
         $middleware->append(CorrelationId::class);
 
+        // Deployed topology (ADR-0053): the app container is never reached
+        // directly — only via a chain of two reverse proxies (the shared
+        // nginx-proxy + this project's own nginx sidecar), both on the
+        // Docker-internal network. Trusting every proxy is safe specifically
+        // because nothing else can reach this container's port at all; it's
+        // what makes `$request->ip()` (operator-auth's per-IP throttle,
+        // ADR-0046) and the detected request scheme (redirect URLs, secure
+        // cookies) reflect the real client instead of the proxy hop.
+        $middleware->trustProxies(at: '*');
+
         $middleware->api(prepend: [
             HandleCors::class,
         ]);

@@ -12,6 +12,8 @@ DC      := docker compose
 EXEC    := $(DC) exec -T app
 RUN     := $(DC) run --rm --no-deps app
 
+DC_PROD := docker compose -f compose.prod.yaml
+
 .DEFAULT_GOAL := help
 
 # ─── Environment ────────────────────────────────────────────────────────────
@@ -124,3 +126,31 @@ openapi: ## Regenerate both OpenAPI snapshots (integration + admin console, ADR-
 .PHONY: horizon-status
 horizon-status: ## Show queue worker status
 	$(EXEC) php artisan horizon:status
+
+# ─── Production (ADR-0053) ──────────────────────────────────────────────────
+# Run on the VPS, next to a filled-in .env (see .env.production.example) and
+# a pre-existing external `nginx-proxy` network.
+
+.PHONY: prod-build
+prod-build: ## Build the production images (app/horizon/scheduler share one FrankenPHP image)
+	$(DC_PROD) build
+
+.PHONY: prod-up
+prod-up: ## Start the production stack (does not run migrations — see prod-migrate)
+	$(DC_PROD) up -d
+
+.PHONY: prod-down
+prod-down: ## Stop the production stack (does not delete volumes)
+	$(DC_PROD) down
+
+.PHONY: prod-migrate
+prod-migrate: ## Run database migrations against the production stack
+	$(DC_PROD) exec app php artisan migrate --force
+
+.PHONY: prod-logs
+prod-logs: ## Tail production container logs
+	$(DC_PROD) logs -f --tail=100
+
+.PHONY: prod-shell
+prod-shell: ## Open a shell in the production app container
+	$(DC_PROD) exec app bash

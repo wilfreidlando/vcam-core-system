@@ -29,6 +29,7 @@
         "core/support": "*@dev",
         "core/wallet": "*@dev",
         "core/webhook": "*@dev",
+        "dedoc/scramble": "0.13.43",
         "laravel/framework": "^13.17",
         "laravel/horizon": "^5.49",
         "laravel/passport": "^13.8",
@@ -38,7 +39,6 @@
     },
     "require-dev": {
         "brianium/paratest": "^7.24",
-        "dedoc/scramble": "0.13.43",
         "deptrac/deptrac": "4.7.1",
         "fakerphp/faker": "^1.23",
         "larastan/larastan": "^3.12",

@@ -1,0 +1,20 @@
+{
+	# TLS is terminated upstream by the shared nginx-proxy + this project's
+	# own nginx sidecar (ADR-0053) — this container is never reached
+	# directly, so Caddy's automatic HTTPS (which would otherwise try an
+	# ACME challenge on :80/:443) and its admin API are both switched off.
+	auto_https off
+	admin off
+
+	frankenphp
+}
+
+:8000 {
+	root * /var/www/html/public
+	encode gzip zstd
+
+	# Serves static files directly, routes everything else through
+	# public/index.php — the same behaviour Laravel's own nginx/apache
+	# rewrite examples implement by hand.
+	php_server
+}
