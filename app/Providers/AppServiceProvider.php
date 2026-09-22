@@ -22,6 +22,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -61,6 +62,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
         $this->configureApiDocumentationTags();
         $this->configureAdminApiDocumentation();
+        $this->configureApiDocumentationAccess();
 
         // Registers on BOTH documents (`/docs/api` and `/docs/admin` —
         // Scramble::$extensions is global, not per-registered-API), so a
@@ -153,10 +155,40 @@ final class AppServiceProvider extends ServiceProvider
             ],
         ])->expose(
             // @phpstan-ignore-next-line — Scramble passes $action as mixed (its own docblock), narrower than Router::get()'s declared param type.
-            ui: fn (Router $router, mixed $action) => $router->get('docs/admin', $action)->name('scramble.docs.admin.ui'),
+            ui: fn (Router $router, mixed $action) => $router->get('docs/admin', $action)
+                ->middleware('operator.session')
+                ->name('scramble.docs.admin.ui'),
             // @phpstan-ignore-next-line — same dynamic-typing gap as the ui closure above.
-            document: fn (Router $router, mixed $action) => $router->get('docs/admin.json', $action)->name('scramble.docs.admin.document'),
+            document: fn (Router $router, mixed $action) => $router->get('docs/admin.json', $action)
+                ->middleware('operator.session')
+                ->name('scramble.docs.admin.document'),
         );
+    }
+
+    /**
+     * Scramble's own `RestrictedDocsAccess` middleware (applied to every
+     * documented route via `config('scramble.middleware')`) only lets
+     * `local` through automatically; anywhere else it checks this Gate and
+     * 403s if it isn't defined — which it never was, so both documents
+     * 403'd outside local (user-reported, first production deployment).
+     *
+     * `/docs/api` is the third-party integration surface (ADR-0049) — it's
+     * meant to be read by a Project integrator who has no operator
+     * credentials, so it's public here unconditionally. `/docs/admin`
+     * instead relies on the `operator.session` middleware attached to its
+     * routes above (the same mechanism every other admin console page
+     * uses) — this Gate stays permissive for it too, rather than
+     * duplicating a second, parallel check of "is there a valid operator
+     * session" that could drift from `ResolveOperatorSession`.
+     */
+    private function configureApiDocumentationAccess(): void
+    {
+        // Nullable, unused first parameter: Laravel's Gate never invokes an
+        // ability callback for a guest (no authenticated user — true for
+        // every request here, this Core has no Auth::user()) unless the
+        // callback's first parameter explicitly allows null, regardless of
+        // whether it's actually read.
+        Gate::define('viewApiDocs', fn (mixed $user = null): bool => true);
     }
 
     /**

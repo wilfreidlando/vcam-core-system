@@ -565,6 +565,34 @@ final class AdminWebFlowTest extends TestCase
     }
 
     #[Test]
+    public function the_public_api_docs_are_reachable_without_any_operator_session(): void
+    {
+        // `/docs/api` is the third-party integration surface (ADR-0049) —
+        // a Project integrator has no operator credentials at all, so
+        // Scramble's own RestrictedDocsAccess middleware (which only lets
+        // APP_ENV=local through automatically) must find `viewApiDocs`
+        // permissive here regardless of environment. User-reported: this
+        // 403'd on the first real production deployment, since the Gate
+        // it checks outside `local` was never defined.
+        $this->get('/docs/api')->assertOk();
+    }
+
+    #[Test]
+    public function the_admin_docs_require_an_operator_session_same_as_any_other_console_page(): void
+    {
+        // No session at all: ResolveOperatorSession (via the
+        // `operator.session` middleware attached to this route) redirects
+        // to login exactly like any other admin console page — never a
+        // raw 403, that's Scramble's own RestrictedDocsAccess guarding
+        // routes with no operator-auth concept, not this one's real gate.
+        $this->get('/docs/admin')->assertRedirect(route('admin.login.show'));
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $this->get('/docs/admin')->assertOk();
+    }
+
+    #[Test]
     public function a_browser_session_can_reach_v1_admin_routes_without_a_bearer_header(): void
     {
         // Review finding: an operator who is logged in via the web console
