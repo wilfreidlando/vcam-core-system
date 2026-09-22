@@ -61,7 +61,7 @@ final readonly class DeliverWebhookUseCase implements DeliverWebhook
         $outcome = $this->sender->send($endpoint, $delivery);
 
         if ($outcome->success) {
-            $this->deliveries->save($delivery->recordSuccess($now));
+            $this->deliveries->save($delivery->recordSuccess($now, $outcome->httpStatus, $outcome->responseBody));
 
             return new WebhookDeliveryOutcome(WebhookDeliveryOutcomeStatus::Delivered, null);
         }
@@ -73,6 +73,8 @@ final readonly class DeliverWebhookUseCase implements DeliverWebhook
             $outcome->error ?? 'unknown error',
             $now,
             $nextRetryAt,
+            $outcome->httpStatus,
+            $outcome->responseBody,
         ));
 
         if ($nextRetryAt === null) {

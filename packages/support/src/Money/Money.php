@@ -48,6 +48,20 @@ final readonly class Money
         return $this->money->getCurrency()->getCurrencyCode();
     }
 
+    /**
+     * The amount alone, scaled to the currency's own number of minor-unit
+     * digits — `"100"` for XAF (0 digits), `"1500.55"` for EUR (2 digits),
+     * never a hardcoded 2-decimal split. Review finding: several admin
+     * views used to do `$amountMinor / 100` directly, which is only
+     * correct for 2-decimal currencies — wrong for XAF, the currency this
+     * Core actually operates in today (0 decimal digits), where it turned
+     * a 100 XAF payment into a displayed "1.00".
+     */
+    public function formattedAmount(): string
+    {
+        return (string) $this->money->getAmount();
+    }
+
     public function plus(self $other): self
     {
         return new self($this->money->plus($this->sameCurrency($other)->money));

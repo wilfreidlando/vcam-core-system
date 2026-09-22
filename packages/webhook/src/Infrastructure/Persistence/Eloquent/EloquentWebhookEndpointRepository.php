@@ -45,6 +45,17 @@ final class EloquentWebhookEndpointRepository implements WebhookEndpointReposito
         );
     }
 
+    public function findAllForProject(string $projectId): array
+    {
+        return array_values(
+            WebhookEndpointRecord::query()
+                ->where('project_id', $projectId)
+                ->get()
+                ->map(fn (WebhookEndpointRecord $record): WebhookEndpoint => $this->toDomain($record))
+                ->all(),
+        );
+    }
+
     /**
      * @return array<string, mixed>
      */

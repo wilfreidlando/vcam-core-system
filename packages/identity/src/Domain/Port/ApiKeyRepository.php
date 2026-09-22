@@ -19,4 +19,13 @@ interface ApiKeyRepository
      * candidates.
      */
     public function findByPrefix(string $prefix): ?ApiKey;
+
+    /**
+     * Newest first — the operator console's self-service listing. A
+     * Project's own key count stays small in practice, so this is never
+     * paginated, unlike operators/payments.
+     *
+     * @return list<ApiKey>
+     */
+    public function findAllByProject(string $projectId): array;
 }

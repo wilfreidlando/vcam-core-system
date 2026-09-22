@@ -36,6 +36,8 @@ final readonly class ListPaymentsUseCase implements ListPayments
                 actionHint: $payment->actionHint,
                 paymentUrl: $payment->paymentUrl,
                 errorMessage: $payment->errorMessage,
+                idempotencyKey: $payment->idempotencyKey,
+                callbackUrl: $payment->callbackUrl,
             ),
             $result['items'],
         );

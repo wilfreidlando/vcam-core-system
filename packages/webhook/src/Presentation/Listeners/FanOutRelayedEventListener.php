@@ -24,6 +24,17 @@ final readonly class FanOutRelayedEventListener implements ShouldQueue
 
     public function handle(OutboxEventPublished $published): void
     {
+        // Publisher-set hint (see `DomainEvent::$skipWebhookEndpointFanOut`'s
+        // own docblock): this event already has its own dedicated,
+        // point-to-point delivery arranged — e.g. a payment's own
+        // `callback_url` — so the generic Project-wide endpoint fan-out
+        // this listener does is skipped for it. User-directed design:
+        // avoid a payment notifying both its own callback_url and every
+        // registered webhook endpoint for the same status change.
+        if ($published->event->skipWebhookEndpointFanOut) {
+            return;
+        }
+
         $deliveryIds = $this->handleRelayedEvent->handle($published->event);
 
         foreach ($deliveryIds as $deliveryId) {

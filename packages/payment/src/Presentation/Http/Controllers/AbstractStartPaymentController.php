@@ -23,6 +23,13 @@ use Symfony\Component\HttpFoundation\Response;
  * link vs. a direct app-driven charge) rather than one generic endpoint
  * whose behaviour silently branches on a `flow` field, so the OpenAPI
  * doc and the route itself say what each one does.
+ *
+ * Each concrete subclass repeats this method's `@throws` tags on its own
+ * `__invoke()` override rather than inheriting this docblock — Scramble's
+ * static analysis doesn't trace exception types through a `parent::`
+ * call, only reads them from the exact method the route points at
+ * (confirmed empirically: tags placed only here never showed up in a
+ * regenerated `openapi/v1.json`).
  */
 abstract class AbstractStartPaymentController
 {
@@ -74,6 +81,12 @@ abstract class AbstractStartPaymentController
             'requires_action' => $view->requiresAction,
             'action_hint' => $view->actionHint,
             'payment_url' => $view->paymentUrl,
+            // The same value the caller sent as its Idempotency-Key
+            // header — handed back so a caller can confirm which of its
+            // own transactions this response is for without a separate
+            // side-lookup.
+            'idempotency_key' => $view->idempotencyKey,
+            'callback_url' => $view->callbackUrl,
             // Shown once, on this response only — never re-derivable
             // afterwards (same pattern as an API key or a webhook
             // endpoint's secret). Absent entirely when no callback_url

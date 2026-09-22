@@ -18,4 +18,15 @@ interface WebhookEndpointRepository
      * @return list<WebhookEndpoint>
      */
     public function findActiveForProject(string $projectId): array;
+
+    /**
+     * Every endpoint registered for a Project, active or not — the admin
+     * console's visibility need. `findActiveForProject()` stays
+     * fan-out-only (who should actually receive the next event); an
+     * operator managing endpoints needs to see a deactivated one too, to
+     * reactivate or edit it.
+     *
+     * @return list<WebhookEndpoint>
+     */
+    public function findAllForProject(string $projectId): array;
 }

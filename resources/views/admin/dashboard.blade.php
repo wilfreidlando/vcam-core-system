@@ -7,7 +7,7 @@
 
     {{-- Platform row: tenancy footprint. --}}
     <div>
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Plateforme</p>
+        <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-2">Plateforme</p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
             <x-admin.stat label="Organisations"
@@ -38,7 +38,7 @@
 
     {{-- Money row: payment activity + health. --}}
     <div>
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Argent</p>
+        <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-2">Argent</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
             <x-admin.stat label="Paiements (24h)"
@@ -71,7 +71,7 @@
 
     {{-- Delivery row: outbound webhook health. --}}
     <div>
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Livraison</p>
+        <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-2">Livraison</p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
             <x-admin.stat label="Webhooks en échec"
@@ -95,12 +95,13 @@
         <x-admin.table
             :headers="['Quand', 'Acteur', 'Action', 'Ressource']"
             :empty="'Aucune entrée d\'audit pour le moment.'">
+            <tbody class="divide-y divide-slate-100 bg-white">
             @foreach ($recentAudit as $entry)
                 <tr class="hover:bg-slate-50/60">
-                    <td class="px-4 py-3 text-sm text-slate-600 whitespace-nowrap font-mono">
+                    <td class="px-4 py-3 text-base text-slate-600 whitespace-nowrap font-mono">
                         {{ $entry->occurredAt->format('Y-m-d H:i:s') }}
                     </td>
-                    <td class="px-4 py-3 text-sm text-slate-700 truncate max-w-xs">
+                    <td class="px-4 py-3 text-base text-slate-700 truncate max-w-xs">
                         {{ $entry->actor }}
                     </td>
                     <td class="px-4 py-3 text-sm">
@@ -108,11 +109,12 @@
                             {{ $entry->action }}
                         </span>
                     </td>
-                    <td class="px-4 py-3 text-sm text-slate-500 truncate max-w-xs font-mono">
+                    <td class="px-4 py-3 text-base text-slate-500 truncate max-w-xs font-mono">
                         {{ $entry->resource }}
                     </td>
                 </tr>
             @endforeach
+            </tbody>
         </x-admin.table>
     </div>
 
@@ -125,8 +127,8 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h2"/></svg>
             </div>
             <div>
-                <p class="font-medium text-slate-900">Organisations</p>
-                <p class="text-xs text-slate-500">Voir les clients, en créer de nouveaux.</p>
+                <p class="text-lg font-medium text-slate-900">Organisations</p>
+                <p class="text-sm text-slate-500">Voir les clients, en créer de nouveaux.</p>
             </div>
         </a>
 
@@ -136,8 +138,8 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h2m5 0h2M11 17h2m5 0h2M3 7h18"/></svg>
             </div>
             <div>
-                <p class="font-medium text-slate-900">Paiements</p>
-                <p class="text-xs text-slate-500">Rechercher dans le registre des paiements.</p>
+                <p class="text-lg font-medium text-slate-900">Paiements</p>
+                <p class="text-sm text-slate-500">Rechercher dans le registre des paiements.</p>
             </div>
         </a>
 
@@ -147,8 +149,8 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             </div>
             <div>
-                <p class="font-medium text-slate-900">Webhooks en échec</p>
-                <p class="text-xs text-slate-500">Rejouer les livraisons échouées.</p>
+                <p class="text-lg font-medium text-slate-900">Webhooks en échec</p>
+                <p class="text-sm text-slate-500">Rejouer les livraisons échouées.</p>
             </div>
         </a>
 

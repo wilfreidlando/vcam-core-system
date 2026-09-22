@@ -7,6 +7,7 @@ namespace Core\Payment\Presentation\Http\Controllers;
 use Core\Identity\Contracts\ProjectContext;
 use Core\Payment\Contracts\GetPaymentStatus;
 use Core\Payment\Contracts\GetPaymentStatusCommand;
+use Core\Payment\Domain\Exception\PaymentNotFound;
 use Core\Support\Http\ProblemDetails;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,6 +30,8 @@ final class GetPaymentStatusController
      * provider. Requires the `payments:read` scope, and returns the same
      * not-found response whether the payment doesn't exist or belongs to
      * another project.
+     *
+     * @throws PaymentNotFound the payment doesn't exist, or belongs to another project (404)
      */
     public function __invoke(string $paymentId, ProjectContext $project): JsonResponse|Response
     {
@@ -48,6 +51,14 @@ final class GetPaymentStatusController
             'action_hint' => $view->actionHint,
             'payment_url' => $view->paymentUrl,
             'error_message' => $view->errorMessage,
+            // Review finding, user-directed: this is the documented
+            // fallback truth source when a webhook is missed — it must
+            // hand back the same caller-supplied context the webhook
+            // already does (its own Idempotency-Key, and the callback_url
+            // it registered), or polling here loses information the
+            // webhook has.
+            'idempotency_key' => $view->idempotencyKey,
+            'callback_url' => $view->callbackUrl,
         ]);
     }
 }

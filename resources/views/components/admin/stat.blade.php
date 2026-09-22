@@ -33,10 +33,10 @@
 <div class="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm ring-1 {{ $toneRing }}">
     <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-            <p class="text-xs uppercase tracking-wider font-semibold text-slate-500 truncate">{{ $label }}</p>
+            <p class="text-sm uppercase tracking-wider font-semibold text-slate-500 truncate">{{ $label }}</p>
             <p class="mt-1 text-3xl font-semibold {{ $toneText }}">{{ number_format((float) $value) }}</p>
             @if ($hint !== '')
-                <p class="mt-1 text-xs text-slate-500">{{ $hint }}</p>
+                <p class="mt-1 text-sm text-slate-500">{{ $hint }}</p>
             @endif
         </div>
         @if ($hasIcon)

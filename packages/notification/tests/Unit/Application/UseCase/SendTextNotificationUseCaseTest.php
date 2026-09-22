@@ -211,6 +211,12 @@ it('marks the notification failed and publishes notification.failed when every p
         ->and($deliveries->records)->toHaveCount(2)
         ->and($outbox->events)->toHaveCount(1)
         ->and($outbox->events[0]->type)->toBe('notification.failed')
+        // Same payload shape as HandleNotificationStatusChangedUseCase's
+        // own `notification.failed` (a provider callback reporting failure
+        // later) — a webhook receiver must see one consistent shape for
+        // this event type regardless of which path produced it (review
+        // finding: this producer used to omit `status` entirely).
+        ->and($outbox->events[0]->payload)->toHaveKey('status', 'failed')
         ->and($notifications->count())->toBe(1);
 });
 

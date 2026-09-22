@@ -60,7 +60,7 @@ final class ProviderApplicationsController
         private readonly Clock $clock,
     ) {}
 
-    public function create(string $projectId, OperatorContext $operator): Response
+    public function create(string $projectId, Request $request, OperatorContext $operator): Response
     {
         if (! $operator->hasPermission('provider-applications:write')) {
             abort(403, 'La permission provider-applications:write est requise.');
@@ -89,12 +89,24 @@ final class ProviderApplicationsController
             $this->gateways->availableProviders(),
         );
 
+        // Review finding, user-directed: an operator looking at "Applications
+        // enregistrées" had no visible way to act on one — no button, no
+        // link, nothing next to it saying how to rotate or revoke it. The
+        // only mechanism (re-submitting the form below for the same
+        // provider replaces it — see the class docblock) existed but was
+        // undiscoverable without already knowing to scroll down and
+        // re-fill it manually. Each listed application now links back
+        // here with `?provider=`, which preselects that provider in the
+        // dropdown below.
+        $selectedProvider = (string) $request->query('provider', '');
+
         return response()->view('admin.provider-applications.create', [
             'title' => 'Applications provider · '.$project->name,
             'project' => $project,
             'applications' => $applications,
             'availableProviders' => $availableProviders,
             'registeredProviderCodes' => $registeredProviderCodes,
+            'selectedProvider' => $selectedProvider,
         ]);
     }
 
@@ -124,6 +136,18 @@ final class ProviderApplicationsController
             'private_key' => ['required', 'string', 'max:1024'],
         ]);
 
+        // Whether this call rotates an existing key pair or registers a
+        // genuinely new one — checked before `register()` runs (which is
+        // upsert-only and wouldn't tell us afterwards which one it was).
+        // Only cosmetic (the audit action name and the success message),
+        // but an operator rotating a key benefits from being told that's
+        // what just happened, not just "registered" again.
+        $existingProviderCodes = array_map(
+            static fn ($application): string => $application->providerCode,
+            $this->listProviderApplications->list(new ListProviderApplicationsCommand($projectId)),
+        );
+        $isRotation = in_array($data['provider'], $existingProviderCodes, true);
+
         try {
             $this->registerProviderApplication->register(new RegisterProviderApplicationCommand(
                 $projectId,
@@ -137,7 +161,7 @@ final class ProviderApplicationsController
 
         $this->audit->record(new AuditEntry(
             actor: 'operator:'.$operator->operatorId,
-            action: 'provider_application.registered',
+            action: $isRotation ? 'provider_application.rotated' : 'provider_application.registered',
             resource: 'provider_application:'.$projectId.':'.$data['provider'],
             before: null,
             after: [
@@ -151,6 +175,8 @@ final class ProviderApplicationsController
         ));
 
         return redirect()->route('admin.projects.show', ['projectId' => $projectId])
-            ->with('status', "Application provider enregistrée pour « {$data['provider']} ».");
+            ->with('status', $isRotation
+                ? "Clés remplacées pour « {$data['provider']} »."
+                : "Application provider enregistrée pour « {$data['provider']} ».");
     }
 }

@@ -59,6 +59,19 @@ it('withStatusChange returns a new instance with the updated status and reason',
         ->and($payment->status)->toBe(PaymentStatus::Pending, 'the original instance is untouched');
 });
 
+it('withStatusChange never sets errorMessage on a success, even when the provider sent a non-null reason', function (): void {
+    // Real bug: MyCoolPay's `transaction_reason` field is populated on a
+    // SUCCESSFUL callback too (it echoes the transaction's own
+    // description) — passing it straight through used to show
+    // "Erreur : <description>" for a payment that settled cleanly.
+    $payment = makePayment();
+
+    $updated = $payment->withStatusChange(PaymentStatus::Succeeded, 'some description the provider echoed back');
+
+    expect($updated->status)->toBe(PaymentStatus::Succeeded)
+        ->and($updated->errorMessage)->toBeNull();
+});
+
 it('withStatusChange clears requiresAction and actionHint', function (): void {
     $payment = new Payment(
         id: 'payment-1',

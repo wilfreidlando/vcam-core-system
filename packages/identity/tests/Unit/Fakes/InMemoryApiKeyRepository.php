@@ -32,4 +32,12 @@ final class InMemoryApiKeyRepository implements ApiKeyRepository
 
         return null;
     }
+
+    public function findAllByProject(string $projectId): array
+    {
+        return array_values(array_filter(
+            $this->apiKeys,
+            static fn (ApiKey $apiKey): bool => $apiKey->projectId === $projectId,
+        ));
+    }
 }

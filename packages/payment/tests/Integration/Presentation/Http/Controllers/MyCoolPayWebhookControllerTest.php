@@ -60,7 +60,15 @@ final class MyCoolPayWebhookControllerTest extends TestCase
             'transaction_currency' => 'XAF',
             'transaction_operator' => 'CM_OM',
             'transaction_status' => 'SUCCESS',
+            // `transaction_reason` deliberately carries something
+            // DIFFERENT from `transaction_message` here — proof the
+            // controller maps `reason` from the latter, not the former
+            // (review finding: MyCoolPay echoes `transaction_reason`
+            // back verbatim from what the caller sent at initiation; it
+            // is never a real account of what happened. `transaction_message`
+            // is MyCoolPay's own human-readable one).
             'transaction_reason' => 'Order #42',
+            'transaction_message' => 'Votre transaction a été effectuée avec succès !',
         ]);
 
         $response = $this->invoke($this->webhookRequest($body));
@@ -72,7 +80,7 @@ final class MyCoolPayWebhookControllerTest extends TestCase
         self::assertSame('tx-abc', $event->transactionRef);
         self::assertSame('order-42', $event->appTransactionRef);
         self::assertSame(PaymentStatus::Succeeded, $event->status);
-        self::assertSame('Order #42', $event->reason);
+        self::assertSame('Votre transaction a été effectuée avec succès !', $event->reason);
     }
 
     #[Test]

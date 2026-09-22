@@ -8,6 +8,7 @@ use Core\Identity\Contracts\ProjectContext;
 use Core\Support\Http\ProblemDetails;
 use Core\Webhook\Contracts\DeactivateWebhookEndpoint;
 use Core\Webhook\Contracts\DeactivateWebhookEndpointCommand;
+use Core\Webhook\Domain\Exception\WebhookEndpointNotFound;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -23,6 +24,8 @@ final class DeactivateWebhookEndpointController
      * Stops future deliveries; already-scheduled retries for deliveries
      * created before deactivation still run to completion or DLQ.
      * Requires the `webhooks:write` scope.
+     *
+     * @throws WebhookEndpointNotFound the endpoint doesn't exist, or belongs to another project (404)
      */
     public function __invoke(string $endpointId, ProjectContext $project): JsonResponse|Response
     {

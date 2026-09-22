@@ -39,9 +39,18 @@ final readonly class WebhookDelivery
         public ?string $lastError,
         public ?DateTimeImmutable $deliveredAt,
         public ?string $replayedFromId = null,
+        // Review finding, user-directed: an operator diagnosing a failed
+        // delivery could see that it failed, never what the endpoint
+        // actually sent back — `lastError` is a formatted message
+        // ("Endpoint responded with HTTP 404."), not the receiver's own
+        // response. Both are null when the attempt never reached the
+        // endpoint at all (DNS/connect/timeout failure — see
+        // `HttpWebhookSender`'s `ProviderException` branch).
+        public ?int $lastResponseStatus = null,
+        public ?string $lastResponseBody = null,
     ) {}
 
-    public function recordSuccess(DateTimeImmutable $at): self
+    public function recordSuccess(DateTimeImmutable $at, ?int $responseStatus, ?string $responseBody): self
     {
         return new self(
             $this->id,
@@ -57,6 +66,8 @@ final readonly class WebhookDelivery
             null,
             $at,
             $this->replayedFromId,
+            $responseStatus,
+            $responseBody,
         );
     }
 
@@ -64,7 +75,7 @@ final readonly class WebhookDelivery
      * @param DateTimeImmutable|null $nextRetryAt null means the retry budget is
      *                                            exhausted — the delivery moves to `dead` (DLQ).
      */
-    public function recordFailure(string $error, DateTimeImmutable $at, ?DateTimeImmutable $nextRetryAt): self
+    public function recordFailure(string $error, DateTimeImmutable $at, ?DateTimeImmutable $nextRetryAt, ?int $responseStatus, ?string $responseBody): self
     {
         return new self(
             $this->id,
@@ -80,6 +91,8 @@ final readonly class WebhookDelivery
             $error,
             null,
             $this->replayedFromId,
+            $responseStatus,
+            $responseBody,
         );
     }
 }

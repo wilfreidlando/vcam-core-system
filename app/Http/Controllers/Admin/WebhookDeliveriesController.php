@@ -11,8 +11,8 @@ use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Support\Clock;
 use Core\Webhook\Contracts\DeliverWebhookCommand;
-use Core\Webhook\Contracts\ListDeadWebhookDeliveries;
-use Core\Webhook\Contracts\ListDeadWebhookDeliveriesCommand;
+use Core\Webhook\Contracts\ListWebhookDeliveries;
+use Core\Webhook\Contracts\ListWebhookDeliveriesCommand;
 use Core\Webhook\Contracts\ListWebhookEndpoints;
 use Core\Webhook\Contracts\ListWebhookEndpointsCommand;
 use Core\Webhook\Contracts\QueueWebhookDelivery;
@@ -26,9 +26,15 @@ use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Webhook DLQ admin: list dead deliveries + replay action.
+ * Webhook delivery admin: the full execution history — every status, not
+ * only the dead queue — plus the replay action for dead rows. Review
+ * finding: an operator diagnosing a problem could only ever see the
+ * failures, never confirm whether a given event was attempted at all or
+ * delivered successfully ("on doit tout voir pas seulement ceux qui sont
+ * passés … pour diagnostiquer un problème on peut voir ce qui a vraiment
+ * été exécuté").
  *
- * The replay button on each row uses Alpine.js for a confirmation
+ * The replay button on each dead row uses Alpine.js for a confirmation
  * dialog (see webhook-deliveries/dead.blade.php) — the POST to
  * `/webhook-deliveries/{id}/replay` is what this controller serves.
  */
@@ -37,7 +43,7 @@ final class WebhookDeliveriesController
     use ResolvesProjectNames;
 
     public function __construct(
-        private readonly ListDeadWebhookDeliveries $listDead,
+        private readonly ListWebhookDeliveries $listDeliveries,
         private readonly ReplayWebhookDelivery $replay,
         private readonly QueueWebhookDelivery $queue,
         private readonly AuditLogger $audit,
@@ -55,12 +61,16 @@ final class WebhookDeliveriesController
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
         $projectId = (string) $request->query('project_id', '');
+        $status = (string) $request->query('status', '');
 
         if ($projectId !== '') {
             Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
         }
 
-        $pageResult = $this->listDead->list(new ListDeadWebhookDeliveriesCommand(
+        // No status filter by default — the whole execution history,
+        // not just the dead queue (see class docblock).
+        $pageResult = $this->listDeliveries->list(new ListWebhookDeliveriesCommand(
+            status: $status === '' ? null : $status,
             projectId: $projectId === '' ? null : $projectId,
             page: $page,
             perPage: $perPage,
@@ -72,12 +82,12 @@ final class WebhookDeliveriesController
         );
 
         return response()->view('admin.webhook-deliveries.dead', [
-            'title' => 'Webhooks en échec',
+            'title' => 'Livraisons de webhooks',
             'deliveries' => $pageResult->items,
             'total' => $pageResult->total,
             'page' => $page,
             'perPage' => $perPage,
-            'filters' => ['project_id' => $projectId],
+            'filters' => ['project_id' => $projectId, 'status' => $status],
             'projectNames' => $this->resolveProjectNames($this->getProject, $projectIds),
             'endpointUrls' => $this->resolveEndpointUrls($projectIds),
         ]);

@@ -95,6 +95,12 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
                 $event->toPayload(),
                 null,
                 $this->clock->now(),
+                // User-directed design: when the caller supplied its own
+                // callback_url at initiation, that's the one channel this
+                // status change notifies on — not also every webhook
+                // endpoint registered for the Project. See
+                // `DomainEvent::$skipWebhookEndpointFanOut`'s docblock.
+                skipWebhookEndpointFanOut: $updated->callbackUrl !== null,
             ));
         });
     }

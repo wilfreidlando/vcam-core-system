@@ -5,10 +5,16 @@ declare(strict_types=1);
 namespace Core\Notification\Presentation\Http\Controllers\Waha;
 
 use Core\Identity\Contracts\ProjectContext;
+use Core\Notification\Contracts\ChannelDoesNotSupportSessions;
 use Core\Notification\Contracts\GetChannelSessionCommand;
 use Core\Notification\Contracts\GetChannelSessionScreenshot;
 use Core\Notification\Contracts\NotificationChannel;
 use Core\Support\Http\ProblemDetails;
+use Core\Support\Integration\CircuitBreaker\CircuitOpenException;
+use Core\Support\Integration\Exception\ProviderAuthError;
+use Core\Support\Integration\Exception\ProviderDisabledException;
+use Core\Support\Integration\Exception\ProviderPermanentError;
+use Core\Support\Integration\Exception\ProviderTransientError;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -28,6 +34,10 @@ final class GetChannelSessionScreenshotController
      * Requires the `notification_channel_sessions:read` scope. Lazily
      * starts the session on the resolved provider if it isn't already
      * running.
+     *
+     * @throws ChannelDoesNotSupportSessions this channel's provider has no linked-device session concept (422)
+     * @throws ProviderPermanentError|ProviderAuthError the provider rejected the request outright (502)
+     * @throws ProviderTransientError|ProviderDisabledException|CircuitOpenException the provider is temporarily unavailable (503)
      */
     public function __invoke(string $channel, string $sessionRef, ProjectContext $project): JsonResponse|Response
     {

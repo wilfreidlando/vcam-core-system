@@ -18,7 +18,7 @@ final class FakeWebhookSender implements WebhookSender
 
     public function __construct()
     {
-        $this->nextOutcome = WebhookSendOutcome::success(200);
+        $this->nextOutcome = WebhookSendOutcome::success(200, null);
     }
 
     public function send(WebhookEndpoint $endpoint, WebhookDelivery $delivery): WebhookSendOutcome

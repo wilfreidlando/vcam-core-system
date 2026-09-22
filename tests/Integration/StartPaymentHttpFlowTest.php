@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Integration;
 
-use Core\Identity\Application\Dto\IssueApiKeyCommand;
-use Core\Identity\Application\UseCase\IssueApiKey;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Contracts\CreateProject;
 use Core\Identity\Contracts\CreateProjectCommand;
+use Core\Identity\Contracts\IssueApiKey;
+use Core\Identity\Contracts\IssueApiKeyCommand;
 use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Support\Environment;
@@ -155,9 +155,9 @@ final class StartPaymentHttpFlowTest extends TestCase
             new CreateProjectCommand($organization->id, 'Test Project'),
             actor: 'service:test',
             correlationId: null,
-        );
+        )->project;
 
-        $issued = app(IssueApiKey::class)(
+        $issued = app(IssueApiKey::class)->issue(
             new IssueApiKeyCommand($project->id, Environment::Sandbox, [$scope]),
             actor: 'service:test',
             correlationId: null,

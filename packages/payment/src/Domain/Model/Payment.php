@@ -82,6 +82,14 @@ final readonly class Payment
      * checking `status->isTerminal()` first — replaying a change onto an
      * already-terminal payment is a no-op it should short-circuit, not
      * something this method needs to guard against itself.
+     *
+     * `$reason` only becomes `errorMessage` for a non-success outcome.
+     * Bug found via a real MyCoolPay callback: their `transaction_reason`
+     * field is populated on a SUCCESSFUL payment too (it echoes back the
+     * transaction's own description, not a failure cause), so passing it
+     * straight through unconditionally displayed "Erreur : <the payment's
+     * own reason text>" on the admin console's detail page for a payment
+     * that had settled with no error at all.
      */
     public function withStatusChange(PaymentStatus $status, ?string $reason): self
     {
@@ -98,7 +106,7 @@ final readonly class Payment
             requiresAction: false,
             actionHint: null,
             paymentUrl: $this->paymentUrl,
-            errorMessage: $reason,
+            errorMessage: $status === PaymentStatus::Succeeded ? null : $reason,
             returnUrl: $this->returnUrl,
             walletRecipientExternalRef: $this->walletRecipientExternalRef,
             callbackUrl: $this->callbackUrl,

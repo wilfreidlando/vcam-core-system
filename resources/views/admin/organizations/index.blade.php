@@ -11,7 +11,7 @@
     <x-admin.search-box placeholder="Rechercher par nom…" :value="$search" />
     @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('projects:write'))
         <a href="{{ route('admin.organizations.new') }}"
-           class="shrink-0 inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
+           class="shrink-0 inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-base font-medium text-white shadow-sm">
             + Nouvelle organisation
         </a>
     @endif
@@ -20,12 +20,13 @@
 <x-admin.table
     :headers="['ID', 'Nom', 'Statut', 'Action']"
     :empty="'Aucune organisation pour le moment.'">
+    <tbody class="divide-y divide-slate-100 bg-white">
     @foreach ($organizations as $org)
         <tr>
-            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $org->id }}">
+            <td class="px-4 py-2 text-sm font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $org->id }}">
                 {{ $org->id }}
             </td>
-            <td class="px-4 py-2 text-sm text-slate-900">
+            <td class="px-4 py-2 text-base text-slate-900">
                 {{ $org->name }}
             </td>
             <td class="px-4 py-2">
@@ -37,12 +38,16 @@
                     {{ $org->status }}
                 </span>
             </td>
-            <td class="px-4 py-2 text-sm space-x-3 whitespace-nowrap">
+            <td class="px-4 py-2 text-base space-x-3 whitespace-nowrap">
                 <a href="{{ route('admin.projects.index', ['organization_id' => $org->id]) }}"
                    class="text-indigo-600 hover:text-indigo-800 font-medium">
                     Voir les projets →
                 </a>
                 @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('projects:write'))
+                    <a href="{{ route('admin.organizations.edit', ['organizationId' => $org->id]) }}"
+                       class="text-slate-500 hover:text-slate-700 font-medium">
+                        Modifier
+                    </a>
                     <a href="{{ route('admin.projects.new', ['organization_id' => $org->id]) }}"
                        class="text-slate-500 hover:text-slate-700 font-medium">
                         + Nouveau projet
@@ -51,6 +56,7 @@
             </td>
         </tr>
     @endforeach
+    </tbody>
 </x-admin.table>
 
 <x-admin.pagination :page="$page" :per-page="$perPage" :total="$total" />

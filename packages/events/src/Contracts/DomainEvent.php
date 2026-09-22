@@ -18,6 +18,18 @@ final readonly class DomainEvent
 {
     /**
      * @param array<string, mixed> $payload
+     * @param bool $skipWebhookEndpointFanOut A publisher-set hint, never a
+     *                                        blanket "skip every consumer" signal: true means this
+     *                                        event already has its own dedicated, point-to-point
+     *                                        delivery arranged elsewhere (e.g. a payment's own
+     *                                        `callback_url`), so the `webhook` module's generic
+     *                                        Project-wide endpoint fan-out should skip relaying it —
+     *                                        a future `notification`/`billing` listener on this same
+     *                                        event type is unaffected, since each consumer decides
+     *                                        independently whether this flag means anything to it.
+     *                                        Defaults `false` (relay to every subscribed consumer, the
+     *                                        pre-existing behaviour) so every other publisher is
+     *                                        unchanged.
      */
     public function __construct(
         public string $id,
@@ -26,5 +38,6 @@ final readonly class DomainEvent
         public array $payload,
         public ?string $correlationId,
         public DateTimeImmutable $occurredAt,
+        public bool $skipWebhookEndpointFanOut = false,
     ) {}
 }

@@ -15,15 +15,21 @@ final readonly class WebhookSendOutcome
         public bool $success,
         public ?int $httpStatus,
         public ?string $error,
+        // Null when no response was ever received (the request never
+        // reached the endpoint — DNS/connect/timeout failure), present
+        // otherwise, success or not — an operator diagnosing a dead
+        // delivery needs to see exactly what the endpoint sent back, not
+        // just that it failed.
+        public ?string $responseBody = null,
     ) {}
 
-    public static function success(int $httpStatus): self
+    public static function success(int $httpStatus, ?string $responseBody): self
     {
-        return new self(true, $httpStatus, null);
+        return new self(true, $httpStatus, null, $responseBody);
     }
 
-    public static function failure(?int $httpStatus, string $error): self
+    public static function failure(?int $httpStatus, string $error, ?string $responseBody = null): self
     {
-        return new self(false, $httpStatus, $error);
+        return new self(false, $httpStatus, $error, $responseBody);
     }
 }

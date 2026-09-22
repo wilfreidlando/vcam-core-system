@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Payment\Application\UseCase;
 
+use Core\Ledger\Contracts\IsSupportedCurrency;
 use Core\Payment\Contracts\InitiatePaymentCommand;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Contracts\PaymentProviderRouter;
@@ -11,6 +12,7 @@ use Core\Payment\Contracts\PaymentView;
 use Core\Payment\Contracts\StartPayment;
 use Core\Payment\Contracts\StartPaymentCommand;
 use Core\Payment\Domain\Exception\PaymentAlreadyExists;
+use Core\Payment\Domain\Exception\UnsupportedCurrency;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Port\PaymentCallbackSecretGenerator;
 use Core\Payment\Domain\Port\PaymentRepository;
@@ -54,10 +56,20 @@ final readonly class StartPaymentUseCase implements StartPayment
         private PaymentGatewayRegistry $gateways,
         private Identifier $identifier,
         private PaymentCallbackSecretGenerator $callbackSecrets,
+        private IsSupportedCurrency $currencies,
     ) {}
 
     public function start(StartPaymentCommand $command): PaymentView
     {
+        // Fails fast, before the idempotency lookup or any provider call —
+        // an unsupported currency is a caller input error, not something
+        // a replay or a provider round-trip could ever fix (review
+        // finding, user-directed: nothing previously validated this
+        // despite `payments`' own migration docblock claiming it did).
+        if (! $this->currencies->isSupported($command->currency)) {
+            throw UnsupportedCurrency::withCode($command->currency);
+        }
+
         $existing = $this->payments->findByIdempotencyKey($command->projectId, $command->idempotencyKey);
         if ($existing !== null) {
             return $this->toView($existing);
@@ -132,6 +144,8 @@ final readonly class StartPaymentUseCase implements StartPayment
             actionHint: $payment->actionHint,
             paymentUrl: $payment->paymentUrl,
             errorMessage: $payment->errorMessage,
+            idempotencyKey: $payment->idempotencyKey,
+            callbackUrl: $payment->callbackUrl,
             callbackSecret: $includeCallbackSecret ? $payment->callbackSecret : null,
         );
     }

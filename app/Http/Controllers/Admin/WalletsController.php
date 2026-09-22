@@ -7,6 +7,10 @@ namespace App\Http\Controllers\Admin;
 use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\GetProjectCommand;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Ledger\Contracts\ListAccountEntries;
+use Core\Ledger\Contracts\ListAccountEntriesCommand;
+use Core\Wallet\Contracts\GetWalletBalance;
+use Core\Wallet\Contracts\GetWalletBalanceCommand;
 use Core\Wallet\Contracts\ListWallets;
 use Core\Wallet\Contracts\ListWalletsCommand;
 use Illuminate\Http\Request;
@@ -18,22 +22,24 @@ use Symfony\Component\HttpFoundation\Response;
  * Wallet visibility, read-only, full stop. ADR-0033 §1: no HTTP endpoint
  * mutates a wallet. ADR-0037: a wallet is credited only as an explicit
  * side effect of a payment's own initiation, never from the admin
- * console. This controller exposes `ListWallets` — a pure read — and
- * nothing else; there is deliberately no credit/debit form, button or
- * route here.
+ * console. This controller exposes `ListWallets`/`GetWalletBalance`/
+ * `ListAccountEntries` — pure reads — and nothing else; there is
+ * deliberately no credit/debit form, button or route here.
  *
- * No ledger-entry-history drill-down: `packages/ledger/src/Contracts/`
- * has no read port for a wallet's entry history (only posting/account
- * ports), so a per-wallet detail view is out of scope for this pass —
- * inventing one would mean adding a new Contracts port to a module this
- * pass has no visibility into (two sibling agents are concurrently
- * touching `packages/identity`/`packages/payment`).
+ * `ledger()`: the wallet's ledger entry history — a wallet's own
+ * account is always `(projectId, kind: 'wallet', reference: walletId,
+ * currency)` (the same kind constant `CreditWalletUseCase`/
+ * `DebitWalletUseCase` hardcode when they first post to it); resolved via
+ * the generic `ListAccountEntries` port, not a wallet-specific one, since
+ * that vocabulary belongs to `ledger`.
  */
 final class WalletsController
 {
     public function __construct(
         private readonly ListWallets $listWallets,
         private readonly GetProject $getProject,
+        private readonly GetWalletBalance $getWalletBalance,
+        private readonly ListAccountEntries $listAccountEntries,
     ) {}
 
     public function index(string $projectId, Request $request, OperatorContext $operator): Response
@@ -70,6 +76,56 @@ final class WalletsController
             'perPage' => $perPage,
             'stats' => $this->summarize($projectId),
             'search' => $searchRaw,
+        ]);
+    }
+
+    public function ledger(string $projectId, string $walletId, Request $request, OperatorContext $operator): Response
+    {
+        if (! $operator->hasPermission('wallets:read')) {
+            abort(403, 'La permission wallets:read est requise.');
+        }
+
+        Validator::make(
+            ['project_id' => $projectId, 'wallet_id' => $walletId],
+            ['project_id' => 'uuid', 'wallet_id' => 'uuid'],
+        )->validate();
+
+        try {
+            $project = $this->getProject->get(new GetProjectCommand($projectId));
+        } catch (RuntimeException) {
+            abort(404, 'Projet introuvable.');
+        }
+
+        try {
+            // Also the ownership check: throws if the wallet doesn't
+            // belong to this project (same RuntimeException either way,
+            // by design — see the port's own docblock).
+            $balance = $this->getWalletBalance->get(new GetWalletBalanceCommand($walletId, $projectId));
+        } catch (RuntimeException) {
+            abort(404, 'Wallet introuvable pour ce projet.');
+        }
+
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
+
+        $entries = $this->listAccountEntries->list(new ListAccountEntriesCommand(
+            projectId: $projectId,
+            kind: 'wallet',
+            reference: $walletId,
+            currency: $balance->currency,
+            page: $page,
+            perPage: $perPage,
+        ));
+
+        return response()->view('admin.wallets.ledger', [
+            'title' => 'Écritures du wallet',
+            'project' => $project,
+            'walletId' => $walletId,
+            'balance' => $balance,
+            'entries' => $entries->items,
+            'total' => $entries->total,
+            'page' => $page,
+            'perPage' => $perPage,
         ]);
     }
 

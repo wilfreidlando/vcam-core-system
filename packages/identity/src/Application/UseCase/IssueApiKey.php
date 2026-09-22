@@ -6,8 +6,9 @@ namespace Core\Identity\Application\UseCase;
 
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
-use Core\Identity\Application\Dto\IssueApiKeyCommand;
-use Core\Identity\Application\Dto\IssuedApiKey;
+use Core\Identity\Contracts\IssueApiKey as IssueApiKeyPort;
+use Core\Identity\Contracts\IssueApiKeyCommand;
+use Core\Identity\Contracts\IssuedApiKeyView;
 use Core\Identity\Domain\Exception\ProjectNotActive;
 use Core\Identity\Domain\Exception\ProjectNotFound;
 use Core\Identity\Domain\Model\ApiKey;
@@ -18,7 +19,15 @@ use Core\Identity\Domain\Port\ProjectRepository;
 use Core\Support\Clock;
 use Core\Support\Identifier;
 
-final readonly class IssueApiKey
+/**
+ * Reachable from both the CLI (`identity:issue-api-key`) and the admin
+ * console's self-service endpoint — a single place where an API key is
+ * issued, whichever caller triggers it. Mirrors `CreateOperator`/
+ * `CreateOrganization` (ADR-0050): a named `issue()` method, not
+ * `__invoke()` — this used to be invokable, retyped to the `Contracts`
+ * port's convention when self-service was added.
+ */
+final readonly class IssueApiKey implements IssueApiKeyPort
 {
     public function __construct(
         private ProjectRepository $projects,
@@ -29,7 +38,7 @@ final readonly class IssueApiKey
         private Clock $clock,
     ) {}
 
-    public function __invoke(IssueApiKeyCommand $command, string $actor, ?string $correlationId): IssuedApiKey
+    public function issue(IssueApiKeyCommand $command, string $actor, ?string $correlationId): IssuedApiKeyView
     {
         $project = $this->projects->find($command->projectId)
             ?? throw ProjectNotFound::withId($command->projectId);
@@ -65,7 +74,7 @@ final readonly class IssueApiKey
             occurredAt: $now,
         ));
 
-        return new IssuedApiKey(
+        return new IssuedApiKeyView(
             apiKeyId: $apiKey->id,
             prefix: $apiKey->prefix,
             plaintextToken: ApiKeyToken::compose($generated->prefix, $generated->secret)->value(),

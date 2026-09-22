@@ -38,6 +38,28 @@ final class EloquentApiKeyRepository implements ApiKeyRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
+    public function findAllByProject(string $projectId): array
+    {
+        // `orderBy` is forwarded by Eloquent\Builder to the underlying
+        // query builder rather than declared on it directly; going
+        // through `toBase()` first avoids a Larastan false positive
+        // ("dynamic call to static method") — same pattern as
+        // EloquentWebhookDeliveryRepository::findByStatusPaginated().
+        $base = ApiKeyRecord::query()->where('project_id', $projectId)->toBase();
+        $base->orderBy('created_at', 'desc');
+        $base->orderBy('id', 'desc');
+
+        $rows = $base->get()->map(static fn (object $row): array => (array) $row)->all();
+        $records = ApiKeyRecord::hydrate($rows);
+
+        $items = [];
+        foreach ($records as $record) {
+            $items[] = $this->toDomain($record);
+        }
+
+        return $items;
+    }
+
     private function toDomain(ApiKeyRecord $record): ApiKey
     {
         return new ApiKey(

@@ -19,6 +19,7 @@ final class EloquentEventOutbox implements EventOutbox
             'correlation_id' => $event->correlationId,
             'published_at' => null,
             'created_at' => $event->occurredAt,
+            'skip_webhook_endpoint_fan_out' => $event->skipWebhookEndpointFanOut,
         ]);
     }
 }

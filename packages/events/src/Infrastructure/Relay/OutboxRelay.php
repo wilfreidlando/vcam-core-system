@@ -55,6 +55,7 @@ final readonly class OutboxRelay implements RelayOutboxEvents
                 payload: $row->payload,
                 correlationId: $row->correlation_id,
                 occurredAt: $row->created_at,
+                skipWebhookEndpointFanOut: $row->skip_webhook_endpoint_fan_out,
             );
 
             event(new OutboxEventPublished($event));

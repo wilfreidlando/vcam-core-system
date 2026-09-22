@@ -23,8 +23,11 @@ interface WebhookDeliveryRepository
     /**
      * Newest first. `projectId` narrows to one Project's deliveries;
      * `null` lists across every Project (ADR-0044 — the operator console).
+     * `status` narrows to one lifecycle state; `null` lists every status —
+     * the full delivery history a diagnosing operator needs, not just the
+     * dead queue (`ListWebhookDeliveries`, review finding).
      *
      * @return array{items: list<WebhookDelivery>, total: int}
      */
-    public function findByStatusPaginated(WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage): array;
+    public function findByStatusPaginated(?WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage): array;
 }

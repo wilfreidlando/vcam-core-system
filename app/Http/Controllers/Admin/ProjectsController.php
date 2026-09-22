@@ -13,6 +13,8 @@ use Core\Identity\Contracts\ListOrganizationsCommand;
 use Core\Identity\Contracts\ListProjects;
 use Core\Identity\Contracts\ListProjectsCommand;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Identity\Contracts\UpdateProject;
+use Core\Identity\Contracts\UpdateProjectCommand;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -20,11 +22,14 @@ use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Projects listing + detail + create. Index accepts `organization_id`
- * filter, detail resolves a single project directly via `GetProject`
- * (review finding, Lot 6 follow-up: this used to be a permanent stub —
- * no port existed to resolve a project without already knowing its
- * organization, so every detail page 404'd).
+ * Projects listing + detail + create + edit. Index accepts
+ * `organization_id` filter, detail resolves a single project directly via
+ * `GetProject` (review finding, Lot 6 follow-up: this used to be a
+ * permanent stub — no port existed to resolve a project without already
+ * knowing its organization, so every detail page 404'd). Edit — name +
+ * status — mirrors the same review finding organizations got: "je ne vois
+ * pas les actions sur projet ni organisation pour modifier, changer le
+ * statut".
  */
 final class ProjectsController
 {
@@ -39,11 +44,15 @@ final class ProjectsController
      */
     private const ORGANIZATION_OPTIONS_LIMIT = 100;
 
+    /** Same HTTP-boundary choice as `OrganizationsController::STATUSES`. */
+    private const STATUSES = ['active', 'suspended'];
+
     public function __construct(
         private readonly ListProjects $listProjects,
         private readonly GetProject $getProject,
         private readonly CreateProject $createProject,
         private readonly ListOrganizations $listOrganizations,
+        private readonly UpdateProject $updateProject,
     ) {}
 
     public function index(Request $request, OperatorContext $operator): Response
@@ -109,6 +118,7 @@ final class ProjectsController
         return response()->view('admin.projects.show', [
             'title' => 'Projet '.substr($project->id, 0, 8).'…',
             'project' => $project,
+            'createdApiKeys' => session('admin.projects.created_api_keys'),
         ]);
     }
 
@@ -144,7 +154,7 @@ final class ProjectsController
         ]);
 
         try {
-            $project = $this->createProject->create(
+            $provisioned = $this->createProject->create(
                 new CreateProjectCommand($data['organization_id'], $data['name']),
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
@@ -153,7 +163,65 @@ final class ProjectsController
             return back()->withInput()->withErrors(['organization_id' => $e->getMessage()]);
         }
 
-        return redirect()->route('admin.projects.show', ['projectId' => $project->id])
-            ->with('status', 'Projet créé : '.$project->name);
+        // One-shot display on the project page — same pattern as a
+        // standalone key/webhook-secret issuance, never retrievable again.
+        // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
+        session()->flash('admin.projects.created_api_keys', [
+            'sandbox' => $provisioned->sandboxApiKey->plaintextToken,
+            'live' => $provisioned->liveApiKey->plaintextToken,
+        ]);
+
+        return redirect()->route('admin.projects.show', ['projectId' => $provisioned->project->id])
+            ->with('status', 'Projet créé : '.$provisioned->project->name);
+    }
+
+    public function edit(string $projectId, OperatorContext $operator): Response
+    {
+        if (! $operator->hasPermission('projects:write')) {
+            abort(403, 'La permission projects:write est requise.');
+        }
+
+        Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
+
+        try {
+            $project = $this->getProject->get(new GetProjectCommand($projectId));
+        } catch (RuntimeException) {
+            abort(404, 'Projet introuvable.');
+        }
+
+        return response()->view('admin.projects.edit', [
+            'title' => 'Modifier le projet',
+            'project' => $project,
+            'statuses' => self::STATUSES,
+        ]);
+    }
+
+    public function update(string $projectId, Request $request, OperatorContext $operator): RedirectResponse
+    {
+        if (! $operator->hasPermission('projects:write')) {
+            abort(403, 'La permission projects:write est requise.');
+        }
+
+        Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
+
+        /** @var array{name: string, status: string} $data */
+        // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'status' => ['required', 'string', 'in:'.implode(',', self::STATUSES)],
+        ]);
+
+        try {
+            $this->updateProject->update(
+                new UpdateProjectCommand($projectId, $data['name'], $data['status']),
+                actor: 'operator:'.$operator->operatorId,
+                correlationId: null,
+            );
+        } catch (RuntimeException $e) {
+            return back()->withInput()->withErrors(['name' => $e->getMessage()]);
+        }
+
+        return redirect()->route('admin.projects.show', ['projectId' => $projectId])
+            ->with('status', 'Projet mis à jour : '.$data['name']);
     }
 }

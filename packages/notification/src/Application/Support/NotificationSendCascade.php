@@ -174,6 +174,18 @@ final readonly class NotificationSendCascade
                 [
                     'notification_id' => $failed->id,
                     'channel' => $failed->channel,
+                    // `status` was missing here — this is a second
+                    // producer of `notification.failed` alongside
+                    // `HandleNotificationStatusChangedUseCase`'s (a
+                    // provider callback reporting failure later), whose
+                    // payload always carries `status`. A webhook receiver
+                    // that reasonably expected every `notification.failed`
+                    // delivery to have the same shape, regardless of which
+                    // path produced it, would have silently broken on this
+                    // one (review finding — payload shape must be the same
+                    // for the same event type, whichever producer emits
+                    // it).
+                    'status' => $failed->status->value,
                     'reason' => $failed->errorMessage,
                 ],
                 null,

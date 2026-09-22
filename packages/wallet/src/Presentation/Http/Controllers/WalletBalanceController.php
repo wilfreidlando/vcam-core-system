@@ -8,6 +8,7 @@ use Core\Identity\Contracts\ProjectContext;
 use Core\Support\Http\ProblemDetails;
 use Core\Wallet\Contracts\GetWalletBalance;
 use Core\Wallet\Contracts\GetWalletBalanceCommand;
+use Core\Wallet\Domain\Exception\WalletNotFound;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -31,6 +32,8 @@ final class WalletBalanceController
      * a balance. Requires the `wallets:read` scope, and returns the same
      * not-found response whether the wallet doesn't exist or belongs to
      * another project — the two are indistinguishable on purpose.
+     *
+     * @throws WalletNotFound the wallet doesn't exist, or belongs to another project (404)
      */
     public function __invoke(string $walletId, ProjectContext $project): JsonResponse|Response
     {

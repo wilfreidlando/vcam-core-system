@@ -49,9 +49,13 @@ final class ListDeadWebhookDeliveriesController
                 'id' => $delivery->id,
                 'endpoint_id' => $delivery->endpointId,
                 'project_id' => $delivery->projectId,
+                'event_id' => $delivery->eventId,
                 'event_type' => $delivery->eventType,
+                'payload' => $delivery->payload,
                 'attempts' => $delivery->attempts,
                 'last_error' => $delivery->lastError,
+                'last_response_status' => $delivery->lastResponseStatus,
+                'last_response_body' => $delivery->lastResponseBody,
                 'last_attempt_at' => $delivery->lastAttemptAt?->format(DATE_ATOM),
             ], $result->items),
             'meta' => [

@@ -10,11 +10,11 @@
 
 @if ($pages > 1)
 <nav class="flex items-center justify-between mt-4" aria-label="Pagination">
-    <p class="text-xs text-slate-500">
+    <p class="text-sm text-slate-500">
         Page {{ $page }} sur {{ $pages }}
         · {{ $total }} {{ $total === 1 ? 'élément' : 'éléments' }}
     </p>
-    <div class="inline-flex gap-1">
+    <div class="inline-flex gap-2">
         @php
             $prevParams = request()->query();
             $prevParams['page'] = max(1, $page - 1);
@@ -24,7 +24,7 @@
         <a
             href="{{ request()->url() }}?{{ http_build_query($prevParams) }}"
             @class([
-                'inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50',
+                'inline-flex items-center gap-1 rounded-md border border-slate-300 px-4 py-2 text-base font-medium text-slate-700 bg-white hover:bg-slate-50',
                 'pointer-events-none opacity-50' => $page <= 1,
             ])
             aria-disabled="{{ $page <= 1 ? 'true' : 'false' }}">
@@ -33,7 +33,7 @@
         <a
             href="{{ request()->url() }}?{{ http_build_query($nextParams) }}"
             @class([
-                'inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50',
+                'inline-flex items-center gap-1 rounded-md border border-slate-300 px-4 py-2 text-base font-medium text-slate-700 bg-white hover:bg-slate-50',
                 'pointer-events-none opacity-50' => $page >= $pages,
             ])
             aria-disabled="{{ $page >= $pages ? 'true' : 'false' }}">

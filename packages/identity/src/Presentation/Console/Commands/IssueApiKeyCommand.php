@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Identity\Presentation\Console\Commands;
 
-use Core\Identity\Application\Dto\IssueApiKeyCommand as Command;
-use Core\Identity\Application\UseCase\IssueApiKey;
+use Core\Identity\Contracts\IssueApiKey;
+use Core\Identity\Contracts\IssueApiKeyCommand as Command;
 use Core\Identity\Domain\Exception\ProjectNotActive;
 use Core\Identity\Domain\Exception\ProjectNotFound;
 use Core\Support\Environment;
@@ -36,7 +36,7 @@ final class IssueApiKeyCommand extends ConsoleCommand
         $scopes = $this->option('scope');
 
         try {
-            $issued = $issueApiKey(
+            $issued = $issueApiKey->issue(
                 new Command(
                     projectId: $this->argument('project'),
                     environment: $environment,

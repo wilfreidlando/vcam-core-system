@@ -39,7 +39,7 @@ function makeHandler(): array
     return [$handler, $payments, $partyFinder, $creditWallet, $outbox];
 }
 
-function pendingPayment(?string $walletRecipientExternalRef = null): Payment
+function pendingPayment(?string $walletRecipientExternalRef = null, ?string $callbackUrl = null): Payment
 {
     return new Payment(
         id: 'payment-1',
@@ -57,6 +57,7 @@ function pendingPayment(?string $walletRecipientExternalRef = null): Payment
         errorMessage: null,
         returnUrl: null,
         walletRecipientExternalRef: $walletRecipientExternalRef,
+        callbackUrl: $callbackUrl,
     );
 }
 
@@ -125,6 +126,24 @@ it('is idempotent: a replayed webhook after the payment already settled has no s
 
     expect($creditWallet->credited)->toHaveCount(1, 'the wallet must be credited exactly once')
         ->and($outbox->events)->toHaveCount(1, 'the outbox must receive exactly one event');
+});
+
+it('flags the outbox event to skip the generic webhook fan-out when the payment has its own callback_url', function (): void {
+    [$handler, $payments, , , $outbox] = makeHandler();
+    $payments->create(pendingPayment(callbackUrl: 'https://caller.example.com/webhooks/core'));
+
+    $handler->handle(statusChangedEvent(PaymentStatus::Succeeded));
+
+    expect($outbox->events[0]->skipWebhookEndpointFanOut)->toBeTrue();
+});
+
+it('leaves the generic webhook fan-out enabled when the payment has no callback_url', function (): void {
+    [$handler, $payments, , , $outbox] = makeHandler();
+    $payments->create(pendingPayment(callbackUrl: null));
+
+    $handler->handle(statusChangedEvent(PaymentStatus::Succeeded));
+
+    expect($outbox->events[0]->skipWebhookEndpointFanOut)->toBeFalse();
 });
 
 it('ignores a webhook for a transaction this Core never initiated', function (): void {

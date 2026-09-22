@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Core\Identity\Application\Dto\IssueApiKeyCommand;
 use Core\Identity\Application\UseCase\IssueApiKey;
+use Core\Identity\Contracts\IssueApiKeyCommand;
 use Core\Identity\Domain\Exception\ProjectNotActive;
 use Core\Identity\Domain\Exception\ProjectNotFound;
 use Core\Identity\Domain\Model\ApiKey;
@@ -48,7 +48,7 @@ it('persists the hash, never the plaintext secret', function (): void {
     $fixture = IssueApiKeyFixture::make();
     $fixture->projects->save(Project::create('project-1', 'org-1', 'Test Project'));
 
-    $issued = ($fixture->useCase)(
+    $issued = $fixture->useCase->issue(
         new IssueApiKeyCommand('project-1', Environment::Sandbox, ['payments:write']),
         actor: 'operator:1',
         correlationId: 'corr-1',
@@ -65,7 +65,7 @@ it('records an audit entry without the secret or its hash', function (): void {
     $fixture = IssueApiKeyFixture::make();
     $fixture->projects->save(Project::create('project-1', 'org-1', 'Test Project'));
 
-    ($fixture->useCase)(
+    $fixture->useCase->issue(
         new IssueApiKeyCommand('project-1', Environment::Sandbox, ['payments:write']),
         actor: 'operator:1',
         correlationId: 'corr-1',
@@ -84,7 +84,7 @@ it('records an audit entry without the secret or its hash', function (): void {
 it('refuses to issue a key for an unknown project', function (): void {
     $fixture = IssueApiKeyFixture::make();
 
-    ($fixture->useCase)(
+    $fixture->useCase->issue(
         new IssueApiKeyCommand('missing-project', Environment::Sandbox, []),
         actor: 'operator:1',
         correlationId: null,
@@ -95,7 +95,7 @@ it('refuses to issue a key for an inactive project', function (): void {
     $fixture = IssueApiKeyFixture::make();
     $fixture->projects->save(new Project('project-1', 'org-1', 'Suspended Project', 'suspended'));
 
-    ($fixture->useCase)(
+    $fixture->useCase->issue(
         new IssueApiKeyCommand('project-1', Environment::Sandbox, []),
         actor: 'operator:1',
         correlationId: null,

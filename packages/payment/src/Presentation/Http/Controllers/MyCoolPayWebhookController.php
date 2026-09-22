@@ -200,7 +200,16 @@ final class MyCoolPayWebhookController
         $transactionRef = self::stringField($body, 'transaction_ref');
         $appTransactionRef = self::stringField($body, 'app_transaction_ref');
         $rawStatus = self::stringField($body, 'transaction_status');
-        $reasonRaw = $body['transaction_reason'] ?? null;
+        // `transaction_reason` is never a provider explanation — it's
+        // MyCoolPay echoing back the `reason` string WE sent at
+        // initiation, verbatim, on every status (confirmed live: a real
+        // FAILED transaction still carried our own "Test paiement…" text
+        // there). `transaction_message` is MyCoolPay's own human-readable
+        // account of what happened ("Votre transaction n'a pas pu être
+        // traitée…") — the same field `MyCoolPayAdapter::toPaymentReceipt()`
+        // already uses correctly; this brought the webhook path in line
+        // with it.
+        $reasonRaw = $body['transaction_message'] ?? null;
         $reason = is_string($reasonRaw) ? $reasonRaw : null;
 
         if ($transactionRef === '' || $rawStatus === '') {

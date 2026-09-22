@@ -19,6 +19,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Carbon\CarbonImmutable|null $next_retry_at
  * @property \Carbon\CarbonImmutable|null $last_attempt_at
  * @property string|null $last_error
+ * @property int|null $last_response_status
+ * @property string|null $last_response_body
  * @property \Carbon\CarbonImmutable|null $delivered_at
  * @property string|null $replayed_from_id
  * @property \Carbon\CarbonImmutable $created_at
@@ -33,6 +35,7 @@ final class WebhookDeliveryRecord extends Model
     protected $fillable = [
         'id', 'endpoint_id', 'project_id', 'event_id', 'event_type', 'payload',
         'status', 'attempts', 'next_retry_at', 'last_attempt_at', 'last_error',
+        'last_response_status', 'last_response_body',
         'delivered_at', 'replayed_from_id',
     ];
 

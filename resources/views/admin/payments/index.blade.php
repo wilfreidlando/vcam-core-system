@@ -6,8 +6,8 @@
 <form method="GET" action="{{ route('admin.payments.index') }}" class="bg-white border border-slate-200 rounded-lg p-4 mb-4">
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
         <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Projet</label>
-            <select name="project_id" class="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm bg-white">
+            <label class="block text-sm font-medium text-slate-700 mb-1">Projet</label>
+            <select name="project_id" class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base bg-white">
                 <option value="">(tous les projets)</option>
                 @foreach ($projects as $project)
                     <option value="{{ $project->id }}" @selected(($filters['project_id'] ?? '') === $project->id)>{{ $project->name }}</option>
@@ -15,12 +15,12 @@
             </select>
         </div>
         <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Canal</label>
-            <input type="text" name="channel" value="{{ $filters['channel'] ?? '' }}" class="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm font-mono" />
+            <label class="block text-sm font-medium text-slate-700 mb-1">Canal</label>
+            <input type="text" name="channel" value="{{ $filters['channel'] ?? '' }}" class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base font-mono" />
         </div>
         <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1">Statut</label>
-            <select name="status" class="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm bg-white">
+            <label class="block text-sm font-medium text-slate-700 mb-1">Statut</label>
+            <select name="status" class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base bg-white">
                 <option value="">(tous)</option>
                 @foreach (['pending', 'processing', 'succeeded', 'failed', 'expired', 'refunded', 'canceled'] as $s)
                     <option value="{{ $s }}" @selected(($filters['status'] ?? '') === $s)>{{ ucfirst($s) }}</option>
@@ -28,8 +28,8 @@
             </select>
         </div>
         <div class="flex items-end gap-2 justify-end">
-            <a href="{{ route('admin.payments.index') }}" class="text-xs text-slate-500 hover:text-slate-700">Réinitialiser</a>
-            <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white">Filtrer</button>
+            <a href="{{ route('admin.payments.index') }}" class="text-sm text-slate-500 hover:text-slate-700">Réinitialiser</a>
+            <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-base font-medium text-white">Filtrer</button>
         </div>
     </div>
 </form>
@@ -37,15 +37,16 @@
 <x-admin.table
     :headers="['ID', 'Projet', 'Canal', 'Statut', 'Montant', 'Devise', 'Actions']"
     :empty="'Aucun paiement ne correspond aux filtres.'">
+    <tbody class="divide-y divide-slate-100 bg-white">
     @foreach ($payments as $payment)
         <tr>
-            <td class="px-4 py-2 text-xs font-mono text-slate-700 truncate max-w-[8rem]" title="{{ $payment->id }}">
+            <td class="px-4 py-2 text-sm font-mono text-slate-700 truncate max-w-[8rem]" title="{{ $payment->id }}">
                 {{ substr($payment->id, 0, 8) }}…
             </td>
-            <td class="px-4 py-2 text-sm text-slate-900 truncate max-w-[10rem]" title="{{ $payment->projectId }}">
+            <td class="px-4 py-2 text-base text-slate-900 truncate max-w-[10rem]" title="{{ $payment->projectId }}">
                 {{ $projectNames[$payment->projectId] ?? substr($payment->projectId, 0, 8).'…' }}
             </td>
-            <td class="px-4 py-2 text-xs font-mono text-slate-700">
+            <td class="px-4 py-2 text-sm font-mono text-slate-700">
                 {{ $payment->channel }}
             </td>
             <td class="px-4 py-2">
@@ -61,19 +62,16 @@
                     {{ $status }}
                 </span>
             </td>
-            <td class="px-4 py-2 text-sm font-mono text-slate-900 tabular-nums">
-                {{-- Minor units (G5) → major units. The 2-decimal split is
-                     correct for every currency this Core currently routes
-                     payments in; a currency-decimals registry would be
-                     needed to make this exact for every ISO 4217 currency,
-                     out of scope for this read-only visibility pass. Same
-                     pattern as reconciliation/new.blade.php. --}}
-                {{ number_format($payment->amount / 100, 2) }}
+            <td class="px-4 py-2 text-base font-mono text-slate-900 tabular-nums">
+                {{-- Minor units (G5) → major units, via Money::formattedAmount()
+                     — currency-exponent-correct (0 decimals for XAF).
+                     Same pattern as reconciliation/new.blade.php. --}}
+                {{ \Core\Support\Money\Money::ofMinor($payment->amount, $payment->currency)->formattedAmount() }}
             </td>
-            <td class="px-4 py-2 text-sm font-mono text-slate-700">
+            <td class="px-4 py-2 text-base font-mono text-slate-700">
                 {{ $payment->currency }}
             </td>
-            <td class="px-4 py-2 text-sm">
+            <td class="px-4 py-2 text-base">
                 {{-- Always the payment's OWN project — not the filter's,
                      which can be empty (all-projects view) or, in theory,
                      differ from this row's actual project. --}}
@@ -84,6 +82,7 @@
             </td>
         </tr>
     @endforeach
+    </tbody>
 </x-admin.table>
 
 <x-admin.pagination :page="$page" :per-page="$perPage" :total="$total" />

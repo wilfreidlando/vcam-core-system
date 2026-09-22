@@ -53,6 +53,7 @@ final class ListProjectPaymentsController
                 'currency' => $payment->currency,
                 'requires_action' => $payment->requiresAction,
                 'error_message' => $payment->errorMessage,
+                'idempotency_key' => $payment->idempotencyKey,
             ], $result->items),
             'meta' => [
                 'page' => $result->page,

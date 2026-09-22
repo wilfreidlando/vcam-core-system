@@ -195,6 +195,10 @@ final readonly class MyCoolPayAdapter implements PaymentGateway
      *     "transaction_ref": "...",
      *     "payment_url": "..." (paylink only),
      *     "action": "PENDING" | "REQUIRE_OTP" | "USSD_OK" | ... (payin/check-status)
+     *     "ussd": "#150*50#" (payin only, when the push notification may
+     *              not reach the customer's phone — the manual dial
+     *              fallback; confirmed live, not documented in MyCoolPay's
+     *              published API reference)
      *   }
      *
      * We extract `payment_url` when present, and map `action` to the
@@ -229,13 +233,22 @@ final readonly class MyCoolPayAdapter implements PaymentGateway
             ?? '';
         $canonical = $rawStatus === '' ? PaymentStatus::Pending : $this->statusMapper->map($rawStatus);
 
+        // Review finding, live-tested: a real payin response came back
+        // `action: "PENDING"` (which the line below alone would treat as
+        // "nothing for the customer to do") carrying a `ussd` fallback
+        // dial code the customer needs if the push notification never
+        // reaches their phone — genuinely an action the caller must be
+        // able to surface, regardless of what the bare `action` string
+        // says.
+        $ussd = self::optStr($body, 'ussd');
+
         // `requiresAction` is true when the provider is waiting for an
         // out-of-band step from the customer. Payin returns an `action`
         // string; we set the flag whenever the canonical status is
-        // Pending and a non-terminal action was reported.
-        $requiresAction = $canonical === PaymentStatus::Pending
-            && $rawStatus !== ''
-            && $rawStatus !== 'PENDING';
+        // Pending and a non-terminal action was reported, OR a USSD
+        // fallback code was given (see above).
+        $requiresAction = $ussd !== null
+            || ($canonical === PaymentStatus::Pending && $rawStatus !== '' && $rawStatus !== 'PENDING');
 
         $errorMessage = self::optStr($body, 'transaction_message');
 
@@ -244,7 +257,10 @@ final readonly class MyCoolPayAdapter implements PaymentGateway
             status: $canonical,
             paymentUrl: $paymentUrl,
             requiresAction: $requiresAction,
-            actionHint: $rawStatus === '' ? null : $rawStatus,
+            // The dial code is the actionable instruction when present —
+            // more useful to a caller than the bare "PENDING" status
+            // string it would otherwise fall back to.
+            actionHint: $ussd ?? ($rawStatus === '' ? null : $rawStatus),
             errorMessage: $canonical === PaymentStatus::Failed ? $errorMessage : null,
         );
     }

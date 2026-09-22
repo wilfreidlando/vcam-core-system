@@ -15,5 +15,5 @@ interface CreateProject
      *                          Domain layer; Contracts must not
      *                          reference it (G3c).
      */
-    public function create(CreateProjectCommand $command, string $actor, ?string $correlationId): ProjectView;
+    public function create(CreateProjectCommand $command, string $actor, ?string $correlationId): ProvisionedProjectView;
 }

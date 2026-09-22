@@ -39,7 +39,7 @@ final class CreateProjectController
         ]);
 
         try {
-            $created = $this->createProject->create(
+            $provisioned = $this->createProject->create(
                 new CreateProjectCommand($data['organization_id'], $data['name']),
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
@@ -50,11 +50,24 @@ final class CreateProjectController
             return ProblemDetails::make('organization-not-found', 'Organization not found', 422, $e->getMessage());
         }
 
+        // Both plaintext tokens exist only in this response — never
+        // retrievable again afterwards, same one-shot-secret pattern as a
+        // standalone key issuance.
         return new JsonResponse([
-            'id' => $created->id,
-            'organization_id' => $created->organizationId,
-            'name' => $created->name,
-            'status' => $created->status,
+            'id' => $provisioned->project->id,
+            'organization_id' => $provisioned->project->organizationId,
+            'name' => $provisioned->project->name,
+            'status' => $provisioned->project->status,
+            'api_keys' => [
+                'sandbox' => [
+                    'prefix' => $provisioned->sandboxApiKey->prefix,
+                    'plaintext_token' => $provisioned->sandboxApiKey->plaintextToken,
+                ],
+                'live' => [
+                    'prefix' => $provisioned->liveApiKey->prefix,
+                    'plaintext_token' => $provisioned->liveApiKey->plaintextToken,
+                ],
+            ],
         ], 201);
     }
 }

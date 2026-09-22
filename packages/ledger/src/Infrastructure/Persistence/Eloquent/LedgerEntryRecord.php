@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $direction
  * @property int $amount_minor
  * @property string $currency
+ * @property \Carbon\CarbonImmutable $created_at
  */
 final class LedgerEntryRecord extends Model
 {

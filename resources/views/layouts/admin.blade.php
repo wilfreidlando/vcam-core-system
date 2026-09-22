@@ -152,11 +152,11 @@
                      operator; each link carries an active-state highlight
                      and, where cheap and meaningful, a small numeric
                      badge. --}}
-                <nav class="flex-1 overflow-y-auto px-3 py-2 text-sm">
+                <nav class="flex-1 overflow-y-auto px-3 py-2 text-base">
 
                     {{-- Vue d'ensemble --}}
                     @if($canDashboard)
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Vue d'ensemble</p>
+                        <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Vue d'ensemble</p>
                         <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.dashboard') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                             <span class="truncate">Tableau de bord</span>
@@ -165,7 +165,7 @@
 
                     {{-- Identité --}}
                     @if($canOrganizations || $canProjects || $canOperators)
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Identité</p>
+                        <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Identité</p>
 
                         @if($canOrganizations)
                             <a href="{{ route('admin.organizations.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.organizations.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
@@ -191,7 +191,7 @@
 
                     {{-- Argent --}}
                     @if($canPayments || $canWallets || $canReconciliation)
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Argent</p>
+                        <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Argent</p>
 
                         @if($canPayments)
                             <a href="{{ route('admin.payments.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.payments.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
@@ -228,13 +228,13 @@
 
                     {{-- Plateforme --}}
                     @if($canWebhooks || $canAudit)
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Plateforme</p>
+                        <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Plateforme</p>
 
                         @if($canWebhooks)
                             <a href="{{ route('admin.webhook-deliveries.dead.web') }}" class="flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.webhook-deliveries.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
                                 <span class="flex items-center gap-3 min-w-0">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                                    <span class="truncate">Webhooks (échecs)</span>
+                                    <span class="truncate">Webhooks</span>
                                 </span>
                                 @if($deadWebhookCount !== null && $deadWebhookCount > 0)
                                     <span class="inline-flex items-center justify-center rounded-full bg-rose-500/20 text-rose-300 text-xs font-semibold px-1.5 py-0.5 min-w-[1.375rem] shrink-0">{{ $deadWebhookCount }}</span>
@@ -252,7 +252,7 @@
                 </nav>
 
                 {{-- Carte opérateur en bas de sidebar --}}
-                <div class="border-t border-slate-800/60 p-4 text-sm">
+                <div class="border-t border-slate-800/60 p-4 text-base">
                     <div class="font-medium text-white truncate">{{ $operator->email }}</div>
                     <div class="text-slate-400 text-xs mt-0.5">Rôle : <span class="font-mono">{{ $operator->role->value ?? '' }}</span></div>
                     <form method="POST" action="{{ route('admin.logout') }}" class="mt-3">

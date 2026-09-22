@@ -5,8 +5,15 @@ declare(strict_types=1);
 namespace Core\Payment\Presentation\Http\Controllers;
 
 use Core\Identity\Contracts\ProjectContext;
+use Core\Payment\Contracts\NoProviderForChannelException;
+use Core\Payment\Domain\Exception\UnsupportedCurrency;
 use Core\Payment\PaymentFlow;
 use Core\Payment\Presentation\Http\Requests\StartPaymentRequest;
+use Core\Support\Integration\CircuitBreaker\CircuitOpenException;
+use Core\Support\Integration\Exception\ProviderAuthError;
+use Core\Support\Integration\Exception\ProviderDisabledException;
+use Core\Support\Integration\Exception\ProviderPermanentError;
+use Core\Support\Integration\Exception\ProviderTransientError;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -32,6 +39,11 @@ final class StartPaymentController extends AbstractStartPaymentController
      * only happens if `wallet_recipient_external_ref` is given (ADR-0037).
      * Prefer `POST /v1/payments/paylink` or `POST /v1/payments/payin`
      * for new integrations.
+     *
+     * @throws NoProviderForChannelException no provider is routed for the requested `channel` (422)
+     * @throws UnsupportedCurrency the requested `currency` isn't in the Core's allow-list (422)
+     * @throws ProviderPermanentError|ProviderAuthError the provider rejected the request outright (502)
+     * @throws ProviderTransientError|ProviderDisabledException|CircuitOpenException the provider is temporarily unavailable (503)
      */
     public function __invoke(StartPaymentRequest $request, ProjectContext $project): JsonResponse|Response
     {

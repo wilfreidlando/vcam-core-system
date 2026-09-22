@@ -43,7 +43,7 @@ enum OperatorRole: string
                 'payments:read', 'wallets:read', 'projects:read',
             ],
             self::SupportOperator => [
-                'webhooks:read', 'webhooks:replay', 'audit:read',
+                'webhooks:read', 'webhooks:replay', 'webhook-endpoints:write', 'audit:read',
                 'payments:read', 'notifications:read', 'projects:read',
             ],
             self::ProviderManager => ['audit:read', 'projects:read', 'provider-applications:write'],

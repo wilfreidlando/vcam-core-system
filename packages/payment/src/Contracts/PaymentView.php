@@ -34,6 +34,27 @@ final readonly class PaymentView
         public ?string $paymentUrl,
         public ?string $errorMessage,
         /**
+         * The same value the caller sent as its `Idempotency-Key` header
+         * at initiation (ADR-0025/G7) — reused, unmodified, as this
+         * payment's `app_transaction_ref` in the `payment.status_changed`
+         * webhook payload (`Contracts\Events\PaymentStatusChanged`).
+         * Review finding, user-directed: the webhook already echoed the
+         * caller's own reference back, but `GET /v1/payments/{id}` (the
+         * documented fallback truth source when a webhook is missed)
+         * didn't — a caller polling status instead of trusting the
+         * webhook had no way to confirm which of ITS OWN transactions it
+         * was looking at.
+         */
+        public string $idempotencyKey,
+        /**
+         * The caller's own server-to-server notification target, as
+         * supplied at initiation — never the secret that signs deliveries
+         * to it (`$callbackSecret`, shown once, at creation only). Review
+         * finding: a caller had no way to read back which callback_url it
+         * registered for a payment, not even via `GET /v1/payments/{id}`.
+         */
+        public ?string $callbackUrl,
+        /**
          * Populated ONLY by `StartPaymentUseCase::start()`, on the
          * response that creates the payment — the one-shot-secret
          * pattern (API keys, webhook endpoint secrets). Every other

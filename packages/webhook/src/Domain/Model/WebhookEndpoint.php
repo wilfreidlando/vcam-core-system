@@ -49,4 +49,17 @@ final readonly class WebhookEndpoint
     {
         return new self($this->id, $this->projectId, $this->url, $this->secret, $this->subscribedEventTypes, false);
     }
+
+    public function activated(): self
+    {
+        return new self($this->id, $this->projectId, $this->url, $this->secret, $this->subscribedEventTypes, true);
+    }
+
+    /**
+     * @param list<string> $subscribedEventTypes
+     */
+    public function withUrlAndEvents(string $url, array $subscribedEventTypes): self
+    {
+        return new self($this->id, $this->projectId, $url, $this->secret, $subscribedEventTypes, $this->active);
+    }
 }

@@ -18,13 +18,13 @@
             value="{{ $value }}"
             placeholder="{{ $placeholder }}"
             autocomplete="off"
-            class="block w-full rounded-md border border-slate-300 pl-8 pr-3 py-1.5 text-sm shadow-sm" />
+            class="block w-full rounded-md border border-slate-300 pl-9 pr-3 py-2.5 text-base shadow-sm" />
     </div>
-    <button type="submit" class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+    <button type="submit" class="rounded-md border border-slate-300 bg-white px-4 py-2.5 text-base font-medium text-slate-700 hover:bg-slate-50">
         Rechercher
     </button>
     @if ($value !== '')
-        <a href="{{ request()->url() }}" class="text-sm text-slate-500 hover:text-slate-700">
+        <a href="{{ request()->url() }}" class="text-base text-slate-500 hover:text-slate-700">
             Effacer
         </a>
     @endif

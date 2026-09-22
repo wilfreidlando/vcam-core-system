@@ -2,32 +2,12 @@
 
 declare(strict_types=1);
 
-use Core\Identity\Domain\Exception\InvalidMfaCode;
-use Core\Identity\Domain\Exception\InvalidOperatorCredentials;
-use Core\Identity\Domain\Exception\MfaAlreadyEnrolled;
-use Core\Identity\Domain\Exception\MfaChallengeInvalid;
-use Core\Identity\Domain\Exception\MfaNotEnrolled;
-use Core\Identity\Domain\Exception\OperatorNotFound;
-use Core\Identity\Domain\Exception\OperatorRevoked;
+use App\Http\ExceptionProblemMapping;
 use Core\Identity\Presentation\Http\Middleware\ResolveOperatorMiddleware;
 use Core\Identity\Presentation\Http\Middleware\ResolveProjectMiddleware;
-use Core\Notification\Contracts\ChannelDoesNotSupportSessions;
-use Core\Notification\Contracts\MissingRecipientPhoneNumber;
-use Core\Notification\Domain\Exception\NotificationNotFound;
-use Core\Payment\Contracts\NoProviderForChannelException;
-use Core\Payment\Domain\Exception\PaymentNotFound;
 use Core\Support\Http\Middleware\CorrelationId;
 use Core\Support\Http\Middleware\RequireIdempotencyKey;
 use Core\Support\Http\ProblemDetails;
-use Core\Support\Integration\CircuitBreaker\CircuitOpenException;
-use Core\Support\Integration\Exception\ProviderAuthError;
-use Core\Support\Integration\Exception\ProviderDisabledException;
-use Core\Support\Integration\Exception\ProviderPermanentError;
-use Core\Support\Integration\Exception\ProviderTransientError;
-use Core\Wallet\Domain\Exception\WalletNotFound;
-use Core\Webhook\Domain\Exception\WebhookDeliveryNotDead;
-use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
-use Core\Webhook\Domain\Exception\WebhookEndpointNotFound;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
@@ -112,110 +92,13 @@ return Application::configure(basePath: dirname(__DIR__))
                     'One or more fields failed validation.',
                     ['errors' => $e->errors()],
                 ),
+                // Laravel's own message is an internal guard name, not
+                // something a caller should see — a fixed detail string,
+                // unlike every mapped exception below (which use their
+                // own `getMessage()` verbatim), so this stays a special
+                // case rather than joining `ExceptionProblemMapping`.
                 $e instanceof AuthenticationException => ProblemDetails::unauthenticated(
                     'Valid project credentials are required.',
-                ),
-                $e instanceof WalletNotFound => ProblemDetails::make(
-                    'wallet-not-found',
-                    'Wallet not found',
-                    404,
-                    $e->getMessage(),
-                ),
-                $e instanceof PaymentNotFound => ProblemDetails::make(
-                    'payment-not-found',
-                    'Payment not found',
-                    404,
-                    $e->getMessage(),
-                ),
-                $e instanceof NoProviderForChannelException => ProblemDetails::make(
-                    'no-provider-for-channel',
-                    'No provider is configured for this channel',
-                    422,
-                    $e->getMessage(),
-                ),
-                $e instanceof WebhookEndpointNotFound => ProblemDetails::make(
-                    'webhook-endpoint-not-found',
-                    'Webhook endpoint not found',
-                    404,
-                    $e->getMessage(),
-                ),
-                $e instanceof WebhookDeliveryNotFound => ProblemDetails::make(
-                    'webhook-delivery-not-found',
-                    'Webhook delivery not found',
-                    404,
-                    $e->getMessage(),
-                ),
-                $e instanceof WebhookDeliveryNotDead => ProblemDetails::make(
-                    'webhook-delivery-not-dead',
-                    'Only a dead webhook delivery can be replayed',
-                    409,
-                    $e->getMessage(),
-                ),
-                $e instanceof NotificationNotFound => ProblemDetails::make(
-                    'notification-not-found',
-                    'Notification not found',
-                    404,
-                    $e->getMessage(),
-                ),
-                $e instanceof MissingRecipientPhoneNumber => ProblemDetails::make(
-                    'missing-recipient-phone-number',
-                    'The recipient phone number is missing',
-                    422,
-                    $e->getMessage(),
-                ),
-                $e instanceof ChannelDoesNotSupportSessions => ProblemDetails::make(
-                    'channel-does-not-support-sessions',
-                    'This channel has no linked-device session to manage',
-                    422,
-                    $e->getMessage(),
-                ),
-                $e instanceof OperatorNotFound => ProblemDetails::make(
-                    'operator-not-found',
-                    'Operator not found',
-                    404,
-                    $e->getMessage(),
-                ),
-                $e instanceof InvalidOperatorCredentials => ProblemDetails::unauthenticated(
-                    $e->getMessage(),
-                ),
-                $e instanceof OperatorRevoked => ProblemDetails::forbidden(
-                    $e->getMessage(),
-                ),
-                $e instanceof MfaChallengeInvalid, $e instanceof InvalidMfaCode => ProblemDetails::unauthenticated(
-                    $e->getMessage(),
-                ),
-                $e instanceof MfaAlreadyEnrolled => ProblemDetails::make(
-                    'mfa-already-enrolled',
-                    'MFA is already enabled',
-                    409,
-                    $e->getMessage(),
-                ),
-                $e instanceof MfaNotEnrolled => ProblemDetails::make(
-                    'mfa-not-enrolled',
-                    'MFA enrollment has not been started',
-                    422,
-                    $e->getMessage(),
-                ),
-                // The provider-layer exceptions below (Core\Support\Integration)
-                // are cross-module — every adapter (payment, notification,
-                // webhook) can raise them, so they're mapped once here rather
-                // than per module. Distinguished by remediation, not just
-                // severity: permanent/auth failures won't resolve on retry
-                // (502, our integration or the request is wrong); transient/
-                // disabled/circuit-open might (503, try again shortly).
-                $e instanceof ProviderPermanentError, $e instanceof ProviderAuthError => ProblemDetails::make(
-                    'provider-error',
-                    'The external provider rejected the request',
-                    502,
-                    $e->getMessage(),
-                ),
-                $e instanceof ProviderTransientError,
-                $e instanceof ProviderDisabledException,
-                $e instanceof CircuitOpenException => ProblemDetails::make(
-                    'provider-unavailable',
-                    'The external provider is temporarily unavailable',
-                    503,
-                    $e->getMessage(),
                 ),
                 $e instanceof HttpExceptionInterface => ProblemDetails::make(
                     'http-error',
@@ -223,6 +106,12 @@ return Application::configure(basePath: dirname(__DIR__))
                     $e->getStatusCode(),
                     $e->getMessage() !== '' ? $e->getMessage() : null,
                 ),
+                // Every other domain-level rejection this Core raises —
+                // one shared table (`ExceptionProblemMapping`) instead of
+                // 22 near-identical arms, so it can't silently drift from
+                // what `App\OpenApi\ExceptionProblemResponseExtension`
+                // documents on `/docs/api`/`/docs/admin`.
+                ($mapped = ExceptionProblemMapping::toResponse($e)) !== null => $mapped,
                 // Never leak internals in production; keep the debug page locally.
                 config('app.debug') === true => null,
                 default => ProblemDetails::make(

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Core\Identity\Tests\Integration;
 
-use Core\Identity\Application\Dto\IssueApiKeyCommand;
-use Core\Identity\Application\Dto\RevokeApiKeyCommand;
 use Core\Identity\Application\UseCase\CreateOrganization;
 use Core\Identity\Application\UseCase\CreateProject;
-use Core\Identity\Application\UseCase\IssueApiKey;
-use Core\Identity\Application\UseCase\RevokeApiKey;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Contracts\CreateProjectCommand;
+use Core\Identity\Contracts\IssueApiKey;
+use Core\Identity\Contracts\IssueApiKeyCommand;
+use Core\Identity\Contracts\RevokeApiKey;
+use Core\Identity\Contracts\RevokeApiKeyCommand;
 use Core\Support\Environment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -78,8 +78,8 @@ final class IdentityHttpFlowTest extends TestCase
             new CreateProjectCommand($organization->id, 'Test Project'),
             actor: 'service:test',
             correlationId: null,
-        );
-        $issued = app(IssueApiKey::class)(
+        )->project;
+        $issued = app(IssueApiKey::class)->issue(
             new IssueApiKeyCommand($project->id, Environment::Sandbox, []),
             actor: 'service:test',
             correlationId: null,
@@ -87,7 +87,7 @@ final class IdentityHttpFlowTest extends TestCase
 
         $this->getJson('/v1/whoami', ['Authorization' => "Bearer {$issued->plaintextToken}"])->assertOk();
 
-        app(RevokeApiKey::class)(
+        app(RevokeApiKey::class)->revoke(
             new RevokeApiKeyCommand($issued->apiKeyId),
             actor: 'service:test',
             correlationId: null,
@@ -103,9 +103,13 @@ final class IdentityHttpFlowTest extends TestCase
 
         $rows = DB::table('audit_log')->orderBy('id')->get();
 
-        self::assertCount(3, $rows); // organization.created, project.created, api_key.issued
+        // organization.created, project.created, api_key.issued (sandbox,
+        // auto-provisioned), api_key.issued (live, auto-provisioned),
+        // api_key.issued (the explicit-scope test key `issueTestApiKey`
+        // issues on top of the two auto-provisioned ones).
+        self::assertCount(5, $rows);
         self::assertSame(
-            ['organization.created', 'project.created', 'api_key.issued'],
+            ['organization.created', 'project.created', 'api_key.issued', 'api_key.issued', 'api_key.issued'],
             $rows->pluck('action')->all(),
         );
 
@@ -129,9 +133,9 @@ final class IdentityHttpFlowTest extends TestCase
             new CreateProjectCommand($organization->id, 'Test Project'),
             actor: 'service:test',
             correlationId: null,
-        );
+        )->project;
 
-        $issued = app(IssueApiKey::class)(
+        $issued = app(IssueApiKey::class)->issue(
             new IssueApiKeyCommand($project->id, Environment::Sandbox, [$scope]),
             actor: 'service:test',
             correlationId: null,

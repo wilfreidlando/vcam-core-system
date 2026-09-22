@@ -6,9 +6,25 @@ namespace Tests\Feature\Admin;
 
 use Core\Identity\Contracts\CreateOperator;
 use Core\Identity\Contracts\CreateOperatorCommand;
+use Core\Identity\Contracts\CreateOrganization;
+use Core\Identity\Contracts\CreateOrganizationCommand;
+use Core\Identity\Contracts\CreateProject;
+use Core\Identity\Contracts\CreateProjectCommand;
 use Core\Identity\Domain\Model\Operator;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Identity\OperatorRole;
+use Core\Payment\Domain\Model\Payment;
+use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Payment\PaymentStatus;
+use Core\Support\Money\Money;
+use Core\Wallet\Contracts\CreditWallet;
+use Core\Wallet\Contracts\CreditWalletCommand;
+use Core\Wallet\Domain\Model\Wallet;
+use Core\Wallet\Domain\Model\WalletBalance;
+use Core\Wallet\Domain\Port\WalletBalanceRepository;
+use Core\Wallet\Domain\Port\WalletRepository;
+use Core\Webhook\Contracts\ListWebhookEndpoints;
+use Core\Webhook\Contracts\ListWebhookEndpointsCommand;
 use Core\Webhook\Contracts\RegisterWebhookEndpoint;
 use Core\Webhook\Contracts\RegisterWebhookEndpointCommand;
 use Core\Webhook\Domain\Model\WebhookDelivery;
@@ -79,9 +95,9 @@ final class AdminWebFlowTest extends TestCase
             '/admin/organizations' => 'Organisations',
             '/admin/projects' => 'Projets',
             '/admin/payments' => 'Paiements',
-            '/admin/webhook-deliveries/dead' => 'Webhooks en échec',
+            '/admin/webhook-deliveries/dead' => 'Livraisons de webhooks',
             '/admin/audit-log' => "Journal d'audit",
-            '/admin/reconciliation/new' => 'Déclencher la réconciliation',
+            '/admin/reconciliation/new' => 'Réconciliation groupée',
             '/admin/operators' => 'Opérateurs',
         ] as $path => $expectedText) {
             $response = $this->get($path);
@@ -166,6 +182,196 @@ final class AdminWebFlowTest extends TestCase
     }
 
     #[Test]
+    public function creating_a_project_through_the_web_console_shows_both_auto_provisioned_keys_once(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(
+            new CreateOrganizationCommand('Web Console Org'),
+            actor: 'service:test',
+            correlationId: null,
+        );
+
+        $store = $this->post('/admin/projects', [
+            'organization_id' => $organization->id,
+            'name' => 'Web Console Project',
+        ]);
+        $store->assertRedirect();
+
+        $location = $store->headers->get('Location');
+        self::assertIsString($location);
+
+        // The one-shot keys are flashed to the very next request only.
+        $show = $this->get($location);
+        $show->assertOk();
+        $show->assertSee('pk_sandbox_');
+        $show->assertSee('pk_live_');
+
+        $again = $this->get($location);
+        $again->assertOk();
+        $again->assertDontSee('pk_sandbox_');
+    }
+
+    #[Test]
+    public function registering_a_webhook_endpoint_through_the_web_console_expands_categories_into_event_types(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(
+            new CreateOrganizationCommand('Webhook Category Org'),
+            actor: 'service:test',
+            correlationId: null,
+        );
+        $project = app(CreateProject::class)->create(
+            new CreateProjectCommand($organization->id, 'Webhook Category Project'),
+            actor: 'service:test',
+            correlationId: null,
+        )->project;
+
+        $store = $this->post("/admin/projects/{$project->id}/webhook-endpoints", [
+            // `example.com` (not `example.test`) — this now goes through
+            // `SafeOutboundUrlRule` (fixed alongside this test: the admin
+            // console form used to skip SSRF validation the JSON API
+            // already had), which resolves the host over real DNS;
+            // `.test` is reserved to never resolve at all (RFC 2606),
+            // unlike `.com`/`.org`/`.net`, IANA's stable, always-resolving
+            // documentation domains.
+            'url' => 'https://example.com/webhooks/core',
+            'categories' => ['payments', 'wallets'],
+        ]);
+        $store->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+
+        $endpoints = app(ListWebhookEndpoints::class)->list(
+            new ListWebhookEndpointsCommand($project->id),
+        );
+        self::assertCount(1, $endpoints);
+        self::assertSame(
+            ['payment.status_changed', 'wallet.credited', 'wallet.debited'],
+            $endpoints[0]->events,
+        );
+
+        $again = $this->get(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+        $again->assertOk();
+        $again->assertSee('Paiements');
+    }
+
+    #[Test]
+    public function a_webhook_endpoint_can_be_updated_deactivated_and_reactivated_from_the_web_console(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(
+            new CreateOrganizationCommand('Webhook Manage Org'),
+            actor: 'service:test',
+            correlationId: null,
+        );
+        $project = app(CreateProject::class)->create(
+            new CreateProjectCommand($organization->id, 'Webhook Manage Project'),
+            actor: 'service:test',
+            correlationId: null,
+        )->project;
+
+        $endpoint = app(RegisterWebhookEndpoint::class)->register(
+            new RegisterWebhookEndpointCommand($project->id, 'https://example.com/hooks/original', ['payment.status_changed']),
+        );
+
+        // Update: review finding — there used to be no way to change an
+        // endpoint's URL or events at all once registered.
+        $update = $this->put("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}", [
+            'url' => 'https://example.com/hooks/updated',
+            'categories' => ['wallets'],
+        ]);
+        $update->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+
+        $afterUpdate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id));
+        self::assertCount(1, $afterUpdate);
+        self::assertSame('https://example.com/hooks/updated', $afterUpdate[0]->url);
+        self::assertSame(['wallet.credited', 'wallet.debited'], $afterUpdate[0]->events);
+        self::assertTrue($afterUpdate[0]->active);
+
+        // Deactivate: review finding — the admin console had no button
+        // for this at all (the port existed, unreachable from the UI),
+        // and the listing used to query active-only, so a deactivated
+        // endpoint would have simply vanished instead of showing inactive.
+        $deactivate = $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/deactivate");
+        $deactivate->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+
+        $afterDeactivate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id));
+        self::assertCount(1, $afterDeactivate, 'a deactivated endpoint must still be listed, not vanish');
+        self::assertFalse($afterDeactivate[0]->active);
+
+        $listPage = $this->get(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+        $listPage->assertOk();
+        $listPage->assertSee('inactif');
+
+        // Reactivate.
+        $activate = $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/activate");
+        $activate->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+
+        $afterActivate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id));
+        self::assertTrue($afterActivate[0]->active);
+    }
+
+    #[Test]
+    public function registering_a_provider_application_twice_rotates_it_and_the_second_time_is_audited_as_a_rotation(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(
+            new CreateOrganizationCommand('Provider App Org'),
+            actor: 'service:test',
+            correlationId: null,
+        );
+        $project = app(CreateProject::class)->create(
+            new CreateProjectCommand($organization->id, 'Provider App Project'),
+            actor: 'service:test',
+            correlationId: null,
+        )->project;
+
+        $first = $this->post("/admin/projects/{$project->id}/provider-applications", [
+            'provider' => 'my-coolpay',
+            'public_key' => 'pub-key-first',
+            'private_key' => 'secret-first',
+        ]);
+        $first->assertRedirect(route('admin.projects.show', ['projectId' => $project->id]));
+        $this->get('/admin/audit-log')->assertSee('provider_application.registered');
+
+        // Review finding, user-directed: rotating a key already worked
+        // (re-submitting for the same provider replaces it), but nothing
+        // in the console surfaced that this second call is a rotation,
+        // not a fresh registration — the audit trail now says so.
+        $second = $this->post("/admin/projects/{$project->id}/provider-applications", [
+            'provider' => 'my-coolpay',
+            'public_key' => 'pub-key-second',
+            'private_key' => 'secret-second',
+        ]);
+        $second->assertRedirect(route('admin.projects.show', ['projectId' => $project->id]));
+        $this->get('/admin/audit-log')->assertSee('provider_application.rotated');
+
+        // The "Remplacer" link on the listing preselects the provider via
+        // ?provider=, so the operator lands back on the same dropdown
+        // option rather than having to know to pick it themselves.
+        $listing = $this->get("/admin/projects/{$project->id}/provider-applications/create");
+        $listing->assertOk();
+        $listing->assertSee('Remplacer');
+
+        $preselected = $this->get("/admin/projects/{$project->id}/provider-applications/create?provider=my-coolpay");
+        $preselected->assertOk();
+        // Default `$escape = true` escapes this needle the same way
+        // Blade escaped the actual apostrophe — avoids hardcoding which
+        // HTML entity that becomes.
+        $preselected->assertSee("Remplacer l'application « my-coolpay »");
+    }
+
+    #[Test]
     public function replaying_a_dead_webhook_delivery_from_the_web_console_is_audited(): void
     {
         $this->withoutMiddleware(PreventRequestForgery::class);
@@ -200,6 +406,146 @@ final class AdminWebFlowTest extends TestCase
         // to leave no audit trail at all, unlike the identical JSON API
         // action.
         $this->get('/admin/audit-log')->assertSee('webhook_delivery.replayed');
+    }
+
+    #[Test]
+    public function the_webhook_deliveries_page_shows_the_request_envelope_and_the_endpoints_response(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $projectId = (string) Str::uuid();
+        $endpoint = app(RegisterWebhookEndpoint::class)->register(
+            new RegisterWebhookEndpointCommand($projectId, 'https://example.com/hook', ['*']),
+        );
+
+        $delivery = new WebhookDelivery(
+            id: (string) Str::uuid(),
+            endpointId: $endpoint->id,
+            projectId: $projectId,
+            eventId: (string) Str::uuid(),
+            eventType: 'payment.status_changed',
+            payload: ['status' => 'succeeded'],
+            status: WebhookDeliveryStatus::Pending,
+            attempts: 0,
+            nextRetryAt: null,
+            lastAttemptAt: null,
+            lastError: null,
+            deliveredAt: null,
+        );
+        app(WebhookDeliveryRepository::class)->create($delivery);
+        app(WebhookDeliveryRepository::class)->save(
+            $delivery->recordFailure('Endpoint responded with HTTP 500.', new DateTimeImmutable, null, 500, '{"error":"boom"}'),
+        );
+
+        $page = $this->get('/admin/webhook-deliveries/dead');
+        $page->assertOk();
+        // The request body is reconstructed from eventId/eventType/payload
+        // (the exact shape HttpWebhookSender sends), not a stored copy.
+        // Blade's `{{ }}` HTML-escapes the JSON — assertSee's default
+        // `$escape = true` escapes the needle the same way before matching.
+        $page->assertSee('"type": "payment.status_changed"');
+        $page->assertSee('"status": "succeeded"');
+        $page->assertSee('HTTP 500');
+        $page->assertSee('{"error":"boom"}');
+    }
+
+    #[Test]
+    public function amounts_in_a_zero_decimal_currency_display_correctly_not_divided_by_100(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(
+            new CreateOrganizationCommand('XAF Display Org'),
+            actor: 'service:test',
+            correlationId: null,
+        );
+        $project = app(CreateProject::class)->create(
+            new CreateProjectCommand($organization->id, 'XAF Display Project'),
+            actor: 'service:test',
+            correlationId: null,
+        )->project;
+
+        $paymentId = (string) Str::uuid();
+        app(PaymentRepository::class)->create(new Payment(
+            id: $paymentId,
+            projectId: $project->id,
+            channel: 'mtn_momo',
+            providerCode: 'my-coolpay',
+            idempotencyKey: (string) Str::uuid(),
+            providerTransactionRef: (string) Str::uuid(),
+            amount: 100,
+            currency: 'XAF',
+            status: PaymentStatus::Succeeded,
+            requiresAction: false,
+            actionHint: null,
+            paymentUrl: null,
+            errorMessage: null,
+            returnUrl: null,
+            walletRecipientExternalRef: null,
+        ));
+
+        $walletId = (string) Str::uuid();
+        $partyId = (string) Str::uuid();
+        app(WalletRepository::class)->save(new Wallet($walletId, $project->id, $partyId, 'XAF', 'active'));
+        app(WalletBalanceRepository::class)->initialize($walletId, 'XAF');
+        app(WalletBalanceRepository::class)->save(new WalletBalance(
+            $walletId,
+            Money::ofMinor(100, 'XAF'),
+            Money::zero('XAF'),
+            1,
+        ));
+
+        // 100 XAF minor units is 100 XAF (0 decimal digits) — the reported
+        // bug divided by 100 unconditionally and displayed "1" or "1.00".
+        $this->get('/admin/payments')->assertOk()->assertDontSee('1.00')->assertSee('100');
+        $this->get("/admin/payments/{$paymentId}?project_id={$project->id}")->assertOk()->assertDontSee('1.00')->assertSee('100');
+        $this->get("/admin/projects/{$project->id}/wallets")->assertOk()->assertDontSee('1.00')->assertSee('100');
+    }
+
+    #[Test]
+    public function a_wallets_ledger_page_shows_the_double_entry_postings_that_built_its_balance(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(
+            new CreateOrganizationCommand('Ledger Display Org'),
+            actor: 'service:test',
+            correlationId: null,
+        );
+        $project = app(CreateProject::class)->create(
+            new CreateProjectCommand($organization->id, 'Ledger Display Project'),
+            actor: 'service:test',
+            correlationId: null,
+        )->project;
+
+        $partyId = (string) Str::uuid();
+        $balance = app(CreditWallet::class)->credit(new CreditWalletCommand(
+            projectId: $project->id,
+            partyId: $partyId,
+            amountMinor: 100,
+            currency: 'XAF',
+            externalRef: 'payment-42',
+            idempotencyKey: (string) Str::uuid(),
+        ));
+
+        $page = $this->get("/admin/projects/{$project->id}/wallets/{$balance->walletId}/ledger");
+        $page->assertOk();
+        $page->assertSee('wallet_credit');
+        $page->assertSee('payment-42');
+        $page->assertSee('crédit');
+        // 100 XAF (0 decimal digits), never "1.00" — same money-formatting
+        // rule as the wallets/payments pages.
+        $page->assertDontSee('1.00');
+        $page->assertSee('+100');
+
+        $again = $this->get("/admin/projects/{$project->id}/wallets/".Str::uuid().'/ledger');
+        $again->assertNotFound();
     }
 
     #[Test]

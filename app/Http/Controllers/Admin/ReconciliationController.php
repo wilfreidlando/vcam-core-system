@@ -11,11 +11,15 @@ use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Payment\Contracts\ListStuckPayments;
 use Core\Payment\Contracts\ListStuckPaymentsCommand;
+use Core\Payment\Contracts\ReconcilePayment;
+use Core\Payment\Contracts\ReconcilePaymentCommand;
 use Core\Payment\Contracts\ReconcileStuckPayments;
 use Core\Payment\Contracts\ReconcileStuckPaymentsCommand;
+use Core\Payment\Domain\Exception\PaymentNotFound;
 use Core\Support\Clock;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -39,6 +43,7 @@ final class ReconciliationController
 
     public function __construct(
         private readonly ReconcileStuckPayments $reconcile,
+        private readonly ReconcilePayment $reconcileOne,
         private readonly ListStuckPayments $listStuck,
         private readonly AuditLogger $audit,
         private readonly Clock $clock,
@@ -125,6 +130,59 @@ final class ReconciliationController
                 $summary->updated,
                 $summary->errors,
             ));
+    }
+
+    /**
+     * Reconciles exactly one, operator-selected payment — distinct from
+     * `run()`'s batch, which processes whatever the Core itself flags as
+     * stuck. Reachable both from a row in the stuck-payments preview table
+     * and from a payment's own detail page (review finding: "je dois
+     * pouvoir réconcilier une transaction sélectionnée … tu n'as pas mis
+     * d'action dessus" — the preview list had no per-row action at all).
+     * `back()` returns the operator to whichever of those two pages they
+     * submitted from.
+     */
+    public function runOne(string $payment, OperatorContext $operator): RedirectResponse
+    {
+        if (! $operator->hasPermission('payments:reconcile:write')) {
+            abort(403, 'La permission payments:reconcile:write est requise.');
+        }
+
+        Validator::make(['payment' => $payment], ['payment' => 'uuid'])->validate();
+
+        try {
+            $result = $this->reconcileOne->reconcile(new ReconcilePaymentCommand($payment));
+        } catch (PaymentNotFound) {
+            return back()->withErrors(['payment' => 'Paiement introuvable.']);
+        } catch (Throwable $e) {
+            // Everything else — an unregistered provider application, an
+            // unsupported gateway, a transient provider failure — is a
+            // real operational condition, not "this payment doesn't
+            // exist". Caught the hard way: both used to be `RuntimeException`
+            // subtypes indistinguishable by a single `catch (RuntimeException)`,
+            // so a legitimate provider-side failure was misreported as
+            // "Paiement introuvable." against a payment that demonstrably
+            // existed.
+            return back()->withErrors(['payment' => 'Échec de la vérification auprès du provider : '.$e->getMessage()]);
+        }
+
+        $this->audit->record(new AuditEntry(
+            actor: 'operator:'.$operator->operatorId,
+            action: 'payment_reconciliation.single_triggered',
+            resource: 'payment:'.$payment,
+            before: ['status' => $result->statusBefore],
+            after: ['status' => $result->statusAfter],
+            context: [],
+            correlationId: null,
+            occurredAt: $this->clock->now(),
+        ));
+
+        $shortId = substr($payment, 0, 8).'…';
+        $message = $result->changed
+            ? sprintf('Paiement %s réconcilié : %s → %s.', $shortId, $result->statusBefore, $result->statusAfter)
+            : sprintf('Paiement %s vérifié auprès du provider : aucun changement (toujours %s).', $shortId, $result->statusBefore);
+
+        return back()->with('status', $message);
     }
 
     /**

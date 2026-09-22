@@ -192,7 +192,7 @@ final class AdminHttpFlowTest extends TestCase
     public function an_operator_lists_a_projects_payments_wallets_and_notifications(): void
     {
         $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Org'), actor: 'service:test', correlationId: null);
-        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Project'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Project'), actor: 'service:test', correlationId: null)->project;
         $partyId = (string) Str::uuid();
 
         app(PaymentRepository::class)->create(new Payment(
@@ -357,6 +357,15 @@ final class AdminHttpFlowTest extends TestCase
             'organization_id' => $organizationId,
             'name' => 'Acme Project',
         ]);
+        // A Project is unusable without a credential — creation
+        // provisions one full-access API key per environment alongside
+        // it, both one-shot plaintext values.
+        $projectResponse->assertJsonStructure([
+            'api_keys' => [
+                'sandbox' => ['prefix', 'plaintext_token'],
+                'live' => ['prefix', 'plaintext_token'],
+            ],
+        ]);
     }
 
     #[Test]
@@ -483,7 +492,7 @@ final class AdminHttpFlowTest extends TestCase
         $token = $this->authenticatedOperatorToken(OperatorRole::ProviderManager);
 
         $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Org'), actor: 'service:test', correlationId: null);
-        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Project'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Project'), actor: 'service:test', correlationId: null)->project;
 
         $response = $this->postJson('/v1/admin/payment-provider-applications', [
             'project_id' => $project->id,

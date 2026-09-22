@@ -58,3 +58,23 @@ it('never subscribes once deactivated', function (): void {
     expect($endpoint->active)->toBeFalse()
         ->and($endpoint->subscribesTo('payment.status_changed'))->toBeFalse();
 });
+
+it('subscribes again once reactivated', function (): void {
+    $endpoint = makeEndpoint(['*'], active: false)->activated();
+
+    expect($endpoint->active)->toBeTrue()
+        ->and($endpoint->subscribesTo('payment.status_changed'))->toBeTrue();
+});
+
+it('changes the url and subscribed events without touching id, secret or active', function (): void {
+    $endpoint = makeEndpoint(['payment.status_changed'], active: false);
+
+    $updated = $endpoint->withUrlAndEvents('https://example.test/new-hooks', ['wallet.credited']);
+
+    expect($updated->id)->toBe($endpoint->id)
+        ->and($updated->secret)->toBe($endpoint->secret)
+        ->and($updated->active)->toBeFalse()
+        ->and($updated->url)->toBe('https://example.test/new-hooks')
+        ->and($updated->subscribedEventTypes)->toBe(['wallet.credited'])
+        ->and($endpoint->url)->toBe('https://example.test/hooks', 'the original instance is untouched');
+});

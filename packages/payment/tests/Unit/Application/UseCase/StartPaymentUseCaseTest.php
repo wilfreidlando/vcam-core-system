@@ -6,8 +6,10 @@ use Core\Payment\Application\UseCase\StartPaymentUseCase;
 use Core\Payment\Contracts\PaymentChannel;
 use Core\Payment\Contracts\PaymentReceipt;
 use Core\Payment\Contracts\StartPaymentCommand;
+use Core\Payment\Domain\Exception\UnsupportedCurrency;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\PaymentStatus;
+use Core\Payment\Tests\Unit\Fakes\FakeIsSupportedCurrency;
 use Core\Payment\Tests\Unit\Fakes\FakePaymentGateway;
 use Core\Payment\Tests\Unit\Fakes\FakePaymentGatewayRegistry;
 use Core\Payment\Tests\Unit\Fakes\FakePaymentProviderRouter;
@@ -28,7 +30,7 @@ function makeStartPaymentUseCase(): array
     $gateway = new FakePaymentGateway(ProviderCode::fromString('my-coolpay'));
     $registry->register($gateway);
 
-    $useCase = new StartPaymentUseCase($payments, $router, $registry, new SequentialIdentifier, new FixedPaymentCallbackSecretGenerator);
+    $useCase = new StartPaymentUseCase($payments, $router, $registry, new SequentialIdentifier, new FixedPaymentCallbackSecretGenerator, new FakeIsSupportedCurrency);
 
     return [$useCase, $payments, $gateway];
 }
@@ -173,6 +175,28 @@ it('generates and returns a callback secret once, only when a callback_url was r
     $withoutCallback = $useCase->start(startCommand('idem-without-callback'));
 
     expect($withoutCallback->callbackSecret)->toBeNull();
+});
+
+it('refuses a currency outside the ledger allow-list, before ever calling the provider', function (): void {
+    $payments = new InMemoryPaymentRepository;
+    $router = new FakePaymentProviderRouter;
+    $registry = new FakePaymentGatewayRegistry;
+    $gateway = new FakePaymentGateway(ProviderCode::fromString('my-coolpay'));
+    $registry->register($gateway);
+    $useCase = new StartPaymentUseCase($payments, $router, $registry, new SequentialIdentifier, new FixedPaymentCallbackSecretGenerator, new FakeIsSupportedCurrency(['XAF']));
+
+    $command = new StartPaymentCommand(
+        projectId: 'project-1',
+        channel: PaymentChannel::fromString('mtn_momo'),
+        amount: 1_000,
+        currency: 'EUR',
+        reason: 'a',
+        idempotencyKey: 'idem-unsupported-currency',
+    );
+
+    expect(fn () => $useCase->start($command))->toThrow(UnsupportedCurrency::class);
+    expect($gateway->initiated)->toHaveCount(0)
+        ->and($payments->count())->toBe(0);
 });
 
 it('never re-exposes the callback secret on an idempotent replay', function (): void {

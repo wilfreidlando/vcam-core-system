@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Core\Identity\Application\Dto;
+namespace Core\Identity\Contracts;
 
 use Core\Support\Environment;
 

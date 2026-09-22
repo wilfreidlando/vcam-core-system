@@ -34,4 +34,12 @@ final class InMemoryWebhookEndpointRepository implements WebhookEndpointReposito
             static fn (WebhookEndpoint $endpoint): bool => $endpoint->projectId === $projectId && $endpoint->active,
         ));
     }
+
+    public function findAllForProject(string $projectId): array
+    {
+        return array_values(array_filter(
+            $this->endpoints,
+            static fn (WebhookEndpoint $endpoint): bool => $endpoint->projectId === $projectId,
+        ));
+    }
 }

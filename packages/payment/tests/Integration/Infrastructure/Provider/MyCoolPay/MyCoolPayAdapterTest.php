@@ -94,6 +94,36 @@ final class MyCoolPayAdapterTest extends TestCase
     }
 
     #[Test]
+    public function initiate_with_payin_and_a_ussd_fallback_surfaces_the_dial_code_as_the_action_hint(): void
+    {
+        // Live-captured shape (review finding): MyCoolPay can respond
+        // `action: "PENDING"` — which alone looks like "nothing for the
+        // customer to do" — while also carrying a `ussd` fallback dial
+        // code for when the push notification never reaches their phone.
+        Http::fake([
+            'my-coolpay.com/api/pub-123/payin' => Http::response([
+                'status' => 'success',
+                'transaction_ref' => 'tx-ussd',
+                'action' => 'PENDING',
+                'ussd' => '#150*50#',
+            ], 201),
+        ]);
+
+        $command = new InitiatePaymentCommand(
+            projectId: 'project-1',
+            amount: 100,
+            currency: 'XAF',
+            reason: 'r',
+            appTransactionRef: 'o',
+        );
+        $receipt = $this->adapter->initiate($command);
+
+        self::assertSame(PaymentStatus::Pending, $receipt->status);
+        self::assertTrue($receipt->requiresAction);
+        self::assertSame('#150*50#', $receipt->actionHint);
+    }
+
+    #[Test]
     public function initiate_with_payin_and_require_otp_sets_requires_action(): void
     {
         Http::fake([

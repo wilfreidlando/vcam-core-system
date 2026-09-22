@@ -38,3 +38,6 @@ Thumbs.db
 
 # Guardrail probe backups (tools/guards/verify-guards.sh)
 *.guardbak
+
+# Local CLI tooling (opencode), not part of this project
+/.opencode

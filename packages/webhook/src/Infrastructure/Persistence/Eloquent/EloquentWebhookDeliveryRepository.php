@@ -39,9 +39,13 @@ final class EloquentWebhookDeliveryRepository implements WebhookDeliveryReposito
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findByStatusPaginated(WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage): array
+    public function findByStatusPaginated(?WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage): array
     {
-        $query = WebhookDeliveryRecord::query()->where('status', $status->value);
+        $query = WebhookDeliveryRecord::query();
+
+        if ($status !== null) {
+            $query->where('status', $status->value);
+        }
 
         if ($projectId !== null) {
             $query->where('project_id', $projectId);
@@ -93,6 +97,8 @@ final class EloquentWebhookDeliveryRepository implements WebhookDeliveryReposito
             'next_retry_at' => $delivery->nextRetryAt,
             'last_attempt_at' => $delivery->lastAttemptAt,
             'last_error' => $delivery->lastError,
+            'last_response_status' => $delivery->lastResponseStatus,
+            'last_response_body' => $delivery->lastResponseBody,
             'delivered_at' => $delivery->deliveredAt,
             'replayed_from_id' => $delivery->replayedFromId,
         ];
@@ -114,6 +120,8 @@ final class EloquentWebhookDeliveryRepository implements WebhookDeliveryReposito
             lastError: $record->last_error,
             deliveredAt: $record->delivered_at,
             replayedFromId: $record->replayed_from_id,
+            lastResponseStatus: $record->last_response_status,
+            lastResponseBody: $record->last_response_body,
         );
     }
 }

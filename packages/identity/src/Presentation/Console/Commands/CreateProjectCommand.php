@@ -25,7 +25,7 @@ final class CreateProjectCommand extends ConsoleCommand
     public function handle(CreateProject $createProject): int
     {
         try {
-            $project = $createProject->create(
+            $provisioned = $createProject->create(
                 new Command(
                     organizationId: $this->argument('organization'),
                     name: $this->argument('name'),
@@ -39,7 +39,10 @@ final class CreateProjectCommand extends ConsoleCommand
             return self::FAILURE;
         }
 
-        $this->info("Project created: {$project->id}");
+        $this->info("Project created: {$provisioned->project->id}");
+        $this->warn('The two lines below are shown once — copy them now, they cannot be retrieved again:');
+        $this->line("  sandbox: {$provisioned->sandboxApiKey->plaintextToken}");
+        $this->line("  live:    {$provisioned->liveApiKey->plaintextToken}");
 
         return self::SUCCESS;
     }

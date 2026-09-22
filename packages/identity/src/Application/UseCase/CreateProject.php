@@ -6,14 +6,19 @@ namespace Core\Identity\Application\UseCase;
 
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
+use Core\Identity\Contracts\ApiKeyScopes;
 use Core\Identity\Contracts\CreateProject as CreateProjectPort;
 use Core\Identity\Contracts\CreateProjectCommand;
+use Core\Identity\Contracts\IssueApiKey;
+use Core\Identity\Contracts\IssueApiKeyCommand;
 use Core\Identity\Contracts\ProjectView;
+use Core\Identity\Contracts\ProvisionedProjectView;
 use Core\Identity\Domain\Exception\OrganizationNotFound;
 use Core\Identity\Domain\Model\Project;
 use Core\Identity\Domain\Port\OrganizationRepository;
 use Core\Identity\Domain\Port\ProjectRepository;
 use Core\Support\Clock;
+use Core\Support\Environment;
 use Core\Support\Identifier;
 
 /**
@@ -21,18 +26,27 @@ use Core\Support\Identifier;
  * console's self-service endpoint (`POST /v1/admin/projects`) — a single
  * place where a Project is provisioned, whichever caller triggers it.
  * Mirrors `CreateOperator` (ADR-0050).
+ *
+ * Review finding, user-directed: a Project with no credential is not
+ * actually usable by the business app it's meant for — self-service used
+ * to stop at the Project row and leave issuing a key as a separate manual
+ * step (with an operator hand-typing scopes). Creation now provisions one
+ * sandbox and one live key in the same call, both full-access
+ * (`ApiKeyScopes::ALL` — see its docblock), both one-shot plaintext values
+ * the caller must capture immediately.
  */
 final readonly class CreateProject implements CreateProjectPort
 {
     public function __construct(
         private OrganizationRepository $organizations,
         private ProjectRepository $projects,
+        private IssueApiKey $issueApiKey,
         private Identifier $identifier,
         private AuditLogger $audit,
         private Clock $clock,
     ) {}
 
-    public function create(CreateProjectCommand $command, string $actor, ?string $correlationId): ProjectView
+    public function create(CreateProjectCommand $command, string $actor, ?string $correlationId): ProvisionedProjectView
     {
         $organization = $this->organizations->find($command->organizationId)
             ?? throw OrganizationNotFound::withId($command->organizationId);
@@ -52,11 +66,27 @@ final readonly class CreateProject implements CreateProjectPort
             occurredAt: $this->clock->now(),
         ));
 
-        return new ProjectView(
-            id: $project->id,
-            organizationId: $project->organizationId,
-            name: $project->name(),
-            status: $project->status(),
+        $sandboxApiKey = $this->issueApiKey->issue(
+            new IssueApiKeyCommand($project->id, Environment::Sandbox, ApiKeyScopes::ALL),
+            actor: $actor,
+            correlationId: $correlationId,
+        );
+
+        $liveApiKey = $this->issueApiKey->issue(
+            new IssueApiKeyCommand($project->id, Environment::Live, ApiKeyScopes::ALL),
+            actor: $actor,
+            correlationId: $correlationId,
+        );
+
+        return new ProvisionedProjectView(
+            project: new ProjectView(
+                id: $project->id,
+                organizationId: $project->organizationId,
+                name: $project->name(),
+                status: $project->status(),
+            ),
+            sandboxApiKey: $sandboxApiKey,
+            liveApiKey: $liveApiKey,
         );
     }
 }

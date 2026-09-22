@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Core\Identity\Application\Dto\RevokeApiKeyCommand;
 use Core\Identity\Application\UseCase\RevokeApiKey;
+use Core\Identity\Contracts\RevokeApiKeyCommand;
 use Core\Identity\Domain\Exception\ApiKeyNotFound;
 use Core\Identity\Domain\Model\ApiKey;
 use Core\Identity\Tests\Unit\Fakes\FixedClock;
@@ -30,7 +30,7 @@ it('revokes the key and records exactly one audit entry', function (): void {
     $audit = new RecordingAuditLogger;
     $useCase = new RevokeApiKey($apiKeys, $audit, new FixedClock);
 
-    $useCase(new RevokeApiKeyCommand('key-1'), actor: 'operator:1', correlationId: 'corr-1');
+    $useCase->revoke(new RevokeApiKeyCommand('key-1'), actor: 'operator:1', correlationId: 'corr-1');
 
     $stored = $apiKeys->find('key-1');
     assert($stored instanceof ApiKey);
@@ -46,8 +46,8 @@ it('is idempotent: revoking an already-revoked key adds no second audit entry', 
     $audit = new RecordingAuditLogger;
     $useCase = new RevokeApiKey($apiKeys, $audit, new FixedClock);
 
-    $useCase(new RevokeApiKeyCommand('key-1'), actor: 'operator:1', correlationId: 'corr-1');
-    $useCase(new RevokeApiKeyCommand('key-1'), actor: 'operator:1', correlationId: 'corr-2');
+    $useCase->revoke(new RevokeApiKeyCommand('key-1'), actor: 'operator:1', correlationId: 'corr-1');
+    $useCase->revoke(new RevokeApiKeyCommand('key-1'), actor: 'operator:1', correlationId: 'corr-2');
 
     expect($audit->entries)->toHaveCount(1);
 });
@@ -55,5 +55,5 @@ it('is idempotent: revoking an already-revoked key adds no second audit entry', 
 it('refuses to revoke an unknown key', function (): void {
     $useCase = new RevokeApiKey(new InMemoryApiKeyRepository, new RecordingAuditLogger, new FixedClock);
 
-    $useCase(new RevokeApiKeyCommand('missing-key'), actor: 'operator:1', correlationId: null);
+    $useCase->revoke(new RevokeApiKeyCommand('missing-key'), actor: 'operator:1', correlationId: null);
 })->throws(ApiKeyNotFound::class);

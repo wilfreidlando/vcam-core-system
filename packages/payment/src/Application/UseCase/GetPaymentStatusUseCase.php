@@ -38,6 +38,8 @@ final readonly class GetPaymentStatusUseCase implements GetPaymentStatus
             actionHint: $payment->actionHint,
             paymentUrl: $payment->paymentUrl,
             errorMessage: $payment->errorMessage,
+            idempotencyKey: $payment->idempotencyKey,
+            callbackUrl: $payment->callbackUrl,
         );
     }
 }

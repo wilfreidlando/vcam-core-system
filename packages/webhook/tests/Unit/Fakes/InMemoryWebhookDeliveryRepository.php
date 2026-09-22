@@ -45,11 +45,11 @@ final class InMemoryWebhookDeliveryRepository implements WebhookDeliveryReposito
         return count($this->deliveries);
     }
 
-    public function findByStatusPaginated(WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage): array
+    public function findByStatusPaginated(?WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage): array
     {
         $matching = array_values(array_filter(
             $this->deliveries,
-            static fn (WebhookDelivery $delivery): bool => $delivery->status === $status
+            static fn (WebhookDelivery $delivery): bool => ($status === null || $delivery->status === $status)
                 && ($projectId === null || $delivery->projectId === $projectId),
         ));
 

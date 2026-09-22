@@ -7,6 +7,8 @@ namespace App\Providers;
 use App\Infrastructure\DatabaseIdempotencyStore;
 use App\Infrastructure\DatabaseUnitOfWork;
 use App\Infrastructure\ProjectIdempotencyScope;
+use App\OpenApi\ExceptionProblemResponseExtension;
+use App\OpenApi\ProblemDetailsStaticMethodReturnTypeExtension;
 use Core\Support\Clock;
 use Core\Support\Idempotency\IdempotencyScope;
 use Core\Support\Idempotency\IdempotencyStore;
@@ -59,6 +61,19 @@ final class AppServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
         $this->configureApiDocumentationTags();
         $this->configureAdminApiDocumentation();
+
+        // Registers on BOTH documents (`/docs/api` and `/docs/admin` —
+        // Scramble::$extensions is global, not per-registered-API), so a
+        // controller under either plane documenting a mapped exception
+        // via `@throws` gets the same problem+json response shape.
+        Scramble::registerExtension(ExceptionProblemResponseExtension::class);
+
+        // Covers the OTHER half of this Core's error responses: a scope
+        // or permission check that returns `ProblemDetails::forbidden()`/
+        // `unauthenticated()` inline never throws at all, so the
+        // extension above never applies — without this, nearly every
+        // 401/403 in the API documented as an empty `{type: array}`.
+        Scramble::registerExtension(ProblemDetailsStaticMethodReturnTypeExtension::class);
     }
 
     /**

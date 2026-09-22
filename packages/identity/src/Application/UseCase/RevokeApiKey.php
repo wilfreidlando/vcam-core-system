@@ -6,12 +6,13 @@ namespace Core\Identity\Application\UseCase;
 
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
-use Core\Identity\Application\Dto\RevokeApiKeyCommand;
+use Core\Identity\Contracts\RevokeApiKey as RevokeApiKeyPort;
+use Core\Identity\Contracts\RevokeApiKeyCommand;
 use Core\Identity\Domain\Exception\ApiKeyNotFound;
 use Core\Identity\Domain\Port\ApiKeyRepository;
 use Core\Support\Clock;
 
-final readonly class RevokeApiKey
+final readonly class RevokeApiKey implements RevokeApiKeyPort
 {
     public function __construct(
         private ApiKeyRepository $apiKeys,
@@ -19,7 +20,7 @@ final readonly class RevokeApiKey
         private Clock $clock,
     ) {}
 
-    public function __invoke(RevokeApiKeyCommand $command, string $actor, ?string $correlationId): void
+    public function revoke(RevokeApiKeyCommand $command, string $actor, ?string $correlationId): void
     {
         $apiKey = $this->apiKeys->find($command->apiKeyId)
             ?? throw ApiKeyNotFound::withId($command->apiKeyId);

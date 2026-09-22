@@ -61,6 +61,14 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->name('organizations.new');
             Route::post('/', [App\Http\Controllers\Admin\OrganizationsController::class, 'store'])
                 ->name('organizations.store');
+            // No JSON route named `admin.organizations.edit`/`.update`
+            // exists yet in `packages/admin/routes/api.php` (only
+            // `.create` does), so no collision-avoidance suffix is
+            // needed here, unlike `organizations.new` above.
+            Route::get('{organizationId}/edit', [App\Http\Controllers\Admin\OrganizationsController::class, 'edit'])
+                ->name('organizations.edit');
+            Route::put('{organizationId}', [App\Http\Controllers\Admin\OrganizationsController::class, 'update'])
+                ->name('organizations.update');
         });
 
         Route::prefix('projects')->group(function (): void {
@@ -80,6 +88,13 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->name('projects.store');
             Route::get('{projectId}', [App\Http\Controllers\Admin\ProjectsController::class, 'show'])
                 ->name('projects.show');
+            // Same reasoning as `organizations.edit`/`.update` above — no
+            // JSON `admin.projects.edit`/`.update` route exists to collide
+            // with.
+            Route::get('{projectId}/edit', [App\Http\Controllers\Admin\ProjectsController::class, 'edit'])
+                ->name('projects.edit');
+            Route::put('{projectId}', [App\Http\Controllers\Admin\ProjectsController::class, 'update'])
+                ->name('projects.update');
             // Named `projects.wallets.index`, not `projects.wallets` —
             // `packages/admin/routes/api.php` already owns the route name
             // `admin.projects.wallets` for its pre-existing JSON endpoint
@@ -94,10 +109,39 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             // Authorization header).
             Route::get('{projectId}/wallets', [App\Http\Controllers\Admin\WalletsController::class, 'index'])
                 ->name('projects.wallets.index');
+            // No JSON `admin.projects.wallets.ledger` route exists to
+            // collide with — the JSON plane has no ledger drill-down yet.
+            Route::get('{projectId}/wallets/{walletId}/ledger', [App\Http\Controllers\Admin\WalletsController::class, 'ledger'])
+                ->name('projects.wallets.ledger');
             Route::get('{projectId}/provider-applications/create', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'create'])
                 ->name('projects.provider-applications.create');
             Route::post('{projectId}/provider-applications', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'store'])
                 ->name('projects.provider-applications.store');
+            // No collision risk with `packages/webhook/routes/api.php`'s
+            // `webhook-endpoints.register`/`.list` — those are unprefixed
+            // (the Project/API-key plane), these are `admin.projects.*`
+            // (the operator console plane).
+            Route::get('{projectId}/webhook-endpoints/create', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'create'])
+                ->name('projects.webhook-endpoints.create');
+            Route::post('{projectId}/webhook-endpoints', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'store'])
+                ->name('projects.webhook-endpoints.store');
+            Route::put('{projectId}/webhook-endpoints/{endpointId}', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'update'])
+                ->name('projects.webhook-endpoints.update');
+            Route::post('{projectId}/webhook-endpoints/{endpointId}/activate', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'activate'])
+                ->name('projects.webhook-endpoints.activate');
+            Route::post('{projectId}/webhook-endpoints/{endpointId}/deactivate', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'deactivate'])
+                ->name('projects.webhook-endpoints.deactivate');
+            // Review finding: API key issuance/revocation was genuinely
+            // CLI-only (`identity:issue-api-key`/`identity:revoke-api-key`),
+            // unlike organizations/projects/operators which already had
+            // self-service — user-directed reversal. No JSON
+            // `admin.projects.api-keys.*` route exists to collide with.
+            Route::get('{projectId}/api-keys/create', [App\Http\Controllers\Admin\ApiKeysController::class, 'create'])
+                ->name('projects.api-keys.create');
+            Route::post('{projectId}/api-keys', [App\Http\Controllers\Admin\ApiKeysController::class, 'store'])
+                ->name('projects.api-keys.store');
+            Route::post('{projectId}/api-keys/{apiKeyId}/revoke', [App\Http\Controllers\Admin\ApiKeysController::class, 'revoke'])
+                ->name('projects.api-keys.revoke');
         });
 
         Route::prefix('payments')->group(function (): void {
@@ -121,11 +165,18 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->name('webhook-deliveries.replay.web');
         });
 
+        // Static reference documentation — no JSON equivalent, so no
+        // collision-avoidance suffix needed.
+        Route::get('webhook-events', [App\Http\Controllers\Admin\WebhookEventsController::class, 'index'])
+            ->name('webhook-events.index');
+
         Route::prefix('reconciliation')->group(function (): void {
             Route::get('new', [App\Http\Controllers\Admin\ReconciliationController::class, 'new'])
                 ->name('reconciliation.new');
             Route::post('/', [App\Http\Controllers\Admin\ReconciliationController::class, 'run'])
                 ->name('reconciliation.run');
+            Route::post('{payment}', [App\Http\Controllers\Admin\ReconciliationController::class, 'runOne'])
+                ->name('reconciliation.run-one');
         });
 
         // ADR-0050: operator self-service — mirrors packages/admin's JSON
