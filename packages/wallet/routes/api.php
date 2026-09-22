@@ -18,5 +18,6 @@ Route::middleware(['project.auth'])
     ->prefix('v1')
     ->group(function (): void {
         Route::get('/wallets/{walletId}/balance', WalletBalanceController::class)
+            ->whereUuid('walletId')
             ->name('wallet.balance');
     });

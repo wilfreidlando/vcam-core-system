@@ -8,6 +8,7 @@ use Core\Identity\Contracts\ProjectContext;
 use Core\Support\Http\ProblemDetails;
 use Core\Webhook\Contracts\ListWebhookEndpoints;
 use Core\Webhook\Contracts\ListWebhookEndpointsCommand;
+use Core\Webhook\Contracts\WebhookEndpointView;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -29,15 +30,9 @@ final class ListWebhookEndpointsController
             return ProblemDetails::forbidden('The webhooks:read scope is required.');
         }
 
+        /** @var list<WebhookEndpointView> $endpoints */
         $endpoints = $this->listWebhookEndpoints->list(new ListWebhookEndpointsCommand($project->projectId));
 
-        return new JsonResponse([
-            'data' => array_map(static fn ($endpoint): array => [
-                'id' => $endpoint->id,
-                'url' => $endpoint->url,
-                'events' => $endpoint->events,
-                'active' => $endpoint->active,
-            ], $endpoints),
-        ]);
+        return new JsonResponse(['data' => $endpoints]);
     }
 }

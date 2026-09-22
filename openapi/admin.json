@@ -195,7 +195,61 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -273,7 +327,61 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -444,7 +552,61 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -551,7 +713,93 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/organization-not-found"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "Organization not found"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "403": {
                         "description": "",
@@ -692,7 +940,61 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -791,7 +1093,61 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -897,7 +1253,61 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -992,7 +1402,61 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1141,7 +1605,93 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/invalid-operator-role"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "Invalid operator role"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "403": {
                         "description": "",
@@ -1267,7 +1817,93 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/invalid-operator-role"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "Invalid operator role"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "403": {
                         "description": "",
@@ -1400,7 +2036,61 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1472,7 +2162,93 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/project-not-found"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "Project not found"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "403": {
                         "description": "",
@@ -1718,7 +2494,61 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 },
                 "security": []
@@ -1840,7 +2670,61 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 },
                 "security": []
@@ -1923,7 +2807,61 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 },
                 "security": []
@@ -2041,7 +2979,61 @@
                         }
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 },
                 "security": []
@@ -2164,38 +3156,6 @@
                     "code"
                 ],
                 "title": "OperatorMfaCodeRequest"
-            }
-        },
-        "responses": {
-            "ValidationException": {
-                "description": "Validation error",
-                "content": {
-                    "application/json": {
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string",
-                                    "description": "Errors overview."
-                                },
-                                "errors": {
-                                    "type": "object",
-                                    "description": "A detailed description of each field that failed validation.",
-                                    "additionalProperties": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "string"
-                                        }
-                                    }
-                                }
-                            },
-                            "required": [
-                                "message",
-                                "errors"
-                            ]
-                        }
-                    }
-                }
             }
         }
     }

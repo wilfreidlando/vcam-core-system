@@ -23,5 +23,6 @@ Route::middleware(['project.auth'])
         Route::post('/webhook-endpoints', RegisterWebhookEndpointController::class)->name('webhook-endpoints.register');
         Route::get('/webhook-endpoints', ListWebhookEndpointsController::class)->name('webhook-endpoints.list');
         Route::delete('/webhook-endpoints/{endpointId}', DeactivateWebhookEndpointController::class)
+            ->whereUuid('endpointId')
             ->name('webhook-endpoints.deactivate');
     });

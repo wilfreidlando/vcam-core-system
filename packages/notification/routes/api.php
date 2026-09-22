@@ -47,7 +47,9 @@ Route::middleware(['project.auth'])
             Route::post('/file', SendFileNotificationController::class)
                 ->middleware('idempotency')
                 ->name('notifications.send-file');
-            Route::get('/{notificationId}', GetNotificationStatusController::class)->name('notifications.status');
+            Route::get('/{notificationId}', GetNotificationStatusController::class)
+                ->whereUuid('notificationId')
+                ->name('notifications.status');
         });
 
         Route::prefix('notification-channel-sessions/{channel}/{sessionRef}')

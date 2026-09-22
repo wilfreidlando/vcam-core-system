@@ -169,7 +169,15 @@ return [
         RestrictedDocsAccess::class,
     ],
 
-    'extensions' => [],
+    'extensions' => [
+        // Declared here (not via `Scramble::registerExtension` in
+        // `AppServiceProvider::boot`) because Scramble's package boot
+        // snapshots `Scramble::$extensions` BEFORE the app providers
+        // boot — anything added through the static helper is too late
+        // and silently never fires. See `app/OpenApi/IdempotencyHeaderExtension`.
+        App\OpenApi\IdempotencyHeaderExtension::class,
+        App\OpenApi\ValidationExceptionResponseExtension::class,
+    ],
 
     /*
      * Automatically document API security (OpenAPI `security` / `securitySchemes`) based on route

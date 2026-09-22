@@ -34,5 +34,7 @@ Route::middleware(['project.auth'])
         Route::post('/payments/payin', StartPayinPaymentController::class)
             ->middleware('idempotency')
             ->name('payments.start.payin');
-        Route::get('/payments/{paymentId}', GetPaymentStatusController::class)->name('payments.status');
+        Route::get('/payments/{paymentId}', GetPaymentStatusController::class)
+            ->whereUuid('paymentId')
+            ->name('payments.status');
     });

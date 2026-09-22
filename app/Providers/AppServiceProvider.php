@@ -76,6 +76,12 @@ final class AppServiceProvider extends ServiceProvider
         // extension above never applies — without this, nearly every
         // 401/403 in the API documented as an empty `{type: array}`.
         Scramble::registerExtension(ProblemDetailsStaticMethodReturnTypeExtension::class);
+
+        // `IdempotencyHeaderExtension` is registered through
+        // `config('scramble.extensions')` rather than `Scramble::registerExtension()`:
+        // Scramble's package boot snapshots `Scramble::$extensions` before
+        // any app provider runs, so anything added from `boot()` is too
+        // late and silently never fires. See config/scramble.php.
     }
 
     /**
