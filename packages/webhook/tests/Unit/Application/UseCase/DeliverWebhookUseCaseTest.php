@@ -95,6 +95,24 @@ it('moves the delivery to dead (DLQ) once the retry budget is exhausted', functi
         ->and($delivery->status)->toBe(WebhookDeliveryStatus::Dead);
 });
 
+it('moves the delivery to dead (DLQ) on a permanent 4xx, regardless of remaining retry budget (ADR-0055)', function (): void {
+    // 8 attempts of budget — without ADR-0055, a 405 would burn the
+    // whole budget (~2h) before going to dead. With the classification,
+    // it dead-letters on the first attempt so an operator can act on it.
+    [$useCase, $deliveries, $sender] = makeDeliverUseCase(new WebhookRetryPolicy(maxAttempts: 8));
+    seedPendingDelivery($deliveries, attempts: 0);
+    $sender->nextOutcome = WebhookSendOutcome::failure(405, 'wrong method');
+
+    $outcome = $useCase->deliver(new DeliverWebhookCommand('delivery-1'));
+
+    $delivery = $deliveries->find('delivery-1');
+    Assert::assertNotNull($delivery);
+    expect($outcome->status)->toBe(WebhookDeliveryOutcomeStatus::Dead)
+        ->and($outcome->retryAfterSeconds)->toBeNull()
+        ->and($delivery->status)->toBe(WebhookDeliveryStatus::Dead)
+        ->and($delivery->lastResponseStatus)->toBe(405);
+});
+
 it('is a no-op for an already-delivered delivery and never sends again', function (): void {
     [$useCase, $deliveries, $sender] = makeDeliverUseCase();
     seedPendingDelivery($deliveries);

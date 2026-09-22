@@ -40,6 +40,7 @@ use Core\Webhook\Domain\Model\WebhookDeliveryStatus;
 use Core\Webhook\Domain\Port\WebhookDeliveryRepository;
 use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
@@ -107,6 +108,17 @@ final class AdminHttpFlowTest extends TestCase
             new RegisterWebhookEndpointCommand($projectId, 'https://example.com/hook', ['*']),
         );
 
+        // Pre-fake the endpoint URL so the replay's sync job (QUEUE_CONNECTION=sync
+        // in phpunit.xml) succeeds cleanly. Without this the reply hits the real
+        // internet, where example.com rejects POST with 405 — a permanent 4xx
+        // that, after ADR-0055, dead-letters the replayed delivery on its first
+        // attempt and breaks the dead-list-count assertion below. Faking it
+        // pins the assertion to "what the operator sees", not "whatever
+        // example.com happens to return today".
+        Http::fake([
+            'example.com/hook' => Http::response(['ok' => true], 200),
+        ]);
+
         $deadDeliveryId = (string) Str::uuid();
         app(WebhookDeliveryRepository::class)->create(new WebhookDelivery(
             id: $deadDeliveryId,
@@ -139,6 +151,9 @@ final class AdminHttpFlowTest extends TestCase
         // The replay creates a fresh delivery row rather than mutating the
         // dead one (ADR-0040 §7 — original attempt history stays intact
         // for audit), so the dead list still lists the original afterwards.
+        // With Http::fake answering 200 above, the new delivery transitions
+        // to Delivered (not Pending, not Dead) — both endpoints of the
+        // audit trail stay clean.
         self::assertIsArray($replayed);
         self::assertNotSame($deadDeliveryId, $replayed['id']);
 

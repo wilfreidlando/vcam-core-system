@@ -67,7 +67,7 @@ final readonly class DeliverWebhookUseCase implements DeliverWebhook
         }
 
         $attemptNumber = $delivery->attempts + 1;
-        $nextRetryAt = $this->retryPolicy->nextRetryAt($attemptNumber, $now);
+        $nextRetryAt = $this->retryPolicy->nextRetryAt($attemptNumber, $now, $outcome->isPermanentFailure);
 
         $this->deliveries->save($delivery->recordFailure(
             $outcome->error ?? 'unknown error',

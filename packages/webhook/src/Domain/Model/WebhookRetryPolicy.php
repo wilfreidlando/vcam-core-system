@@ -14,6 +14,13 @@ use DateTimeImmutable;
  * Webhook retries are persisted (`next_retry_at`), can span hours, and
  * must survive a worker restart — a different shape of problem, computed
  * here and executed by `Horizon`'s job `release()`, not a sleep.
+ *
+ * `isPermanentFailure` (ADR-0055) is consulted BEFORE the attempt counter:
+ * a `4xx` other than `408`/`429` returns `null` immediately, sending the
+ * delivery to dead (DLQ) regardless of how many attempts remain. The
+ * receiver has explicitly rejected the request on a defect retrying
+ * won't fix; burning the remaining budget would only delay the operator
+ * noticing it.
  */
 final readonly class WebhookRetryPolicy
 {
@@ -26,11 +33,19 @@ final readonly class WebhookRetryPolicy
 
     /**
      * @param int $attemptNumber the attempt that just failed (1-based)
-     * @return DateTimeImmutable|null null means the retry budget is exhausted — the
+     * @param bool $isPermanentFailure true when the last response was a
+     *                                 4xx (excluding 408/429) — the
+     *                                 delivery goes to dead immediately.
+     * @return DateTimeImmutable|null null means the retry budget is exhausted (or
+     *                                the last failure was permanent) — the
      *                                delivery moves to `dead` (DLQ) instead.
      */
-    public function nextRetryAt(int $attemptNumber, DateTimeImmutable $now): ?DateTimeImmutable
+    public function nextRetryAt(int $attemptNumber, DateTimeImmutable $now, bool $isPermanentFailure = false): ?DateTimeImmutable
     {
+        if ($isPermanentFailure) {
+            return null;
+        }
+
         if ($attemptNumber >= $this->maxAttempts) {
             return null;
         }

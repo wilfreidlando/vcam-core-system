@@ -63,11 +63,23 @@ final class DeliverPaymentCallbackJob implements ShouldQueue
         }
 
         $outcome = $sender->send($payment);
-        if (! $outcome->success) {
-            // Throwing (rather than returning) is what makes Laravel's
-            // queue retry this job per $tries/backoff().
-            throw new RuntimeException($outcome->error ?? 'Payment callback delivery failed.');
+        if ($outcome->success) {
+            return;
         }
+
+        // ADR-0055: a 4xx other than 408/429 is a caller-side defect
+        // (typically a `callback_url` that doesn't accept POST — 405,
+        // or a permanent auth/route failure). No amount of retry will
+        // fix it; burn one Horizon turn and surface it via `failed()`
+        // immediately. Transient failures (5xx, 408, 429, network)
+        // still go through `$tries`/`backoff()`.
+        if ($outcome->isPermanentFailure) {
+            $this->fail($outcome->error ?? 'Payment callback delivery failed (permanent 4xx).');
+
+            return;
+        }
+
+        throw new RuntimeException($outcome->error ?? 'Payment callback delivery failed.');
     }
 
     public function failed(?Throwable $exception): void
