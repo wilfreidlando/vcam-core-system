@@ -9,27 +9,28 @@ use Core\Notification\Contracts\NotificationChannel;
 use Core\Notification\Contracts\SendImageNotification;
 use Core\Notification\Contracts\SendImageNotificationCommand;
 use Core\Notification\Presentation\Http\Requests\SendImageNotificationRequest;
-use Core\Support\Http\Middleware\RequireIdempotencyKey;
 use Core\Support\Http\ProblemDetails;
+use Core\Support\Identifier;
 use Illuminate\Http\JsonResponse;
-use LogicException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
  * `POST /v1/notifications/image` — see `SendTextNotificationController`
- * for the shared design rationale (ADR-0043).
+ * for the shared design rationale (ADR-0043, ADR-0056).
  */
 final class SendImageNotificationController
 {
     public function __construct(
         private readonly SendImageNotification $sendImage,
+        private readonly Identifier $identifier,
     ) {}
 
     /**
      * Send an image message.
      *
-     * Requires the `notifications:write` scope and an `Idempotency-Key`
-     * header (spec §13).
+     * Requires the `notifications:write` scope. No `Idempotency-Key`
+     * HTTP header (ADR-0056) — supply `client_reference` in the body
+     * if you want your own retry loop to be safe.
      */
     public function __invoke(SendImageNotificationRequest $request, ProjectContext $project): JsonResponse|Response
     {
@@ -37,19 +38,19 @@ final class SendImageNotificationController
             return ProblemDetails::forbidden('The notifications:write scope is required.');
         }
 
-        $idempotencyKey = $request->header(RequireIdempotencyKey::HEADER);
-        if (! is_string($idempotencyKey) || $idempotencyKey === '') {
-            throw new LogicException('SendImageNotificationController reached without a validated Idempotency-Key header.');
-        }
-
         /**
          * @var array{
          *     channel: string, to_party_ref: string, media_url: string,
          *     caption?: string, filename?: string, mimetype?: string,
-         *     variables?: array<string, mixed>,
+         *     variables?: array<string, mixed>, client_reference?: string|null,
          * } $data
          */
         $data = $request->validated();
+
+        $clientReference = $data['client_reference'] ?? null;
+        $idempotencyKey = is_string($clientReference) && $clientReference !== ''
+            ? $clientReference
+            : $this->identifier->generate();
 
         $view = $this->sendImage->send(new SendImageNotificationCommand(
             projectId: $project->projectId,

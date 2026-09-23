@@ -82,6 +82,19 @@ final class SendImageNotificationRequest extends FormRequest
              * @example ["+237690000000"]
              */
             'variables' => ['nullable', 'array'],
+            /**
+             * Optional opaque reference supplied by the caller. Two
+             * requests with the same `client_reference` on the same
+             * Project are deduplicated: the second one returns the
+             * first one's notification, no second send happens. Use
+             * this when you have your own retry loop and want a
+             * safe re-play after a timeout. When omitted, the Core
+             * generates a fresh UUID per request and every send is
+             * treated as a fresh effect.
+             *
+             * @example "client-msg-abc123"
+             */
+            'client_reference' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

@@ -64,23 +64,10 @@
         "/notifications/text": {
             "post": {
                 "operationId": "notifications.send-text",
-                "description": "Requires the `notifications:write` scope and an `Idempotency-Key`\nheader (spec \u00a713). `to_party_ref` is a correlation reference only\n\u2014 resolving it to an actual delivery address is a provider adapter\nconcern, not the Core's (ADR-0041 \u00a75).",
+                "description": "Requires the `notifications:write` scope. `to_party_ref` is a\ncorrelation reference only \u2014 resolving it to an actual delivery\naddress is a provider adapter concern, not the Core's\n(ADR-0041 \u00a75).\n\nNo `Idempotency-Key` HTTP header (ADR-0056): deduplication, when\nthe caller wants it, is supplied through the optional\n`client_reference` body field (see the request schema). Without\nthat field, the Core generates a fresh UUID per request.",
                 "summary": "Send a text message",
                 "tags": [
                     "Notification"
-                ],
-                "parameters": [
-                    {
-                        "name": "Idempotency-Key",
-                        "in": "header",
-                        "required": true,
-                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. See ADR-0025 (idempotency design) and G7 (mandatory on every monetary mutation route).",
-                        "schema": {
-                            "type": "string",
-                            "maxLength": 255
-                        },
-                        "example": "01HMZ9XK3P-9XK3P-9XK3P"
-                    }
                 ],
                 "requestBody": {
                     "required": true,
@@ -221,100 +208,6 @@
                                 }
                             }
                         }
-                    },
-                    "400": {
-                        "description": "Idempotency-Key header is required",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "description": "A URI identifying this specific error condition.",
-                                            "examples": [
-                                                "https://errors.core-system.internal/idempotency-key-required"
-                                            ]
-                                        },
-                                        "title": {
-                                            "type": "string",
-                                            "description": "A short, human-readable summary of the error condition.",
-                                            "examples": [
-                                                "Idempotency-Key header is required"
-                                            ]
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
-                                            "const": 400
-                                        },
-                                        "detail": {
-                                            "type": "string",
-                                            "description": "A human-readable explanation specific to this occurrence of the error.",
-                                            "examples": [
-                                                "This route mutates state and must be called with an Idempotency-Key header."
-                                            ]
-                                        },
-                                        "correlation_id": {
-                                            "type": "string",
-                                            "description": "Quote this when contacting support about this specific failure."
-                                        }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "Idempotency-Key was reused",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "description": "A URI identifying this specific error condition.",
-                                            "examples": [
-                                                "https://errors.core-system.internal/idempotency-key-conflict"
-                                            ]
-                                        },
-                                        "title": {
-                                            "type": "string",
-                                            "description": "A short, human-readable summary of the error condition.",
-                                            "examples": [
-                                                "Idempotency-Key was reused"
-                                            ]
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
-                                            "const": 409
-                                        },
-                                        "detail": {
-                                            "type": "string",
-                                            "description": "A human-readable explanation specific to this occurrence of the error.",
-                                            "examples": [
-                                                "Either a concurrent request with this Idempotency-Key is still in flight, or the key was reused with a different request body."
-                                            ]
-                                        },
-                                        "correlation_id": {
-                                            "type": "string",
-                                            "description": "Quote this when contacting support about this specific failure."
-                                        }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
-                                    ]
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -322,23 +215,10 @@
         "/notifications/image": {
             "post": {
                 "operationId": "notifications.send-image",
-                "description": "Requires the `notifications:write` scope and an `Idempotency-Key`\nheader (spec \u00a713).",
+                "description": "Requires the `notifications:write` scope. No `Idempotency-Key`\nHTTP header (ADR-0056) \u2014 supply `client_reference` in the body\nif you want your own retry loop to be safe.",
                 "summary": "Send an image message",
                 "tags": [
                     "Notification"
-                ],
-                "parameters": [
-                    {
-                        "name": "Idempotency-Key",
-                        "in": "header",
-                        "required": true,
-                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. See ADR-0025 (idempotency design) and G7 (mandatory on every monetary mutation route).",
-                        "schema": {
-                            "type": "string",
-                            "maxLength": 255
-                        },
-                        "example": "01HMZ9XK3P-9XK3P-9XK3P"
-                    }
                 ],
                 "requestBody": {
                     "required": true,
@@ -479,100 +359,6 @@
                                 }
                             }
                         }
-                    },
-                    "400": {
-                        "description": "Idempotency-Key header is required",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "description": "A URI identifying this specific error condition.",
-                                            "examples": [
-                                                "https://errors.core-system.internal/idempotency-key-required"
-                                            ]
-                                        },
-                                        "title": {
-                                            "type": "string",
-                                            "description": "A short, human-readable summary of the error condition.",
-                                            "examples": [
-                                                "Idempotency-Key header is required"
-                                            ]
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
-                                            "const": 400
-                                        },
-                                        "detail": {
-                                            "type": "string",
-                                            "description": "A human-readable explanation specific to this occurrence of the error.",
-                                            "examples": [
-                                                "This route mutates state and must be called with an Idempotency-Key header."
-                                            ]
-                                        },
-                                        "correlation_id": {
-                                            "type": "string",
-                                            "description": "Quote this when contacting support about this specific failure."
-                                        }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "Idempotency-Key was reused",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "description": "A URI identifying this specific error condition.",
-                                            "examples": [
-                                                "https://errors.core-system.internal/idempotency-key-conflict"
-                                            ]
-                                        },
-                                        "title": {
-                                            "type": "string",
-                                            "description": "A short, human-readable summary of the error condition.",
-                                            "examples": [
-                                                "Idempotency-Key was reused"
-                                            ]
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
-                                            "const": 409
-                                        },
-                                        "detail": {
-                                            "type": "string",
-                                            "description": "A human-readable explanation specific to this occurrence of the error.",
-                                            "examples": [
-                                                "Either a concurrent request with this Idempotency-Key is still in flight, or the key was reused with a different request body."
-                                            ]
-                                        },
-                                        "correlation_id": {
-                                            "type": "string",
-                                            "description": "Quote this when contacting support about this specific failure."
-                                        }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
-                                    ]
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -580,23 +366,10 @@
         "/notifications/file": {
             "post": {
                 "operationId": "notifications.send-file",
-                "description": "Requires the `notifications:write` scope and an `Idempotency-Key`\nheader (spec \u00a713).",
+                "description": "Requires the `notifications:write` scope. No `Idempotency-Key`\nHTTP header (ADR-0056) \u2014 supply `client_reference` in the body\nif you want your own retry loop to be safe.",
                 "summary": "Send a file/document message",
                 "tags": [
                     "Notification"
-                ],
-                "parameters": [
-                    {
-                        "name": "Idempotency-Key",
-                        "in": "header",
-                        "required": true,
-                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. See ADR-0025 (idempotency design) and G7 (mandatory on every monetary mutation route).",
-                        "schema": {
-                            "type": "string",
-                            "maxLength": 255
-                        },
-                        "example": "01HMZ9XK3P-9XK3P-9XK3P"
-                    }
                 ],
                 "requestBody": {
                     "required": true,
@@ -727,100 +500,6 @@
                                                     "type": "string"
                                                 }
                                             }
-                                        }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Idempotency-Key header is required",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "description": "A URI identifying this specific error condition.",
-                                            "examples": [
-                                                "https://errors.core-system.internal/idempotency-key-required"
-                                            ]
-                                        },
-                                        "title": {
-                                            "type": "string",
-                                            "description": "A short, human-readable summary of the error condition.",
-                                            "examples": [
-                                                "Idempotency-Key header is required"
-                                            ]
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
-                                            "const": 400
-                                        },
-                                        "detail": {
-                                            "type": "string",
-                                            "description": "A human-readable explanation specific to this occurrence of the error.",
-                                            "examples": [
-                                                "This route mutates state and must be called with an Idempotency-Key header."
-                                            ]
-                                        },
-                                        "correlation_id": {
-                                            "type": "string",
-                                            "description": "Quote this when contacting support about this specific failure."
-                                        }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "Idempotency-Key was reused",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "description": "A URI identifying this specific error condition.",
-                                            "examples": [
-                                                "https://errors.core-system.internal/idempotency-key-conflict"
-                                            ]
-                                        },
-                                        "title": {
-                                            "type": "string",
-                                            "description": "A short, human-readable summary of the error condition.",
-                                            "examples": [
-                                                "Idempotency-Key was reused"
-                                            ]
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
-                                            "const": 409
-                                        },
-                                        "detail": {
-                                            "type": "string",
-                                            "description": "A human-readable explanation specific to this occurrence of the error.",
-                                            "examples": [
-                                                "Either a concurrent request with this Idempotency-Key is still in flight, or the key was reused with a different request body."
-                                            ]
-                                        },
-                                        "correlation_id": {
-                                            "type": "string",
-                                            "description": "Quote this when contacting support about this specific failure."
                                         }
                                     },
                                     "required": [
@@ -3976,6 +3655,17 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "client_reference": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Optional opaque reference supplied by the caller.\nTwo requests with the same `client_reference` on the\nsame Project are deduplicated: the second one\nreturns the first one's notification, no second\nsend happens. Use this when you have your own retry\nloop and want a safe re-play after a timeout. When\nomitted, the Core generates a fresh UUID per request\nand every send is treated as a fresh effect.",
+                        "examples": [
+                            "client-msg-abc123"
+                        ],
+                        "maxLength": 255
                     }
                 },
                 "required": [
@@ -4062,6 +3752,17 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "client_reference": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Optional opaque reference supplied by the caller. Two\nrequests with the same `client_reference` on the same\nProject are deduplicated: the second one returns the\nfirst one's notification, no second send happens. Use\nthis when you have your own retry loop and want a\nsafe re-play after a timeout. When omitted, the Core\ngenerates a fresh UUID per request and every send is\ntreated as a fresh effect.",
+                        "examples": [
+                            "client-msg-abc123"
+                        ],
+                        "maxLength": 255
                     }
                 },
                 "required": [
@@ -4113,6 +3814,17 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "client_reference": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Optional opaque reference supplied by the caller. Two\nrequests with the same `client_reference` on the same\nProject are deduplicated: the second one returns the\nfirst one's notification, no second send happens. Use\nthis when you have your own retry loop and want a\nsafe re-play after a timeout \u2014 the same key on a\nre-play means \"this is the same notification I tried\n             * to send before, please don't double-send\". When\nomitted, the Core generates a fresh UUID per request\nand every send is treated as a fresh effect (no\ncaller-side deduplication is offered).",
+                        "examples": [
+                            "client-msg-abc123"
+                        ],
+                        "maxLength": 255
                     }
                 },
                 "required": [
