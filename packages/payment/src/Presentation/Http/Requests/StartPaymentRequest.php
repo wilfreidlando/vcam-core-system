@@ -10,18 +10,14 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Validates `POST /v1/payments`. Authorization (the `payments:write`
- * scope) is checked in the controller against `ProjectContext`, not
- * here — this class only validates shape, never identity.
+ * Validates `POST /v1/payments`. The `payments:write` scope is enforced
+ * in the controller against the calling Project — this class only
+ * validates payload shape.
  *
- * No `idempotency_key` body field: the `Idempotency-Key` HTTP header
- * (required by the `idempotency` middleware ahead of this request ever
- * reaching validation — ADR-0025, G7) is the one value used for both
- * the HTTP-level response cache and `StartPaymentUseCase`'s own
- * provider-call protection. One key, not two.
- *
- * `amount` is in minor units (e.g. cents) — never a decimal amount,
- * matching how it is stored (`bigint`, G5).
+ * Two headers sit above this body and are documented separately by
+ * Scramble: `Authorization` (Project API key) and `Idempotency-Key`
+ * (required on every monetary mutation — replay the same key to get
+ * the cached response without re-charging).
  */
 final class StartPaymentRequest extends FormRequest
 {
@@ -37,120 +33,131 @@ final class StartPaymentRequest extends FormRequest
     {
         return [
             /**
-             * Channel the caller asks for — routed by
-             * `ConfigPaymentProviderRouter` to whichever provider is
-             * configured for this Project. Mirrors
-             * `Core\Payment\Contracts\PaymentChannel`: a string value
-             * (not a closed enum) because the channel set grows by
-             * config, not by Core code change.
+             * The channel the customer will pay through. The Core
+             * routes the call to whichever payment provider is
+             * configured for this channel on the calling Project —
+             * the caller never names a provider directly.
              *
              * @example "mtn_momo"
              */
             'channel' => ['required', 'string', Rule::in(['mtn_momo', 'orange_money', 'card'])],
             /**
-             * Amount in MINOR units (e.g. cents for USD/EUR, centimes
-             * for XAF) — `bigint`, never a decimal (G5). The
-             * decimal-to-minor conversion is the caller's
-             * responsibility. `100000` here means 1000.00 in the
+             * The amount to charge, expressed in the smallest
+             * indivisible unit of the currency — cents for USD/EUR,
+             * centimes for XAF. The decimal-to-minor conversion is the
+             * caller's responsibility. `100000` means 1000.00 in the
              * currency's major unit.
              *
              * @example 100000
              */
             'amount' => ['required', 'integer', 'min:1'],
             /**
-             * ISO 4217 three-letter currency code. The provider
-             * configured for `channel` must support it; otherwise the
-             * request fails with 422 `unsupported-currency` before
-             * reaching the wire.
+             * The ISO 4217 three-letter code of the currency. The
+             * provider configured for the chosen `channel` must
+             * support it — otherwise the request fails with a
+             * 422 `unsupported-currency` error before reaching the
+             * payment network.
              *
              * @example "XAF"
              */
             'currency' => ['required', 'string', 'size:3'],
             /**
-             * Free-text label for the payment — shown to the customer
-             * on the provider-hosted page (Paylink flow) and forwarded
-             * to the provider as `description`. Not user-visible in the
-             * API response.
+             * A short label for the payment, shown to the customer on
+             * the hosted page and forwarded to the provider as the
+             * transaction description. Max 255 characters. Not echoed
+             * back in the API response — keep your own copy if you
+             * need it later.
              *
              * @example "Order #1234 — Premium plan"
              */
             'reason' => ['required', 'string', 'max:255'],
             /**
-             * Customer phone number in international format
-             * (E.164 preferred, e.g. `+2376XXXXXXXX`). Forwarded to the
-             * provider so USSD / OTP prompts reach the right line for
-             * mobile-money channels. May be required by some
-             * providers — check the channel's adapter contract.
+             * The customer's phone number in international format
+             * (E.164, e.g. `+2376XXXXXXXX`). Forwarded to the
+             * provider so USSD prompts and OTP codes reach the right
+             * line on mobile-money channels. Optional — providers that
+             * need it for their flow will reject the request if it's
+             * missing.
              *
              * @example "+237690000000"
              */
             'customer_phone_number' => ['nullable', 'string', 'max:32'],
             /**
-             * Customer display name — optional. Forwarded to the
-             * provider where supported; rendered on the Paylink page
-             * when present.
+             * The customer's display name. Optional. Forwarded to the
+             * provider and rendered on the hosted payment page where
+             * the provider supports it.
              *
              * @example "Marie Dupont"
              */
             'customer_name' => ['nullable', 'string', 'max:255'],
             /**
-             * Customer email — optional. Forwarded to the provider for
-             * receipt delivery where supported. Not used by the Core
-             * itself (no PII persisted at this layer — ADR-0033 §4).
+             * The customer's email. Optional. Forwarded to the
+             * provider for receipt delivery where supported. Not
+             * persisted by the Core — the Core never holds customer
+             * PII; whatever the provider does with it is the
+             * provider's responsibility.
              *
              * @example "marie.dupont@example.com"
              */
             'customer_email' => ['nullable', 'email'],
             /**
-             * BCP-47 language tag for the customer's locale (e.g.
-             * `fr`, `en`, `fr-CM`). Forwarded to the provider so the
-             * hosted page is rendered in the customer's language.
+             * A BCP-47 language tag for the customer's locale
+             * (`fr`, `en`, `fr-CM`...). Forwarded to the provider so
+             * the hosted payment page is rendered in the right
+             * language. Optional — providers fall back to their
+             * default when missing.
              *
              * @example "fr-CM"
              */
             'customer_lang' => ['nullable', 'string', 'max:8'],
             /**
-             * Discriminator between the two payment initiation flows
-             * (ADR-0038). `payin` is the synchronous, app-driven flow
-             * — caller drives the customer through their own UX.
-             * `paylink` is the hosted-link, redirect-driven flow —
-             * caller hands the customer off to a provider-hosted page.
-             * When omitted, the provider default applies (typically
-             * `payin`).
+             * How the payment starts. `payin` is the synchronous,
+             * app-driven flow: the Core returns immediately with a
+             * transaction reference and the caller drives the
+             * customer through their own UX. `paylink` is the
+             * hosted-link flow: the Core returns a URL and the caller
+             * redirects the customer there. If omitted, the
+             * provider default applies (typically `payin`).
              *
              * @example "payin"
              */
             'flow' => ['nullable', Rule::enum(PaymentFlow::class)],
             /**
-             * Browser redirect URL after the customer completes (or
-             * cancels) the payment on the provider-hosted page.
-             * Best-effort: this is browser-side only, never a reliable
-             * signal. For the reliable server-to-server notification,
-             * use `callback_url` instead.
+             * Where to send the customer's browser after they
+             * complete (or cancel) the payment on the
+             * provider-hosted page. Best-effort: this is
+             * browser-side only and may never fire (closed tab,
+             * disabled JS, captive portal). For a reliable
+             * server-to-server signal, use `callback_url` instead.
              *
              * @example "https://my-app.example.com/payments/return"
              */
             'return_url' => ['nullable', 'url'],
             /**
-             * External reference of the wallet to credit on payment
-             * success (ADR-0037). When present AND the payment reaches
-             * a successful terminal state, the wallet is credited
-             * synchronously in the same transaction (ADR-0036). When
-             * absent, the payment is a pure collection — no wallet,
-             * no Party touched. The value must match a wallet owned
-             * by the calling Project (ADR-0051) or the call fails
-             * with 422 `wallet-project-mismatch`.
+             * Optional. The external reference of the wallet to
+             * credit automatically when this payment reaches a
+             * successful terminal state. When present, the credit
+             * happens in the same database transaction as the
+             * payment confirmation — no separate API call needed,
+             * no window for race conditions. When absent, the
+             * payment is a pure collection: the money is held by the
+             * Core but no wallet is credited. The value must match a
+             * wallet owned by the calling Project; the request fails
+             * with a 422 `wallet-project-mismatch` otherwise.
              *
              * @example "wallet-customer-42"
              */
             'wallet_recipient_external_ref' => ['nullable', 'string', 'max:255'],
             /**
-             * The reliable server-to-server notification target —
-             * SSRF validated the same way as POST /v1/webhook-endpoints
-             * (security review finding, user-directed expansion,
-             * ADR-0051). Delivered signed (HMAC-SHA256, secret
-             * returned once at registration) per ADR-0009. Distinct
-             * from `return_url` which is browser-side best-effort.
+             * Where the Core POSTs the server-to-server notification
+             * when the payment reaches a terminal state. This is the
+             * reliable channel — use it to update your own order
+             * state, release stock, send a confirmation email, etc.
+             * The body is JSON and signed with HMAC-SHA256 (headers
+             * `X-Signature`, `X-Timestamp`); the secret is returned
+             * in the initiation response and never again, so store
+             * it at registration time. Distinct from `return_url`:
+             * this is server-to-server, `return_url` is browser-side.
              *
              * @example "https://my-app.example.com/webhooks/core"
              */

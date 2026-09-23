@@ -21,64 +21,63 @@ final class SendImageNotificationRequest extends FormRequest
     {
         return [
             /**
-             * Channel the caller asks for — routed by
-             * `ConfigNotificationProviderRouter` to whichever provider
-             * chain is configured for this Project. The only channel
-             * currently routed platform-wide is `whatsapp` (via WAHA,
-             * ADR-0042); adding `sms`, `email`, etc. is a config +
-             * adapter change, never an endpoint change.
+             * The channel the image will be sent through. See
+             * `POST /v1/notifications/text` for the full description;
+             * the rule is the same across all three content types.
              *
              * @example "whatsapp"
              */
             'channel' => ['required', 'string', Rule::in(['whatsapp'])],
             /**
-             * Caller-supplied correlation reference for the recipient
-             * — NOT a phone number, NOT an email address. Resolving it
-             * to an actual delivery address is the provider adapter's
-             * job (ADR-0041 §5). For WhatsApp via WAHA the adapter
-             * reads the address from `variables.phone_number` (G4).
+             * Opaque recipient reference in YOUR system. Same
+             * semantics as `to_party_ref` on
+             * `POST /v1/notifications/text` — the Core does not
+             * resolve it; the provider adapter does, using
+             * `variables.phone_number` and the channel's expected
+             * addressing scheme.
              *
              * @example "customer-42"
              */
             'to_party_ref' => ['required', 'string', 'max:255'],
             /**
-             * Publicly reachable HTTP(S) URL of the image to send.
-             * Must be `SafeOutboundUrlRule`-clean (no internal/private
-             * targets, no SSRF — same rule as webhook endpoints). The
-             * adapter fetches it server-side and re-hosts on the
-             * provider; the caller does not upload binary.
+             * Publicly reachable HTTP(S) URL of the image. The
+             * provider fetches it server-side and re-hosts it, so
+             * you do not upload binary. The URL must be reachable
+             * from the provider's outbound network (no private
+             * IPs, no localhost) — this is the same constraint as
+             * `POST /v1/webhook-endpoints`.
              *
              * @example "https://cdn.example.com/order-1234.png"
              */
             'media_url' => ['required', 'string', 'max:2048'],
             /**
-             * Optional caption rendered alongside the image in the
-             * recipient's client. UTF-8, no length cap at this layer;
-             * provider limits apply downstream.
+             * Optional text rendered alongside the image in the
+             * recipient's client. UTF-8. Provider length limits
+             * apply.
              *
              * @example "Your order confirmation"
              */
             'caption' => ['nullable', 'string'],
             /**
-             * Optional filename hint for the image (used by the
-             * adapter when the provider forwards the media as a file
-             * attachment).
+             * Optional filename hint the provider uses when the
+             * image is forwarded as a file attachment.
              *
              * @example "order-1234.png"
              */
             'filename' => ['nullable', 'string', 'max:255'],
             /**
-             * Optional MIME type hint (e.g. `image/png`). When
-             * omitted, the adapter infers from the URL extension or
-             * the upstream `Content-Type`.
+             * Optional MIME type of the image. When omitted, the
+             * provider infers it from the URL extension or the
+             * upstream `Content-Type` header.
              *
              * @example "image/png"
              */
             'mimetype' => ['nullable', 'string', 'max:255'],
             /**
-             * Adapter-specific variables (e.g.
-             * `{phone_number, caption_locale}` for WhatsApp). Shape
-             * is provider-defined; the Core forwards the array as-is.
+             * Free-form data the provider needs to actually deliver
+             * the message. Shape is provider-specific — for
+             * WhatsApp via WAHA, the recipient phone number
+             * travels here as `variables.phone_number`.
              *
              * @example ["+237690000000"]
              */

@@ -20,12 +20,13 @@ final class RequestChannelSessionPairingCodeRequest extends FormRequest
     {
         return [
             /**
-             * Phone number of the WhatsApp device that will display
-             * the pairing code (E.164 preferred, e.g. `+2376XXXXXXXX`).
-             * Forwarded to WAHA as the device identifier for the
-             * linking flow. The Core never persists this — the
-             * provider (WAHA) is the single source of truth for the
-             * session state.
+             * The phone number of the WhatsApp device that will
+             * display the pairing code, in international format
+             * (E.164, e.g. `+2376XXXXXXXX`). The Core forwards
+             * this value to the channel provider as the device
+             * identifier for the linking flow. It is not stored
+             * by the Core — the provider is the source of truth
+             * for the session.
              *
              * @example "+237690000000"
              */

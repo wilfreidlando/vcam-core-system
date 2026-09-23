@@ -9,9 +9,8 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Validates `POST /v1/webhook-endpoints`. Authorization (the
- * `webhooks:write` scope) is checked in the controller against
- * `ProjectContext`, not here.
+ * Validates `POST /v1/webhook-endpoints`. The `webhooks:write` scope
+ * is enforced in the controller against the calling Project.
  */
 final class RegisterWebhookEndpointRequest extends FormRequest
 {
@@ -27,32 +26,36 @@ final class RegisterWebhookEndpointRequest extends FormRequest
     {
         return [
             /**
-             * `SafeOutboundUrlRule` (security review finding — this
-             * used to accept any http(s) URL, including
-             * internal/private targets: SSRF, and a persistent one at
-             * that, since a registered endpoint is retried and
-             * DLQ-replayed). Publicly reachable, no localhost, no
-             * RFC1918 ranges, no link-local. Must be https in
-             * production but http is accepted for local development.
+             * The public URL the Core POSTs the signed payload to
+             * when an event matches. Must be reachable from the
+             * Core's outbound network — no localhost, no
+             * RFC-1918 ranges, no link-local addresses. The
+             * reason is that a registered endpoint is retried
+             * automatically for hours, so an address that points
+             * at an internal service today could become an
+             * unintentional exfiltration channel tomorrow. HTTPS
+             * is required in production; HTTP is accepted only
+             * for local development.
              *
              * @example "https://my-app.example.com/webhooks/core"
              */
             'url' => ['required', 'url', 'starts_with:http://,https://', new SafeOutboundUrlRule],
             /**
-             * Event types this endpoint subscribes to. `*`
-             * (single-element array) means "every event the Core
-             * emits" — useful as a debugging crutch, avoid in
-             * production (an endpoint subscribed to all events gets
-             * every domain change). The currently-emitted event
-             * types are listed in the enum on `events.*`; the Core
-             * owns the event-type vocabulary, so adding a new event
-             * type requires a Core release, not just a config change.
+             * The list of event types the endpoint wants to
+             * receive. At least one entry is required. Use the
+             * wildcard `["*"]` to subscribe to every event the
+             * Core emits — useful for development, but avoid in
+             * production because new event types are added
+             * silently to wildcard subscribers and may break a
+             * receiver that expected a fixed schema.
              *
              * @example ["payment.status_changed"]
              */
             'events' => ['required', 'array', 'min:1'],
             /**
-             * One event-type name per array element.
+             * One event type per array element. The currently
+             * supported values are listed in the enum of this
+             * field in `/docs/api`.
              *
              * @example "payment.status_changed"
              */

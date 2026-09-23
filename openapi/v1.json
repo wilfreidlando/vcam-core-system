@@ -3848,19 +3848,19 @@
             },
             "RegisterWebhookEndpointRequest": {
                 "type": "object",
-                "description": "Validates `POST /v1/webhook-endpoints`. Authorization (the\n`webhooks:write` scope) is checked in the controller against\n`ProjectContext`, not here.",
+                "description": "Validates `POST /v1/webhook-endpoints`. The `webhooks:write` scope\nis enforced in the controller against the calling Project.",
                 "properties": {
                     "url": {
                         "type": "string",
                         "format": "uri",
-                        "description": "`SafeOutboundUrlRule` (security review finding \u2014 this\nused to accept any http(s) URL, including\ninternal/private targets: SSRF, and a persistent one at\nthat, since a registered endpoint is retried and\nDLQ-replayed). Publicly reachable, no localhost, no\nRFC1918 ranges, no link-local. Must be https in\nproduction but http is accepted for local development.",
+                        "description": "The public URL the Core POSTs the signed payload to\nwhen an event matches. Must be reachable from the\nCore's outbound network \u2014 no localhost, no\nRFC-1918 ranges, no link-local addresses. The\nreason is that a registered endpoint is retried\nautomatically for hours, so an address that points\nat an internal service today could become an\nunintentional exfiltration channel tomorrow. HTTPS\nis required in production; HTTP is accepted only\nfor local development.",
                         "examples": [
                             "https://my-app.example.com/webhooks/core"
                         ]
                     },
                     "events": {
                         "type": "array",
-                        "description": "Event types this endpoint subscribes to. `*`\n(single-element array) means \"every event the Core\n             * emits\" \u2014 useful as a debugging crutch, avoid in\nproduction (an endpoint subscribed to all events gets\nevery domain change). The currently-emitted event\ntypes are listed in the enum on `events.*`; the Core\nowns the event-type vocabulary, so adding a new event\ntype requires a Core release, not just a config change.",
+                        "description": "The list of event types the endpoint wants to\nreceive. At least one entry is required. Use the\nwildcard `[\"*\"]` to subscribe to every event the\nCore emits \u2014 useful for development, but avoid in\nproduction because new event types are added\nsilently to wildcard subscribers and may break a\nreceiver that expected a fixed schema.",
                         "examples": [
                             [
                                 "payment.status_changed"
@@ -3868,7 +3868,7 @@
                         ],
                         "items": {
                             "type": "string",
-                            "description": "One event-type name per array element.",
+                            "description": "One event type per array element. The currently\nsupported values are listed in the enum of this\nfield in `/docs/api`.",
                             "enum": [
                                 "*",
                                 "payment.status_changed",
@@ -3895,7 +3895,7 @@
                 "properties": {
                     "phone_number": {
                         "type": "string",
-                        "description": "Phone number of the WhatsApp device that will display\nthe pairing code (E.164 preferred, e.g. `+2376XXXXXXXX`).\nForwarded to WAHA as the device identifier for the\nlinking flow. The Core never persists this \u2014 the\nprovider (WAHA) is the single source of truth for the\nsession state.",
+                        "description": "The phone number of the WhatsApp device that will\ndisplay the pairing code, in international format\n(E.164, e.g. `+2376XXXXXXXX`). The Core forwards\nthis value to the channel provider as the device\nidentifier for the linking flow. It is not stored\nby the Core \u2014 the provider is the source of truth\nfor the session.",
                         "examples": [
                             "+237690000000"
                         ],
@@ -3912,7 +3912,7 @@
                 "properties": {
                     "channel": {
                         "type": "string",
-                        "description": "Channel the caller asks for \u2014 routed by\n`ConfigNotificationProviderRouter`. The only channel\ncurrently routed platform-wide is `whatsapp` (via WAHA,\nADR-0042).",
+                        "description": "The channel the file will be sent through. See\n`POST /v1/notifications/text` for the full\ndescription; the rule is the same across all three\ncontent types.",
                         "enum": [
                             "whatsapp"
                         ],
@@ -3922,7 +3922,7 @@
                     },
                     "to_party_ref": {
                         "type": "string",
-                        "description": "Caller-supplied correlation reference for the recipient\n\u2014 NOT a phone number, NOT an email address. Resolving it\nto an actual delivery address is the provider adapter's\njob (ADR-0041 \u00a75). For WhatsApp via WAHA the adapter\nreads the address from `variables.phone_number` (G4).",
+                        "description": "Opaque recipient reference in YOUR system. Same\nsemantics as `to_party_ref` on\n`POST /v1/notifications/text`.",
                         "examples": [
                             "customer-42"
                         ],
@@ -3930,7 +3930,7 @@
                     },
                     "media_url": {
                         "type": "string",
-                        "description": "Publicly reachable HTTP(S) URL of the file to send.\nMust be `SafeOutboundUrlRule`-clean (no internal/private\ntargets, no SSRF). The adapter fetches it server-side\nand re-hosts.",
+                        "description": "Publicly reachable HTTP(S) URL of the file. The\nprovider fetches it server-side and re-hosts it.\nMust be reachable from the provider's outbound\nnetwork (no private IPs, no localhost) \u2014 same\nconstraint as `POST /v1/webhook-endpoints`.",
                         "examples": [
                             "https://cdn.example.com/invoice-1234.pdf"
                         ],
@@ -3938,7 +3938,7 @@
                     },
                     "filename": {
                         "type": "string",
-                        "description": "Filename to present to the recipient (e.g.\n`invoice-1234.pdf`). Used for the attachment's display\nname and content-disposition; the file's actual content\nis fetched from `media_url`.",
+                        "description": "The filename the recipient sees and the\ncontent-disposition header is built from. The file's\nactual content is fetched from `media_url`.",
                         "examples": [
                             "invoice-1234.pdf"
                         ],
@@ -3946,7 +3946,7 @@
                     },
                     "mimetype": {
                         "type": "string",
-                        "description": "MIME type of the file (e.g. `application/pdf`,\n`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`).\nRequired because file extensions are not reliable\nsignals \u2014 the adapter uses this to set `Content-Type`\nwhen re-uploading.",
+                        "description": "The MIME type of the file\n(`application/pdf`, `image/png`,\n`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`...).\nRequired because file extensions are not reliable\nsignals \u2014 the provider uses this to set\n`Content-Type` when re-uploading.",
                         "examples": [
                             "application/pdf"
                         ],
@@ -3957,7 +3957,7 @@
                             "string",
                             "null"
                         ],
-                        "description": "Optional caption rendered above the file in the\nrecipient's client (WhatsApp supports a short text +\nfile combo). UTF-8, no length cap at this layer.",
+                        "description": "Optional text rendered above the file in the\nrecipient's client (most chat platforms support a\nshort text + file combo). UTF-8. Provider length\nlimits apply.",
                         "examples": [
                             "Your invoice for order #1234"
                         ]
@@ -3967,7 +3967,7 @@
                             "array",
                             "null"
                         ],
-                        "description": "Adapter-specific variables (e.g. `{phone_number}` for\nWhatsApp). Shape is provider-defined; the Core forwards\nthe array as-is.",
+                        "description": "Free-form data the provider needs to actually\ndeliver the message. Shape is provider-specific \u2014\nfor WhatsApp via WAHA, the recipient phone number\ntravels here as `variables.phone_number`.",
                         "examples": [
                             [
                                 "+237690000000"
@@ -3992,7 +3992,7 @@
                 "properties": {
                     "channel": {
                         "type": "string",
-                        "description": "Channel the caller asks for \u2014 routed by\n`ConfigNotificationProviderRouter` to whichever provider\nchain is configured for this Project. The only channel\ncurrently routed platform-wide is `whatsapp` (via WAHA,\nADR-0042); adding `sms`, `email`, etc. is a config +\nadapter change, never an endpoint change.",
+                        "description": "The channel the image will be sent through. See\n`POST /v1/notifications/text` for the full description;\nthe rule is the same across all three content types.",
                         "enum": [
                             "whatsapp"
                         ],
@@ -4002,7 +4002,7 @@
                     },
                     "to_party_ref": {
                         "type": "string",
-                        "description": "Caller-supplied correlation reference for the recipient\n\u2014 NOT a phone number, NOT an email address. Resolving it\nto an actual delivery address is the provider adapter's\njob (ADR-0041 \u00a75). For WhatsApp via WAHA the adapter\nreads the address from `variables.phone_number` (G4).",
+                        "description": "Opaque recipient reference in YOUR system. Same\nsemantics as `to_party_ref` on\n`POST /v1/notifications/text` \u2014 the Core does not\nresolve it; the provider adapter does, using\n`variables.phone_number` and the channel's expected\naddressing scheme.",
                         "examples": [
                             "customer-42"
                         ],
@@ -4010,7 +4010,7 @@
                     },
                     "media_url": {
                         "type": "string",
-                        "description": "Publicly reachable HTTP(S) URL of the image to send.\nMust be `SafeOutboundUrlRule`-clean (no internal/private\ntargets, no SSRF \u2014 same rule as webhook endpoints). The\nadapter fetches it server-side and re-hosts on the\nprovider; the caller does not upload binary.",
+                        "description": "Publicly reachable HTTP(S) URL of the image. The\nprovider fetches it server-side and re-hosts it, so\nyou do not upload binary. The URL must be reachable\nfrom the provider's outbound network (no private\nIPs, no localhost) \u2014 this is the same constraint as\n`POST /v1/webhook-endpoints`.",
                         "examples": [
                             "https://cdn.example.com/order-1234.png"
                         ],
@@ -4021,7 +4021,7 @@
                             "string",
                             "null"
                         ],
-                        "description": "Optional caption rendered alongside the image in the\nrecipient's client. UTF-8, no length cap at this layer;\nprovider limits apply downstream.",
+                        "description": "Optional text rendered alongside the image in the\nrecipient's client. UTF-8. Provider length limits\napply.",
                         "examples": [
                             "Your order confirmation"
                         ]
@@ -4031,7 +4031,7 @@
                             "string",
                             "null"
                         ],
-                        "description": "Optional filename hint for the image (used by the\nadapter when the provider forwards the media as a file\nattachment).",
+                        "description": "Optional filename hint the provider uses when the\nimage is forwarded as a file attachment.",
                         "examples": [
                             "order-1234.png"
                         ],
@@ -4042,7 +4042,7 @@
                             "string",
                             "null"
                         ],
-                        "description": "Optional MIME type hint (e.g. `image/png`). When\nomitted, the adapter infers from the URL extension or\nthe upstream `Content-Type`.",
+                        "description": "Optional MIME type of the image. When omitted, the\nprovider infers it from the URL extension or the\nupstream `Content-Type` header.",
                         "examples": [
                             "image/png"
                         ],
@@ -4053,7 +4053,7 @@
                             "array",
                             "null"
                         ],
-                        "description": "Adapter-specific variables (e.g.\n`{phone_number, caption_locale}` for WhatsApp). Shape\nis provider-defined; the Core forwards the array as-is.",
+                        "description": "Free-form data the provider needs to actually deliver\nthe message. Shape is provider-specific \u2014 for\nWhatsApp via WAHA, the recipient phone number\ntravels here as `variables.phone_number`.",
                         "examples": [
                             [
                                 "+237690000000"
@@ -4076,7 +4076,7 @@
                 "properties": {
                     "channel": {
                         "type": "string",
-                        "description": "Channel the caller asks for \u2014 routed by\n`ConfigNotificationProviderRouter` to whichever provider\nchain is configured for this Project. Mirrors\n`Core\\Notification\\Contracts\\NotificationChannel`: a\nstring value (not a closed enum) because the channel set\ngrows by config. The only channel currently routed\nplatform-wide is `whatsapp` (via WAHA, ADR-0042); adding\n`sms`, `email`, etc. is a config + adapter change, never\nan endpoint change.",
+                        "description": "The channel the message will be sent through. The Core\npicks the right provider based on this value and the\ncalling Project's configuration. Adding a new channel\nis a configuration change, never a code change \u2014\ncheck `/docs/api` for the current list.",
                         "enum": [
                             "whatsapp"
                         ],
@@ -4086,7 +4086,7 @@
                     },
                     "to_party_ref": {
                         "type": "string",
-                        "description": "Caller-supplied correlation reference for the recipient\n\u2014 NOT a phone number, NOT an email address. Resolving it\nto an actual delivery address is the provider adapter's\njob (ADR-0041 \u00a75). For WhatsApp via WAHA the adapter\nreads the address from `variables.phone_number` (G4 \u2014\nnever from `to_party_ref`). Typical value: a Project's\nown user id, an order id, or any opaque token stable\nper recipient.",
+                        "description": "An opaque reference that identifies the recipient in\nYOUR system \u2014 a user id, an order id, a customer\nrecord id. NOT a phone number and NOT an email\naddress: the Core does not know how to reach the\nrecipient from this value alone. How it gets mapped to\na real delivery address depends on the channel and\nprovider \u2014 typically by reading a field like\n`variables.phone_number` you include below.",
                         "examples": [
                             "customer-42"
                         ],
@@ -4094,7 +4094,7 @@
                     },
                     "text": {
                         "type": "string",
-                        "description": "The message body \u2014 UTF-8, no length cap enforced here\n(provider-specific limits apply downstream). Rendered\nverbatim by the adapter; the Core does not interpolate\n`variables` into it.",
+                        "description": "The message body, UTF-8. Rendered verbatim by the\nprovider \u2014 the Core does not interpolate\n`variables` into it. Provider-specific length limits\napply downstream (check the channel's adapter\ndocumentation for the cap on the platform you target).",
                         "examples": [
                             "Hello Marie, your order #1234 is confirmed."
                         ]
@@ -4104,7 +4104,7 @@
                             "array",
                             "null"
                         ],
-                        "description": "Adapter-specific variables (e.g.\n`{phone_number, template_id, locale}` for WhatsApp).\nShape is provider-defined; the Core forwards the array\nas-is and never inspects it.",
+                        "description": "Free-form data the provider needs to actually deliver\nthe message. Shape and required fields are\nprovider-specific \u2014 for WhatsApp via WAHA, the\nrecipient phone number travels here as\n`variables.phone_number`. The Core forwards the\narray as-is and never inspects it; see the channel's\nadapter docs for what to include.",
                         "examples": [
                             [
                                 "+237690000000"
@@ -4124,11 +4124,11 @@
             },
             "StartPaymentRequest": {
                 "type": "object",
-                "description": "Validates `POST /v1/payments`. Authorization (the `payments:write`\nscope) is checked in the controller against `ProjectContext`, not\nhere \u2014 this class only validates shape, never identity.\n\nNo `idempotency_key` body field: the `Idempotency-Key` HTTP header\n(required by the `idempotency` middleware ahead of this request ever\nreaching validation \u2014 ADR-0025, G7) is the one value used for both\nthe HTTP-level response cache and `StartPaymentUseCase`'s own\nprovider-call protection. One key, not two.\n\n`amount` is in minor units (e.g. cents) \u2014 never a decimal amount,\nmatching how it is stored (`bigint`, G5).",
+                "description": "Validates `POST /v1/payments`. The `payments:write` scope is enforced\nin the controller against the calling Project \u2014 this class only\nvalidates payload shape.\n\nTwo headers sit above this body and are documented separately by\nScramble: `Authorization` (Project API key) and `Idempotency-Key`\n(required on every monetary mutation \u2014 replay the same key to get\nthe cached response without re-charging).",
                 "properties": {
                     "channel": {
                         "type": "string",
-                        "description": "Channel the caller asks for \u2014 routed by\n`ConfigPaymentProviderRouter` to whichever provider is\nconfigured for this Project. Mirrors\n`Core\\Payment\\Contracts\\PaymentChannel`: a string value\n(not a closed enum) because the channel set grows by\nconfig, not by Core code change.",
+                        "description": "The channel the customer will pay through. The Core\nroutes the call to whichever payment provider is\nconfigured for this channel on the calling Project \u2014\nthe caller never names a provider directly.",
                         "enum": [
                             "mtn_momo",
                             "orange_money",
@@ -4140,7 +4140,7 @@
                     },
                     "amount": {
                         "type": "integer",
-                        "description": "Amount in MINOR units (e.g. cents for USD/EUR, centimes\nfor XAF) \u2014 `bigint`, never a decimal (G5). The\ndecimal-to-minor conversion is the caller's\nresponsibility. `100000` here means 1000.00 in the\ncurrency's major unit.",
+                        "description": "The amount to charge, expressed in the smallest\nindivisible unit of the currency \u2014 cents for USD/EUR,\ncentimes for XAF. The decimal-to-minor conversion is the\ncaller's responsibility. `100000` means 1000.00 in the\ncurrency's major unit.",
                         "examples": [
                             100000
                         ],
@@ -4148,7 +4148,7 @@
                     },
                     "currency": {
                         "type": "string",
-                        "description": "ISO 4217 three-letter currency code. The provider\nconfigured for `channel` must support it; otherwise the\nrequest fails with 422 `unsupported-currency` before\nreaching the wire.",
+                        "description": "The ISO 4217 three-letter code of the currency. The\nprovider configured for the chosen `channel` must\nsupport it \u2014 otherwise the request fails with a\n422 `unsupported-currency` error before reaching the\npayment network.",
                         "examples": [
                             "XAF"
                         ],
@@ -4157,7 +4157,7 @@
                     },
                     "reason": {
                         "type": "string",
-                        "description": "Free-text label for the payment \u2014 shown to the customer\non the provider-hosted page (Paylink flow) and forwarded\nto the provider as `description`. Not user-visible in the\nAPI response.",
+                        "description": "A short label for the payment, shown to the customer on\nthe hosted page and forwarded to the provider as the\ntransaction description. Max 255 characters. Not echoed\nback in the API response \u2014 keep your own copy if you\nneed it later.",
                         "examples": [
                             "Order #1234 \u2014 Premium plan"
                         ],
@@ -4168,7 +4168,7 @@
                             "string",
                             "null"
                         ],
-                        "description": "Customer phone number in international format\n(E.164 preferred, e.g. `+2376XXXXXXXX`). Forwarded to the\nprovider so USSD / OTP prompts reach the right line for\nmobile-money channels. May be required by some\nproviders \u2014 check the channel's adapter contract.",
+                        "description": "The customer's phone number in international format\n(E.164, e.g. `+2376XXXXXXXX`). Forwarded to the\nprovider so USSD prompts and OTP codes reach the right\nline on mobile-money channels. Optional \u2014 providers that\nneed it for their flow will reject the request if it's\nmissing.",
                         "examples": [
                             "+237690000000"
                         ],
@@ -4179,7 +4179,7 @@
                             "string",
                             "null"
                         ],
-                        "description": "Customer display name \u2014 optional. Forwarded to the\nprovider where supported; rendered on the Paylink page\nwhen present.",
+                        "description": "The customer's display name. Optional. Forwarded to the\nprovider and rendered on the hosted payment page where\nthe provider supports it.",
                         "examples": [
                             "Marie Dupont"
                         ],
@@ -4191,7 +4191,7 @@
                             "null"
                         ],
                         "format": "email",
-                        "description": "Customer email \u2014 optional. Forwarded to the provider for\nreceipt delivery where supported. Not used by the Core\nitself (no PII persisted at this layer \u2014 ADR-0033 \u00a74).",
+                        "description": "The customer's email. Optional. Forwarded to the\nprovider for receipt delivery where supported. Not\npersisted by the Core \u2014 the Core never holds customer\nPII; whatever the provider does with it is the\nprovider's responsibility.",
                         "examples": [
                             "marie.dupont@example.com"
                         ]
@@ -4201,7 +4201,7 @@
                             "string",
                             "null"
                         ],
-                        "description": "BCP-47 language tag for the customer's locale (e.g.\n`fr`, `en`, `fr-CM`). Forwarded to the provider so the\nhosted page is rendered in the customer's language.",
+                        "description": "A BCP-47 language tag for the customer's locale\n(`fr`, `en`, `fr-CM`...). Forwarded to the provider so\nthe hosted payment page is rendered in the right\nlanguage. Optional \u2014 providers fall back to their\ndefault when missing.",
                         "examples": [
                             "fr-CM"
                         ],
@@ -4210,7 +4210,7 @@
                     "flow": {
                         "anyOf": [
                             {
-                                "description": "Discriminator between the two payment initiation flows\n(ADR-0038). `payin` is the synchronous, app-driven flow\n\u2014 caller drives the customer through their own UX.\n`paylink` is the hosted-link, redirect-driven flow \u2014\ncaller hands the customer off to a provider-hosted page.\nWhen omitted, the provider default applies (typically\n`payin`).",
+                                "description": "How the payment starts. `payin` is the synchronous,\napp-driven flow: the Core returns immediately with a\ntransaction reference and the caller drives the\ncustomer through their own UX. `paylink` is the\nhosted-link flow: the Core returns a URL and the caller\nredirects the customer there. If omitted, the\nprovider default applies (typically `payin`).",
                                 "examples": [
                                     "payin"
                                 ],
@@ -4227,7 +4227,7 @@
                             "null"
                         ],
                         "format": "uri",
-                        "description": "Browser redirect URL after the customer completes (or\ncancels) the payment on the provider-hosted page.\nBest-effort: this is browser-side only, never a reliable\nsignal. For the reliable server-to-server notification,\nuse `callback_url` instead.",
+                        "description": "Where to send the customer's browser after they\ncomplete (or cancel) the payment on the\nprovider-hosted page. Best-effort: this is\nbrowser-side only and may never fire (closed tab,\ndisabled JS, captive portal). For a reliable\nserver-to-server signal, use `callback_url` instead.",
                         "examples": [
                             "https://my-app.example.com/payments/return"
                         ]
@@ -4237,7 +4237,7 @@
                             "string",
                             "null"
                         ],
-                        "description": "External reference of the wallet to credit on payment\nsuccess (ADR-0037). When present AND the payment reaches\na successful terminal state, the wallet is credited\nsynchronously in the same transaction (ADR-0036). When\nabsent, the payment is a pure collection \u2014 no wallet,\nno Party touched. The value must match a wallet owned\nby the calling Project (ADR-0051) or the call fails\nwith 422 `wallet-project-mismatch`.",
+                        "description": "Optional. The external reference of the wallet to\ncredit automatically when this payment reaches a\nsuccessful terminal state. When present, the credit\nhappens in the same database transaction as the\npayment confirmation \u2014 no separate API call needed,\nno window for race conditions. When absent, the\npayment is a pure collection: the money is held by the\nCore but no wallet is credited. The value must match a\nwallet owned by the calling Project; the request fails\nwith a 422 `wallet-project-mismatch` otherwise.",
                         "examples": [
                             "wallet-customer-42"
                         ],
@@ -4249,7 +4249,7 @@
                             "null"
                         ],
                         "format": "uri",
-                        "description": "The reliable server-to-server notification target \u2014\nSSRF validated the same way as POST /v1/webhook-endpoints\n(security review finding, user-directed expansion,\nADR-0051). Delivered signed (HMAC-SHA256, secret\nreturned once at registration) per ADR-0009. Distinct\nfrom `return_url` which is browser-side best-effort.",
+                        "description": "Where the Core POSTs the server-to-server notification\nwhen the payment reaches a terminal state. This is the\nreliable channel \u2014 use it to update your own order\nstate, release stock, send a confirmation email, etc.\nThe body is JSON and signed with HMAC-SHA256 (headers\n`X-Signature`, `X-Timestamp`); the secret is returned\nin the initiation response and never again, so store\nit at registration time. Distinct from `return_url`:\nthis is server-to-server, `return_url` is browser-side.",
                         "examples": [
                             "https://my-app.example.com/webhooks/core"
                         ]
