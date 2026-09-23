@@ -133,11 +133,12 @@ final class StartPaymentHttpFlowTest extends TestCase
             'Idempotency-Key' => (string) Str::uuid(),
         ]);
 
-        // ProviderApplicationNotFound is a RuntimeException the payment
-        // module's own exception handling doesn't specifically map —
-        // asserting it's not a 2xx success is the stable part; the exact
-        // status code is an implementation detail of the global handler.
-        $response->assertStatus(500);
+        // ProviderApplicationNotFound is mapped to a clean 422 in
+        // ExceptionProblemMapping (B3 fix — was 500 with stack trace
+        // before, see ADR-0033 §3 + ADR-0051 audit). Asserting the
+        // 422 surfaces the bug fix; the exact body shape is covered
+        // by tests/Integration/Http/ExceptionProblemMappingB3FixTest.
+        $response->assertStatus(422);
     }
 
     /**

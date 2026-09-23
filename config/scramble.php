@@ -64,9 +64,32 @@ return [
         /*
          * Description rendered on the home page of the API documentation (`/docs/api`).
          */
-        'description' => 'Enterprise Core System — capacités transverses (identity, ledger, '.
-            'wallet) exposées à plusieurs produits. Authentification par API key '.
-            '(`Authorization: Bearer pk_<env>_<id>.<secret>`), voir `GET /v1/whoami`.',
+        'description' => 'Enterprise Core System — the cross-cutting capabilities (identity, ledger, '.
+            'wallet, payment, notification, webhook) shared across every product. '.
+            'Authenticate with `Authorization: Bearer pk_<env>_<id>.<secret>` — see `GET /v1/whoami`. '.
+            "\n\n".
+            '## Reading this document '.
+            "\n\n".
+            '- Every request body attribute has a description and a realistic example. `required` is marked. '.
+            '- Every operation carries an `x-required-scopes` field listing the API key scopes the caller must hold. '.
+            '- Every monetary POST under `/v1/payments/*` requires an `Idempotency-Key` header (cached response on replay, `409` on conflict). '.
+            "\n\n".
+            '## Outbound events (Core → caller) '.
+            "\n\n".
+            'The Core emits events on two planes — register `POST /v1/webhook-endpoints` to subscribe, '.
+            'or supply `callback_url` on `POST /v1/payments` for a per-payment delivery: '.
+            "\n\n".
+            '- `WebhookEvent` — envelope `{id, type, data}` POSTed to subscribed endpoints, signed HMAC-SHA256 '.
+            '(headers `X-Signature`, `X-Timestamp`, `X-Event-Id`, `X-Event-Type`). '.
+            '- `WebhookEventType` — the closed enum of event types the Core emits (`payment.status_changed`, '.
+            '`notification.status_changed`, `notification.failed`, `wallet.credited`, `wallet.debited`). '.
+            '- `PaymentCallbackEvent` — the body POSTed to a per-payment `callback_url`. Same signature scheme, '.
+            'per-payment secret returned once in the initiation response. '.
+            "\n\n".
+            '## Errors '.
+            "\n\n".
+            'Every error response is `application/problem+json` (RFC 7807) with `{type, title, status, detail, correlation_id}`. '.
+            '422 from a `FormRequest` adds an `errors: {field: [msg]}` map. Quote `correlation_id` when contacting support.',
     ],
 
     'ui' => [
@@ -177,6 +200,7 @@ return [
         // and silently never fires. See `app/OpenApi/IdempotencyHeaderExtension`.
         App\OpenApi\IdempotencyHeaderExtension::class,
         App\OpenApi\ValidationExceptionResponseExtension::class,
+        App\OpenApi\RequiredScopesExtension::class,
     ],
 
     /*

@@ -82,6 +82,15 @@ final class AppServiceProvider extends ServiceProvider
         // Scramble's package boot snapshots `Scramble::$extensions` before
         // any app provider runs, so anything added from `boot()` is too
         // late and silently never fires. See config/scramble.php.
+
+        // Same caveat: append the outbound-event schema transformer to the
+        // document transformer list from boot. The package has already
+        // registered its two defaults; this adds ours to the same
+        // chain. If a future Scramble version snapshots its transformer
+        // list at boot, this should move to `config('scramble.extensions')`.
+        Scramble::configure()->withDocumentTransformers([
+            \App\OpenApi\EventSchemasDocumentTransformer::class,
+        ]);
     }
 
     /**

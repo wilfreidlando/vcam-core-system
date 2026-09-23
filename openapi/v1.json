@@ -3,7 +3,7 @@
     "info": {
         "title": "Core System API",
         "version": "v1",
-        "description": "Enterprise Core System \u2014 capacit\u00e9s transverses (identity, ledger, wallet) expos\u00e9es \u00e0 plusieurs produits. Authentification par API key (`Authorization: Bearer pk_<env>_<id>.<secret>`), voir `GET /v1/whoami`."
+        "description": "Enterprise Core System \u2014 the cross-cutting capabilities (identity, ledger, wallet, payment, notification, webhook) shared across every product. Authenticate with `Authorization: Bearer pk_<env>_<id>.<secret>` \u2014 see `GET /v1/whoami`. \n\n## Reading this document \n\n- Every request body attribute has a description and a realistic example. `required` is marked. - Every operation carries an `x-required-scopes` field listing the API key scopes the caller must hold. - Every monetary POST under `/v1/payments/*` requires an `Idempotency-Key` header (cached response on replay, `409` on conflict). \n\n## Outbound events (Core \u2192 caller) \n\nThe Core emits events on two planes \u2014 register `POST /v1/webhook-endpoints` to subscribe, or supply `callback_url` on `POST /v1/payments` for a per-payment delivery: \n\n- `WebhookEvent` \u2014 envelope `{id, type, data}` POSTed to subscribed endpoints, signed HMAC-SHA256 (headers `X-Signature`, `X-Timestamp`, `X-Event-Id`, `X-Event-Type`). - `WebhookEventType` \u2014 the closed enum of event types the Core emits (`payment.status_changed`, `notification.status_changed`, `notification.failed`, `wallet.credited`, `wallet.debited`). - `PaymentCallbackEvent` \u2014 the body POSTed to a per-payment `callback_url`. Same signature scheme, per-payment secret returned once in the initiation response. \n\n## Errors \n\nEvery error response is `application/problem+json` (RFC 7807) with `{type, title, status, detail, correlation_id}`. 422 from a `FormRequest` adds an `errors: {field: [msg]}` map. Quote `correlation_id` when contacting support."
     },
     "servers": [
         {
@@ -209,7 +209,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "notifications:write"
+                ]
             }
         },
         "/notifications/image": {
@@ -360,7 +363,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "notifications:write"
+                ]
             }
         },
         "/notifications/file": {
@@ -511,7 +517,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "notifications:write"
+                ]
             }
         },
         "/notifications/{notificationId}": {
@@ -649,7 +658,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "notifications:read"
+                ]
             }
         },
         "/notification-channel-sessions/{channel}/{sessionRef}/qr": {
@@ -869,7 +881,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "notification_channel_sessions:read"
+                ]
             }
         },
         "/notification-channel-sessions/{channel}/{sessionRef}/screenshot": {
@@ -1089,7 +1104,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "notification_channel_sessions:read"
+                ]
             }
         },
         "/notification-channel-sessions/{channel}/{sessionRef}/pairing-code": {
@@ -1369,7 +1387,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "notification_channel_sessions:write"
+                ]
             }
         },
         "/payments": {
@@ -1871,7 +1892,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "payments:write"
+                ]
             }
         },
         "/payments/paylink": {
@@ -2373,7 +2397,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "payments:write"
+                ]
             }
         },
         "/payments/payin": {
@@ -2875,7 +2902,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "payments:write"
+                ]
             }
         },
         "/payments/{paymentId}": {
@@ -3047,7 +3077,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "payments:read"
+                ]
             }
         },
         "/wallets/{walletId}/balance": {
@@ -3178,7 +3211,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "wallets:read"
+                ]
             }
         },
         "/webhook-endpoints": {
@@ -3325,7 +3361,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "webhooks:write"
+                ]
             },
             "get": {
                 "operationId": "webhook-endpoints.list",
@@ -3391,7 +3430,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "webhooks:read"
+                ]
             }
         },
         "/webhook-endpoints/{endpointId}": {
@@ -3503,7 +3545,10 @@
                             }
                         }
                     }
-                }
+                },
+                "x-required-scopes": [
+                    "webhooks:write"
+                ]
             }
         }
     },
@@ -3516,6 +3561,75 @@
             }
         },
         "schemas": {
+            "PaymentCallbackEvent": {
+                "type": "object",
+                "description": "Body POSTed to the `callback_url` of a payment when it reaches a terminal state. Signed with HMAC-SHA256 (same algorithm as the webhook plane, but the secret is per-payment \u2014 returned once in the initiation response). Headers: `X-Signature`, `X-Timestamp`.",
+                "examples": [
+                    {
+                        "event": "payment.status_changed",
+                        "payment_id": "01HMZ9XK3P-PAYMENT-001",
+                        "status": "succeeded",
+                        "amount": 50000,
+                        "currency": "XAF",
+                        "error_message": null
+                    }
+                ],
+                "properties": {
+                    "event": {
+                        "type": "string",
+                        "description": "Always `payment.status_changed` on this plane.",
+                        "examples": [
+                            "payment.status_changed"
+                        ]
+                    },
+                    "payment_id": {
+                        "type": "string",
+                        "examples": [
+                            "01HMZ9XK3P-PAYMENT-001"
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "Canonical payment status. Mirrors the value returned by `GET /v1/payments/{payment_id}`.",
+                        "enum": [
+                            "pending",
+                            "processing",
+                            "succeeded",
+                            "failed",
+                            "expired",
+                            "refunded",
+                            "canceled"
+                        ]
+                    },
+                    "amount": {
+                        "type": "integer",
+                        "description": "Minor units.",
+                        "examples": [
+                            50000
+                        ]
+                    },
+                    "currency": {
+                        "type": "string",
+                        "description": "ISO 4217.",
+                        "examples": [
+                            "XAF"
+                        ]
+                    },
+                    "error_message": {
+                        "type": "string",
+                        "description": "null when the payment succeeded."
+                    }
+                },
+                "required": [
+                    "event",
+                    "payment_id",
+                    "status",
+                    "amount",
+                    "currency",
+                    "error_message"
+                ],
+                "title": "PaymentCallbackEvent"
+            },
             "PaymentFlow": {
                 "type": "string",
                 "description": "Discriminates between the two payment initiation flows exposed by aggregator-style providers. `Payin` is the synchronous, app-driven flow (used by mobile apps and server-to-server integrations that drive the customer through their own UX). MyCoolPay exposes this as `POST /payin`; CinetPay exposes it as `POST /v2/payment`; MTN exposes it as `POST /collection/.../requesttopay`.  `Paylink` is the hosted-link, redirect-driven flow (used by web apps that hand the customer off to a provider-hosted page). MyCoolPay exposes this as `POST /paylink`; CinetPay returns a `payment_url` alongside the same initiation call (the discriminator is implicit).  Providers that do not distinguish the two flows (e.g. CinetPay) treat `Payin` as the default and ignore the discriminator on the `InitiatePaymentCommand`.\n",
@@ -4001,6 +4115,108 @@
                     "active"
                 ],
                 "title": "WebhookEndpointView"
+            },
+            "WebhookEvent": {
+                "type": "object",
+                "description": "Envelope POSTed to every endpoint registered via `POST /v1/webhook-endpoints`. Body is `{id, type, data}`. Headers `X-Signature`, `X-Timestamp`, `X-Event-Id`, `X-Event-Type` are always present (HMAC-SHA256 over `timestamp + \".\" + raw_body`). The `_headers` block in the example below is documentation only \u2014 the actual headers are on the HTTP request, not in the body.",
+                "examples": [
+                    {
+                        "id": "01HMZ9XK3P-9XK3P-9XK3P",
+                        "type": "payment.status_changed",
+                        "data": {
+                            "payment_id": "01HMZ9XK3P-PAYMENT-001",
+                            "status": "succeeded",
+                            "amount": 50000,
+                            "currency": "XAF",
+                            "error_message": null
+                        },
+                        "_headers": {
+                            "X-Signature": "5e7c2d...c0a1 (HMAC-SHA256 of \"1763875200.<raw_body>\" with the endpoint secret)",
+                            "X-Timestamp": "1763875200",
+                            "X-Event-Id": "01HMZ9XK3P-9XK3P-9XK3P",
+                            "X-Event-Type": "payment.status_changed"
+                        }
+                    }
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Unique event id (UUIDv7). Use this to deduplicate on the receiver side across retries.",
+                        "examples": [
+                            "01HMZ9XK3P-9XK3P-9XK3P"
+                        ]
+                    },
+                    "type": {
+                        "type": "string",
+                        "description": "One of the values from the WebhookEventType enum. Decide whether to consume based on this.",
+                        "examples": [
+                            "payment.status_changed"
+                        ]
+                    },
+                    "data": {
+                        "type": "object",
+                        "description": "`data` payload when `type === \"payment.status_changed\"`. Schema depends on `type` \u2014 see WebhookEventType for the full list.",
+                        "properties": {
+                            "payment_id": {
+                                "type": "string",
+                                "examples": [
+                                    "01HMZ9XK3P-PAYMENT-001"
+                                ]
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": [
+                                    "pending",
+                                    "processing",
+                                    "succeeded",
+                                    "failed",
+                                    "expired",
+                                    "refunded",
+                                    "canceled"
+                                ],
+                                "examples": [
+                                    "succeeded"
+                                ]
+                            },
+                            "amount": {
+                                "type": "integer",
+                                "examples": [
+                                    50000
+                                ]
+                            },
+                            "currency": {
+                                "type": "string",
+                                "examples": [
+                                    "XAF"
+                                ]
+                            },
+                            "error_message": {
+                                "type": "string",
+                                "examples": [
+                                    null
+                                ]
+                            }
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "type",
+                    "data"
+                ],
+                "title": "WebhookEvent"
+            },
+            "WebhookEventType": {
+                "type": "string",
+                "description": "Closed set of `type` values the Core emits via the outbox. `*` (subscriber-only, never produced) is allowed as a wildcard in `POST /v1/webhook-endpoints`. Adding a new event type is a Core release, not a config change.",
+                "enum": [
+                    "payment.status_changed",
+                    "notification.status_changed",
+                    "notification.failed",
+                    "wallet.credited",
+                    "wallet.debited"
+                ],
+                "title": "WebhookEventType"
             }
         }
     }
