@@ -9,6 +9,7 @@ use Core\Notification\Contracts\ChannelSessionProvider;
 use Core\Notification\Contracts\ChannelSessionQrCode;
 use Core\Notification\Contracts\ChannelSessionScreenshot;
 use Core\Notification\Contracts\DeliveryStatus;
+use Core\Notification\Contracts\MissingChannelSession;
 use Core\Notification\Contracts\MissingRecipientPhoneNumber;
 use Core\Notification\Contracts\NotificationChannel;
 use Core\Notification\Contracts\NotificationChannelProvider;
@@ -55,15 +56,14 @@ use RuntimeException;
  * # Session addressing
  *
  * The Core persists nothing about a WAHA session (ADR-0042 §4). For
- * `send()`, the session to send from is `variables['session']` if the
- * caller supplied one, falling back to `extras.default_session`
- * (config), falling back to WAHA's own default session name `"default"`
- * — so a Project with exactly one linked number needs to pass neither.
+ * `send()`, the session to send from is `variables['session']`, REQUIRED:
+ * each integrating client links its own WhatsApp number through the
+ * channel-session endpoints and sends with that session's name. There is
+ * no shared fallback session — a message must never leave from a number
+ * the calling Project did not link itself.
  */
 final readonly class WahaAdapter implements ChannelSessionProvider, NotificationChannelProvider
 {
-    private const DEFAULT_SESSION = 'default';
-
     public function __construct(
         private ExternalApiCaller $caller,
         private ProviderConfig $config,
@@ -92,7 +92,7 @@ final readonly class WahaAdapter implements ChannelSessionProvider, Notification
         }
 
         $chatId = self::toChatId($phoneNumber);
-        $sessionRef = self::sessionRefFor($message->variables, $this->config, $message->projectId);
+        $sessionRef = self::sessionRefFor($message->variables, $message->projectId, $message->appMessageRef);
         $type = self::str($message->body, 'type', 'text');
 
         $response = match ($type) {
@@ -285,26 +285,21 @@ final readonly class WahaAdapter implements ChannelSessionProvider, Notification
     }
 
     /**
-     * A caller-supplied `variables['session']` is namespaced by
-     * `projectId` before it ever reaches WAHA — security review finding:
-     * unscoped, it let one Project send through another Project's
-     * linked WhatsApp session by supplying/guessing its name. The
-     * config-level `default_session` fallback is NOT scoped: it's a
-     * deliberately shared platform default a caller never named, not
-     * caller input, so there's nothing to hijack.
+     * The caller's `variables['session']`, namespaced by `projectId`
+     * before it ever reaches WAHA — security review finding: unscoped, it
+     * let one Project send through another Project's linked WhatsApp
+     * session by supplying/guessing its name.
      *
      * @param array<string, mixed> $variables
      */
-    private static function sessionRefFor(array $variables, ProviderConfig $config, string $projectId): string
+    private static function sessionRefFor(array $variables, string $projectId, string $appMessageRef): string
     {
-        $fromVariables = self::str($variables, 'session');
-        if ($fromVariables !== '') {
-            return ScopedSessionRef::for($projectId, $fromVariables)->value;
+        $session = self::str($variables, 'session');
+        if ($session === '') {
+            throw MissingChannelSession::forMessage($appMessageRef);
         }
 
-        $default = $config->extra('default_session', self::DEFAULT_SESSION);
-
-        return is_string($default) && $default !== '' ? $default : self::DEFAULT_SESSION;
+        return ScopedSessionRef::for($projectId, $session)->value;
     }
 
     /**

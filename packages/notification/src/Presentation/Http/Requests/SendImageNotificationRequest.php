@@ -78,9 +78,9 @@ final class SendImageNotificationRequest extends FormRequest
              * Free-form map of provider-specific variables forwarded
              * as-is to the channel's adapter. See
              * `POST /v1/notifications/text` for the full contract.
-             * For `whatsapp` via WAHA, REQUIRED key `phone_number`.
+             * For `whatsapp`, REQUIRED keys `phone_number` and `session`.
              *
-             * @example {"phone_number": "+2376XXXXXXXX"}
+             * @example {"phone_number": "+2376XXXXXXXX", "session": "ma-boutique"}
              */
             'variables' => ['nullable', 'array'],
             /**
@@ -90,6 +90,19 @@ final class SendImageNotificationRequest extends FormRequest
              * @example "+2376XXXXXXXX"
              */
             'variables.phone_number' => ['required_if:channel,whatsapp', 'string', 'min:1'],
+            /**
+             * When `channel = "whatsapp"`: the name of YOUR linked WhatsApp
+             * session — the message is sent from the number linked to it.
+             * Create and link it first with
+             * `GET /v1/notification-channel-sessions/whatsapp/{sessionRef}/qr`
+             * (or `POST .../pairing-code`); `session` is that same
+             * `sessionRef`. Letters, digits, `-` and `_`, up to 64
+             * characters. There is no shared default session: without it
+             * the request is rejected with a 422.
+             *
+             * @example "ma-boutique"
+             */
+            'variables.session' => ['required_if:channel,whatsapp', 'string', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/'],
             /**
              * Optional opaque reference supplied by the caller. Two
              * requests with the same `client_reference` on the same

@@ -122,9 +122,8 @@ return [
     | `base_url` points at the operator's own WAHA instance, not a
     | third-party SaaS. Auth is a single API key in the `X-Api-Key`
     | header, applied to every call (no per-operation requiresAuth:false
-    | exceptions, unlike MyCoolPay). `extras.default_session` is the
-    | session name `WahaAdapter::send()` falls back to when the caller
-    | didn't supply `variables['session']` (ADR-0042 §4).
+    | exceptions, unlike MyCoolPay). There is no default session: every
+    | send names the caller's own linked session in `variables['session']`.
     | `extras.webhook_secret` is compared against the
     | `X-Webhook-Secret` header WAHA is configured to send on its
     | outbound webhook calls (ADR-0042 §8) — set it to the same value on
@@ -167,7 +166,6 @@ return [
             ],
 
             'extras' => [
-                'default_session' => env('WAHA_DEFAULT_SESSION', 'default'),
                 'webhook_secret' => env('WAHA_WEBHOOK_SECRET'),
             ],
         ],

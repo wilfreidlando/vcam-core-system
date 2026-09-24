@@ -55,10 +55,33 @@ final class WahaAdapterTest extends TestCase
 
         Http::assertSent(function (Request $r): bool {
             return $r->url() === 'https://waha.test/api/sendText'
-                && $r['session'] === 'default'
+                && $r['session'] === 'project-1_shop-1'
                 && $r['chatId'] === '237699009900@c.us'
                 && $r['text'] === 'Hello Alice, your order 42 is ready.';
         });
+    }
+
+    #[Test]
+    public function send_without_a_session_throws_instead_of_using_a_shared_one(): void
+    {
+        Http::fake();
+
+        $this->expectException(\Core\Notification\Contracts\MissingChannelSession::class);
+
+        $message = new OutboundMessage(
+            appMessageRef: 'app-msg-1',
+            channel: NotificationChannel::fromString('whatsapp'),
+            recipientRef: 'party-ref-1',
+            variables: ['phone_number' => '+237699009900'],
+            body: ['type' => 'text', 'text' => 'Hi'],
+            projectId: 'project-1',
+        );
+
+        try {
+            $this->adapter->send($message);
+        } finally {
+            Http::assertNothingSent();
+        }
     }
 
     #[Test]
@@ -244,7 +267,7 @@ final class WahaAdapterTest extends TestCase
             appMessageRef: 'app-msg-1',
             channel: NotificationChannel::fromString('whatsapp'),
             recipientRef: 'party-ref-1',
-            variables: $variables,
+            variables: $variables + ['session' => 'shop-1'],
             body: $body,
             projectId: $projectId,
         );
@@ -261,7 +284,7 @@ final class WahaAdapterTest extends TestCase
             'retries' => ['max_attempts' => 1, 'base_delay_ms' => 10, 'max_delay_ms' => 50],
             'breaker' => ['failure_threshold' => 5, 'open_duration_seconds' => 60],
             'enabled' => true,
-            'extras' => ['default_session' => 'default'],
+            'extras' => [],
         ]);
     }
 

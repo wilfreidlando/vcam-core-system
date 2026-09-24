@@ -3758,10 +3758,11 @@
                     },
                     "variables": {
                         "type": "object",
-                        "description": "Free-form map of provider-specific variables forwarded\nas-is to the channel's adapter. See\n`POST /v1/notifications/text` for the full contract.\nFor `whatsapp` via WAHA, REQUIRED key `phone_number`.",
+                        "description": "Free-form map of provider-specific variables forwarded\nas-is to the channel's adapter. See\n`POST /v1/notifications/text` for the full contract.\nFor `whatsapp`, REQUIRED keys `phone_number` and `session`.",
                         "examples": [
                             {
-                                "phone_number": "+2376XXXXXXXX"
+                                "phone_number": "+2376XXXXXXXX",
+                                "session": "ma-boutique"
                             }
                         ],
                         "properties": {
@@ -3772,6 +3773,15 @@
                                     "+2376XXXXXXXX"
                                 ],
                                 "minLength": 1
+                            },
+                            "session": {
+                                "type": "string",
+                                "description": "When `channel = \"whatsapp\"`: the name of YOUR linked WhatsApp\nsession \u2014 the message is sent from the number linked to it.\nCreate and link it first with\n`GET /v1/notification-channel-sessions/whatsapp/{sessionRef}/qr`\n(or `POST .../pairing-code`); `session` is that same\n`sessionRef`. Letters, digits, `-` and `_`, up to 64\ncharacters. There is no shared default session: without it\nthe request is rejected with a 422.",
+                                "pattern": "^[A-Za-z0-9_-]+$",
+                                "examples": [
+                                    "ma-boutique"
+                                ],
+                                "maxLength": 64
                             }
                         }
                     },
@@ -3860,10 +3870,11 @@
                     },
                     "variables": {
                         "type": "object",
-                        "description": "Free-form map of provider-specific variables forwarded\nas-is to the channel's adapter. See\n`POST /v1/notifications/text` for the full contract.\nFor `whatsapp` via WAHA, REQUIRED key `phone_number`.",
+                        "description": "Free-form map of provider-specific variables forwarded\nas-is to the channel's adapter. See\n`POST /v1/notifications/text` for the full contract.\nFor `whatsapp`, REQUIRED keys `phone_number` and `session`.",
                         "examples": [
                             {
-                                "phone_number": "+2376XXXXXXXX"
+                                "phone_number": "+2376XXXXXXXX",
+                                "session": "ma-boutique"
                             }
                         ],
                         "properties": {
@@ -3874,6 +3885,15 @@
                                     "+2376XXXXXXXX"
                                 ],
                                 "minLength": 1
+                            },
+                            "session": {
+                                "type": "string",
+                                "description": "When `channel = \"whatsapp\"`: the name of YOUR linked WhatsApp\nsession \u2014 the message is sent from the number linked to it.\nCreate and link it first with\n`GET /v1/notification-channel-sessions/whatsapp/{sessionRef}/qr`\n(or `POST .../pairing-code`); `session` is that same\n`sessionRef`. Letters, digits, `-` and `_`, up to 64\ncharacters. There is no shared default session: without it\nthe request is rejected with a 422.",
+                                "pattern": "^[A-Za-z0-9_-]+$",
+                                "examples": [
+                                    "ma-boutique"
+                                ],
+                                "maxLength": 64
                             }
                         }
                     },
@@ -3926,10 +3946,11 @@
                     },
                     "variables": {
                         "type": "object",
-                        "description": "Free-form map of channel-specific values. The keys\nrequired depend on the channel: - `whatsapp`: REQUIRED key `phone_number`, the recipient's\n  international phone number (E.164, e.g. `+2376XXXXXXXX` \u2014\n  the example is a placeholder, use a number you own). A\n  request without it is rejected with a 422.\n\nAny other key in this map is forwarded untouched.",
+                        "description": "Free-form map of channel-specific values. The keys\nrequired depend on the channel: - `whatsapp`: REQUIRED keys `phone_number` (the recipient's\n  international phone number, E.164, e.g. `+2376XXXXXXXX` \u2014\n  the example is a placeholder, use a number you own) and\n  `session` (the name of YOUR linked WhatsApp session, see\n  below). A request missing either is rejected with a 422.\n\nAny other key in this map is forwarded untouched.",
                         "examples": [
                             {
-                                "phone_number": "+2376XXXXXXXX"
+                                "phone_number": "+2376XXXXXXXX",
+                                "session": "ma-boutique"
                             }
                         ],
                         "properties": {
@@ -3940,6 +3961,15 @@
                                     "+2376XXXXXXXX"
                                 ],
                                 "minLength": 1
+                            },
+                            "session": {
+                                "type": "string",
+                                "description": "When `channel = \"whatsapp\"`: the name of YOUR linked WhatsApp\nsession \u2014 the message is sent from the number linked to it.\nCreate and link it first with\n`GET /v1/notification-channel-sessions/whatsapp/{sessionRef}/qr`\n(or `POST .../pairing-code`); `session` is that same\n`sessionRef`. Letters, digits, `-` and `_`, up to 64\ncharacters. There is no shared default session: without it\nthe request is rejected with a 422.",
+                                "pattern": "^[A-Za-z0-9_-]+$",
+                                "examples": [
+                                    "ma-boutique"
+                                ],
+                                "maxLength": 64
                             }
                         }
                     },

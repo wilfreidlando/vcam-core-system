@@ -64,7 +64,7 @@ final class SendTextNotificationHttpFlowTest extends TestCase
             'channel' => 'whatsapp',
             'to_party_ref' => 'customer-42',
             'text' => 'Hello Marie, your order #1234 is confirmed.',
-            'variables' => ['phone_number' => '+237657467941'],
+            'variables' => ['phone_number' => '+237657467941', 'session' => 'ma-boutique'],
             'client_reference' => 'client-msg-abc123',
         ], ['Authorization' => "Bearer {$token}"]);
 
@@ -76,7 +76,29 @@ final class SendTextNotificationHttpFlowTest extends TestCase
         // provider call — narrows the failure to a different layer than
         // "the phone number was silently dropped somewhere upstream".
         Http::assertSent(fn (Request $r): bool => $r->url() === 'https://waha.test/api/sendText'
-            && $r['chatId'] === '237657467941@c.us');
+            && $r['chatId'] === '237657467941@c.us'
+            && str_ends_with(is_string($r['session']) ? $r['session'] : '', '_ma-boutique'));
+    }
+
+    #[Test]
+    public function a_whatsapp_send_without_the_callers_own_session_is_rejected_not_sent_from_a_shared_number(): void
+    {
+        // Each client links its own WhatsApp session and sends with it; there
+        // is no platform-wide default session to silently fall back to.
+        Http::preventStrayRequests();
+
+        $token = $this->issueTestApiKey();
+
+        $this->postJson('/v1/notifications/text', [
+            'channel' => 'whatsapp',
+            'to_party_ref' => 'customer-42',
+            'text' => 'Hello',
+            'variables' => ['phone_number' => '+2376XXXXXXXX'],
+        ], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['variables.session']);
+
+        Http::assertNothingSent();
     }
 
     private function issueTestApiKey(string $scope = 'notifications:write'): string

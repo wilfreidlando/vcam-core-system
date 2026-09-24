@@ -58,7 +58,7 @@ Points d'attention en le remplissant :
 | `LETSENCRYPT_EMAIL` | L'adresse qui recevra les alertes d'expiration de certificat |
 | `MTN_MOMO_*` / `ORANGE_MONEY_*` | Laisser vide tant que ces adaptateurs ne sont pas construits (hors périmètre actuel — voir `CLAUDE.md`) ; MyCoolPay ne passe pas par ces variables, voir [§9](#9-enregistrer-une-application-provider-mycoolpay) |
 | `WAHA_BASE_URL` / `WAHA_API_KEY` | **Obligatoires pour les notifications WhatsApp** : l'adresse de votre instance WAHA (joignable depuis le conteneur, pas `localhost`) et sa clé d'API. Sans elles, tout envoi WhatsApp répond `201` avec `status: failed` (`requires a non-empty api_key credential`). |
-| `WAHA_DEFAULT_SESSION` / `WAHA_WEBHOOK_SECRET` | Session par défaut (`default`) et secret partagé de l'en-tête `X-Webhook-Secret` des webhooks entrants de WAHA. |
+| `WAHA_WEBHOOK_SECRET` | Secret partagé de l'en-tête `X-Webhook-Secret` des webhooks entrants de WAHA. Il n'y a pas de session par défaut : chaque client envoie avec sa propre session (`variables.session`). |
 
 `.env` ne doit **jamais** être commité — il ne l'est pas
 (`.gitignore`/`.dockerignore` l'excluent déjà tous les deux).
