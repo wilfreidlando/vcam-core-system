@@ -148,7 +148,7 @@ return [
             ],
 
             'timeouts' => [
-                'connect' => 2.0,
+                'connect' => 5.0,
                 'request' => 15.0,
                 'total' => 30.0,
             ],

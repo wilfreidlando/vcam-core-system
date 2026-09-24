@@ -268,6 +268,24 @@ final class WahaAdapterTest extends TestCase
     }
 
     #[Test]
+    public function an_unsupported_screenshot_surfaces_the_providers_own_explanation(): void
+    {
+        Http::fake([
+            'waha.test/api/screenshot*' => Http::response(
+                ['message' => 'Can not get screenshot for non chrome based engine.', 'statusCode' => 422],
+                422,
+            ),
+        ]);
+
+        try {
+            $this->adapter->getScreenshot('shop-1');
+            self::fail('Expected a provider error.');
+        } catch (\Core\Support\Integration\Exception\ProviderPermanentError $e) {
+            self::assertStringContainsString('non chrome based engine', $e->getMessage());
+        }
+    }
+
+    #[Test]
     public function handle_delivery_callback_maps_the_ack_code(): void
     {
         $status = $this->adapter->handleDeliveryCallback(new CallbackPayload(

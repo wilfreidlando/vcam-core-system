@@ -215,7 +215,11 @@ final readonly class WahaAdapter implements ChannelSessionProvider, Notification
             operation: 'whatsapp-waha.session.qr',
         );
 
-        $response = $this->caller->send($this->config, $request);
+        try {
+            $response = $this->caller->send($this->config, $request);
+        } catch (ProviderPermanentError $e) {
+            throw self::explained($e, 'QR code');
+        }
 
         return new ChannelSessionQrCode(
             mimeType: self::contentTypeOf($response),
@@ -233,7 +237,11 @@ final readonly class WahaAdapter implements ChannelSessionProvider, Notification
             operation: 'whatsapp-waha.session.screenshot',
         );
 
-        $response = $this->caller->send($this->config, $request);
+        try {
+            $response = $this->caller->send($this->config, $request);
+        } catch (ProviderPermanentError $e) {
+            throw self::explained($e, 'Screenshot');
+        }
 
         return new ChannelSessionScreenshot(
             mimeType: self::contentTypeOf($response),
@@ -350,6 +358,30 @@ final readonly class WahaAdapter implements ChannelSessionProvider, Notification
         $state = $body['status'] ?? null;
 
         return new ChannelSessionNotLinked(in_array($state, ['SCAN_QR_CODE', 'STARTING'], true) ? 'awaiting_link' : 'disconnected');
+    }
+
+    /**
+     * WAHA explains a refusal in its JSON body (`{"message": "Can not get
+     * screenshot for non chrome based engine."}`, or `{"error": …}`) — the
+     * generic "HTTP 422 (permanent)" hides the one sentence that tells an
+     * operator what to do. Only used for the session tooling (QR /
+     * screenshot), whose callers are operators, never for a send.
+     */
+    private static function explained(ProviderPermanentError $e, string $what): ProviderPermanentError
+    {
+        $body = $e->responseBody;
+        $reason = is_array($body) ? ($body['message'] ?? $body['error'] ?? null) : null;
+        if (! is_string($reason) || $reason === '') {
+            return $e;
+        }
+
+        return new ProviderPermanentError(
+            sprintf('%s unavailable: the WhatsApp provider answered "%s".', $what, $reason),
+            $e->providerCode,
+            $e->httpStatus,
+            $e,
+            $body,
+        );
     }
 
     /**
