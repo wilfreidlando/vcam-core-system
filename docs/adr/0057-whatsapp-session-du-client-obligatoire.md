@@ -48,7 +48,15 @@ et identique quel que soit le fournisseur.
   Le contrôle de compatibilité OpenAPI le signalera comme rupture ; c'est voulu.
 - Les sessions créées avant cette table ne sont pas enregistrées : il faut les enregistrer (les recréer
   dans la console est idempotent) avant de pouvoir envoyer avec.
-- **Non traité** : le registre ne dit pas si un téléphone est lié. Une session enregistrée mais non liée
-  répond `201` avec `status: failed` et `error_message` peu explicite (`HTTP 422 (permanent)`), alors que WAHA
-  indique `Session status is not as expected … expected WORKING`. Pas de suppression de session dans la
-  console non plus.
+- **Supprimer une session** (console, avec confirmation) : supprimée chez le fournisseur **d'abord**
+  (le téléphone lié est déconnecté ; une session déjà absente chez lui — 404 — compte comme faite), puis
+  désenregistrée. Si le fournisseur refuse (panne, authentification), l'enregistrement reste : il ne doit
+  jamais disparaître alors que la session vit encore chez le fournisseur.
+- **Session enregistrée mais non liée** : le registre ne sait pas si un téléphone est lié, c'est le
+  fournisseur qui refuse l'envoi. L'adaptateur traduit ce refus (WAHA : `422 « Session status is not as
+  expected »`) en une erreur explicite (`ChannelSessionNotLinked`) : la notification finit `failed` avec un
+  `error_message` clair (« not linked to a phone (waiting for the QR code to be scanned | disconnected)… »)
+  au lieu de `HTTP 422 (permanent)`. Pour cela `ProviderException` porte désormais le corps de réponse
+  du fournisseur (`responseBody`), jamais recopié dans le message.
+- **Non traité** : l'état de liaison n'est pas affiché dans la liste de la console (il faudrait interroger le
+  fournisseur à chaque affichage).

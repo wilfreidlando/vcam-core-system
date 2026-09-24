@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Notification\Infrastructure\Provider\Waha;
 
 use Core\Notification\Contracts\CallbackPayload;
+use Core\Notification\Contracts\ChannelSessionNotLinked;
 use Core\Notification\Contracts\ChannelSessionProvider;
 use Core\Notification\Contracts\ChannelSessionQrCode;
 use Core\Notification\Contracts\ChannelSessionScreenshot;
@@ -94,11 +95,15 @@ final readonly class WahaAdapter implements ChannelSessionProvider, Notification
         $sessionRef = self::sessionRefFor($message->variables, $message->appMessageRef);
         $type = self::str($message->body, 'type', 'text');
 
-        $response = match ($type) {
-            'image' => $this->doSendImage($sessionRef, $chatId, $message->body, $message->variables),
-            'file' => $this->doSendFile($sessionRef, $chatId, $message->body, $message->variables),
-            default => $this->doSendText($sessionRef, $chatId, $message->body, $message->variables),
-        };
+        try {
+            $response = match ($type) {
+                'image' => $this->doSendImage($sessionRef, $chatId, $message->body, $message->variables),
+                'file' => $this->doSendFile($sessionRef, $chatId, $message->body, $message->variables),
+                default => $this->doSendText($sessionRef, $chatId, $message->body, $message->variables),
+            };
+        } catch (ProviderPermanentError $e) {
+            throw self::notLinkedFrom($e) ?? $e;
+        }
 
         $providerMessageId = self::messageIdFrom($response->body ?? []);
         if ($providerMessageId === '') {
@@ -157,6 +162,27 @@ final readonly class WahaAdapter implements ChannelSessionProvider, Notification
             // WAHA answers with a 4xx when a session by this name
             // already exists — the desired end state (present, starting
             // or already running) is already satisfied.
+        }
+    }
+
+    public function deleteSession(string $sessionRef): void
+    {
+        $request = new ExternalRequest(
+            method: HttpMethod::DELETE,
+            path: '/api/sessions/'.$sessionRef,
+            providerCode: $this->config->code,
+            operation: 'whatsapp-waha.session.delete',
+        );
+
+        try {
+            $this->caller->send($this->config, $request);
+        } catch (ProviderPermanentError $e) {
+            // Already gone at the provider — the desired end state. Any
+            // other refusal (auth, transient, disabled) is NOT swallowed:
+            // the registration must not disappear while the session lives.
+            if ($e->httpStatus !== 404) {
+                throw $e;
+            }
         }
     }
 
@@ -300,6 +326,29 @@ final readonly class WahaAdapter implements ChannelSessionProvider, Notification
         }
 
         return $session;
+    }
+
+    /**
+     * WAHA refuses a send from a session that is not `WORKING` with
+     * `422 {"error": "Session status is not as expected…", "status": "<state>"}`
+     * — turned into an explicit, client-readable error instead of the
+     * generic "HTTP 422 (permanent)".
+     */
+    private static function notLinkedFrom(ProviderPermanentError $e): ?ChannelSessionNotLinked
+    {
+        $body = $e->responseBody;
+        if ($e->httpStatus !== 422 || ! is_array($body)) {
+            return null;
+        }
+
+        $error = $body['error'] ?? null;
+        if (! is_string($error) || ! str_contains($error, 'Session status is not as expected')) {
+            return null;
+        }
+
+        $state = $body['status'] ?? null;
+
+        return new ChannelSessionNotLinked(in_array($state, ['SCAN_QR_CODE', 'STARTING'], true) ? 'awaiting_link' : 'disconnected');
     }
 
     /**

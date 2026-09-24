@@ -12,6 +12,8 @@ use Core\Identity\Contracts\OperatorContext;
 use Core\Notification\Contracts\ChannelSessionNotFound;
 use Core\Notification\Contracts\CreateChannelSession;
 use Core\Notification\Contracts\CreateChannelSessionCommand;
+use Core\Notification\Contracts\DeleteChannelSession;
+use Core\Notification\Contracts\DeleteChannelSessionCommand;
 use Core\Notification\Contracts\GetChannelSessionCommand;
 use Core\Notification\Contracts\GetChannelSessionQrCode;
 use Core\Notification\Contracts\GetChannelSessionScreenshot;
@@ -48,6 +50,7 @@ final class ChannelSessionsController
     public function __construct(
         private readonly CreateChannelSession $createSession,
         private readonly ListChannelSessions $listSessions,
+        private readonly DeleteChannelSession $deleteSession,
         private readonly GetChannelSessionQrCode $getQrCode,
         private readonly GetChannelSessionScreenshot $getScreenshot,
         private readonly RequestChannelSessionPairingCode $requestPairingCode,
@@ -154,6 +157,33 @@ final class ChannelSessionsController
 
         return redirect()->to($this->indexUrl($projectId))
             ->with('status', "Code d'appairage pour « {$sessionRef} » : {$view->code} — saisissez-le dans WhatsApp › Appareils connectés › Associer avec le numéro de téléphone.");
+    }
+
+    public function destroy(Request $request, OperatorContext $operator): RedirectResponse
+    {
+        $projectId = $this->projectId($request);
+        $sessionRef = $this->sessionRef($request);
+        $this->authorize($operator, $projectId);
+
+        try {
+            $this->deleteSession->delete(new DeleteChannelSessionCommand($projectId, NotificationChannel::fromString(self::CHANNEL), $sessionRef));
+        } catch (ChannelSessionNotFound|ProviderException $e) {
+            return redirect()->to($this->indexUrl($projectId))->withErrors(['pairing' => 'Suppression impossible : '.$e->getMessage()]);
+        }
+
+        $this->audit->record(new AuditEntry(
+            actor: 'operator:'.$operator->operatorId,
+            action: 'channel_session.deleted',
+            resource: 'channel_session:'.($projectId ?? 'platform').':'.$sessionRef,
+            before: ['project_id' => $projectId, 'channel' => self::CHANNEL, 'session_ref' => $sessionRef],
+            after: null,
+            context: [],
+            correlationId: null,
+            occurredAt: $this->clock->now(),
+        ));
+
+        return redirect()->to($this->indexUrl($projectId))
+            ->with('status', "Session « {$sessionRef} » supprimée (chez le fournisseur et dans le Core) : plus aucun envoi possible avec elle.");
     }
 
     /**

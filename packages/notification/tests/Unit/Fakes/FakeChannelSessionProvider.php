@@ -17,6 +17,7 @@ use Core\Notification\NotificationStatus;
 use Core\Support\Integration\Configuration\ProviderConfig;
 use Core\Support\Integration\Provider\ProviderCode;
 use LogicException;
+use Throwable;
 
 /**
  * A provider that implements both contracts — the shape `WahaAdapter`
@@ -36,6 +37,11 @@ final class FakeChannelSessionProvider implements ChannelSessionProvider, Notifi
 
     public ChannelSessionScreenshot $nextScreenshot;
 
+    /** @var list<string> */
+    public array $deletedSessions = [];
+
+    public ?Throwable $failDeleteWith = null;
+
     public function __construct(
         private readonly ProviderCode $code,
     ) {
@@ -46,6 +52,15 @@ final class FakeChannelSessionProvider implements ChannelSessionProvider, Notifi
     public function startSession(string $sessionRef): void
     {
         $this->startedSessions[] = $sessionRef;
+    }
+
+    public function deleteSession(string $sessionRef): void
+    {
+        if ($this->failDeleteWith !== null) {
+            throw $this->failDeleteWith;
+        }
+
+        $this->deletedSessions[] = $sessionRef;
     }
 
     public function requestPairingCode(string $sessionRef, string $phoneNumber): string

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Core\Notification\Application\UseCase\CreateChannelSessionUseCase;
+use Core\Notification\Application\UseCase\DeleteChannelSessionUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionQrCodeUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionScreenshotUseCase;
 use Core\Notification\Application\UseCase\ListChannelSessionsUseCase;
@@ -10,6 +11,7 @@ use Core\Notification\Application\UseCase\RequestChannelSessionPairingCodeUseCas
 use Core\Notification\Contracts\ChannelDoesNotSupportSessions;
 use Core\Notification\Contracts\ChannelSessionNotFound;
 use Core\Notification\Contracts\CreateChannelSessionCommand;
+use Core\Notification\Contracts\DeleteChannelSessionCommand;
 use Core\Notification\Contracts\GetChannelSessionCommand;
 use Core\Notification\Contracts\ListChannelSessionsCommand;
 use Core\Notification\Contracts\NotificationChannel;
@@ -153,4 +155,45 @@ it('scopes a session ref into a name a real WAHA accepts', function (): void {
     // fail against a real instance while all fakes stayed green.
     expect(Core\Notification\Domain\Model\ScopedSessionRef::for('01a0d4a4-11d0-732b-b413-db21199feb62', 'main')->value)
         ->toMatch('/^[A-Za-z0-9_-]+$/');
+});
+
+it('deleting a project session removes it at the provider under the namespaced name and unregisters it', function (): void {
+    [$provider, $registry, $router, $sessions] = sessionFixtures();
+    registerSession($sessions, 'project-1', 'shop-1');
+
+    (new DeleteChannelSessionUseCase($router, $registry, $sessions))
+        ->delete(new DeleteChannelSessionCommand('project-1', whatsapp(), 'shop-1'));
+
+    expect($provider->deletedSessions)->toBe(['project-1_shop-1'])
+        ->and($sessions->find('project-1', 'whatsapp', 'shop-1'))->toBeNull();
+});
+
+it('deleting a global session removes it under its plain name', function (): void {
+    [$provider, $registry, $router, $sessions] = sessionFixtures();
+    registerSession($sessions, null, 'shared');
+
+    (new DeleteChannelSessionUseCase($router, $registry, $sessions))
+        ->delete(new DeleteChannelSessionCommand(null, whatsapp(), 'shared'));
+
+    expect($provider->deletedSessions)->toBe(['shared'])->and($sessions->sessions)->toBe([]);
+});
+
+it('does not delete a session that is not registered for that owner, and never touches the provider', function (): void {
+    [$provider, $registry, $router, $sessions] = sessionFixtures();
+    registerSession($sessions, 'project-2', 'theirs');
+
+    expect(fn () => (new DeleteChannelSessionUseCase($router, $registry, $sessions))
+        ->delete(new DeleteChannelSessionCommand('project-1', whatsapp(), 'theirs')))->toThrow(ChannelSessionNotFound::class)
+        ->and($provider->deletedSessions)->toBe([])
+        ->and($sessions->sessions)->toHaveCount(1);
+});
+
+it('keeps the registration when the provider refuses the deletion', function (): void {
+    [$provider, $registry, $router, $sessions] = sessionFixtures();
+    registerSession($sessions, 'project-1', 'shop-1');
+    $provider->failDeleteWith = new RuntimeException('provider down');
+
+    expect(fn () => (new DeleteChannelSessionUseCase($router, $registry, $sessions))
+        ->delete(new DeleteChannelSessionCommand('project-1', whatsapp(), 'shop-1')))->toThrow(RuntimeException::class)
+        ->and($sessions->find('project-1', 'whatsapp', 'shop-1'))->not->toBeNull();
 });

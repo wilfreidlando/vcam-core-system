@@ -204,6 +204,7 @@ final readonly class ExternalApiCallerImpl implements ExternalApiCaller
                 ),
                 $config->code,
                 httpStatus: $response->status,
+                responseBody: $response->body,
             );
         }
 

@@ -137,6 +137,66 @@ final class WahaAdapterTest extends TestCase
     }
 
     #[Test]
+    public function a_send_from_a_session_waiting_for_its_qr_scan_says_so_explicitly(): void
+    {
+        Http::fake(['waha.test/api/sendText' => Http::response([
+            'error' => 'Session status is not as expected. Try again later or restart the session',
+            'session' => 'project-1_shop-1', 'status' => 'SCAN_QR_CODE', 'expected' => ['WORKING'],
+        ], 422)]);
+
+        try {
+            $this->adapter->send($this->message(body: ['type' => 'text', 'text' => 'hi'], variables: ['phone_number' => '237699009900']));
+            self::fail('expected ChannelSessionNotLinked');
+        } catch (\Core\Notification\Contracts\ChannelSessionNotLinked $e) {
+            self::assertSame('awaiting_link', $e->state);
+            self::assertStringContainsString('waiting for the QR code to be scanned', $e->getMessage());
+            // The provider-side name (which embeds the project id) never reaches the client.
+            self::assertStringNotContainsString('project-1_shop-1', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function a_send_from_a_failed_session_says_it_is_disconnected_and_any_other_422_stays_a_provider_error(): void
+    {
+        Http::fake(['waha.test/api/sendText' => Http::sequence()
+            ->push(['error' => 'Session status is not as expected.', 'status' => 'FAILED'], 422)
+            ->push(['error' => 'something else entirely'], 422)]);
+
+        try {
+            $this->adapter->send($this->message(body: ['type' => 'text', 'text' => 'hi'], variables: ['phone_number' => '237699009900']));
+            self::fail('expected ChannelSessionNotLinked');
+        } catch (\Core\Notification\Contracts\ChannelSessionNotLinked $e) {
+            self::assertSame('disconnected', $e->state);
+        }
+
+        $this->expectException(\Core\Support\Integration\Exception\ProviderPermanentError::class);
+        $this->adapter->send($this->message(body: ['type' => 'text', 'text' => 'hi'], variables: ['phone_number' => '237699009900']));
+    }
+
+    #[Test]
+    public function delete_session_calls_delete_and_treats_an_already_missing_session_as_done(): void
+    {
+        Http::fake(['waha.test/api/sessions/*' => Http::sequence()
+            ->push('', 200)
+            ->push(['message' => 'not found'], 404)]);
+
+        $this->adapter->deleteSession('project-1_shop-1');
+        $this->adapter->deleteSession('project-1_gone');
+
+        Http::assertSent(fn (Request $r): bool => $r->method() === 'DELETE' && $r->url() === 'https://waha.test/api/sessions/project-1_shop-1');
+        Http::assertSentCount(2);
+    }
+
+    #[Test]
+    public function delete_session_does_not_swallow_a_provider_outage(): void
+    {
+        Http::fake(['waha.test/api/sessions/*' => Http::response('boom', 503)]);
+
+        $this->expectException(\Core\Support\Integration\Exception\ProviderTransientError::class);
+        $this->adapter->deleteSession('project-1_shop-1');
+    }
+
+    #[Test]
     public function send_without_a_phone_number_variable_throws(): void
     {
         $this->expectException(MissingRecipientPhoneNumber::class);

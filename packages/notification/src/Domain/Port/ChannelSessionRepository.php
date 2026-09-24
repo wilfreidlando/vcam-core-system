@@ -13,6 +13,8 @@ interface ChannelSessionRepository
      */
     public function save(ChannelSession $session): void;
 
+    public function delete(?string $projectId, string $channel, string $sessionRef): void;
+
     /**
      * Exact owner match: `$projectId === null` means the global one.
      */

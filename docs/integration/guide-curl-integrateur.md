@@ -332,7 +332,7 @@ curl -s "$BASE_URL/v1/notifications/01a0d4ab-d472-7168-a70d-d715328418b7" \
 | Canal WhatsApp sans `variables.phone_number` | `422` (`errors["variables.phone_number"]`) |
 | Canal WhatsApp sans `variables.session`, ou nom invalide (autre chose que lettres, chiffres, `-`, `_`, 64 max) | `422` (`errors["variables.session"]`) |
 | Session non enregistrée pour votre projet (et non globale) | `422` `channel-session-not-found`, message explicite, **rien n'est envoyé** |
-| Session enregistrée mais aucun téléphone lié | `201` avec `"status":"failed"` (`error_message`: `HTTP 422 (permanent)`) |
+| Session enregistrée mais aucun téléphone lié (ou déconnecté) | `201` avec `"status":"failed"` et un `error_message` explicite : « The WhatsApp session used for this send is not linked to a phone (…). Ask the platform administrator to link it… Nothing was sent. » |
 | `channel` autre que `whatsapp` | `422` (`errors.channel`) |
 | `media_url` inexistante / non publique | `422` (`errors.media_url`) |
 | Échec côté WhatsApp/WAHA (session déconnectée…) | `201` avec `"status":"failed"` et `error_message` — l'envoi est traité de façon synchrone, **testez toujours `status`**, pas seulement le code HTTP |

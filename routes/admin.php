@@ -125,6 +125,8 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->where('sessionRef', '[A-Za-z0-9_-]+')->name('projects.channel-sessions.screenshot');
             Route::post('{projectId}/whatsapp-sessions/{sessionRef}/pairing-code', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'pairingCode'])
                 ->where('sessionRef', '[A-Za-z0-9_-]+')->name('projects.channel-sessions.pairing-code');
+            Route::post('{projectId}/whatsapp-sessions/{sessionRef}/delete', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'destroy'])
+                ->where('sessionRef', '[A-Za-z0-9_-]+')->name('projects.channel-sessions.delete');
             Route::get('{projectId}/provider-applications/create', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'create'])
                 ->name('projects.provider-applications.create');
             Route::post('{projectId}/provider-applications', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'store'])
@@ -206,6 +208,8 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->where('sessionRef', '[A-Za-z0-9_-]+')->name('channel-sessions.screenshot');
             Route::post('{sessionRef}/pairing-code', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'pairingCode'])
                 ->where('sessionRef', '[A-Za-z0-9_-]+')->name('channel-sessions.pairing-code');
+            Route::post('{sessionRef}/delete', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'destroy'])
+                ->where('sessionRef', '[A-Za-z0-9_-]+')->name('channel-sessions.delete');
         });
 
         Route::prefix('operators')->group(function (): void {

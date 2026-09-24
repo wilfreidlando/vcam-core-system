@@ -157,6 +157,16 @@ final class AdminWebFlowTest extends TestCase
         // Audited.
         $this->get('/admin/audit-log')->assertSee('channel_session.created');
 
+        // Deletion: removed at the provider AND unregistered; audited.
+        \Illuminate\Support\Facades\Http::fake(['waha.test/api/sessions/*' => \Illuminate\Support\Facades\Http::response('', 200)]);
+        $this->post("/admin/projects/{$project->id}/whatsapp-sessions/ma-boutique/delete")
+            ->assertRedirect(route('admin.projects.channel-sessions.index', ['projectId' => $project->id]));
+        \Illuminate\Support\Facades\Http::assertSent(fn (\Illuminate\Http\Client\Request $r): bool => $r->method() === 'DELETE'
+            && $r->url() === 'https://waha.test/api/sessions/'.$project->id.'_ma-boutique');
+        $this->assertDatabaseMissing('notification_channel_sessions', ['session_ref' => 'ma-boutique']);
+        $this->get('/admin/audit-log')->assertSee('channel_session.deleted');
+        $this->get("/admin/projects/{$project->id}/whatsapp-sessions")->assertDontSee('Supprimer « ma-boutique', false);
+
         // An invalid name never reaches the provider.
         $before = count(\Illuminate\Support\Facades\Http::recorded());
         $this->post("/admin/projects/{$project->id}/whatsapp-sessions", ['session_ref' => 'ma boutique:1'])->assertSessionHasErrors('session_ref');
@@ -189,6 +199,7 @@ final class AdminWebFlowTest extends TestCase
 
         $this->get('/admin/whatsapp-sessions')->assertForbidden();
         $this->post('/admin/whatsapp-sessions', ['session_ref' => 'x'])->assertForbidden();
+        $this->post('/admin/whatsapp-sessions/x/delete')->assertForbidden();
     }
 
     #[Test]

@@ -127,6 +127,31 @@ final class SendTextNotificationHttpFlowTest extends TestCase
     }
 
     #[Test]
+    public function a_registered_but_unlinked_session_ends_failed_with_an_explicit_reason(): void
+    {
+        config(['providers.notification.whatsapp_waha.base_url' => 'https://waha.test']);
+        Http::preventStrayRequests();
+        Http::fake(['waha.test/api/sendText' => Http::response([
+            'error' => 'Session status is not as expected. Try again later or restart the session',
+            'status' => 'SCAN_QR_CODE', 'expected' => ['WORKING'],
+        ], 422)]);
+
+        [$token, $projectId] = $this->issueTestApiKey();
+        $this->registerSession($projectId, 'ma-boutique');
+
+        $response = $this->postJson('/v1/notifications/text', [
+            'channel' => 'whatsapp', 'to_party_ref' => 'c', 'text' => 'Hello',
+            'variables' => ['phone_number' => '+2376XXXXXXXX', 'session' => 'ma-boutique'],
+        ], ['Authorization' => "Bearer {$token}"]);
+
+        $response->assertStatus(201)->assertJsonPath('status', 'failed');
+        $reason = $response->json('error_message');
+        self::assertIsString($reason);
+        self::assertStringContainsString('not linked to a phone', $reason);
+        self::assertStringNotContainsString('HTTP 422', $reason);
+    }
+
+    #[Test]
     public function a_global_session_can_be_used_by_any_project_but_a_projects_session_only_by_itself(): void
     {
         config(['providers.notification.whatsapp_waha.base_url' => 'https://waha.test']);

@@ -6,6 +6,7 @@ namespace Core\Notification;
 
 use Core\Notification\Application\Support\NotificationSendCascade;
 use Core\Notification\Application\UseCase\CreateChannelSessionUseCase;
+use Core\Notification\Application\UseCase\DeleteChannelSessionUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionQrCodeUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionScreenshotUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionUseCase;
@@ -18,6 +19,7 @@ use Core\Notification\Application\UseCase\SendFileNotificationUseCase;
 use Core\Notification\Application\UseCase\SendImageNotificationUseCase;
 use Core\Notification\Application\UseCase\SendTextNotificationUseCase;
 use Core\Notification\Contracts\CreateChannelSession;
+use Core\Notification\Contracts\DeleteChannelSession;
 use Core\Notification\Contracts\GetChannelSession;
 use Core\Notification\Contracts\GetChannelSessionQrCode;
 use Core\Notification\Contracts\GetChannelSessionScreenshot;
@@ -97,6 +99,7 @@ final class NotificationServiceProvider extends ServiceProvider
         $this->app->bind(NotificationStatusChangeHandler::class, HandleNotificationStatusChangedUseCase::class);
 
         $this->app->bind(CreateChannelSession::class, CreateChannelSessionUseCase::class);
+        $this->app->bind(DeleteChannelSession::class, DeleteChannelSessionUseCase::class);
         $this->app->bind(ListChannelSessions::class, ListChannelSessionsUseCase::class);
         $this->app->bind(GetChannelSession::class, GetChannelSessionUseCase::class);
         $this->app->bind(GetChannelSessionQrCode::class, GetChannelSessionQrCodeUseCase::class);

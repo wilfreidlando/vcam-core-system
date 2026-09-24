@@ -50,6 +50,16 @@
                                        class="w-40 rounded-md border border-slate-300 px-2 py-1 text-sm">
                                 <button type="submit" class="font-medium text-indigo-600 hover:text-indigo-800">Code d'appairage</button>
                             </form>
+                            @php
+                                $confirmMessage = $projectId === null
+                                    ? "Session GLOBALE : tous les projets qui l'utilisent ne pourront plus envoyer, et le téléphone lié sera déconnecté. Supprimer « {$session->sessionRef} » ?"
+                                    : "Supprimer « {$session->sessionRef} » ? Le téléphone lié sera déconnecté et ce projet ne pourra plus envoyer avec.";
+                            @endphp
+                            <form method="POST" action="{{ $routeFor('delete', ['sessionRef' => $session->sessionRef]) }}" class="ml-auto"
+                                  onsubmit="return confirm(@js($confirmMessage))">
+                                @csrf
+                                <button type="submit" class="font-medium text-rose-600 hover:text-rose-800">Supprimer</button>
+                            </form>
                         </div>
                     </li>
                 @endforeach

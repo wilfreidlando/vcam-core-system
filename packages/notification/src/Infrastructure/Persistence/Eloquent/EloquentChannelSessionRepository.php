@@ -25,6 +25,17 @@ final class EloquentChannelSessionRepository implements ChannelSessionRepository
         ]);
     }
 
+    public function delete(?string $projectId, string $channel, string $sessionRef): void
+    {
+        $record = ChannelSessionRecord::query()
+            ->where('project_id', $projectId)
+            ->where('channel', $channel)
+            ->where('session_ref', $sessionRef)
+            ->first();
+
+        $record?->delete();
+    }
+
     public function find(?string $projectId, string $channel, string $sessionRef): ?ChannelSession
     {
         // `where('project_id', null)` is compiled to `IS NULL` by Laravel.

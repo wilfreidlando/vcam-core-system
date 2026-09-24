@@ -19,6 +19,14 @@ final class InMemoryChannelSessionRepository implements ChannelSessionRepository
         }
     }
 
+    public function delete(?string $projectId, string $channel, string $sessionRef): void
+    {
+        $this->sessions = array_values(array_filter(
+            $this->sessions,
+            static fn (ChannelSession $s): bool => ! ($s->projectId === $projectId && $s->channel === $channel && $s->sessionRef === $sessionRef),
+        ));
+    }
+
     public function find(?string $projectId, string $channel, string $sessionRef): ?ChannelSession
     {
         foreach ($this->sessions as $session) {

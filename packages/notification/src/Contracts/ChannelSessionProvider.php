@@ -39,6 +39,13 @@ interface ChannelSessionProvider
      */
     public function startSession(string $sessionRef): void;
 
+    /**
+     * Removes the session at the provider (which also disconnects any linked
+     * phone). Idempotent: a session the provider no longer has is not an
+     * error.
+     */
+    public function deleteSession(string $sessionRef): void;
+
     public function requestPairingCode(string $sessionRef, string $phoneNumber): string;
 
     public function getQrCode(string $sessionRef): ChannelSessionQrCode;

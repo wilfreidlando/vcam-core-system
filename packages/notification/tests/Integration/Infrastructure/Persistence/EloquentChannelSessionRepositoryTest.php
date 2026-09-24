@@ -87,6 +87,19 @@ final class EloquentChannelSessionRepositoryTest extends TestCase
         self::assertSame(['g1'], $names(null));
     }
 
+    #[Test]
+    public function delete_removes_only_the_exact_owners_registration(): void
+    {
+        $repository = app(ChannelSessionRepository::class);
+        $repository->save($this->registered(self::PROJECT_A, 'main'));
+        $repository->save($this->registered(null, 'main'));
+
+        $repository->delete(self::PROJECT_A, 'whatsapp', 'main');
+
+        self::assertNull($repository->find(self::PROJECT_A, 'whatsapp', 'main'));
+        self::assertNotNull($repository->find(null, 'whatsapp', 'main'));
+    }
+
     private function registered(?string $projectId, string $ref): ChannelSession
     {
         return new ChannelSession((string) Str::uuid(), $projectId, 'whatsapp', $ref, new DateTimeImmutable);
