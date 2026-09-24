@@ -126,6 +126,7 @@ final class AdminWebFlowTest extends TestCase
             'waha.test/api/sessions' => \Illuminate\Support\Facades\Http::response(['name' => 'x', 'status' => 'STARTING'], 201),
             'waha.test/api/*/auth/qr' => \Illuminate\Support\Facades\Http::response('qr-bytes', 200, ['Content-Type' => 'image/png']),
             'waha.test/api/screenshot*' => \Illuminate\Support\Facades\Http::response('shot-bytes', 200, ['Content-Type' => 'image/png']),
+            'waha.test/api/sessions/*' => \Illuminate\Support\Facades\Http::response(['name' => 'x', 'status' => 'WORKING'], 200),
             'waha.test/api/*/auth/request-code' => \Illuminate\Support\Facades\Http::response(['code' => 'ABCD-1234'], 200),
         ]);
 
@@ -144,12 +145,18 @@ final class AdminWebFlowTest extends TestCase
 
         // Listed, with the three actions next to it.
         $this->get("/admin/projects/{$project->id}/whatsapp-sessions")
-            ->assertOk()->assertSee('ma-boutique')->assertSee('Scanner (QR)')->assertSee("Capture d'écran", false)->assertSee("Code d'appairage", false);
+            ->assertOk()->assertSee('ma-boutique')->assertSee('Statut')->assertSee('Scanner (QR)')->assertSee("Capture d'écran", false)->assertSee("Code d'appairage", false);
 
         $this->get("/admin/projects/{$project->id}/whatsapp-sessions/ma-boutique/qr")->assertOk()->assertSee('data:image/png;base64,', false);
         $this->get("/admin/projects/{$project->id}/whatsapp-sessions/ma-boutique/screenshot")->assertOk()->assertSee('data:image/png;base64,', false);
         $this->post("/admin/projects/{$project->id}/whatsapp-sessions/ma-boutique/pairing-code", ['phone_number' => '+2376XXXXXXXX'])
             ->assertRedirect()->assertSessionHas('status');
+
+        // Live state, read at the provider under the project-namespaced name.
+        $this->get("/admin/projects/{$project->id}/whatsapp-sessions/ma-boutique/status")
+            ->assertRedirect()->assertSessionHas('status');
+        \Illuminate\Support\Facades\Http::assertSent(fn (\Illuminate\Http\Client\Request $r): bool => $r->method() === 'GET'
+            && $r->url() === 'https://waha.test/api/sessions/'.$project->id.'_ma-boutique');
 
         // A session that was never registered has no QR: explicit message, not a provider call.
         $this->get("/admin/projects/{$project->id}/whatsapp-sessions/ghost/qr")->assertOk()->assertSee('is not registered for this project');

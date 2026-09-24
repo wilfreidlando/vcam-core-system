@@ -9,6 +9,7 @@ use Core\Notification\Contracts\ChannelSessionNotLinked;
 use Core\Notification\Contracts\ChannelSessionProvider;
 use Core\Notification\Contracts\ChannelSessionQrCode;
 use Core\Notification\Contracts\ChannelSessionScreenshot;
+use Core\Notification\Contracts\ChannelSessionState;
 use Core\Notification\Contracts\DeliveryStatus;
 use Core\Notification\Contracts\MissingChannelSession;
 use Core\Notification\Contracts\MissingRecipientPhoneNumber;
@@ -185,6 +186,34 @@ final readonly class WahaAdapter implements ChannelSessionProvider, Notification
                 throw $e;
             }
         }
+    }
+
+    public function getSessionState(string $sessionRef): ChannelSessionState
+    {
+        $request = new ExternalRequest(
+            method: HttpMethod::GET,
+            path: '/api/sessions/'.$sessionRef,
+            providerCode: $this->config->code,
+            operation: 'whatsapp-waha.session.status',
+        );
+
+        try {
+            $response = $this->caller->send($this->config, $request);
+        } catch (ProviderPermanentError $e) {
+            if ($e->httpStatus === 404) {
+                return ChannelSessionState::MissingAtProvider;
+            }
+
+            throw $e;
+        }
+
+        return match (strtolower(self::str($response->body ?? [], 'status'))) {
+            'working' => ChannelSessionState::Linked,
+            'scan_qr_code', 'starting' => ChannelSessionState::AwaitingLink,
+            'stopped' => ChannelSessionState::Stopped,
+            'failed' => ChannelSessionState::Failed,
+            default => ChannelSessionState::Unknown,
+        };
     }
 
     public function requestPairingCode(string $sessionRef, string $phoneNumber): string

@@ -20,7 +20,8 @@ namespace Core\Notification\Contracts;
  *
  * The Core records WHICH sessions exist and who owns them (ADR-0057:
  * `notification_channel_sessions`, created by an operator) but never their
- * state — whether a phone is linked stays the provider's business. This
+ * state — whether a phone is linked stays the provider's business (read
+ * live through `getSessionState()`). This
  * keeps the wire contract stable across providers: swapping WAHA for a
  * different WhatsApp API later only means writing a new adapter.
  */
@@ -43,6 +44,13 @@ interface ChannelSessionProvider
      * error.
      */
     public function deleteSession(string $sessionRef): void;
+
+    /**
+     * The session's current state, read live from the provider and mapped to
+     * the canonical `ChannelSessionState`. A session the provider does not
+     * know is `MissingAtProvider`, not an error.
+     */
+    public function getSessionState(string $sessionRef): ChannelSessionState;
 
     public function requestPairingCode(string $sessionRef, string $phoneNumber): string;
 

@@ -8,6 +8,7 @@ use Core\Notification\Contracts\CallbackPayload;
 use Core\Notification\Contracts\ChannelSessionProvider;
 use Core\Notification\Contracts\ChannelSessionQrCode;
 use Core\Notification\Contracts\ChannelSessionScreenshot;
+use Core\Notification\Contracts\ChannelSessionState;
 use Core\Notification\Contracts\DeliveryStatus;
 use Core\Notification\Contracts\NotificationChannel;
 use Core\Notification\Contracts\NotificationChannelProvider;
@@ -42,6 +43,8 @@ final class FakeChannelSessionProvider implements ChannelSessionProvider, Notifi
 
     public ?Throwable $failDeleteWith = null;
 
+    public ChannelSessionState $nextState = ChannelSessionState::Linked;
+
     public function __construct(
         private readonly ProviderCode $code,
     ) {
@@ -61,6 +64,11 @@ final class FakeChannelSessionProvider implements ChannelSessionProvider, Notifi
         }
 
         $this->deletedSessions[] = $sessionRef;
+    }
+
+    public function getSessionState(string $sessionRef): ChannelSessionState
+    {
+        return $this->nextState;
     }
 
     public function requestPairingCode(string $sessionRef, string $phoneNumber): string

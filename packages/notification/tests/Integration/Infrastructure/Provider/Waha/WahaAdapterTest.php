@@ -286,6 +286,37 @@ final class WahaAdapterTest extends TestCase
     }
 
     #[Test]
+    public function get_session_state_maps_the_providers_states_to_canonical_ones(): void
+    {
+        $expected = [
+            'WORKING' => \Core\Notification\Contracts\ChannelSessionState::Linked,
+            'SCAN_QR_CODE' => \Core\Notification\Contracts\ChannelSessionState::AwaitingLink,
+            'STARTING' => \Core\Notification\Contracts\ChannelSessionState::AwaitingLink,
+            'STOPPED' => \Core\Notification\Contracts\ChannelSessionState::Stopped,
+            'FAILED' => \Core\Notification\Contracts\ChannelSessionState::Failed,
+            'SOMETHING_NEW' => \Core\Notification\Contracts\ChannelSessionState::Unknown,
+        ];
+
+        $sequence = Http::sequence();
+        foreach (array_keys($expected) as $raw) {
+            $sequence->push(['name' => 'shop-1', 'status' => $raw], 200);
+        }
+        Http::fake(['waha.test/api/sessions/shop-1' => $sequence]);
+
+        foreach ($expected as $raw => $state) {
+            self::assertSame($state, $this->adapter->getSessionState('shop-1'), $raw);
+        }
+    }
+
+    #[Test]
+    public function get_session_state_of_a_session_the_provider_does_not_know_is_missing_not_an_error(): void
+    {
+        Http::fake(['waha.test/api/sessions/ghost' => Http::response(['message' => 'Session not found'], 404)]);
+
+        self::assertSame(\Core\Notification\Contracts\ChannelSessionState::MissingAtProvider, $this->adapter->getSessionState('ghost'));
+    }
+
+    #[Test]
     public function handle_delivery_callback_maps_the_ack_code(): void
     {
         $status = $this->adapter->handleDeliveryCallback(new CallbackPayload(

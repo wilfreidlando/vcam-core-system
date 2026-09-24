@@ -9,6 +9,7 @@ use Core\Notification\Application\UseCase\CreateChannelSessionUseCase;
 use Core\Notification\Application\UseCase\DeleteChannelSessionUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionQrCodeUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionScreenshotUseCase;
+use Core\Notification\Application\UseCase\GetChannelSessionStatusUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionUseCase;
 use Core\Notification\Application\UseCase\GetNotificationStatusUseCase;
 use Core\Notification\Application\UseCase\HandleNotificationStatusChangedUseCase;
@@ -23,6 +24,7 @@ use Core\Notification\Contracts\DeleteChannelSession;
 use Core\Notification\Contracts\GetChannelSession;
 use Core\Notification\Contracts\GetChannelSessionQrCode;
 use Core\Notification\Contracts\GetChannelSessionScreenshot;
+use Core\Notification\Contracts\GetChannelSessionStatus;
 use Core\Notification\Contracts\GetNotificationStatus;
 use Core\Notification\Contracts\ListChannelSessions;
 use Core\Notification\Contracts\ListNotifications;
@@ -104,6 +106,7 @@ final class NotificationServiceProvider extends ServiceProvider
         $this->app->bind(GetChannelSession::class, GetChannelSessionUseCase::class);
         $this->app->bind(GetChannelSessionQrCode::class, GetChannelSessionQrCodeUseCase::class);
         $this->app->bind(GetChannelSessionScreenshot::class, GetChannelSessionScreenshotUseCase::class);
+        $this->app->bind(GetChannelSessionStatus::class, GetChannelSessionStatusUseCase::class);
         $this->app->bind(RequestChannelSessionPairingCode::class, RequestChannelSessionPairingCodeUseCase::class);
 
         $this->registerWahaAdapter();

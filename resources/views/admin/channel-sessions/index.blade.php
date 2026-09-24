@@ -42,6 +42,7 @@
                             <span class="text-sm text-slate-500">créée le {{ $session->createdAt }}</span>
                         </div>
                         <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                            <a href="{{ $routeFor('status', ['sessionRef' => $session->sessionRef]) }}" class="font-medium text-indigo-600 hover:text-indigo-800">Statut</a>
                             <a href="{{ $routeFor('qr', ['sessionRef' => $session->sessionRef]) }}" class="font-medium text-indigo-600 hover:text-indigo-800">Scanner (QR)</a>
                             <a href="{{ $routeFor('screenshot', ['sessionRef' => $session->sessionRef]) }}" class="font-medium text-indigo-600 hover:text-indigo-800">Capture d'écran</a>
                             <form method="POST" action="{{ $routeFor('pairing-code', ['sessionRef' => $session->sessionRef]) }}" class="flex items-center gap-2">

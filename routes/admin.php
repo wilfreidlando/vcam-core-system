@@ -123,6 +123,8 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->where('sessionRef', '[A-Za-z0-9_-]+')->name('projects.channel-sessions.qr');
             Route::get('{projectId}/whatsapp-sessions/{sessionRef}/screenshot', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'screenshot'])
                 ->where('sessionRef', '[A-Za-z0-9_-]+')->name('projects.channel-sessions.screenshot');
+            Route::get('{projectId}/whatsapp-sessions/{sessionRef}/status', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'status'])
+                ->where('sessionRef', '[A-Za-z0-9_-]+')->name('projects.channel-sessions.status');
             Route::post('{projectId}/whatsapp-sessions/{sessionRef}/pairing-code', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'pairingCode'])
                 ->where('sessionRef', '[A-Za-z0-9_-]+')->name('projects.channel-sessions.pairing-code');
             Route::post('{projectId}/whatsapp-sessions/{sessionRef}/delete', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'destroy'])
@@ -206,6 +208,8 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->where('sessionRef', '[A-Za-z0-9_-]+')->name('channel-sessions.qr');
             Route::get('{sessionRef}/screenshot', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'screenshot'])
                 ->where('sessionRef', '[A-Za-z0-9_-]+')->name('channel-sessions.screenshot');
+            Route::get('{sessionRef}/status', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'status'])
+                ->where('sessionRef', '[A-Za-z0-9_-]+')->name('channel-sessions.status');
             Route::post('{sessionRef}/pairing-code', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'pairingCode'])
                 ->where('sessionRef', '[A-Za-z0-9_-]+')->name('channel-sessions.pairing-code');
             Route::post('{sessionRef}/delete', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'destroy'])

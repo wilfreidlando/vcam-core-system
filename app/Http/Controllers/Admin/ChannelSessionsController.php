@@ -10,6 +10,7 @@ use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\GetProjectCommand;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Notification\Contracts\ChannelSessionNotFound;
+use Core\Notification\Contracts\ChannelSessionState;
 use Core\Notification\Contracts\CreateChannelSession;
 use Core\Notification\Contracts\CreateChannelSessionCommand;
 use Core\Notification\Contracts\DeleteChannelSession;
@@ -17,6 +18,7 @@ use Core\Notification\Contracts\DeleteChannelSessionCommand;
 use Core\Notification\Contracts\GetChannelSessionCommand;
 use Core\Notification\Contracts\GetChannelSessionQrCode;
 use Core\Notification\Contracts\GetChannelSessionScreenshot;
+use Core\Notification\Contracts\GetChannelSessionStatus;
 use Core\Notification\Contracts\ListChannelSessions;
 use Core\Notification\Contracts\ListChannelSessionsCommand;
 use Core\Notification\Contracts\NotificationChannel;
@@ -53,6 +55,7 @@ final class ChannelSessionsController
         private readonly DeleteChannelSession $deleteSession,
         private readonly GetChannelSessionQrCode $getQrCode,
         private readonly GetChannelSessionScreenshot $getScreenshot,
+        private readonly GetChannelSessionStatus $getStatus,
         private readonly RequestChannelSessionPairingCode $requestPairingCode,
         private readonly GetProject $getProject,
         private readonly AuditLogger $audit,
@@ -132,6 +135,40 @@ final class ChannelSessionsController
 
             return [$shot->mimeType, $shot->base64Data];
         });
+    }
+
+    /**
+     * Live state of the session at the provider — the reliable way to know
+     * whether a phone is linked (a screenshot needs a Chrome-based engine).
+     */
+    public function status(Request $request, OperatorContext $operator): RedirectResponse
+    {
+        $projectId = $this->projectId($request);
+        $sessionRef = $this->sessionRef($request);
+        $this->authorize($operator, $projectId);
+
+        try {
+            $state = $this->getStatus->get($this->command($projectId, $sessionRef));
+        } catch (ChannelSessionNotFound|ProviderException $e) {
+            return redirect()->to($this->indexUrl($projectId))->withErrors(['pairing' => $e->getMessage()]);
+        }
+
+        $sentence = match ($state) {
+            ChannelSessionState::Linked => 'un téléphone est lié, la session peut envoyer.',
+            ChannelSessionState::AwaitingLink => "démarrée, en attente de liaison — scannez le QR code ou demandez un code d'appairage.",
+            ChannelSessionState::Stopped => "arrêtée chez le fournisseur : aucun envoi possible tant qu'elle n'est pas redémarrée.",
+            ChannelSessionState::Failed => 'en échec chez le fournisseur : supprimez-la puis recréez-la.',
+            ChannelSessionState::MissingAtProvider => 'enregistrée dans le Core mais inconnue du fournisseur : supprimez-la puis recréez-la.',
+            ChannelSessionState::Unknown => 'état non reconnu renvoyé par le fournisseur.',
+        };
+
+        $message = "Statut de « {$sessionRef} » : {$sentence}";
+
+        $redirect = redirect()->to($this->indexUrl($projectId));
+
+        return $state === ChannelSessionState::Linked
+            ? $redirect->with('status', $message)
+            : $redirect->withErrors(['pairing' => $message]);
     }
 
     public function pairingCode(Request $request, OperatorContext $operator): RedirectResponse

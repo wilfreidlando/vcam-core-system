@@ -6,10 +6,12 @@ use Core\Notification\Application\UseCase\CreateChannelSessionUseCase;
 use Core\Notification\Application\UseCase\DeleteChannelSessionUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionQrCodeUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionScreenshotUseCase;
+use Core\Notification\Application\UseCase\GetChannelSessionStatusUseCase;
 use Core\Notification\Application\UseCase\ListChannelSessionsUseCase;
 use Core\Notification\Application\UseCase\RequestChannelSessionPairingCodeUseCase;
 use Core\Notification\Contracts\ChannelDoesNotSupportSessions;
 use Core\Notification\Contracts\ChannelSessionNotFound;
+use Core\Notification\Contracts\ChannelSessionState;
 use Core\Notification\Contracts\CreateChannelSessionCommand;
 use Core\Notification\Contracts\DeleteChannelSessionCommand;
 use Core\Notification\Contracts\GetChannelSessionCommand;
@@ -196,4 +198,14 @@ it('keeps the registration when the provider refuses the deletion', function ():
     expect(fn () => (new DeleteChannelSessionUseCase($router, $registry, $sessions))
         ->delete(new DeleteChannelSessionCommand('project-1', whatsapp(), 'shop-1')))->toThrow(RuntimeException::class)
         ->and($sessions->find('project-1', 'whatsapp', 'shop-1'))->not->toBeNull();
+});
+
+it('reads the live state of a registered session and refuses an unregistered one', function (): void {
+    [$provider, $registry, $router, $sessions] = sessionFixtures();
+    registerSession($sessions, 'project-1', 'shop-1');
+    $provider->nextState = ChannelSessionState::AwaitingLink;
+    $useCase = new GetChannelSessionStatusUseCase($router, $registry, $sessions);
+
+    expect($useCase->get(new GetChannelSessionCommand('project-1', whatsapp(), 'shop-1')))->toBe(ChannelSessionState::AwaitingLink)
+        ->and(fn () => $useCase->get(new GetChannelSessionCommand('project-1', whatsapp(), 'unknown')))->toThrow(ChannelSessionNotFound::class);
 });
