@@ -64,7 +64,7 @@
         "/notifications/text": {
             "post": {
                 "operationId": "notifications.send-text",
-                "description": "Requires the `notifications:write` scope. `to_party_ref` is a\ncorrelation reference only \u2014 resolving it to an actual delivery\naddress is a provider adapter concern, not the Core's\n(ADR-0041 \u00a75).\n\nNo `Idempotency-Key` HTTP header (ADR-0056): deduplication, when\nthe caller wants it, is supplied through the optional\n`client_reference` body field (see the request schema). Without\nthat field, the Core generates a fresh UUID per request.",
+                "description": "Requires the `notifications:write` scope. `to_party_ref` is a\ncorrelation reference only \u2014 resolving it to an actual delivery\naddress is a provider adapter concern, not the Core's.\n\nNo `Idempotency-Key` HTTP header: deduplication, when\nthe caller wants it, is supplied through the optional\n`client_reference` body field (see the request schema). Without\nthat field, the Core generates a fresh UUID per request.",
                 "summary": "Send a text message",
                 "tags": [
                     "Notification"
@@ -218,7 +218,7 @@
         "/notifications/image": {
             "post": {
                 "operationId": "notifications.send-image",
-                "description": "Requires the `notifications:write` scope. No `Idempotency-Key`\nHTTP header (ADR-0056) \u2014 supply `client_reference` in the body\nif you want your own retry loop to be safe.",
+                "description": "Requires the `notifications:write` scope. No `Idempotency-Key`\nHTTP header \u2014 supply `client_reference` in the body\nif you want your own retry loop to be safe.",
                 "summary": "Send an image message",
                 "tags": [
                     "Notification"
@@ -372,7 +372,7 @@
         "/notifications/file": {
             "post": {
                 "operationId": "notifications.send-file",
-                "description": "Requires the `notifications:write` scope. No `Idempotency-Key`\nHTTP header (ADR-0056) \u2014 supply `client_reference` in the body\nif you want your own retry loop to be safe.",
+                "description": "Requires the `notifications:write` scope. No `Idempotency-Key`\nHTTP header \u2014 supply `client_reference` in the body\nif you want your own retry loop to be safe.",
                 "summary": "Send a file/document message",
                 "tags": [
                     "Notification"
@@ -1396,7 +1396,7 @@
         "/payments": {
             "post": {
                 "operationId": "payments.start",
-                "description": "The request names only a `channel` (e.g. `mtn_momo`, `card`), never a\nprovider \u2014 `StartPaymentUseCase` resolves which adapter actually\nhandles it via the Project's routing configuration (ADR-0038 \u00a72).\nRequires the `payments:write` scope and an `Idempotency-Key` header\n(G7, ADR-0025). Crediting a wallet on success is never implicit \u2014 it\nonly happens if `wallet_recipient_external_ref` is given (ADR-0037).\nPrefer `POST /v1/payments/paylink` or `POST /v1/payments/payin`\nfor new integrations.",
+                "description": "The request names only a `channel` (e.g. `mtn_momo`, `card`), never a\nprovider \u2014 the Core resolves which provider actually\nhandles it via the Project's routing configuration.\nRequires the `payments:write` scope and an `Idempotency-Key` header.\nCrediting a wallet on success is never implicit \u2014 it\nonly happens if `wallet_recipient_external_ref` is given.\nPrefer `POST /v1/payments/paylink` or `POST /v1/payments/payin`\nfor new integrations.",
                 "summary": "Start a payment",
                 "tags": [
                     "Payment"
@@ -1406,7 +1406,7 @@
                         "name": "Idempotency-Key",
                         "in": "header",
                         "required": true,
-                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. See ADR-0025 (idempotency design) and G7 (mandatory on every monetary mutation route).",
+                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. Mandatory on every route that moves money.",
                         "schema": {
                             "type": "string",
                             "maxLength": 255
@@ -1901,7 +1901,7 @@
         "/payments/paylink": {
             "post": {
                 "operationId": "payments.start.paylink",
-                "description": "The request names only a `channel` (e.g. `mtn_momo`, `card`), never a\nprovider \u2014 `StartPaymentUseCase` resolves which adapter actually\nhandles it via the Project's routing configuration (ADR-0038 \u00a72).\nRequires the `payments:write` scope and an `Idempotency-Key` header\n(G7, ADR-0025). `return_url` is a best-effort browser redirect\ntarget only; supply `callback_url` for a reliable server-to-server\nnotification once the payment settles. Crediting a wallet on\nsuccess is never implicit \u2014 it only happens if\n`wallet_recipient_external_ref` is given (ADR-0037).",
+                "description": "The request names only a `channel` (e.g. `mtn_momo`, `card`), never a\nprovider \u2014 the Core resolves which provider actually\nhandles it via the Project's routing configuration.\nRequires the `payments:write` scope and an `Idempotency-Key` header.\n`return_url` is a best-effort browser redirect\ntarget only; supply `callback_url` for a reliable server-to-server\nnotification once the payment settles. Crediting a wallet on\nsuccess is never implicit \u2014 it only happens if\n`wallet_recipient_external_ref` is given.",
                 "summary": "Start a payment via a hosted payment link",
                 "tags": [
                     "Payment"
@@ -1911,7 +1911,7 @@
                         "name": "Idempotency-Key",
                         "in": "header",
                         "required": true,
-                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. See ADR-0025 (idempotency design) and G7 (mandatory on every monetary mutation route).",
+                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. Mandatory on every route that moves money.",
                         "schema": {
                             "type": "string",
                             "maxLength": 255
@@ -2406,7 +2406,7 @@
         "/payments/payin": {
             "post": {
                 "operationId": "payments.start.payin",
-                "description": "The request names only a `channel` (e.g. `mtn_momo`, `card`), never a\nprovider \u2014 `StartPaymentUseCase` resolves which adapter actually\nhandles it via the Project's routing configuration (ADR-0038 \u00a72).\nRequires the `payments:write` scope and an `Idempotency-Key` header\n(G7, ADR-0025). There is no browser redirect for this flow \u2014 supply\n`callback_url` to be notified once the payment settles. Crediting a\nwallet on success is never implicit \u2014 it only happens if\n`wallet_recipient_external_ref` is given (ADR-0037).",
+                "description": "The request names only a `channel` (e.g. `mtn_momo`, `card`), never a\nprovider \u2014 the Core resolves which provider actually\nhandles it via the Project's routing configuration.\nRequires the `payments:write` scope and an `Idempotency-Key` header.\nThere is no browser redirect for this flow \u2014 supply\n`callback_url` to be notified once the payment settles. Crediting a\nwallet on success is never implicit \u2014 it only happens if\n`wallet_recipient_external_ref` is given.",
                 "summary": "Start a payment via a direct, app-driven charge",
                 "tags": [
                     "Payment"
@@ -2416,7 +2416,7 @@
                         "name": "Idempotency-Key",
                         "in": "header",
                         "required": true,
-                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. See ADR-0025 (idempotency design) and G7 (mandatory on every monetary mutation route).",
+                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. Mandatory on every route that moves money.",
                         "schema": {
                             "type": "string",
                             "maxLength": 255
@@ -3086,7 +3086,7 @@
         "/wallets/{walletId}/balance": {
             "get": {
                 "operationId": "wallet.balance",
-                "description": "Read-only (ADR-0033 \u00a71): Wallet exposes no HTTP endpoint that mutates\na balance. Requires the `wallets:read` scope, and returns the same\nnot-found response whether the wallet doesn't exist or belongs to\nanother project \u2014 the two are indistinguishable on purpose.",
+                "description": "Read-only: Wallet exposes no HTTP endpoint that mutates\na balance. Requires the `wallets:read` scope, and returns the same\nnot-found response whether the wallet doesn't exist or belongs to\nanother project \u2014 the two are indistinguishable on purpose.",
                 "summary": "Get a wallet's balance",
                 "tags": [
                     "Wallet"
@@ -3690,7 +3690,7 @@
                         "type": "string",
                         "description": "The phone number of the WhatsApp device that will\ndisplay the pairing code, in international format\n(E.164, e.g. `+2376XXXXXXXX`). The Core forwards\nthis value to the channel provider as the device\nidentifier for the linking flow. It is not stored\nby the Core \u2014 the provider is the source of truth\nfor the session.",
                         "examples": [
-                            "+237690000000"
+                            "+2376XXXXXXXX"
                         ],
                         "maxLength": 32
                     }
@@ -3761,7 +3761,7 @@
                         "description": "Free-form map of provider-specific variables forwarded\nas-is to the channel's adapter. See\n`POST /v1/notifications/text` for the full contract.\nFor `whatsapp` via WAHA, REQUIRED key `phone_number`.",
                         "examples": [
                             {
-                                "phone_number": "+237690000000"
+                                "phone_number": "+2376XXXXXXXX"
                             }
                         ],
                         "properties": {
@@ -3769,7 +3769,7 @@
                                 "type": "string",
                                 "description": "When `channel = \"whatsapp\"`, the WAHA adapter rejects\noutbound messages without `variables.phone_number`.",
                                 "examples": [
-                                    "+237690000000"
+                                    "+2376XXXXXXXX"
                                 ],
                                 "minLength": 1
                             }
@@ -3863,7 +3863,7 @@
                         "description": "Free-form map of provider-specific variables forwarded\nas-is to the channel's adapter. See\n`POST /v1/notifications/text` for the full contract.\nFor `whatsapp` via WAHA, REQUIRED key `phone_number`.",
                         "examples": [
                             {
-                                "phone_number": "+237690000000"
+                                "phone_number": "+2376XXXXXXXX"
                             }
                         ],
                         "properties": {
@@ -3871,7 +3871,7 @@
                                 "type": "string",
                                 "description": "When `channel = \"whatsapp\"`, the WAHA adapter rejects\noutbound messages without `variables.phone_number`.",
                                 "examples": [
-                                    "+237690000000"
+                                    "+2376XXXXXXXX"
                                 ],
                                 "minLength": 1
                             }
@@ -3926,10 +3926,10 @@
                     },
                     "variables": {
                         "type": "object",
-                        "description": "Free-form map of provider-specific variables forwarded\nas-is to the channel's adapter. The keys required depend\non the channel: - `whatsapp` (via WAHA, ADR-0042): REQUIRED key\n  `phone_number` with the recipient's international\n  phone number (E.164, e.g. `+237690000000`). Without\n  it the cascade fails asynchronously and the\n  notification ends up in `failed` \u2014 the only way for\n  the caller to know is to poll `GET /v1/notifications/{id}`.\n\nThe Core never inspects this map's contents; see the\nchannel's adapter (`packages/notification/src/Infrastructure/Provider`)\nfor the full per-channel key list.",
+                        "description": "Free-form map of channel-specific values. The keys\nrequired depend on the channel: - `whatsapp`: REQUIRED key `phone_number`, the recipient's\n  international phone number (E.164, e.g. `+2376XXXXXXXX` \u2014\n  the example is a placeholder, use a number you own). A\n  request without it is rejected with a 422.\n\nAny other key in this map is forwarded untouched.",
                         "examples": [
                             {
-                                "phone_number": "+237690000000"
+                                "phone_number": "+2376XXXXXXXX"
                             }
                         ],
                         "properties": {
@@ -3937,7 +3937,7 @@
                                 "type": "string",
                                 "description": "When `channel = \"whatsapp\"`, the WAHA adapter rejects\noutbound messages without `variables.phone_number`.\nValidating here means a missing field produces a\nclean 422 instead of an asynchronous cascade failure\nthe caller would only learn about by polling.",
                                 "examples": [
-                                    "+237690000000"
+                                    "+2376XXXXXXXX"
                                 ],
                                 "minLength": 1
                             }
@@ -4010,7 +4010,7 @@
                         ],
                         "description": "The customer's phone number in international format\n(E.164, e.g. `+2376XXXXXXXX`). Forwarded to the\nprovider so USSD prompts and OTP codes reach the right\nline on mobile-money channels. Optional \u2014 providers that\nneed it for their flow will reject the request if it's\nmissing.",
                         "examples": [
-                            "+237690000000"
+                            "+2376XXXXXXXX"
                         ],
                         "maxLength": 32
                     },

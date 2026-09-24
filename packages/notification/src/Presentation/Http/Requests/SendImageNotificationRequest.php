@@ -80,14 +80,14 @@ final class SendImageNotificationRequest extends FormRequest
              * `POST /v1/notifications/text` for the full contract.
              * For `whatsapp` via WAHA, REQUIRED key `phone_number`.
              *
-             * @example {"phone_number": "+237690000000"}
+             * @example {"phone_number": "+2376XXXXXXXX"}
              */
             'variables' => ['nullable', 'array'],
             /**
              * When `channel = "whatsapp"`, the WAHA adapter rejects
              * outbound messages without `variables.phone_number`.
              *
-             * @example "+237690000000"
+             * @example "+2376XXXXXXXX"
              */
             'variables.phone_number' => ['required_if:channel,whatsapp', 'string', 'min:1'],
             /**

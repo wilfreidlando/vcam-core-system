@@ -54,22 +54,17 @@ final class SendTextNotificationRequest extends FormRequest
              */
             'text' => ['required', 'string'],
             /**
-             * Free-form map of provider-specific variables forwarded
-             * as-is to the channel's adapter. The keys required depend
-             * on the channel:
+             * Free-form map of channel-specific values. The keys
+             * required depend on the channel:
              *
-             * - `whatsapp` (via WAHA, ADR-0042): REQUIRED key
-             *   `phone_number` with the recipient's international
-             *   phone number (E.164, e.g. `+237690000000`). Without
-             *   it the cascade fails asynchronously and the
-             *   notification ends up in `failed` — the only way for
-             *   the caller to know is to poll `GET /v1/notifications/{id}`.
+             * - `whatsapp`: REQUIRED key `phone_number`, the recipient's
+             *   international phone number (E.164, e.g. `+2376XXXXXXXX` —
+             *   the example is a placeholder, use a number you own). A
+             *   request without it is rejected with a 422.
              *
-             * The Core never inspects this map's contents; see the
-             * channel's adapter (`packages/notification/src/Infrastructure/Provider`)
-             * for the full per-channel key list.
+             * Any other key in this map is forwarded untouched.
              *
-             * @example {"phone_number": "+237690000000"}
+             * @example {"phone_number": "+2376XXXXXXXX"}
              */
             'variables' => ['nullable', 'array'],
             /**
@@ -79,7 +74,7 @@ final class SendTextNotificationRequest extends FormRequest
              * clean 422 instead of an asynchronous cascade failure
              * the caller would only learn about by polling.
              *
-             * @example "+237690000000"
+             * @example "+2376XXXXXXXX"
              */
             'variables.phone_number' => ['required_if:channel,whatsapp', 'string', 'min:1'],
             /**

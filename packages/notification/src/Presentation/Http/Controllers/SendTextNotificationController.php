@@ -34,10 +34,9 @@ final class SendTextNotificationController
      *
      * Requires the `notifications:write` scope. `to_party_ref` is a
      * correlation reference only — resolving it to an actual delivery
-     * address is a provider adapter concern, not the Core's
-     * (ADR-0041 §5).
+     * address is a provider adapter concern, not the Core's.
      *
-     * No `Idempotency-Key` HTTP header (ADR-0056): deduplication, when
+     * No `Idempotency-Key` HTTP header: deduplication, when
      * the caller wants it, is supplied through the optional
      * `client_reference` body field (see the request schema). Without
      * that field, the Core generates a fresh UUID per request.

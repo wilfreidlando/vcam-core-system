@@ -28,7 +28,7 @@ final class RequestChannelSessionPairingCodeRequest extends FormRequest
              * by the Core — the provider is the source of truth
              * for the session.
              *
-             * @example "+237690000000"
+             * @example "+2376XXXXXXXX"
              */
             'phone_number' => ['required', 'string', 'max:32'],
         ];

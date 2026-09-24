@@ -61,7 +61,7 @@ final class IdempotencyHeaderExtension extends OperationExtension
 
         $parameter = Parameter::make(RequireIdempotencyKey::HEADER, 'header');
         $parameter->required = true;
-        $parameter->description = 'Caller-supplied unique key used for both the HTTP-level response cache and the use case\'s own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. See ADR-0025 (idempotency design) and G7 (mandatory on every monetary mutation route).';
+        $parameter->description = 'Caller-supplied unique key used for both the HTTP-level response cache and the use case\'s own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. Mandatory on every route that moves money.';
         $parameter->example('01HMZ9XK3P-9XK3P-9XK3P');
         $built = Schema::fromType($schema);
         assert($built instanceof Schema);

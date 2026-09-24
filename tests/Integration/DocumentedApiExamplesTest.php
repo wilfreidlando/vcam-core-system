@@ -70,7 +70,7 @@ final class DocumentedApiExamplesTest extends TestCase
             'amount' => 100,
             'currency' => 'XAF',
             'reason' => 'Order #1234 — Premium plan',
-            'customer_phone_number' => '+237690000000',
+            'customer_phone_number' => '+2376XXXXXXXX',
             'customer_name' => 'Marie Dupont',
             'customer_email' => 'marie.dupont@example.com',
             'customer_lang' => 'fr',
@@ -105,7 +105,7 @@ final class DocumentedApiExamplesTest extends TestCase
             'amount' => 100,
             'currency' => 'XAF',
             'reason' => 'Order #1234 — Premium plan',
-            'customer_phone_number' => '+237690000000',
+            'customer_phone_number' => '+2376XXXXXXXX',
             'customer_name' => 'Marie Dupont',
             'customer_email' => 'marie.dupont@example.com',
             'customer_lang' => 'fr',
@@ -193,7 +193,7 @@ final class DocumentedApiExamplesTest extends TestCase
             'channel' => 'whatsapp',
             'to_party_ref' => 'customer-42',
             'text' => 'Hello Marie, your order #1234 is confirmed.',
-            'variables' => ['phone_number' => '+237690000000'],
+            'variables' => ['phone_number' => '+2376XXXXXXXX'],
             'client_reference' => 'client-msg-abc123',
         ], ['Authorization' => "Bearer {$token}"]);
 
@@ -216,7 +216,7 @@ final class DocumentedApiExamplesTest extends TestCase
             'caption' => 'Your order confirmation',
             'filename' => 'order-1234.png',
             'mimetype' => 'image/png',
-            'variables' => ['phone_number' => '+237690000000'],
+            'variables' => ['phone_number' => '+2376XXXXXXXX'],
             'client_reference' => 'client-msg-abc123',
         ], ['Authorization' => "Bearer {$token}"]);
 
@@ -239,7 +239,7 @@ final class DocumentedApiExamplesTest extends TestCase
             'filename' => 'invoice-1234.pdf',
             'mimetype' => 'application/pdf',
             'caption' => 'Your invoice for order #1234',
-            'variables' => ['phone_number' => '+237690000000'],
+            'variables' => ['phone_number' => '+2376XXXXXXXX'],
             'client_reference' => 'client-msg-abc123',
         ], ['Authorization' => "Bearer {$token}"]);
 
@@ -259,7 +259,7 @@ final class DocumentedApiExamplesTest extends TestCase
             'channel' => 'whatsapp',
             'to_party_ref' => 'customer-42',
             'text' => 'Hello Marie, your order #1234 is confirmed.',
-            'variables' => ['phone_number' => '+237690000000'],
+            'variables' => ['phone_number' => '+2376XXXXXXXX'],
         ], ['Authorization' => "Bearer {$token}"]);
         $notificationId = $send->json('id');
         self::assertIsString($notificationId);
@@ -281,7 +281,7 @@ final class DocumentedApiExamplesTest extends TestCase
         [$token] = $this->authenticatedProject();
 
         $response = $this->postJson('/v1/notification-channel-sessions/whatsapp/session-doc/pairing-code', [
-            'phone_number' => '+237690000000',
+            'phone_number' => '+2376XXXXXXXX',
         ], ['Authorization' => "Bearer {$token}"]);
 
         $response->assertStatus(200);

@@ -80,7 +80,7 @@ final class StartPaymentRequest extends FormRequest
              * need it for their flow will reject the request if it's
              * missing.
              *
-             * @example "+237690000000"
+             * @example "+2376XXXXXXXX"
              */
             'customer_phone_number' => ['nullable', 'string', 'max:32'],
             /**

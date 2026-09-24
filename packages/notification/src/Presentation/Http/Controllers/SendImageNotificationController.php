@@ -29,7 +29,7 @@ final class SendImageNotificationController
      * Send an image message.
      *
      * Requires the `notifications:write` scope. No `Idempotency-Key`
-     * HTTP header (ADR-0056) — supply `client_reference` in the body
+     * HTTP header — supply `client_reference` in the body
      * if you want your own retry loop to be safe.
      */
     public function __invoke(SendImageNotificationRequest $request, ProjectContext $project): JsonResponse|Response

@@ -31,13 +31,13 @@ final class StartPayinPaymentController extends AbstractStartPaymentController
      * Start a payment via a direct, app-driven charge.
      *
      * The request names only a `channel` (e.g. `mtn_momo`, `card`), never a
-     * provider — `StartPaymentUseCase` resolves which adapter actually
-     * handles it via the Project's routing configuration (ADR-0038 §2).
-     * Requires the `payments:write` scope and an `Idempotency-Key` header
-     * (G7, ADR-0025). There is no browser redirect for this flow — supply
+     * provider — the Core resolves which provider actually
+     * handles it via the Project's routing configuration.
+     * Requires the `payments:write` scope and an `Idempotency-Key` header.
+     * There is no browser redirect for this flow — supply
      * `callback_url` to be notified once the payment settles. Crediting a
      * wallet on success is never implicit — it only happens if
-     * `wallet_recipient_external_ref` is given (ADR-0037).
+     * `wallet_recipient_external_ref` is given.
      *
      * @throws NoProviderForChannelException no provider is routed for the requested `channel` (422)
      * @throws UnsupportedCurrency the requested `currency` isn't in the Core's allow-list (422)
