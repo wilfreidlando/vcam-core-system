@@ -67,7 +67,7 @@ final class DocumentedApiExamplesTest extends TestCase
 
         $response = $this->postJson('/v1/payments/paylink', [
             'channel' => 'mtn_momo',
-            'amount' => 100000,
+            'amount' => 100,
             'currency' => 'XAF',
             'reason' => 'Order #1234 — Premium plan',
             'customer_phone_number' => '+237690000000',
@@ -102,7 +102,7 @@ final class DocumentedApiExamplesTest extends TestCase
 
         $response = $this->postJson('/v1/payments/payin', [
             'channel' => 'mtn_momo',
-            'amount' => 100000,
+            'amount' => 100,
             'currency' => 'XAF',
             'reason' => 'Order #1234 — Premium plan',
             'customer_phone_number' => '+237690000000',
@@ -135,7 +135,7 @@ final class DocumentedApiExamplesTest extends TestCase
 
         $start = $this->postJson('/v1/payments/payin', [
             'channel' => 'mtn_momo',
-            'amount' => 100000,
+            'amount' => 100,
             'currency' => 'XAF',
             'reason' => 'Order #1234 — Premium plan',
         ], [

@@ -42,13 +42,14 @@ final class StartPaymentRequest extends FormRequest
              */
             'channel' => ['required', 'string', Rule::in(['mtn_momo', 'orange_money', 'card'])],
             /**
-             * The amount to charge, expressed in the smallest
-             * indivisible unit of the currency — cents for USD/EUR,
-             * centimes for XAF. The decimal-to-minor conversion is the
-             * caller's responsibility. `100000` means 1000.00 in the
-             * currency's major unit.
+             * The amount to charge, as an integer in the currency's
+             * smallest unit — which depends on the currency: `XAF` has
+             * no subunit, so `100` means 100 XAF; `USD`/`EUR` use cents,
+             * so `100` means 1.00. Never a decimal number. The
+             * conversion from a displayed amount is the caller's
+             * responsibility.
              *
-             * @example 100000
+             * @example 100
              */
             'amount' => ['required', 'integer', 'min:1'],
             /**

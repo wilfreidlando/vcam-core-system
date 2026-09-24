@@ -3980,9 +3980,9 @@
                     },
                     "amount": {
                         "type": "integer",
-                        "description": "The amount to charge, expressed in the smallest\nindivisible unit of the currency \u2014 cents for USD/EUR,\ncentimes for XAF. The decimal-to-minor conversion is the\ncaller's responsibility. `100000` means 1000.00 in the\ncurrency's major unit.",
+                        "description": "The amount to charge, as an integer in the currency's\nsmallest unit \u2014 which depends on the currency: `XAF` has\nno subunit, so `100` means 100 XAF; `USD`/`EUR` use cents,\nso `100` means 1.00. Never a decimal number. The\nconversion from a displayed amount is the caller's\nresponsibility.",
                         "examples": [
-                            100000
+                            100
                         ],
                         "minimum": 1
                     },
