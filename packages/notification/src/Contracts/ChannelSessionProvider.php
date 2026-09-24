@@ -31,8 +31,11 @@ interface ChannelSessionProvider
     /**
      * Idempotent: creates the session on the provider if it doesn't
      * exist yet, starts it if stopped, and is a no-op if already
-     * running. Called internally by the other methods below before they
-     * act — never exposed as its own endpoint.
+     * running. Called ONLY by the operator's explicit "create session"
+     * action (`CreateChannelSession`) — never implicitly from a client
+     * request. Whether a session exists FOR SENDING is decided by the
+     * Core's own registry (`notification_channel_sessions`), never by
+     * asking the provider.
      */
     public function startSession(string $sessionRef): void;
 

@@ -11,6 +11,7 @@ use Core\Identity\Contracts\CreateProjectCommand;
 use Core\Identity\Contracts\IssueApiKey;
 use Core\Identity\Contracts\IssueApiKeyCommand;
 use Core\Support\Environment;
+use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -58,7 +59,8 @@ final class SendTextNotificationHttpFlowTest extends TestCase
             'waha.test/api/sendText' => Http::response(['id' => 'msg-1'], 201),
         ]);
 
-        $token = $this->issueTestApiKey();
+        [$token, $projectId] = $this->issueTestApiKey();
+        $this->registerSession($projectId, 'ma-boutique');
 
         $response = $this->postJson('/v1/notifications/text', [
             'channel' => 'whatsapp',
@@ -87,7 +89,7 @@ final class SendTextNotificationHttpFlowTest extends TestCase
         // is no platform-wide default session to silently fall back to.
         Http::preventStrayRequests();
 
-        $token = $this->issueTestApiKey();
+        [$token] = $this->issueTestApiKey();
 
         $this->postJson('/v1/notifications/text', [
             'channel' => 'whatsapp',
@@ -101,7 +103,63 @@ final class SendTextNotificationHttpFlowTest extends TestCase
         Http::assertNothingSent();
     }
 
-    private function issueTestApiKey(string $scope = 'notifications:write'): string
+    #[Test]
+    public function a_send_naming_an_unregistered_session_answers_explicitly_and_sends_nothing(): void
+    {
+        Http::preventStrayRequests();
+        [$token] = $this->issueTestApiKey();
+
+        $response = $this->postJson('/v1/notifications/text', [
+            'channel' => 'whatsapp',
+            'to_party_ref' => 'customer-42',
+            'text' => 'Hello',
+            'variables' => ['phone_number' => '+2376XXXXXXXX', 'session' => 'ghost'],
+        ], ['Authorization' => "Bearer {$token}"]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('type', 'https://errors.core-system.internal/channel-session-not-found');
+        $detail = $response->json('detail');
+        self::assertIsString($detail);
+        self::assertStringContainsString('"ghost"', $detail);
+        self::assertStringContainsString('Nothing was sent', $detail);
+        Http::assertNothingSent();
+        $this->assertDatabaseCount('notifications', 0);
+    }
+
+    #[Test]
+    public function a_global_session_can_be_used_by_any_project_but_a_projects_session_only_by_itself(): void
+    {
+        config(['providers.notification.whatsapp_waha.base_url' => 'https://waha.test']);
+        Http::preventStrayRequests();
+        Http::fake(['waha.test/api/sendText' => Http::sequence()
+            ->push(['id' => 'msg-g1'], 201)
+            ->push(['id' => 'msg-g2'], 201)]);
+
+        [$tokenA, $projectA] = $this->issueTestApiKey();
+        [$tokenB] = $this->issueTestApiKey();
+        $this->registerSession($projectA, 'private-a');
+        $this->registerSession($projectA, 'shared', global: true);
+
+        $body = fn (string $session): array => [
+            'channel' => 'whatsapp',
+            'to_party_ref' => 'c',
+            'text' => 'Hello',
+            'variables' => ['phone_number' => '+2376XXXXXXXX', 'session' => $session],
+        ];
+
+        // Global: both projects send, from the plain provider-side name.
+        $this->postJson('/v1/notifications/text', $body('shared'), ['Authorization' => "Bearer {$tokenA}"])->assertStatus(201)->assertJsonPath('status', 'sent');
+        $this->postJson('/v1/notifications/text', $body('shared'), ['Authorization' => "Bearer {$tokenB}"])->assertStatus(201)->assertJsonPath('status', 'sent');
+        Http::assertSent(fn (Request $r): bool => $r['session'] === 'shared');
+
+        // Project A's own session: B is refused.
+        $this->postJson('/v1/notifications/text', $body('private-a'), ['Authorization' => "Bearer {$tokenB}"])->assertStatus(422);
+    }
+
+    /**
+     * @return array{0: string, 1: string} [bearer token, project id]
+     */
+    private function issueTestApiKey(string $scope = 'notifications:write'): array
     {
         $organization = app(CreateOrganization::class)->create(
             new CreateOrganizationCommand('Test Org'),
@@ -121,6 +179,17 @@ final class SendTextNotificationHttpFlowTest extends TestCase
             correlationId: null,
         );
 
-        return $issued->plaintextToken;
+        return [$issued->plaintextToken, $project->id];
+    }
+
+    private function registerSession(string $projectId, string $sessionRef, bool $global = false): void
+    {
+        app(\Core\Notification\Domain\Port\ChannelSessionRepository::class)->save(new \Core\Notification\Domain\Model\ChannelSession(
+            (string) \Illuminate\Support\Str::uuid(),
+            $global ? null : $projectId,
+            'whatsapp',
+            $sessionRef,
+            new DateTimeImmutable,
+        ));
     }
 }

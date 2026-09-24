@@ -12,6 +12,8 @@ use Core\Identity\Domain\Exception\MfaNotEnrolled;
 use Core\Identity\Domain\Exception\OperatorNotFound;
 use Core\Identity\Domain\Exception\OperatorRevoked;
 use Core\Notification\Contracts\ChannelDoesNotSupportSessions;
+use Core\Notification\Contracts\ChannelSessionNotFound;
+use Core\Notification\Contracts\MissingChannelSession;
 use Core\Notification\Contracts\MissingRecipientPhoneNumber;
 use Core\Notification\Contracts\NoProviderForNotificationChannelException;
 use Core\Notification\Domain\Exception\NotificationNotFound;
@@ -70,6 +72,8 @@ final class ExceptionProblemMapping
         NotificationNotFound::class => ['type' => 'notification-not-found', 'title' => 'Notification not found', 'status' => 404],
         MissingRecipientPhoneNumber::class => ['type' => 'missing-recipient-phone-number', 'title' => 'The recipient phone number is missing', 'status' => 422],
         ChannelDoesNotSupportSessions::class => ['type' => 'channel-does-not-support-sessions', 'title' => 'This channel has no linked-device session to manage', 'status' => 422],
+        ChannelSessionNotFound::class => ['type' => 'channel-session-not-found', 'title' => 'WhatsApp session not found', 'status' => 422],
+        MissingChannelSession::class => ['type' => 'missing-channel-session', 'title' => 'The WhatsApp session is missing', 'status' => 422],
         OperatorNotFound::class => ['type' => 'operator-not-found', 'title' => 'Operator not found', 'status' => 404],
         InvalidOperatorCredentials::class => ['type' => 'unauthenticated', 'title' => 'Unauthenticated', 'status' => 401],
         OperatorRevoked::class => ['type' => 'forbidden', 'title' => 'Forbidden', 'status' => 403],

@@ -16,6 +16,11 @@ use RuntimeException;
  */
 final class MissingChannelSession extends RuntimeException
 {
+    public static function forRequest(): self
+    {
+        return new self('A WhatsApp send must name the caller\'s own linked session in variables[\'session\']. Nothing was sent.');
+    }
+
     public static function forMessage(string $appMessageRef): self
     {
         return new self(sprintf(

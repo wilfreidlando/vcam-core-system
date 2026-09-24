@@ -117,6 +117,81 @@ final class AdminWebFlowTest extends TestCase
     }
 
     #[Test]
+    public function whatsapp_sessions_are_created_from_the_console_started_at_the_provider_and_registered(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        \Illuminate\Support\Facades\Http::preventStrayRequests();
+        config(['providers.notification.whatsapp_waha.base_url' => 'https://waha.test']);
+        \Illuminate\Support\Facades\Http::fake([
+            'waha.test/api/sessions' => \Illuminate\Support\Facades\Http::response(['name' => 'x', 'status' => 'STARTING'], 201),
+            'waha.test/api/*/auth/qr' => \Illuminate\Support\Facades\Http::response('qr-bytes', 200, ['Content-Type' => 'image/png']),
+            'waha.test/api/screenshot*' => \Illuminate\Support\Facades\Http::response('shot-bytes', 200, ['Content-Type' => 'image/png']),
+            'waha.test/api/*/auth/request-code' => \Illuminate\Support\Facades\Http::response(['code' => 'ABCD-1234'], 200),
+        ]);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Sessions Org'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Sessions Project'), actor: 'service:test', correlationId: null)->project;
+
+        // Creation: started at the provider under the project-namespaced
+        // name, and registered in the Core's own table.
+        $this->post("/admin/projects/{$project->id}/whatsapp-sessions", ['session_ref' => 'ma-boutique'])
+            ->assertRedirect(route('admin.projects.channel-sessions.index', ['projectId' => $project->id]));
+        \Illuminate\Support\Facades\Http::assertSent(fn (\Illuminate\Http\Client\Request $r): bool => $r->url() === 'https://waha.test/api/sessions'
+            && $r['name'] === $project->id.'_ma-boutique' && $r['start'] === true);
+        $this->assertDatabaseHas('notification_channel_sessions', ['project_id' => $project->id, 'channel' => 'whatsapp', 'session_ref' => 'ma-boutique']);
+
+        // Listed, with the three actions next to it.
+        $this->get("/admin/projects/{$project->id}/whatsapp-sessions")
+            ->assertOk()->assertSee('ma-boutique')->assertSee('Scanner (QR)')->assertSee("Capture d'écran", false)->assertSee("Code d'appairage", false);
+
+        $this->get("/admin/projects/{$project->id}/whatsapp-sessions/ma-boutique/qr")->assertOk()->assertSee('data:image/png;base64,', false);
+        $this->get("/admin/projects/{$project->id}/whatsapp-sessions/ma-boutique/screenshot")->assertOk()->assertSee('data:image/png;base64,', false);
+        $this->post("/admin/projects/{$project->id}/whatsapp-sessions/ma-boutique/pairing-code", ['phone_number' => '+2376XXXXXXXX'])
+            ->assertRedirect()->assertSessionHas('status');
+
+        // A session that was never registered has no QR: explicit message, not a provider call.
+        $this->get("/admin/projects/{$project->id}/whatsapp-sessions/ghost/qr")->assertOk()->assertSee('is not registered for this project');
+
+        // Audited.
+        $this->get('/admin/audit-log')->assertSee('channel_session.created');
+
+        // An invalid name never reaches the provider.
+        $before = count(\Illuminate\Support\Facades\Http::recorded());
+        $this->post("/admin/projects/{$project->id}/whatsapp-sessions", ['session_ref' => 'ma boutique:1'])->assertSessionHasErrors('session_ref');
+        self::assertCount($before, \Illuminate\Support\Facades\Http::recorded());
+    }
+
+    #[Test]
+    public function a_global_whatsapp_session_is_created_under_its_plain_name_with_no_owner(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        \Illuminate\Support\Facades\Http::preventStrayRequests();
+        config(['providers.notification.whatsapp_waha.base_url' => 'https://waha.test']);
+        \Illuminate\Support\Facades\Http::fake(['waha.test/api/sessions' => \Illuminate\Support\Facades\Http::response(['name' => 'shared'], 201)]);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $this->post('/admin/whatsapp-sessions', ['session_ref' => 'shared'])->assertRedirect(route('admin.channel-sessions.index'));
+
+        \Illuminate\Support\Facades\Http::assertSent(fn (\Illuminate\Http\Client\Request $r): bool => $r['name'] === 'shared');
+        $this->assertDatabaseHas('notification_channel_sessions', ['project_id' => null, 'session_ref' => 'shared']);
+        $this->get('/admin/whatsapp-sessions')->assertOk()->assertSee('shared')->assertSee('tous les projets');
+    }
+
+    #[Test]
+    public function whatsapp_session_management_requires_its_permission(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $this->loginAndEnrollMfa(OperatorRole::ReadOnlyAuditor);
+
+        $this->get('/admin/whatsapp-sessions')->assertForbidden();
+        $this->post('/admin/whatsapp-sessions', ['session_ref' => 'x'])->assertForbidden();
+    }
+
+    #[Test]
     public function an_operator_without_the_required_permission_gets_a_403_not_a_200(): void
     {
         $this->withoutMiddleware(PreventRequestForgery::class);

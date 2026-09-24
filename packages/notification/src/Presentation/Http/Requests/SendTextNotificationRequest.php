@@ -60,7 +60,7 @@ final class SendTextNotificationRequest extends FormRequest
              * - `whatsapp`: REQUIRED keys `phone_number` (the recipient's
              *   international phone number, E.164, e.g. `+2376XXXXXXXX` —
              *   the example is a placeholder, use a number you own) and
-             *   `session` (the name of YOUR linked WhatsApp session, see
+             *   `session` (the WhatsApp session to send from, see
              *   below). A request missing either is rejected with a 422.
              *
              * Any other key in this map is forwarded untouched.
@@ -79,14 +79,14 @@ final class SendTextNotificationRequest extends FormRequest
              */
             'variables.phone_number' => ['required_if:channel,whatsapp', 'string', 'min:1'],
             /**
-             * When `channel = "whatsapp"`: the name of YOUR linked WhatsApp
-             * session — the message is sent from the number linked to it.
-             * Create and link it first with
-             * `GET /v1/notification-channel-sessions/whatsapp/{sessionRef}/qr`
-             * (or `POST .../pairing-code`); `session` is that same
-             * `sessionRef`. Letters, digits, `-` and `_`, up to 64
-             * characters. There is no shared default session: without it
-             * the request is rejected with a 422.
+             * When `channel = "whatsapp"`: the name of the WhatsApp
+             * session to send from — the number linked to it is the one
+             * the message comes from. Sessions are created and linked by
+             * the platform administrator (never by the client): ask for one
+             * to be created for your project and use the name you were
+             * given. A name that is not registered for your project (or
+             * shared with all projects) is refused with a 422 and nothing
+             * is sent. Letters, digits, `-` and `_`, up to 64 characters.
              *
              * @example "ma-boutique"
              */

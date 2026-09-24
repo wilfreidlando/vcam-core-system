@@ -6,6 +6,7 @@ namespace Core\Notification\Presentation\Http\Controllers\Waha;
 
 use Core\Identity\Contracts\ProjectContext;
 use Core\Notification\Contracts\ChannelDoesNotSupportSessions;
+use Core\Notification\Contracts\ChannelSessionNotFound;
 use Core\Notification\Contracts\GetChannelSessionCommand;
 use Core\Notification\Contracts\GetChannelSessionQrCode;
 use Core\Notification\Contracts\NotificationChannel;
@@ -33,10 +34,11 @@ final class GetChannelSessionQrCodeController
     /**
      * Get a scannable QR code for linking a phone to this channel session.
      *
-     * Requires the `notification_channel_sessions:read` scope. Lazily
-     * starts the session on the resolved provider if it isn't already
-     * running.
+     * Requires the `notification_channel_sessions:read` scope. The session must already
+     * exist: sessions are created by the platform administrator, never by
+     * this call — one that does not exist is refused with an explicit error.
      *
+     * @throws ChannelSessionNotFound the session does not exist for this project (422)
      * @throws ChannelDoesNotSupportSessions this channel's provider has no linked-device session concept (422)
      * @throws ProviderPermanentError|ProviderAuthError the provider rejected the request outright (502)
      * @throws ProviderTransientError|ProviderDisabledException|CircuitOpenException the provider is temporarily unavailable (503)

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Notification\Presentation\Http\Controllers;
 
 use Core\Identity\Contracts\ProjectContext;
+use Core\Notification\Contracts\ChannelSessionNotFound;
 use Core\Notification\Contracts\NotificationChannel;
 use Core\Notification\Contracts\SendFileNotification;
 use Core\Notification\Contracts\SendFileNotificationCommand;
@@ -31,6 +32,8 @@ final class SendFileNotificationController
      * Requires the `notifications:write` scope. No `Idempotency-Key`
      * HTTP header — supply `client_reference` in the body
      * if you want your own retry loop to be safe.
+     *
+     * @throws ChannelSessionNotFound the `variables.session` named is not registered for this project — nothing is sent (422)
      */
     public function __invoke(SendFileNotificationRequest $request, ProjectContext $project): JsonResponse|Response
     {

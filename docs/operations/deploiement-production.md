@@ -202,6 +202,17 @@ Le webhook entrant de MyCoolPay est vérifié par IP source
 documentée par MyCoolPay) et par signature MD5 — rien à faire de plus ici
 sauf si MyCoolPay change son IP source un jour.
 
+## 9 bis. Créer la session WhatsApp du client
+
+Un client n'envoie de WhatsApp qu'avec une session que **vous** avez créée : console →
+*Sessions WhatsApp* (fiche du projet, ou menu *Plateforme* pour une session globale partagée
+par tous les projets). Saisissez un nom (`ma-boutique`) : la session est démarrée chez WAHA
+et enregistrée. Liez ensuite le téléphone avec les actions à côté de la session (QR code,
+capture d'écran, code d'appairage). Le client passe ce nom dans `variables.session`.
+Une session déjà liée chez WAHA (par exemple `default`) doit aussi être enregistrée ici
+(la « créer » est sans risque : si elle existe déjà chez WAHA, elle est simplement
+enregistrée).
+
 ## 10. Enregistrer un webhook endpoint (optionnel)
 
 Si le client veut recevoir les événements (`payment.status_changed`,

@@ -16,7 +16,6 @@ use Core\Notification\Contracts\NotificationChannelProvider;
 use Core\Notification\Contracts\NotificationStatusMapper;
 use Core\Notification\Contracts\OutboundMessage;
 use Core\Notification\Contracts\ProviderDispatchResult;
-use Core\Notification\Domain\Model\ScopedSessionRef;
 use Core\Notification\NotificationStatus;
 use Core\Support\Integration\Configuration\ProviderConfig;
 use Core\Support\Integration\Exception\ProviderPermanentError;
@@ -92,7 +91,7 @@ final readonly class WahaAdapter implements ChannelSessionProvider, Notification
         }
 
         $chatId = self::toChatId($phoneNumber);
-        $sessionRef = self::sessionRefFor($message->variables, $message->projectId, $message->appMessageRef);
+        $sessionRef = self::sessionRefFor($message->variables, $message->appMessageRef);
         $type = self::str($message->body, 'type', 'text');
 
         $response = match ($type) {
@@ -285,21 +284,22 @@ final readonly class WahaAdapter implements ChannelSessionProvider, Notification
     }
 
     /**
-     * The caller's `variables['session']`, namespaced by `projectId`
-     * before it ever reaches WAHA — security review finding: unscoped, it
-     * let one Project send through another Project's linked WhatsApp
-     * session by supplying/guessing its name.
+     * `variables['session']` is, by the time it reaches the adapter, the
+     * provider-side name the Core resolved from its own registry
+     * (`NotificationSendCascade`): a Project's own session is already
+     * namespaced by the Project there, a global one keeps its plain name.
+     * The adapter never invents or falls back to a session.
      *
      * @param array<string, mixed> $variables
      */
-    private static function sessionRefFor(array $variables, string $projectId, string $appMessageRef): string
+    private static function sessionRefFor(array $variables, string $appMessageRef): string
     {
         $session = self::str($variables, 'session');
         if ($session === '') {
             throw MissingChannelSession::forMessage($appMessageRef);
         }
 
-        return ScopedSessionRef::for($projectId, $session)->value;
+        return $session;
     }
 
     /**

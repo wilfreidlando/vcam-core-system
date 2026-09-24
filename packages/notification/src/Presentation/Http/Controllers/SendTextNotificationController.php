@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Notification\Presentation\Http\Controllers;
 
 use Core\Identity\Contracts\ProjectContext;
+use Core\Notification\Contracts\ChannelSessionNotFound;
 use Core\Notification\Contracts\NotificationChannel;
 use Core\Notification\Contracts\SendTextNotification;
 use Core\Notification\Contracts\SendTextNotificationCommand;
@@ -40,6 +41,8 @@ final class SendTextNotificationController
      * the caller wants it, is supplied through the optional
      * `client_reference` body field (see the request schema). Without
      * that field, the Core generates a fresh UUID per request.
+     *
+     * @throws ChannelSessionNotFound the `variables.session` named is not registered for this project — nothing is sent (422)
      */
     public function __invoke(SendTextNotificationRequest $request, ProjectContext $project): JsonResponse|Response
     {

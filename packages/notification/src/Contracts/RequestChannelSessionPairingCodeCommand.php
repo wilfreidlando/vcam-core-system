@@ -7,7 +7,7 @@ namespace Core\Notification\Contracts;
 final readonly class RequestChannelSessionPairingCodeCommand
 {
     public function __construct(
-        public string $projectId,
+        public ?string $projectId,
         public NotificationChannel $channel,
         public string $sessionRef,
         public string $phoneNumber,

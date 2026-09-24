@@ -28,6 +28,8 @@ final class FakeChannelSessionProvider implements ChannelSessionProvider, Notifi
     /** @var list<string> */
     public array $startedSessions = [];
 
+    public ?string $lastSentSession = null;
+
     public string $nextPairingCode = 'ABCD-ABCD';
 
     public ChannelSessionQrCode $nextQrCode;
@@ -63,6 +65,9 @@ final class FakeChannelSessionProvider implements ChannelSessionProvider, Notifi
 
     public function send(OutboundMessage $message): ProviderDispatchResult
     {
+        $session = $message->variables['session'] ?? null;
+        $this->lastSentSession = is_string($session) ? $session : null;
+
         return new ProviderDispatchResult('msg-fake-1', NotificationStatus::Sent);
     }
 

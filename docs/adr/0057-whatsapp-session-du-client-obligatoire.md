@@ -1,42 +1,54 @@
-# ADR-0057 — Envoi WhatsApp : la session du client est obligatoire, plus de session par défaut partagée
+# ADR-0057 — Sessions WhatsApp : créées par l'admin, enregistrées dans une table du Core, obligatoires à l'envoi
 
-- **Statut** : Accepté — remplace la règle de repli de l'ADR-0042 §4 (« sinon `extras.default_session`, sinon `default` »)
+- **Statut** : Accepté — remplace ADR-0042 §4 (le Core ne persiste rien sur une session ; repli sur une session par défaut)
 - **Date** : 2026-09-24
 - **Décideurs** : décision de l'utilisateur
 - **Dérives concernées** : aucune (précise un contrat public, pas de nouvelle capacité)
 
 ## Contexte
 
-Le Core expose des endpoints de session (`/v1/notification-channel-sessions/whatsapp/{sessionRef}/{qr,screenshot,pairing-code}`)
-pour que chaque client intégrateur crée et lie **son propre** compte WhatsApp. Mais l'envoi
-(`POST /v1/notifications/{text,image,file}`) retombait, quand `variables.session` était absent,
-sur une session par défaut commune à toute la plateforme (`WAHA_DEFAULT_SESSION`, `default`). Un
-client qui n'avait rien lié envoyait donc depuis le numéro de l'opérateur de la plateforme, sans
-le savoir — et sans que le contrat public dise que `variables.session` existait.
-
-Constaté en production : un envoi sans session était « réussi » (`sent`) depuis ce numéro partagé.
+Jusqu'ici, un envoi WhatsApp sans `variables.session` retombait sur une session par défaut commune à
+toute la plateforme (`WAHA_DEFAULT_SESSION`) : un client qui n'avait rien lié envoyait depuis le numéro de
+l'opérateur, sans le savoir. Par ailleurs les endpoints `qr` / `screenshot` / `pairing-code` **créaient**
+implicitement la session chez le fournisseur : n'importe quel client pouvait en faire naître à volonté.
 
 ## Décision
 
-- `variables.session` est **obligatoire** pour `channel = "whatsapp"` sur les trois endpoints
-  d'envoi : `required_if:channel,whatsapp`, lettres/chiffres/`-`/`_`, 64 caractères au plus. Son
-  absence est un `422`, pas un envoi.
-- C'est le même `sessionRef` que celui des endpoints de session : le client lie sa session, puis
-  envoie avec son nom. La valeur est toujours préfixée par le `projectId` avant d'atteindre WAHA
-  (`<projectId>_<session>`, ADR-0051), donc un Project ne peut pas utiliser la session d'un autre.
-- `WahaAdapter::send()` n'a plus aucun repli : sans session il lève `MissingChannelSession`
-  (défense en profondeur si un autre chemin atteint l'adaptateur sans passer par la validation HTTP).
-- `WAHA_DEFAULT_SESSION` / `extras.default_session` sont supprimés de la configuration et des
-  modèles d'environnement.
+1. **Un client ne crée jamais de session.** La création se fait dans la console d'administration
+   (« Sessions WhatsApp », sur la fiche du projet ou au niveau plateforme) : elle appelle
+   `startSession` chez le fournisseur (la session existe réellement et est démarrée) puis l'enregistre.
+   À côté de chaque session : QR code, capture d'écran, code d'appairage.
+2. **Le Core garde un registre** : table `notification_channel_sessions` (`project_id` nullable, `channel`,
+   `session_ref`, `created_at`). Une session est **liée à un projet** (seul ce projet peut l'utiliser) **ou
+   globale** (`project_id` NULL, utilisable par tous les projets — par exemple la session déjà liée de
+   l'opérateur). Ne contient qu'un nom et son propriétaire, jamais l'état de la session.
+3. **`variables.session` est obligatoire** pour `channel = "whatsapp"` (422 sinon ; lettres, chiffres, `-`, `_`,
+   64 max). À l'envoi, la cascade vérifie **uniquement dans cette table** — jamais en interrogeant le fournisseur —
+   que la session est enregistrée pour le projet, ou globale (la session propre du projet prime sur une
+   globale de même nom). Sinon : `422 channel-session-not-found`, message explicite, **rien n'est envoyé ni
+   écrit**.
+4. La cascade remplace `variables.session` par le nom **côté fournisseur** (`<projectId>_<ref>` pour une
+   session de projet, `<ref>` tel quel pour une globale) ; `WahaAdapter` l'utilise tel quel et n'a plus de repli
+   (`MissingChannelSession` sans session).
+5. Les endpoints clients `qr` / `screenshot` / `pairing-code` ne créent plus rien et ne fonctionnent que
+   pour une session **propre au projet** déjà enregistrée (jamais une globale, jamais celle d'un autre projet).
+6. `WAHA_DEFAULT_SESSION` est supprimé.
+7. Nouvelle permission `channel-sessions:write` (`ProviderManager` ; `PlatformAdmin` via `*`).
+
+## Pourquoi une table plutôt qu'interroger le fournisseur
+
+Vérifier auprès du fournisseur ajoutait un appel réseau (~1 s mesuré) à chaque envoi, dépendait de ses
+codes d'erreur (impossible de distinguer proprement « inexistante » d'une autre erreur 4xx) et rendait le
+comportement différent d'un fournisseur à l'autre. Le registre est local, instantané (72 ms pour un refus),
+et identique quel que soit le fournisseur.
 
 ## Conséquences
 
-- **Changement de contrat** : un appelant qui n'envoyait pas `variables.session` reçoit désormais
-  un `422`. Le contrôle de compatibilité OpenAPI (oasdiff) le signalera comme rupture ; c'est voulu.
-- Un message ne peut plus partir d'un numéro que le Project appelant n'a pas lié lui-même.
-- La session par défaut de l'instance WAHA reste utilisable directement chez WAHA, mais plus via
-  le Core.
-- **Non traité ici** : la validation ne vérifie pas que la session existe ni qu'elle est liée. Une
-  session inconnue ou non liée donne `201` avec `status: failed` et `error_message` peu explicite
-  (`HTTP 422 (permanent)`) alors que WAHA indique `Session status is not as expected … expected
-  WORKING`. Remonter cette raison au client reste à faire.
+- **Changement de contrat** : un appelant qui n'envoyait pas `variables.session` reçoit un `422`.
+  Le contrôle de compatibilité OpenAPI le signalera comme rupture ; c'est voulu.
+- Les sessions créées avant cette table ne sont pas enregistrées : il faut les enregistrer (les recréer
+  dans la console est idempotent) avant de pouvoir envoyer avec.
+- **Non traité** : le registre ne dit pas si un téléphone est lié. Une session enregistrée mais non liée
+  répond `201` avec `status: failed` et `error_message` peu explicite (`HTTP 422 (permanent)`), alors que WAHA
+  indique `Session status is not as expected … expected WORKING`. Pas de suppression de session dans la
+  console non plus.

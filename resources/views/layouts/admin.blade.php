@@ -98,6 +98,7 @@
                 $canWallets = $has('wallets:read');
                 $canReconciliation = $has('payments:reconcile:write');
                 $canWebhooks = $has('webhooks:read');
+                $canSessions = $has('channel-sessions:write');
                 $canAudit = $has('audit:read');
 
                 // Cheap, best-effort badge counts (same defensive
@@ -227,7 +228,7 @@
                     @endif
 
                     {{-- Plateforme --}}
-                    @if($canWebhooks || $canAudit)
+                    @if($canWebhooks || $canAudit || $canSessions)
                         <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Plateforme</p>
 
                         @if($canWebhooks)
@@ -239,6 +240,13 @@
                                 @if($deadWebhookCount !== null && $deadWebhookCount > 0)
                                     <span class="inline-flex items-center justify-center rounded-full bg-rose-500/20 text-rose-300 text-xs font-semibold px-1.5 py-0.5 min-w-[1.375rem] shrink-0">{{ $deadWebhookCount }}</span>
                                 @endif
+                            </a>
+                        @endif
+
+                        @if($canSessions)
+                            <a href="{{ route('admin.channel-sessions.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.channel-sessions.*') || request()->routeIs('admin.projects.channel-sessions.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                                <span class="truncate">Sessions WhatsApp</span>
                             </a>
                         @endif
 

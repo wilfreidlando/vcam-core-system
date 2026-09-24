@@ -90,6 +90,13 @@
                 <span class="text-indigo-600">→</span>
             </a>
         @endif
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('channel-sessions:write'))
+            <a href="{{ route('admin.projects.channel-sessions.index', ['projectId' => $project->id]) }}"
+               class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+                <span class="font-medium text-slate-900">Sessions WhatsApp</span>
+                <span class="text-indigo-600">→</span>
+            </a>
+        @endif
         @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('api-keys:write'))
             <a href="{{ route('admin.projects.api-keys.create', ['projectId' => $project->id]) }}"
                class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">

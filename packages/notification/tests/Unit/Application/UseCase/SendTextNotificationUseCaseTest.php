@@ -16,6 +16,7 @@ use Core\Notification\Tests\Unit\Fakes\FakeNotificationChannelProviderRegistry;
 use Core\Notification\Tests\Unit\Fakes\FakeNotificationProviderRouter;
 use Core\Notification\Tests\Unit\Fakes\FakePartyFinder;
 use Core\Notification\Tests\Unit\Fakes\FixedClock;
+use Core\Notification\Tests\Unit\Fakes\InMemoryChannelSessionRepository;
 use Core\Notification\Tests\Unit\Fakes\InMemoryEventOutbox;
 use Core\Notification\Tests\Unit\Fakes\InMemoryNotificationDeliveryRepository;
 use Core\Notification\Tests\Unit\Fakes\InMemoryNotificationRepository;
@@ -49,6 +50,7 @@ function makeCascade(array $providerCodes = ['fake-provider']): array
         $deliveries,
         $router,
         $registry,
+        new InMemoryChannelSessionRepository,
         $partyFinder,
         new PassthroughUnitOfWork,
         $outbox,

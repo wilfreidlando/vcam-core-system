@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Core\Notification\Contracts;
 
 /**
- * `sessionRef` is caller-supplied (ADR-0042 §4) — the Core does not
- * generate or persist it, it's forwarded to the resolved provider as-is.
+ * `projectId === null` addresses a global (platform) session — only the
+ * admin console does that; the client-facing endpoints always pass the
+ * calling Project.
  */
 final readonly class GetChannelSessionCommand
 {
     public function __construct(
-        public string $projectId,
+        public ?string $projectId,
         public NotificationChannel $channel,
         public string $sessionRef,
     ) {}

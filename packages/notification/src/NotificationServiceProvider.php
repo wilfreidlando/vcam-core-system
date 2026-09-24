@@ -5,18 +5,24 @@ declare(strict_types=1);
 namespace Core\Notification;
 
 use Core\Notification\Application\Support\NotificationSendCascade;
+use Core\Notification\Application\UseCase\CreateChannelSessionUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionQrCodeUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionScreenshotUseCase;
+use Core\Notification\Application\UseCase\GetChannelSessionUseCase;
 use Core\Notification\Application\UseCase\GetNotificationStatusUseCase;
 use Core\Notification\Application\UseCase\HandleNotificationStatusChangedUseCase;
+use Core\Notification\Application\UseCase\ListChannelSessionsUseCase;
 use Core\Notification\Application\UseCase\ListNotificationsUseCase;
 use Core\Notification\Application\UseCase\RequestChannelSessionPairingCodeUseCase;
 use Core\Notification\Application\UseCase\SendFileNotificationUseCase;
 use Core\Notification\Application\UseCase\SendImageNotificationUseCase;
 use Core\Notification\Application\UseCase\SendTextNotificationUseCase;
+use Core\Notification\Contracts\CreateChannelSession;
+use Core\Notification\Contracts\GetChannelSession;
 use Core\Notification\Contracts\GetChannelSessionQrCode;
 use Core\Notification\Contracts\GetChannelSessionScreenshot;
 use Core\Notification\Contracts\GetNotificationStatus;
+use Core\Notification\Contracts\ListChannelSessions;
 use Core\Notification\Contracts\ListNotifications;
 use Core\Notification\Contracts\NotificationChannelProviderRegistry;
 use Core\Notification\Contracts\NotificationProviderRouter;
@@ -26,8 +32,10 @@ use Core\Notification\Contracts\RequestChannelSessionPairingCode;
 use Core\Notification\Contracts\SendFileNotification;
 use Core\Notification\Contracts\SendImageNotification;
 use Core\Notification\Contracts\SendTextNotification;
+use Core\Notification\Domain\Port\ChannelSessionRepository;
 use Core\Notification\Domain\Port\NotificationDeliveryRepository;
 use Core\Notification\Domain\Port\NotificationRepository;
+use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentChannelSessionRepository;
 use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentNotificationDeliveryRepository;
 use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentNotificationRepository;
 use Core\Notification\Infrastructure\Provider\NotificationChannelProviderRegistryImpl;
@@ -78,6 +86,7 @@ final class NotificationServiceProvider extends ServiceProvider
 
         $this->app->bind(NotificationRepository::class, EloquentNotificationRepository::class);
         $this->app->bind(NotificationDeliveryRepository::class, EloquentNotificationDeliveryRepository::class);
+        $this->app->bind(ChannelSessionRepository::class, EloquentChannelSessionRepository::class);
 
         $this->app->bind(NotificationSendCascade::class, NotificationSendCascade::class);
         $this->app->bind(SendTextNotification::class, SendTextNotificationUseCase::class);
@@ -87,6 +96,9 @@ final class NotificationServiceProvider extends ServiceProvider
         $this->app->bind(ListNotifications::class, ListNotificationsUseCase::class);
         $this->app->bind(NotificationStatusChangeHandler::class, HandleNotificationStatusChangedUseCase::class);
 
+        $this->app->bind(CreateChannelSession::class, CreateChannelSessionUseCase::class);
+        $this->app->bind(ListChannelSessions::class, ListChannelSessionsUseCase::class);
+        $this->app->bind(GetChannelSession::class, GetChannelSessionUseCase::class);
         $this->app->bind(GetChannelSessionQrCode::class, GetChannelSessionQrCodeUseCase::class);
         $this->app->bind(GetChannelSessionScreenshot::class, GetChannelSessionScreenshotUseCase::class);
         $this->app->bind(RequestChannelSessionPairingCode::class, RequestChannelSessionPairingCodeUseCase::class);

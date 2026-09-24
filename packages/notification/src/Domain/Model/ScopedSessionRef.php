@@ -35,6 +35,16 @@ final readonly class ScopedSessionRef
      * fixed-length UUID, so the first separator always ends it, and the
      * route already restricts `sessionRef` to `[A-Za-z0-9_-]+`.
      */
+    /**
+     * The provider-side name of a session by its owner: a Project's own
+     * session is namespaced by the Project, a global (platform) session
+     * keeps its plain name.
+     */
+    public static function forOwner(?string $projectId, string $sessionRef): self
+    {
+        return $projectId === null ? new self($sessionRef) : self::for($projectId, $sessionRef);
+    }
+
     public static function for(string $projectId, string $sessionRef): self
     {
         return new self($projectId.'_'.$sessionRef);

@@ -114,50 +114,26 @@ final class WahaAdapterTest extends TestCase
     }
 
     #[Test]
-    public function send_with_a_configured_session_variable_uses_it_instead_of_the_default(): void
+    public function send_uses_the_provider_side_session_name_exactly_as_the_core_resolved_it(): void
     {
         Http::fake([
             'waha.test/api/sendText' => Http::response(['id' => 'msg-3'], 201),
         ]);
 
-        $this->adapter->send($this->message(
-            body: ['type' => 'text', 'text' => 'hi'],
-            variables: ['phone_number' => '237699009900', 'session' => 'shop-1'],
-            projectId: 'project-1',
-        ));
+        // Which session a message may use is decided by the Core's own
+        // registry (NotificationSendCascade: a Project's session arrives
+        // already namespaced, a global one under its plain name) — the
+        // adapter forwards the name verbatim and never rewrites it.
+        foreach (['project-1_shop-1', 'shared'] as $name) {
+            $this->adapter->send($this->message(
+                body: ['type' => 'text', 'text' => 'hi'],
+                variables: ['phone_number' => '237699009900', 'session' => $name],
+            ));
+        }
 
-        // Security review finding: a caller-supplied session name is
-        // namespaced by the calling Project before it ever reaches WAHA
-        // — not forwarded verbatim — so one Project can never send
-        // through a session name it merely guessed belongs to another.
-        Http::assertSent(fn (Request $r): bool => $r['session'] === 'project-1_shop-1');
-    }
+        $sessions = collect(Http::recorded())->map(fn (array $pair) => $pair[0]['session'] ?? null)->all();
 
-    #[Test]
-    public function two_projects_supplying_the_same_session_name_are_scoped_to_different_waha_sessions(): void
-    {
-        Http::fake([
-            'waha.test/api/sendText' => Http::response(['id' => 'msg-4'], 201),
-        ]);
-
-        $this->adapter->send($this->message(
-            body: ['type' => 'text', 'text' => 'hi'],
-            variables: ['phone_number' => '237699009900', 'session' => 'shop-1'],
-            projectId: 'project-A',
-        ));
-        $this->adapter->send($this->message(
-            body: ['type' => 'text', 'text' => 'hi'],
-            variables: ['phone_number' => '237699009900', 'session' => 'shop-1'],
-            projectId: 'project-B',
-        ));
-
-        $sessions = collect(Http::recorded())
-            ->map(fn (array $pair) => $pair[0]['session'] ?? null)
-            ->all();
-
-        self::assertContains('project-A_shop-1', $sessions);
-        self::assertContains('project-B_shop-1', $sessions);
-        self::assertNotContains('shop-1', $sessions);
+        self::assertSame(['project-1_shop-1', 'shared'], $sessions);
     }
 
     #[Test]
@@ -267,7 +243,7 @@ final class WahaAdapterTest extends TestCase
             appMessageRef: 'app-msg-1',
             channel: NotificationChannel::fromString('whatsapp'),
             recipientRef: 'party-ref-1',
-            variables: $variables + ['session' => 'shop-1'],
+            variables: $variables + ['session' => 'project-1_shop-1'],
             body: $body,
             projectId: $projectId,
         );

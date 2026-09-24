@@ -6,6 +6,9 @@ namespace Core\Notification\Application\Support;
 
 use Core\Events\Contracts\DomainEvent;
 use Core\Events\Contracts\EventOutbox;
+use Core\Notification\Contracts\ChannelSessionNotFound;
+use Core\Notification\Contracts\ChannelSessionProvider;
+use Core\Notification\Contracts\MissingChannelSession;
 use Core\Notification\Contracts\NotificationChannel;
 use Core\Notification\Contracts\NotificationChannelProviderRegistry;
 use Core\Notification\Contracts\NotificationProviderRouter;
@@ -13,6 +16,7 @@ use Core\Notification\Contracts\NotificationView;
 use Core\Notification\Contracts\OutboundMessage;
 use Core\Notification\Domain\Exception\NotificationAlreadyExists;
 use Core\Notification\Domain\Model\Notification;
+use Core\Notification\Domain\Port\ChannelSessionRepository;
 use Core\Notification\Domain\Port\NotificationDeliveryRepository;
 use Core\Notification\Domain\Port\NotificationRepository;
 use Core\Notification\NotificationStatus;
@@ -55,6 +59,7 @@ final readonly class NotificationSendCascade
         private NotificationDeliveryRepository $deliveries,
         private NotificationProviderRouter $router,
         private NotificationChannelProviderRegistry $registry,
+        private ChannelSessionRepository $sessions,
         private PartyFinder $partyFinder,
         private UnitOfWork $unitOfWork,
         private EventOutbox $outbox,
@@ -80,6 +85,13 @@ final readonly class NotificationSendCascade
         if ($existing !== null) {
             return $this->toView($existing);
         }
+
+        // After the idempotent replay above (an already-sent notification
+        // must still be returned even if its session is gone later), before
+        // anything is written: a session the client names that does not
+        // is not registered for this Project is refused here with an
+        // explicit error — no party, no notification row, no provider call.
+        $variables = $this->withResolvedSession($channel, $projectId, $variables);
 
         // Correlation anchor only (ADR-0041 §5) — never a contact address.
         $this->partyFinder->findOrCreate(new FindOrCreatePartyCommand(
@@ -194,6 +206,41 @@ final readonly class NotificationSendCascade
         });
 
         return $this->toView($failed);
+    }
+
+    /**
+     * A session-based channel (WhatsApp) sends only from a session the
+     * operator registered — for THIS Project, or a global one — checked
+     * against the Core's own table, never by asking the provider. Returns
+     * the variables with `session` replaced by the name the session has at
+     * the provider (project-namespaced for a Project's own, plain for a
+     * global one). Whether a phone is actually linked stays the provider's
+     * business (an unlinked session simply fails at the provider).
+     *
+     * @param array<string, mixed> $variables
+     * @return array<string, mixed>
+     *
+     * @throws MissingChannelSession
+     * @throws ChannelSessionNotFound
+     */
+    private function withResolvedSession(NotificationChannel $channel, string $projectId, array $variables): array
+    {
+        $gateway = $this->registry->gatewayFor($this->router->resolveProviders($channel, $projectId)[0]);
+        if (! $gateway instanceof ChannelSessionProvider) {
+            return $variables;
+        }
+
+        $session = $variables['session'] ?? null;
+        if (! is_string($session) || $session === '') {
+            throw MissingChannelSession::forRequest();
+        }
+
+        $registered = $this->sessions->findUsableFor($projectId, $channel->value, $session)
+            ?? throw new ChannelSessionNotFound($session);
+
+        $variables['session'] = $registered->providerName();
+
+        return $variables;
     }
 
     private function toView(Notification $notification): NotificationView

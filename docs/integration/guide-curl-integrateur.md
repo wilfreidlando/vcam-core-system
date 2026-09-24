@@ -227,23 +227,21 @@ curl -s -X DELETE "$BASE_URL/v1/webhook-endpoints/01a0d4ab-94f0-72ca-ab5e-497285
 
 ## 5. Notifications WhatsApp
 
-**Chaque client envoie depuis sa propre session WhatsApp** : il n'existe pas de
-numéro partagé par défaut. Avant le premier envoi, liez votre téléphone à une session
-que vous nommez vous-même (voir [§6](#6-session-whatsapp-création-et-liaison-dun-téléphone) —
-`ma-boutique` dans les exemples), puis passez ce nom dans `variables.session`.
-Sans `variables.session` : `422`.
+**Les sessions WhatsApp sont créées et liées par l'administrateur de la plateforme**, jamais
+par le client. Demandez-lui une session pour votre projet : il vous donne son nom (par
+exemple `ma-boutique`), à passer dans `variables.session`. Une session peut aussi être
+**globale** (partagée par tous les projets). Si le nom n'est pas enregistré pour votre
+projet, la requête est refusée en `422` avec un message explicite et **rien n'est envoyé**.
 
 Le numéro du destinataire se passe dans **`variables.phone_number`** (format E.164) ;
 `to_party_ref` n'est qu'une référence de corrélation de votre côté, jamais un contact.
 `client_reference` (optionnel) déduplique : la même valeur sur le même Project renvoie
 la notification d'origine sans second envoi.
 
-> Les exemples de réponse `sent` ci-dessous ont été obtenus le 2026-09-24 avant que
-> `variables.session` ne devienne obligatoire (l'envoi partait alors de la session par
-> défaut du serveur). Le comportement de la nouvelle règle a été vérifié en réel pour
-> les cas de refus (`422` sans session ou avec un nom invalide ; `failed` avec une
-> session non liée) mais l'envoi réussi depuis une session liée par un client reste à
-> confirmer avec une vraie session liée.
+> Vérifié en réel (2026-09-24) : session inconnue → `422` en quelques dizaines de
+> millisecondes, sans appel au fournisseur ; session globale enregistrée → `201` `sent`.
+> Les autres exemples `sent` ci-dessous datent d'avant l'obligation de `variables.session`
+> (l'envoi partait alors d'une session par défaut).
 
 ### 5.1 Texte — `POST /v1/notifications/text`
 
@@ -333,34 +331,33 @@ curl -s "$BASE_URL/v1/notifications/01a0d4ab-d472-7168-a70d-d715328418b7" \
 | --- | --- |
 | Canal WhatsApp sans `variables.phone_number` | `422` (`errors["variables.phone_number"]`) |
 | Canal WhatsApp sans `variables.session`, ou nom invalide (autre chose que lettres, chiffres, `-`, `_`, 64 max) | `422` (`errors["variables.session"]`) |
-| Session inexistante ou non liée à un téléphone | `201` avec `"status":"failed"` (`error_message`: `HTTP 422 (permanent)`) |
+| Session non enregistrée pour votre projet (et non globale) | `422` `channel-session-not-found`, message explicite, **rien n'est envoyé** |
+| Session enregistrée mais aucun téléphone lié | `201` avec `"status":"failed"` (`error_message`: `HTTP 422 (permanent)`) |
 | `channel` autre que `whatsapp` | `422` (`errors.channel`) |
 | `media_url` inexistante / non publique | `422` (`errors.media_url`) |
 | Échec côté WhatsApp/WAHA (session déconnectée…) | `201` avec `"status":"failed"` et `error_message` — l'envoi est traité de façon synchrone, **testez toujours `status`**, pas seulement le code HTTP |
 
-## 6. Session WhatsApp : création et liaison d'un téléphone
+## 6. Session WhatsApp : liaison d'un téléphone
 
-C'est ce qui permet à chaque client d'envoyer depuis son propre numéro. Il n'y a pas
-d'appel « créer une session » : le premier appel à `qr` ou `pairing-code` crée la session
-si elle n'existe pas. `sessionRef` (lettres, chiffres, `-`, `_`) est un nom choisi par
-vous ; c'est le même nom que vous passerez ensuite dans `variables.session` à l'envoi.
-Le Core ne stocke rien sur la session, et chez le fournisseur elle est isolée par Project.
+La **création** d'une session se fait dans la console d'administration (Sessions WhatsApp,
+sur la fiche du projet ou au niveau plateforme) : elle démarre la session chez le
+fournisseur et l'enregistre. Ce n'est pas un appel d'API client.
 
-1. Appelez `qr` (ou `pairing-code`) avec votre `sessionRef`.
-2. Liez le téléphone : scannez le QR, ou saisissez le code dans WhatsApp › Appareils connectés.
-3. Envoyez avec `"session": "<sessionRef>"`.
+Une fois la session créée, ces endpoints servent à **lier le téléphone** ; ils ne
+fonctionnent que pour une session déjà enregistrée pour votre projet (sinon `422`
+explicite, et jamais de création implicite) :
 
 ```bash
 # QR code à scanner (PNG en base64 dans "data")
-curl -s "$BASE_URL/v1/notification-channel-sessions/whatsapp/ma-session/qr" \
+curl -s "$BASE_URL/v1/notification-channel-sessions/whatsapp/ma-boutique/qr" \
   -H "Authorization: Bearer $API_KEY" -H "Accept: application/json"
 
 # Capture d'écran de la session
-curl -s "$BASE_URL/v1/notification-channel-sessions/whatsapp/ma-session/screenshot" \
+curl -s "$BASE_URL/v1/notification-channel-sessions/whatsapp/ma-boutique/screenshot" \
   -H "Authorization: Bearer $API_KEY" -H "Accept: application/json"
 
 # Code d'appairage à saisir dans WhatsApp > Appareils connectés
-curl -s -X POST "$BASE_URL/v1/notification-channel-sessions/whatsapp/ma-session/pairing-code" \
+curl -s -X POST "$BASE_URL/v1/notification-channel-sessions/whatsapp/ma-boutique/pairing-code" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
@@ -386,7 +383,7 @@ notification de liaison sur le numéro fourni : n'utilisez que le vôtre.
 | `POST /v1/notifications/image` | oui (WAHA) | 201 `sent` |
 | `POST /v1/notifications/file` | oui (WAHA) | 201 `sent` |
 | `GET /v1/notifications/{id}` | oui | 200 |
-| `GET …/qr`, `GET …/screenshot`, `POST …/pairing-code` | oui (WAHA) | 200 |
+| `GET …/qr`, `GET …/screenshot`, `POST …/pairing-code` | oui (WAHA), avant que la session doive être enregistrée par l'admin ; depuis, couvert par les tests automatisés | 200 / 422 si non enregistrée |
 
 Non couvert en réel : le passage d'un paiement à `succeeded` (nécessite que le client
 valide sur son téléphone et que MyCoolPay puisse joindre le Core par webhook) et donc le

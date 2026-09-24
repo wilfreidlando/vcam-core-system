@@ -16,6 +16,7 @@ use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Support\Environment;
 use Core\Wallet\Contracts\CreditWallet;
 use Core\Wallet\Contracts\CreditWalletCommand;
+use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -187,7 +188,8 @@ final class DocumentedApiExamplesTest extends TestCase
         config(['providers.notification.whatsapp_waha.base_url' => 'https://waha.test']);
         Http::fake(['waha.test/api/sendText' => Http::response(['id' => 'msg-1'], 201)]);
 
-        [$token] = $this->authenticatedProject();
+        [$token, $projectId] = $this->authenticatedProject();
+        $this->registerSession($projectId, 'ma-boutique');
 
         $response = $this->postJson('/v1/notifications/text', [
             'channel' => 'whatsapp',
@@ -207,7 +209,8 @@ final class DocumentedApiExamplesTest extends TestCase
         config(['providers.notification.whatsapp_waha.base_url' => 'https://waha.test']);
         Http::fake(['waha.test/api/sendImage' => Http::response(['id' => 'msg-2'], 201)]);
 
-        [$token] = $this->authenticatedProject();
+        [$token, $projectId] = $this->authenticatedProject();
+        $this->registerSession($projectId, 'ma-boutique');
 
         $response = $this->postJson('/v1/notifications/image', [
             'channel' => 'whatsapp',
@@ -230,7 +233,8 @@ final class DocumentedApiExamplesTest extends TestCase
         config(['providers.notification.whatsapp_waha.base_url' => 'https://waha.test']);
         Http::fake(['waha.test/api/sendFile' => Http::response(['id' => 'msg-3'], 201)]);
 
-        [$token] = $this->authenticatedProject();
+        [$token, $projectId] = $this->authenticatedProject();
+        $this->registerSession($projectId, 'ma-boutique');
 
         $response = $this->postJson('/v1/notifications/file', [
             'channel' => 'whatsapp',
@@ -253,7 +257,8 @@ final class DocumentedApiExamplesTest extends TestCase
         config(['providers.notification.whatsapp_waha.base_url' => 'https://waha.test']);
         Http::fake(['waha.test/api/sendText' => Http::response(['id' => 'msg-4'], 201)]);
 
-        [$token] = $this->authenticatedProject();
+        [$token, $projectId] = $this->authenticatedProject();
+        $this->registerSession($projectId, 'ma-boutique');
 
         $send = $this->postJson('/v1/notifications/text', [
             'channel' => 'whatsapp',
@@ -278,9 +283,10 @@ final class DocumentedApiExamplesTest extends TestCase
             'waha.test/api/*/auth/request-code' => Http::response(['code' => 'ABCD-1234'], 200),
         ]);
 
-        [$token] = $this->authenticatedProject();
+        [$token, $projectId] = $this->authenticatedProject();
+        $this->registerSession($projectId, 'ma-boutique');
 
-        $response = $this->postJson('/v1/notification-channel-sessions/whatsapp/session-doc/pairing-code', [
+        $response = $this->postJson('/v1/notification-channel-sessions/whatsapp/ma-boutique/pairing-code', [
             'phone_number' => '+2376XXXXXXXX',
         ], ['Authorization' => "Bearer {$token}"]);
 
@@ -297,9 +303,10 @@ final class DocumentedApiExamplesTest extends TestCase
             'waha.test/api/*/auth/qr' => Http::response('fake-qr-bytes', 200, ['Content-Type' => 'image/png']),
         ]);
 
-        [$token] = $this->authenticatedProject();
+        [$token, $projectId] = $this->authenticatedProject();
+        $this->registerSession($projectId, 'ma-boutique');
 
-        $this->getJson('/v1/notification-channel-sessions/whatsapp/session-doc/qr', ['Authorization' => "Bearer {$token}"])
+        $this->getJson('/v1/notification-channel-sessions/whatsapp/ma-boutique/qr', ['Authorization' => "Bearer {$token}"])
             ->assertOk()
             ->assertJsonStructure(['mime_type', 'data']);
     }
@@ -313,9 +320,10 @@ final class DocumentedApiExamplesTest extends TestCase
             'waha.test/api/screenshot*' => Http::response('fake-png-bytes', 200, ['Content-Type' => 'image/png']),
         ]);
 
-        [$token] = $this->authenticatedProject();
+        [$token, $projectId] = $this->authenticatedProject();
+        $this->registerSession($projectId, 'ma-boutique');
 
-        $this->getJson('/v1/notification-channel-sessions/whatsapp/session-doc/screenshot', ['Authorization' => "Bearer {$token}"])
+        $this->getJson('/v1/notification-channel-sessions/whatsapp/ma-boutique/screenshot', ['Authorization' => "Bearer {$token}"])
             ->assertOk()
             ->assertJsonStructure(['mime_type', 'data']);
     }
@@ -350,6 +358,17 @@ final class DocumentedApiExamplesTest extends TestCase
         );
 
         return [$issued->plaintextToken, $project->id];
+    }
+
+    private function registerSession(string $projectId, string $sessionRef, ?string $owner = 'self'): void
+    {
+        app(\Core\Notification\Domain\Port\ChannelSessionRepository::class)->save(new \Core\Notification\Domain\Model\ChannelSession(
+            (string) Str::uuid(),
+            $owner === 'self' ? $projectId : null,
+            'whatsapp',
+            $sessionRef,
+            new DateTimeImmutable,
+        ));
     }
 
     private function registerMyCoolPayApplication(string $projectId, string $publicKey): void

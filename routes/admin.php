@@ -113,6 +113,18 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             // collide with — the JSON plane has no ledger drill-down yet.
             Route::get('{projectId}/wallets/{walletId}/ledger', [App\Http\Controllers\Admin\WalletsController::class, 'ledger'])
                 ->name('projects.wallets.ledger');
+            // WhatsApp sessions owned by ONE Project: creation (which also
+            // starts the session at the provider), QR, screenshot, pairing.
+            Route::get('{projectId}/whatsapp-sessions', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'index'])
+                ->name('projects.channel-sessions.index');
+            Route::post('{projectId}/whatsapp-sessions', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'store'])
+                ->name('projects.channel-sessions.store');
+            Route::get('{projectId}/whatsapp-sessions/{sessionRef}/qr', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'qr'])
+                ->where('sessionRef', '[A-Za-z0-9_-]+')->name('projects.channel-sessions.qr');
+            Route::get('{projectId}/whatsapp-sessions/{sessionRef}/screenshot', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'screenshot'])
+                ->where('sessionRef', '[A-Za-z0-9_-]+')->name('projects.channel-sessions.screenshot');
+            Route::post('{projectId}/whatsapp-sessions/{sessionRef}/pairing-code', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'pairingCode'])
+                ->where('sessionRef', '[A-Za-z0-9_-]+')->name('projects.channel-sessions.pairing-code');
             Route::get('{projectId}/provider-applications/create', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'create'])
                 ->name('projects.provider-applications.create');
             Route::post('{projectId}/provider-applications', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'store'])
@@ -181,6 +193,21 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
 
         // ADR-0050: operator self-service — mirrors packages/admin's JSON
         // /v1/admin/operators endpoints for the console web plane.
+        // WhatsApp sessions of the PLATFORM (no owner Project): usable by
+        // every Project. Same actions as the per-Project ones above.
+        Route::prefix('whatsapp-sessions')->group(function (): void {
+            Route::get('/', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'index'])
+                ->name('channel-sessions.index');
+            Route::post('/', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'store'])
+                ->name('channel-sessions.store');
+            Route::get('{sessionRef}/qr', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'qr'])
+                ->where('sessionRef', '[A-Za-z0-9_-]+')->name('channel-sessions.qr');
+            Route::get('{sessionRef}/screenshot', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'screenshot'])
+                ->where('sessionRef', '[A-Za-z0-9_-]+')->name('channel-sessions.screenshot');
+            Route::post('{sessionRef}/pairing-code', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'pairingCode'])
+                ->where('sessionRef', '[A-Za-z0-9_-]+')->name('channel-sessions.pairing-code');
+        });
+
         Route::prefix('operators')->group(function (): void {
             Route::get('/', [App\Http\Controllers\Admin\OperatorsController::class, 'index'])
                 ->name('operators.index');
