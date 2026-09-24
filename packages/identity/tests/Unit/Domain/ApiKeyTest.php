@@ -58,3 +58,33 @@ it('exposes the scopes it was issued with', function (): void {
         ->and($apiKey->hasScope('ledger:admin'))->toBeFalse()
         ->and($apiKey->scopes())->toBe(['payments:write', 'wallets:read']);
 });
+
+it('treats the * scope as a wildcard covering every concrete scope', function (): void {
+    // Audit finding (bbbfc53-adjacent): a Project key issued with
+    // `--scope='*'` (the ergonomic shape every Core-issued key uses,
+    // per ADR-0044) used to fail hasScope() for any concrete scope
+    // — `whoami` returned `scopes: ["*"]` but POST /payments still
+    // returned 403 "The payments:write scope is required". The wildcard
+    // was a lie. Mirroring `OperatorRole::hasPermission()`, which
+    // already handled `*` correctly, removes the lie.
+    $wildcardKey = issuedApiKey(scopes: ['*']);
+
+    expect($wildcardKey->hasScope('payments:write'))->toBeTrue()
+        ->and($wildcardKey->hasScope('notifications:read'))->toBeTrue()
+        ->and($wildcardKey->hasScope('a:scope:that:does:not:exist:yet'))->toBeTrue()
+        ->and($wildcardKey->scopes())->toBe(['*']);
+});
+
+it('does not treat * as a wildcard when it appears only as a substring', function (): void {
+    // Defensive: a scope like 'payments:*' or '*:write' is NOT the
+    // wildcard — only the literal exact-match '*' is. (A future feature
+    // could add globs; today it would be a footgun — a caller could
+    // accidentally mint a key with `'payments:*'` thinking it's
+    // "all payment scopes" and silently lose webhooks:write.)
+    $narrowKey = issuedApiKey(scopes: ['payments:*', '*:write', 'payments:write']);
+
+    expect($narrowKey->hasScope('payments:write'))->toBeTrue()
+        ->and($narrowKey->hasScope('payments:read'))->toBeFalse()
+        ->and($narrowKey->hasScope('webhooks:write'))->toBeFalse()
+        ->and($narrowKey->hasScope('anything:else'))->toBeFalse();
+});

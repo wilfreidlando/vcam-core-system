@@ -94,6 +94,13 @@ final class ApiKey
 
     public function hasScope(string $scope): bool
     {
-        return in_array($scope, $this->scopes, true);
+        // `*` is the wildcard — a key issued with `--scope='*'` (the
+        // ergonomic shape every Core-issued key uses, see ADR-0044)
+        // covers every concrete scope. Mirrors `OperatorRole::hasPermission()`
+        // which already treats `*` the same way. Mirroring is on purpose:
+        // a Project key and an Operator token are both "full-power
+        // credentials scoped to one tenant" and should behave the same
+        // way on a wildcard.
+        return in_array('*', $this->scopes, true) || in_array($scope, $this->scopes, true);
     }
 }

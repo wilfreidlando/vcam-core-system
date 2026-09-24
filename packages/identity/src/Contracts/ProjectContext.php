@@ -27,6 +27,11 @@ final readonly class ProjectContext
 
     public function hasScope(string $scope): bool
     {
-        return in_array($scope, $this->scopes, true);
+        // `*` is the wildcard — mirrors `ApiKey::hasScope()` and
+        // `OperatorRole::hasPermission()` so a Project key issued
+        // with `--scope='*'` covers every concrete scope. The
+        // three call sites form a single rule: wildcard = "this key
+        // can do everything its tenant is allowed to do".
+        return in_array('*', $this->scopes, true) || in_array($scope, $this->scopes, true);
     }
 }

@@ -72,6 +72,7 @@ return [
             "\n\n".
             '- Every request body attribute has a description and a realistic example. `required` is marked. '.
             '- Every operation carries an `x-required-scopes` field listing the API key scopes the caller must hold. '.
+            '- The wildcard scope `*` covers every concrete scope — a key issued with `--scope="*"` is the whole Core for this tenant and passes every scope check. '.
             '- Every monetary POST under `/v1/payments/*` requires an `Idempotency-Key` header (cached response on replay, `409` on conflict). '.
             "\n\n".
             '## Outbound events (Core → caller) '.

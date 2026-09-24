@@ -30,4 +30,12 @@ final class ApiKeyScopes
         'notification_channel_sessions:write',
         'wallets:read',
     ];
+
+    /**
+     * The wildcard scope — covers every concrete scope. A key issued
+     * with `--scope='*'` is the ergonomic "everything for this tenant"
+     * shape (ADR-0044) and `ApiKey::hasScope()` recognises it as such.
+     * Same rule as `OperatorRole::hasPermission()`.
+     */
+    public const WILDCARD = '*';
 }
