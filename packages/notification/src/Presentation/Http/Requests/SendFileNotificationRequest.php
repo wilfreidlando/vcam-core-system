@@ -76,14 +76,21 @@ final class SendFileNotificationRequest extends FormRequest
              */
             'caption' => ['nullable', 'string'],
             /**
-             * Free-form data the provider needs to actually
-             * deliver the message. Shape is provider-specific —
-             * for WhatsApp via WAHA, the recipient phone number
-             * travels here as `variables.phone_number`.
+             * Free-form map of provider-specific variables forwarded
+             * as-is to the channel's adapter. See
+             * `POST /v1/notifications/text` for the full contract.
+             * For `whatsapp` via WAHA, REQUIRED key `phone_number`.
              *
-             * @example ["+237690000000"]
+             * @example {"phone_number": "+237690000000"}
              */
             'variables' => ['nullable', 'array'],
+            /**
+             * When `channel = "whatsapp"`, the WAHA adapter rejects
+             * outbound messages without `variables.phone_number`.
+             *
+             * @example "+237690000000"
+             */
+            'variables.phone_number' => ['required_if:channel,whatsapp', 'string', 'min:1'],
             /**
              * Optional opaque reference supplied by the caller.
              * Two requests with the same `client_reference` on the

@@ -54,17 +54,34 @@ final class SendTextNotificationRequest extends FormRequest
              */
             'text' => ['required', 'string'],
             /**
-             * Free-form data the provider needs to actually deliver
-             * the message. Shape and required fields are
-             * provider-specific — for WhatsApp via WAHA, the
-             * recipient phone number travels here as
-             * `variables.phone_number`. The Core forwards the
-             * array as-is and never inspects it; see the channel's
-             * adapter docs for what to include.
+             * Free-form map of provider-specific variables forwarded
+             * as-is to the channel's adapter. The keys required depend
+             * on the channel:
              *
-             * @example ["+237690000000"]
+             * - `whatsapp` (via WAHA, ADR-0042): REQUIRED key
+             *   `phone_number` with the recipient's international
+             *   phone number (E.164, e.g. `+237690000000`). Without
+             *   it the cascade fails asynchronously and the
+             *   notification ends up in `failed` — the only way for
+             *   the caller to know is to poll `GET /v1/notifications/{id}`.
+             *
+             * The Core never inspects this map's contents; see the
+             * channel's adapter (`packages/notification/src/Infrastructure/Provider`)
+             * for the full per-channel key list.
+             *
+             * @example {"phone_number": "+237690000000"}
              */
             'variables' => ['nullable', 'array'],
+            /**
+             * When `channel = "whatsapp"`, the WAHA adapter rejects
+             * outbound messages without `variables.phone_number`.
+             * Validating here means a missing field produces a
+             * clean 422 instead of an asynchronous cascade failure
+             * the caller would only learn about by polling.
+             *
+             * @example "+237690000000"
+             */
+            'variables.phone_number' => ['required_if:channel,whatsapp', 'string', 'min:1'],
             /**
              * Optional opaque reference supplied by the caller. Two
              * requests with the same `client_reference` on the same

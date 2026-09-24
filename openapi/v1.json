@@ -3756,18 +3756,22 @@
                         ]
                     },
                     "variables": {
-                        "type": [
-                            "array",
-                            "null"
-                        ],
-                        "description": "Free-form data the provider needs to actually\ndeliver the message. Shape is provider-specific \u2014\nfor WhatsApp via WAHA, the recipient phone number\ntravels here as `variables.phone_number`.",
+                        "type": "object",
+                        "description": "Free-form map of provider-specific variables forwarded\nas-is to the channel's adapter. See\n`POST /v1/notifications/text` for the full contract.\nFor `whatsapp` via WAHA, REQUIRED key `phone_number`.",
                         "examples": [
-                            [
-                                "+237690000000"
-                            ]
+                            {
+                                "phone_number": "+237690000000"
+                            }
                         ],
-                        "items": {
-                            "type": "string"
+                        "properties": {
+                            "phone_number": {
+                                "type": "string",
+                                "description": "When `channel = \"whatsapp\"`, the WAHA adapter rejects\noutbound messages without `variables.phone_number`.",
+                                "examples": [
+                                    "+237690000000"
+                                ],
+                                "minLength": 1
+                            }
                         }
                     },
                     "client_reference": {
@@ -3853,18 +3857,22 @@
                         "maxLength": 255
                     },
                     "variables": {
-                        "type": [
-                            "array",
-                            "null"
-                        ],
-                        "description": "Free-form data the provider needs to actually deliver\nthe message. Shape is provider-specific \u2014 for\nWhatsApp via WAHA, the recipient phone number\ntravels here as `variables.phone_number`.",
+                        "type": "object",
+                        "description": "Free-form map of provider-specific variables forwarded\nas-is to the channel's adapter. See\n`POST /v1/notifications/text` for the full contract.\nFor `whatsapp` via WAHA, REQUIRED key `phone_number`.",
                         "examples": [
-                            [
-                                "+237690000000"
-                            ]
+                            {
+                                "phone_number": "+237690000000"
+                            }
                         ],
-                        "items": {
-                            "type": "string"
+                        "properties": {
+                            "phone_number": {
+                                "type": "string",
+                                "description": "When `channel = \"whatsapp\"`, the WAHA adapter rejects\noutbound messages without `variables.phone_number`.",
+                                "examples": [
+                                    "+237690000000"
+                                ],
+                                "minLength": 1
+                            }
                         }
                     },
                     "client_reference": {
@@ -3915,18 +3923,22 @@
                         ]
                     },
                     "variables": {
-                        "type": [
-                            "array",
-                            "null"
-                        ],
-                        "description": "Free-form data the provider needs to actually deliver\nthe message. Shape and required fields are\nprovider-specific \u2014 for WhatsApp via WAHA, the\nrecipient phone number travels here as\n`variables.phone_number`. The Core forwards the\narray as-is and never inspects it; see the channel's\nadapter docs for what to include.",
+                        "type": "object",
+                        "description": "Free-form map of provider-specific variables forwarded\nas-is to the channel's adapter. The keys required depend\non the channel: - `whatsapp` (via WAHA, ADR-0042): REQUIRED key\n  `phone_number` with the recipient's international\n  phone number (E.164, e.g. `+237690000000`). Without\n  it the cascade fails asynchronously and the\n  notification ends up in `failed` \u2014 the only way for\n  the caller to know is to poll `GET /v1/notifications/{id}`.\n\nThe Core never inspects this map's contents; see the\nchannel's adapter (`packages/notification/src/Infrastructure/Provider`)\nfor the full per-channel key list.",
                         "examples": [
-                            [
-                                "+237690000000"
-                            ]
+                            {
+                                "phone_number": "+237690000000"
+                            }
                         ],
-                        "items": {
-                            "type": "string"
+                        "properties": {
+                            "phone_number": {
+                                "type": "string",
+                                "description": "When `channel = \"whatsapp\"`, the WAHA adapter rejects\noutbound messages without `variables.phone_number`.\nValidating here means a missing field produces a\nclean 422 instead of an asynchronous cascade failure\nthe caller would only learn about by polling.",
+                                "examples": [
+                                    "+237690000000"
+                                ],
+                                "minLength": 1
+                            }
                         }
                     },
                     "client_reference": {
