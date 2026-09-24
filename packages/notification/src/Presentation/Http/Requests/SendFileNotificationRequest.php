@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Notification\Presentation\Http\Requests;
 
+use Core\Support\Integration\Security\SafeOutboundUrlRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -44,9 +45,9 @@ final class SendFileNotificationRequest extends FormRequest
              * network (no private IPs, no localhost) — same
              * constraint as `POST /v1/webhook-endpoints`.
              *
-             * @example "https://cdn.example.com/invoice-1234.pdf"
+             * @example "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
              */
-            'media_url' => ['required', 'string', 'max:2048'],
+            'media_url' => ['required', 'string', 'max:2048', 'url', 'starts_with:http://,https://', new SafeOutboundUrlRule],
             /**
              * The filename the recipient sees and the
              * content-disposition header is built from. The file's

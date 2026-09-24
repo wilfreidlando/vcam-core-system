@@ -73,7 +73,7 @@ final class DocumentedApiExamplesTest extends TestCase
             'customer_phone_number' => '+237690000000',
             'customer_name' => 'Marie Dupont',
             'customer_email' => 'marie.dupont@example.com',
-            'customer_lang' => 'fr-CM',
+            'customer_lang' => 'fr',
             'return_url' => 'https://example.com/payments/return',
             'wallet_recipient_external_ref' => 'wallet-customer-42',
             'callback_url' => 'https://example.com/webhooks/core',
@@ -108,7 +108,7 @@ final class DocumentedApiExamplesTest extends TestCase
             'customer_phone_number' => '+237690000000',
             'customer_name' => 'Marie Dupont',
             'customer_email' => 'marie.dupont@example.com',
-            'customer_lang' => 'fr-CM',
+            'customer_lang' => 'fr',
             'wallet_recipient_external_ref' => 'wallet-customer-42',
             'callback_url' => 'https://example.com/webhooks/core',
         ], [
@@ -212,7 +212,7 @@ final class DocumentedApiExamplesTest extends TestCase
         $response = $this->postJson('/v1/notifications/image', [
             'channel' => 'whatsapp',
             'to_party_ref' => 'customer-42',
-            'media_url' => 'https://cdn.example.com/order-1234.png',
+            'media_url' => 'https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png',
             'caption' => 'Your order confirmation',
             'filename' => 'order-1234.png',
             'mimetype' => 'image/png',
@@ -235,7 +235,7 @@ final class DocumentedApiExamplesTest extends TestCase
         $response = $this->postJson('/v1/notifications/file', [
             'channel' => 'whatsapp',
             'to_party_ref' => 'customer-42',
-            'media_url' => 'https://cdn.example.com/invoice-1234.pdf',
+            'media_url' => 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
             'filename' => 'invoice-1234.pdf',
             'mimetype' => 'application/pdf',
             'caption' => 'Your invoice for order #1234',

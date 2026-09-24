@@ -28,7 +28,7 @@ it('ensures the session is started before returning the qr code', function (): v
     // Security review finding: sessionRef is namespaced by projectId
     // before it ever reaches the provider — never forwarded as the
     // caller supplied it.
-    expect($provider->startedSessions)->toBe(['project-1:shop-1'])
+    expect($provider->startedSessions)->toBe(['project-1_shop-1'])
         ->and($qr)->toBe($provider->nextQrCode);
 });
 
@@ -43,7 +43,7 @@ it('scopes the same caller-supplied session ref differently per project', functi
     $useCase->get(new GetChannelSessionCommand('project-A', NotificationChannel::fromString('whatsapp'), 'shop-1'));
     $useCase->get(new GetChannelSessionCommand('project-B', NotificationChannel::fromString('whatsapp'), 'shop-1'));
 
-    expect($provider->startedSessions)->toBe(['project-A:shop-1', 'project-B:shop-1']);
+    expect($provider->startedSessions)->toBe(['project-A_shop-1', 'project-B_shop-1']);
 });
 
 it('ensures the session is started before returning the screenshot', function (): void {
@@ -56,7 +56,7 @@ it('ensures the session is started before returning the screenshot', function ()
 
     $screenshot = $useCase->get(new GetChannelSessionCommand('project-1', NotificationChannel::fromString('whatsapp'), 'shop-1'));
 
-    expect($provider->startedSessions)->toBe(['project-1:shop-1'])
+    expect($provider->startedSessions)->toBe(['project-1_shop-1'])
         ->and($screenshot)->toBe($provider->nextScreenshot);
 });
 
@@ -76,7 +76,7 @@ it('requests a pairing code after ensuring the session is started', function ():
         '237699009900',
     ));
 
-    expect($provider->startedSessions)->toBe(['project-1:shop-1'])
+    expect($provider->startedSessions)->toBe(['project-1_shop-1'])
         ->and($view->code)->toBe('WXYZ-1234');
 });
 
@@ -90,4 +90,12 @@ it('throws when the primary provider for the channel has no session capability',
 
     expect(fn () => $useCase->get(new GetChannelSessionCommand('project-1', NotificationChannel::fromString('sms'), 'anything')))
         ->toThrow(ChannelDoesNotSupportSessions::class);
+});
+
+it('scopes a session ref into a name a real WAHA accepts', function (): void {
+    // WAHA rejects anything outside [A-Za-z0-9_-] with a 400 — the earlier
+    // `<projectId>:<ref>` format made every QR/screenshot/pairing-code call
+    // fail against a real instance while all fakes stayed green.
+    expect(Core\Notification\Domain\Model\ScopedSessionRef::for('01a0d4a4-11d0-732b-b413-db21199feb62', 'main')->value)
+        ->toMatch('/^[A-Za-z0-9_-]+$/');
 });

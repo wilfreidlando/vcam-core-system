@@ -101,15 +101,15 @@ final class StartPaymentRequest extends FormRequest
              */
             'customer_email' => ['nullable', 'email'],
             /**
-             * A BCP-47 language tag for the customer's locale
-             * (`fr`, `en`, `fr-CM`...). Forwarded to the provider so
-             * the hosted payment page is rendered in the right
-             * language. Optional — providers fall back to their
-             * default when missing.
+             * The language the customer's payment prompt/page is shown
+             * in. Only `fr` or `en` are supported by the payment
+             * provider — any other value (including regional tags like
+             * `fr-CM`) is rejected with a 422. Optional — the provider
+             * falls back to its default when missing.
              *
-             * @example "fr-CM"
+             * @example "fr"
              */
-            'customer_lang' => ['nullable', 'string', 'max:8'],
+            'customer_lang' => ['nullable', 'string', Rule::in(['fr', 'en'])],
             /**
              * How the payment starts. `payin` is the synchronous,
              * app-driven flow: the Core returns immediately with a

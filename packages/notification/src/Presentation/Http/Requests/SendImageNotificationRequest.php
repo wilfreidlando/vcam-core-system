@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Notification\Presentation\Http\Requests;
 
+use Core\Support\Integration\Security\SafeOutboundUrlRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -47,9 +48,9 @@ final class SendImageNotificationRequest extends FormRequest
              * IPs, no localhost) — this is the same constraint as
              * `POST /v1/webhook-endpoints`.
              *
-             * @example "https://cdn.example.com/order-1234.png"
+             * @example "https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png"
              */
-            'media_url' => ['required', 'string', 'max:2048'],
+            'media_url' => ['required', 'string', 'max:2048', 'url', 'starts_with:http://,https://', new SafeOutboundUrlRule],
             /**
              * Optional text rendered alongside the image in the
              * recipient's client. UTF-8. Provider length limits

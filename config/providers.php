@@ -73,14 +73,21 @@ return [
                 'api_key' => env('MYCOOLPAY_PRIVATE_KEY'),
             ],
 
+            // MyCoolPay's payin answers only once the operator has been
+            // queried, which measured ~17s against the real API — the
+            // previous 15s made the first attempt time out while the
+            // transaction was in fact created, and the automatic retry then
+            // got `409 Duplicate transaction reference`, surfacing a 502 for
+            // a payment that existed. Two attempts at 30s keep the worst
+            // case (~62s) inside the FrankenPHP/nginx 90s ceilings.
             'timeouts' => [
                 'connect' => 2.0,
-                'request' => 15.0,
-                'total' => 30.0,
+                'request' => 30.0,
+                'total' => 62.0,
             ],
 
             'retries' => [
-                'max_attempts' => 3,
+                'max_attempts' => 2,
                 'base_delay_ms' => 500,
                 'max_delay_ms' => 5000,
                 'retryable_statuses' => [502, 503, 504, 429, 408],

@@ -26,8 +26,17 @@ final readonly class ScopedSessionRef
         public string $value,
     ) {}
 
+    /**
+     * `_`, not `:` — WAHA rejects any session name outside
+     * `[A-Za-z0-9_-]` with a 400 ("Session name can only contain
+     * alphanumeric characters, hyphens, and underscores"), so the earlier
+     * `<projectId>:<ref>` made every QR/screenshot/pairing-code call fail
+     * against a real WAHA. Still unambiguous: a project id is a
+     * fixed-length UUID, so the first separator always ends it, and the
+     * route already restricts `sessionRef` to `[A-Za-z0-9_-]+`.
+     */
     public static function for(string $projectId, string $sessionRef): self
     {
-        return new self($projectId.':'.$sessionRef);
+        return new self($projectId.'_'.$sessionRef);
     }
 }

@@ -3723,9 +3723,10 @@
                     },
                     "media_url": {
                         "type": "string",
+                        "format": "uri",
                         "description": "Publicly reachable HTTP(S) URL of the file. The\nprovider fetches it server-side and re-hosts it.\nMust be reachable from the provider's outbound\nnetwork (no private IPs, no localhost) \u2014 same\nconstraint as `POST /v1/webhook-endpoints`.",
                         "examples": [
-                            "https://cdn.example.com/invoice-1234.pdf"
+                            "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
                         ],
                         "maxLength": 2048
                     },
@@ -3818,9 +3819,10 @@
                     },
                     "media_url": {
                         "type": "string",
+                        "format": "uri",
                         "description": "Publicly reachable HTTP(S) URL of the image. The\nprovider fetches it server-side and re-hosts it, so\nyou do not upload binary. The URL must be reachable\nfrom the provider's outbound network (no private\nIPs, no localhost) \u2014 this is the same constraint as\n`POST /v1/webhook-endpoints`.",
                         "examples": [
-                            "https://cdn.example.com/order-1234.png"
+                            "https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png"
                         ],
                         "maxLength": 2048
                     },
@@ -4039,11 +4041,15 @@
                             "string",
                             "null"
                         ],
-                        "description": "A BCP-47 language tag for the customer's locale\n(`fr`, `en`, `fr-CM`...). Forwarded to the provider so\nthe hosted payment page is rendered in the right\nlanguage. Optional \u2014 providers fall back to their\ndefault when missing.",
-                        "examples": [
-                            "fr-CM"
+                        "description": "The language the customer's payment prompt/page is shown\nin. Only `fr` or `en` are supported by the payment\nprovider \u2014 any other value (including regional tags like\n`fr-CM`) is rejected with a 422. Optional \u2014 the provider\nfalls back to its default when missing.",
+                        "enum": [
+                            "fr",
+                            "en",
+                            null
                         ],
-                        "maxLength": 8
+                        "examples": [
+                            "fr"
+                        ]
                     },
                     "flow": {
                         "anyOf": [

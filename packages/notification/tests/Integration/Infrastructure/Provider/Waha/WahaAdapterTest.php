@@ -107,7 +107,7 @@ final class WahaAdapterTest extends TestCase
         // namespaced by the calling Project before it ever reaches WAHA
         // — not forwarded verbatim — so one Project can never send
         // through a session name it merely guessed belongs to another.
-        Http::assertSent(fn (Request $r): bool => $r['session'] === 'project-1:shop-1');
+        Http::assertSent(fn (Request $r): bool => $r['session'] === 'project-1_shop-1');
     }
 
     #[Test]
@@ -132,8 +132,8 @@ final class WahaAdapterTest extends TestCase
             ->map(fn (array $pair) => $pair[0]['session'] ?? null)
             ->all();
 
-        self::assertContains('project-A:shop-1', $sessions);
-        self::assertContains('project-B:shop-1', $sessions);
+        self::assertContains('project-A_shop-1', $sessions);
+        self::assertContains('project-B_shop-1', $sessions);
         self::assertNotContains('shop-1', $sessions);
     }
 
