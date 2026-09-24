@@ -37,7 +37,7 @@ final class RegisterWebhookEndpointRequest extends FormRequest
              * is required in production; HTTP is accepted only
              * for local development.
              *
-             * @example "https://my-app.example.com/webhooks/core"
+             * @example "https://example.com/webhooks/core"
              */
             'url' => ['required', 'url', 'starts_with:http://,https://', new SafeOutboundUrlRule],
             /**

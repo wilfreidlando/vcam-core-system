@@ -130,7 +130,7 @@ final class StartPaymentRequest extends FormRequest
              * disabled JS, captive portal). For a reliable
              * server-to-server signal, use `callback_url` instead.
              *
-             * @example "https://my-app.example.com/payments/return"
+             * @example "https://example.com/payments/return"
              */
             'return_url' => ['nullable', 'url'],
             /**
@@ -159,7 +159,7 @@ final class StartPaymentRequest extends FormRequest
              * it at registration time. Distinct from `return_url`:
              * this is server-to-server, `return_url` is browser-side.
              *
-             * @example "https://my-app.example.com/webhooks/core"
+             * @example "https://example.com/webhooks/core"
              */
             'callback_url' => ['nullable', 'url', 'starts_with:http://,https://', new SafeOutboundUrlRule],
         ];

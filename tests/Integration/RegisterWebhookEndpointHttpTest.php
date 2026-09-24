@@ -71,6 +71,28 @@ final class RegisterWebhookEndpointHttpTest extends TestCase
         $response->assertJsonStructure(['id', 'url', 'events', 'secret']);
     }
 
+    #[Test]
+    public function the_documented_example_url_is_itself_accepted(): void
+    {
+        // User-reported: the `@example` on `RegisterWebhookEndpointRequest`'s
+        // `url` rule used to be `https://my-app.example.com/webhooks/core`
+        // — a subdomain of the reserved example.com that has no DNS record
+        // at all, so SafeOutboundUrlRule's real resolution check rejected
+        // it. An integrator copy-pasting the doc's own example got a 422.
+        // Pinning the literal value here (not just "some example.com URL",
+        // already covered above) means a future edit to the docblock that
+        // reintroduces an unresolvable host fails this test, not a
+        // stranger's production integration.
+        $token = $this->issueTestApiKey();
+
+        $response = $this->postJson('/v1/webhook-endpoints', [
+            'url' => 'https://example.com/webhooks/core',
+            'events' => ['payment.status_changed'],
+        ], ['Authorization' => "Bearer {$token}"]);
+
+        $response->assertStatus(201);
+    }
+
     private function issueTestApiKey(string $scope = 'webhooks:write'): string
     {
         $organization = app(CreateOrganization::class)->create(

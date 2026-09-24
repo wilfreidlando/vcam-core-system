@@ -117,6 +117,40 @@ final class StartPaymentHttpFlowTest extends TestCase
     }
 
     #[Test]
+    public function the_documented_callback_url_example_is_itself_accepted(): void
+    {
+        // User-reported: the `@example` on `StartPaymentRequest`'s
+        // `callback_url` rule used to be
+        // `https://my-app.example.com/webhooks/core` — a subdomain of the
+        // reserved example.com that has no DNS record at all, so
+        // SafeOutboundUrlRule's real resolution check rejected it. An
+        // integrator copy-pasting the doc's own example got a 422.
+        [$token, $projectId] = $this->authenticatedProject();
+        $this->registerMyCoolPayApplication($projectId, 'pub-flow-doc-example');
+
+        Http::fake([
+            'my-coolpay.com/api/pub-flow-doc-example/payin' => Http::response([
+                'status' => 'success',
+                'transaction_ref' => 'tx-doc-example',
+                'action' => 'PENDING',
+            ], 201),
+        ]);
+
+        $response = $this->postJson('/v1/payments/payin', [
+            'channel' => 'mtn_momo',
+            'amount' => 1_000,
+            'currency' => 'XAF',
+            'reason' => 'Order #doc-example',
+            'callback_url' => 'https://example.com/webhooks/core',
+        ], [
+            'Authorization' => "Bearer {$token}",
+            'Idempotency-Key' => (string) Str::uuid(),
+        ]);
+
+        $response->assertStatus(201);
+    }
+
+    #[Test]
     public function starting_a_payment_without_a_registered_application_fails_cleanly(): void
     {
         [$token] = $this->authenticatedProject();

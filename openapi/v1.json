@@ -3,7 +3,7 @@
     "info": {
         "title": "Core System API",
         "version": "v1",
-        "description": "Enterprise Core System \u2014 the cross-cutting capabilities (identity, ledger, wallet, payment, notification, webhook) shared across every product. Authenticate with `Authorization: Bearer pk_<env>_<id>.<secret>` \u2014 see `GET /v1/whoami`. \n\n## Reading this document \n\n- Every request body attribute has a description and a realistic example. `required` is marked. - Every operation carries an `x-required-scopes` field listing the API key scopes the caller must hold. - Every monetary POST under `/v1/payments/*` requires an `Idempotency-Key` header (cached response on replay, `409` on conflict). \n\n## Outbound events (Core \u2192 caller) \n\nThe Core emits events on two planes \u2014 register `POST /v1/webhook-endpoints` to subscribe, or supply `callback_url` on `POST /v1/payments` for a per-payment delivery: \n\n- `WebhookEvent` \u2014 envelope `{id, type, data}` POSTed to subscribed endpoints, signed HMAC-SHA256 (headers `X-Signature`, `X-Timestamp`, `X-Event-Id`, `X-Event-Type`). - `WebhookEventType` \u2014 the closed enum of event types the Core emits (`payment.status_changed`, `notification.status_changed`, `notification.failed`, `wallet.credited`, `wallet.debited`). - `PaymentCallbackEvent` \u2014 the body POSTed to a per-payment `callback_url`. Same signature scheme, per-payment secret returned once in the initiation response. \n\n## Errors \n\nEvery error response is `application/problem+json` (RFC 7807) with `{type, title, status, detail, correlation_id}`. 422 from a `FormRequest` adds an `errors: {field: [msg]}` map. Quote `correlation_id` when contacting support."
+        "description": "Enterprise Core System \u2014 the cross-cutting capabilities (identity, ledger, wallet, payment, notification, webhook) shared across every product. Authenticate with `Authorization: Bearer pk_<env>_<id>.<secret>` \u2014 see `GET /v1/whoami`. \n\n## Reading this document \n\n- Every request body attribute has a description and a realistic example. `required` is marked. - Every operation carries an `x-required-scopes` field listing the API key scopes the caller must hold. - The wildcard scope `*` covers every concrete scope \u2014 a key issued with `--scope=\"*\"` is the whole Core for this tenant and passes every scope check. - Every monetary POST under `/v1/payments/*` requires an `Idempotency-Key` header (cached response on replay, `409` on conflict). \n\n## Outbound events (Core \u2192 caller) \n\nThe Core emits events on two planes \u2014 register `POST /v1/webhook-endpoints` to subscribe, or supply `callback_url` on `POST /v1/payments` for a per-payment delivery: \n\n- `WebhookEvent` \u2014 envelope `{id, type, data}` POSTed to subscribed endpoints, signed HMAC-SHA256 (headers `X-Signature`, `X-Timestamp`, `X-Event-Id`, `X-Event-Type`). - `WebhookEventType` \u2014 the closed enum of event types the Core emits (`payment.status_changed`, `notification.status_changed`, `notification.failed`, `wallet.credited`, `wallet.debited`). - `PaymentCallbackEvent` \u2014 the body POSTed to a per-payment `callback_url`. Same signature scheme, per-payment secret returned once in the initiation response. \n\n## Errors \n\nEvery error response is `application/problem+json` (RFC 7807) with `{type, title, status, detail, correlation_id}`. 422 from a `FormRequest` adds an `errors: {field: [msg]}` map. Quote `correlation_id` when contacting support."
     },
     "servers": [
         {
@@ -3648,7 +3648,7 @@
                         "format": "uri",
                         "description": "The public URL the Core POSTs the signed payload to\nwhen an event matches. Must be reachable from the\nCore's outbound network \u2014 no localhost, no\nRFC-1918 ranges, no link-local addresses. The\nreason is that a registered endpoint is retried\nautomatically for hours, so an address that points\nat an internal service today could become an\nunintentional exfiltration channel tomorrow. HTTPS\nis required in production; HTTP is accepted only\nfor local development.",
                         "examples": [
-                            "https://my-app.example.com/webhooks/core"
+                            "https://example.com/webhooks/core"
                         ]
                     },
                     "events": {
@@ -4067,7 +4067,7 @@
                         "format": "uri",
                         "description": "Where to send the customer's browser after they\ncomplete (or cancel) the payment on the\nprovider-hosted page. Best-effort: this is\nbrowser-side only and may never fire (closed tab,\ndisabled JS, captive portal). For a reliable\nserver-to-server signal, use `callback_url` instead.",
                         "examples": [
-                            "https://my-app.example.com/payments/return"
+                            "https://example.com/payments/return"
                         ]
                     },
                     "wallet_recipient_external_ref": {
@@ -4089,7 +4089,7 @@
                         "format": "uri",
                         "description": "Where the Core POSTs the server-to-server notification\nwhen the payment reaches a terminal state. This is the\nreliable channel \u2014 use it to update your own order\nstate, release stock, send a confirmation email, etc.\nThe body is JSON and signed with HMAC-SHA256 (headers\n`X-Signature`, `X-Timestamp`); the secret is returned\nin the initiation response and never again, so store\nit at registration time. Distinct from `return_url`:\nthis is server-to-server, `return_url` is browser-side.",
                         "examples": [
-                            "https://my-app.example.com/webhooks/core"
+                            "https://example.com/webhooks/core"
                         ]
                     }
                 },
