@@ -535,9 +535,12 @@ Adaptateur concret livré : WhatsApp via WAHA auto-hébergé (ADR-0042) —
 `WahaAdapter` implémente `NotificationChannelProvider` (même
 `ProviderGateway` générique que `PaymentGateway`, même registre) **et**
 un second port, `ChannelSessionProvider`, pour la liaison de téléphone
-(QR/pairing-code/screenshot, `/v1/notification-channel-sessions/{channel}/{sessionRef}/*`)
-— le Core ne persiste rien sur une session, `sessionRef` est fourni par
-l'appelant à chaque requête. `HandleNotificationStatusChangedUseCase`
+(créer/supprimer, QR/pairing-code/screenshot). Les sessions sont créées
+par l'administrateur dans la console et enregistrées dans la table
+`notification_channel_sessions` (ADR-0057, qui remplace « le Core ne
+persiste rien sur une session » d'ADR-0042) ; un envoi WhatsApp exige
+`variables.session`, vérifiée uniquement dans cette table (jamais auprès
+du provider), sans session par défaut. `HandleNotificationStatusChangedUseCase`
 (statuts entrants → `notification.delivered`/`.read`/`.failed`) est
 appelé par `WahaWebhookController` (`POST /webhooks/whatsapp-waha`).
 `FakeNotificationChannelProvider` reste utilisé pour les tests.

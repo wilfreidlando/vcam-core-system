@@ -33,11 +33,12 @@ final class RequestChannelSessionPairingCodeController
 
     /**
      * Request a phone-number pairing code for linking a phone to this
-     * channel session, as an alternative to scanning a QR code.
      *
-     * Requires the `notification_channel_sessions:write` scope. The session must already
-     * exist: sessions are created by the platform administrator, never by
-     * this call — one that does not exist is refused with an explicit error.
+     * Requires the `notification_channel_sessions:write` scope. Only for a session already
+     * created for your project by the platform administrator (otherwise
+     * `422 channel-session-not-found`; this call never creates one). The code is entered in
+     * WhatsApp › Linked devices › Link with phone number, and WhatsApp notifies the given number
+     * — only use a number you own.
      *
      * @throws ChannelSessionNotFound the session does not exist for this project (422)
      * @throws ChannelDoesNotSupportSessions this channel's provider has no linked-device session concept (422)

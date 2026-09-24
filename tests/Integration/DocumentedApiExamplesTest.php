@@ -239,7 +239,7 @@ final class DocumentedApiExamplesTest extends TestCase
         $response = $this->postJson('/v1/notifications/file', [
             'channel' => 'whatsapp',
             'to_party_ref' => 'customer-42',
-            'media_url' => 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+            'media_url' => 'https://www.orimi.com/pdf-test.pdf',
             'filename' => 'invoice-1234.pdf',
             'mimetype' => 'application/pdf',
             'caption' => 'Your invoice for order #1234',

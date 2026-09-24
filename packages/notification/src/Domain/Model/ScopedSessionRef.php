@@ -14,11 +14,12 @@ namespace Core\Notification\Domain\Model;
  * has no other ownership boundary between Projects.
  *
  * Namespacing the ref by `projectId` before it ever reaches the
- * provider closes this without persisting anything about the session
- * (ADR-0042's "Core persists nothing about a session" stays true — this
- * is a pure, deterministic string transform, not a stored ownership
- * record): two Projects can each call their session `"main"` and never
- * collide with, let alone reach, each other's.
+ * provider closes this: two Projects can each call their session `"main"`
+ * and never collide with, let alone reach, each other's. The namespacing
+ * is a pure, deterministic string transform; which sessions exist and who
+ * owns them is recorded separately, in `notification_channel_sessions`
+ * (ADR-0057) — a session with no owner Project is global and keeps its
+ * plain name.
  */
 final readonly class ScopedSessionRef
 {

@@ -29,9 +29,22 @@ final class SendFileNotificationController
     /**
      * Send a file/document message.
      *
-     * Requires the `notifications:write` scope. No `Idempotency-Key`
-     * HTTP header — supply `client_reference` in the body
-     * if you want your own retry loop to be safe.
+     * Requires the `notifications:write` scope. The recipient's phone number goes in
+     * `variables.phone_number`; `to_party_ref` is only a reference of your own (never a
+     * contact address).
+     *
+     * The message is sent from the WhatsApp session named in `variables.session`. Sessions are
+     * created and linked by the platform administrator — ask for one for your project. A name
+     * that is not registered for your project (or shared with all projects) is refused with
+     * `422 channel-session-not-found` and nothing is sent.
+     *
+     * The send is synchronous. The response is `201` **even when the send failed**: always check
+     * `status` (`sent` or `failed`) and, when `failed`, `error_message` — for example a session
+     * whose phone is not linked yet says so explicitly.
+     *
+     * Deduplication, when you want it, is done with the optional `client_reference` body field:
+     * the same value on the same project returns the original notification without a second
+     * send. Without it, every request is a new send. There is no `Idempotency-Key` header here.
      *
      * @throws ChannelSessionNotFound the `variables.session` named is not registered for this project — nothing is sent (422)
      */

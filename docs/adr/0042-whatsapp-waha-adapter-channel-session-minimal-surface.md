@@ -1,6 +1,6 @@
 # ADR-0042 — Adaptateur WhatsApp via WAHA auto-hébergé, surface minimale
 
-- **Statut** : Accepté
+- **Statut** : Accepté — **§4 (« le Core ne persiste rien sur une session », repli sur une session par défaut) remplacé par [ADR-0057](0057-whatsapp-session-du-client-obligatoire.md)**
 - **Date** : 2026-09-15
 - **Précise** : ADR-0041 (Lot 5 — orchestration Notification, sans
   adaptateur concret)

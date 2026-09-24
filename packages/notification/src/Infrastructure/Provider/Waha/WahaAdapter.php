@@ -55,12 +55,13 @@ use RuntimeException;
  *
  * # Session addressing
  *
- * The Core persists nothing about a WAHA session (ADR-0042 §4). For
- * `send()`, the session to send from is `variables['session']`, REQUIRED:
- * each integrating client links its own WhatsApp number through the
- * channel-session endpoints and sends with that session's name. There is
- * no shared fallback session — a message must never leave from a number
- * the calling Project did not link itself.
+ * Which sessions exist is recorded by the Core, in
+ * `notification_channel_sessions` (ADR-0057) — an operator creates them in
+ * the admin console. For `send()`, the session to send from is
+ * `variables['session']`, REQUIRED, and by the time it reaches this adapter
+ * it is the provider-side name the Core already resolved and checked
+ * against that table. There is no fallback session — a message must never
+ * leave from a number nobody registered for the caller.
  */
 final readonly class WahaAdapter implements ChannelSessionProvider, NotificationChannelProvider
 {

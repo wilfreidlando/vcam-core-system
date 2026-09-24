@@ -15,6 +15,7 @@ téléphone (à remplacer par le vôtre) et les URL de médias (qui doivent exis
 export BASE_URL="https://core-system.visibilitycam.com"   # en local : http://localhost:8000
 export API_KEY="pk_sandbox_XXXXXX.XXXXXXXXXXXXXXXX"        # clé du Project (voir ci-dessous)
 export PHONE="+2376XXXXXXXX"                               # un numéro qui vous appartient, format E.164
+export SESSION="ma-boutique"                               # nom de la session WhatsApp fourni par l'administrateur (§5)
 ```
 
 - **Clé API** : à créer dans la console (`/admin/projects/<id>/api-keys/create`), une
@@ -238,10 +239,8 @@ Le numéro du destinataire se passe dans **`variables.phone_number`** (format E.
 `client_reference` (optionnel) déduplique : la même valeur sur le même Project renvoie
 la notification d'origine sans second envoi.
 
-> Vérifié en réel (2026-09-24) : session inconnue → `422` en quelques dizaines de
-> millisecondes, sans appel au fournisseur ; session globale enregistrée → `201` `sent`.
-> Les autres exemples `sent` ci-dessous datent d'avant l'obligation de `variables.session`
-> (l'envoi partait alors d'une session par défaut).
+> Vérifié en réel (2026-09-24) avec une session enregistrée : les trois envois
+> ci-dessous répondent `201` `sent` et le message arrive sur le téléphone.
 
 ### 5.1 Texte — `POST /v1/notifications/text`
 
@@ -254,7 +253,7 @@ curl -s -X POST "$BASE_URL/v1/notifications/text" \
     "channel": "whatsapp",
     "to_party_ref": "customer-42",
     "text": "Hello Marie, your order #1234 is confirmed.",
-    "variables": { "phone_number": "'"$PHONE"'", "session": "ma-boutique" },
+    "variables": { "phone_number": "'"$PHONE"'", "session": "'"$SESSION"'" },
     "client_reference": "client-msg-abc123"
   }'
 ```
@@ -262,13 +261,14 @@ curl -s -X POST "$BASE_URL/v1/notifications/text" \
 `201` (la notification a été remise au fournisseur) :
 
 ```json
-{"id":"01a0d4ab-d472-7168-a70d-d715328418b7","channel":"whatsapp","status":"sent","content_type":"text","error_message":null}
+{"id":"01a0d548-f3c1-729b-b36b-b66ae2155b27","channel":"whatsapp","status":"sent","content_type":"text","error_message":null}
 ```
 
 ### 5.2 Image — `POST /v1/notifications/image`
 
 `media_url` doit être une URL **publique qui existe réellement** (elle est vérifiée :
-hôte inexistant → `422`).
+hôte inexistant → `422`) et **directement téléchargeable** : certains hébergeurs
+refusent les téléchargements automatiques (`403`), l'envoi échoue alors côté WhatsApp.
 
 ```bash
 curl -s -X POST "$BASE_URL/v1/notifications/image" \
@@ -282,13 +282,13 @@ curl -s -X POST "$BASE_URL/v1/notifications/image" \
     "caption": "Your order confirmation",
     "filename": "order-1234.png",
     "mimetype": "image/png",
-    "variables": { "phone_number": "'"$PHONE"'", "session": "ma-boutique" },
+    "variables": { "phone_number": "'"$PHONE"'", "session": "'"$SESSION"'" },
     "client_reference": "img-1"
   }'
 ```
 
 ```json
-{"id":"01a0d4ac-4eea-715e-950f-8841086c7145","channel":"whatsapp","status":"sent","content_type":"image","error_message":null}
+{"id":"01a0d548-fcdd-71ae-8e60-e68b99b7cce0","channel":"whatsapp","status":"sent","content_type":"image","error_message":null}
 ```
 
 ### 5.3 Fichier — `POST /v1/notifications/file`
@@ -301,28 +301,28 @@ curl -s -X POST "$BASE_URL/v1/notifications/file" \
   --data '{
     "channel": "whatsapp",
     "to_party_ref": "customer-42",
-    "media_url": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+    "media_url": "https://www.orimi.com/pdf-test.pdf",
     "filename": "invoice-1234.pdf",
     "mimetype": "application/pdf",
     "caption": "Your invoice for order #1234",
-    "variables": { "phone_number": "'"$PHONE"'", "session": "ma-boutique" },
+    "variables": { "phone_number": "'"$PHONE"'", "session": "'"$SESSION"'" },
     "client_reference": "file-1"
   }'
 ```
 
 ```json
-{"id":"01a0d4ac-7c39-73f3-9dff-6b37c2280c76","channel":"whatsapp","status":"sent","content_type":"file","error_message":null}
+{"id":"01a0d54a-0c70-71ec-b32d-542c08333bab","channel":"whatsapp","status":"sent","content_type":"file","error_message":null}
 ```
 
 ### 5.4 Suivre une notification — `GET /v1/notifications/{id}`
 
 ```bash
-curl -s "$BASE_URL/v1/notifications/01a0d4ab-d472-7168-a70d-d715328418b7" \
+curl -s "$BASE_URL/v1/notifications/01a0d548-f3c1-729b-b36b-b66ae2155b27" \
   -H "Authorization: Bearer $API_KEY" -H "Accept: application/json"
 ```
 
 ```json
-{"id":"01a0d4ab-d472-7168-a70d-d715328418b7","channel":"whatsapp","status":"sent","content_type":"text","error_message":null}
+{"id":"01a0d548-f3c1-729b-b36b-b66ae2155b27","channel":"whatsapp","status":"sent","content_type":"text","error_message":null}
 ```
 
 ### 5.5 Erreurs de notification vérifiées
@@ -331,11 +331,17 @@ curl -s "$BASE_URL/v1/notifications/01a0d4ab-d472-7168-a70d-d715328418b7" \
 | --- | --- |
 | Canal WhatsApp sans `variables.phone_number` | `422` (`errors["variables.phone_number"]`) |
 | Canal WhatsApp sans `variables.session`, ou nom invalide (autre chose que lettres, chiffres, `-`, `_`, 64 max) | `422` (`errors["variables.session"]`) |
-| Session non enregistrée pour votre projet (et non globale) | `422` `channel-session-not-found`, message explicite, **rien n'est envoyé** |
+| Session non enregistrée pour votre projet (et non globale) | `422` `channel-session-not-found`, réponse en quelques dizaines de ms, **rien n'est envoyé** (exemple ci-dessous) |
 | Session enregistrée mais aucun téléphone lié (ou déconnecté) | `201` avec `"status":"failed"` et un `error_message` explicite : « The WhatsApp session used for this send is not linked to a phone (…). Ask the platform administrator to link it… Nothing was sent. » |
 | `channel` autre que `whatsapp` | `422` (`errors.channel`) |
 | `media_url` inexistante / non publique | `422` (`errors.media_url`) |
 | Échec côté WhatsApp/WAHA (session déconnectée…) | `201` avec `"status":"failed"` et `error_message` — l'envoi est traité de façon synchrone, **testez toujours `status`**, pas seulement le code HTTP |
+
+Réponse réelle pour une session non enregistrée (`422`) :
+
+```json
+{"type":"https://errors.core-system.internal/channel-session-not-found","title":"WhatsApp session not found","status":422,"detail":"The WhatsApp session \"inconnue\" is not registered for this project. Sessions are created by the platform administrator: ask for it to be created and linked, then retry. Nothing was sent.","correlation_id":"ef75f18c-c31a-4883-83a0-8784f62cf60b"}
+```
 
 ## 6. Session WhatsApp : liaison d'un téléphone
 
@@ -349,15 +355,15 @@ explicite, et jamais de création implicite) :
 
 ```bash
 # QR code à scanner (PNG en base64 dans "data")
-curl -s "$BASE_URL/v1/notification-channel-sessions/whatsapp/ma-boutique/qr" \
+curl -s "$BASE_URL/v1/notification-channel-sessions/whatsapp/$SESSION/qr" \
   -H "Authorization: Bearer $API_KEY" -H "Accept: application/json"
 
 # Capture d'écran de la session
-curl -s "$BASE_URL/v1/notification-channel-sessions/whatsapp/ma-boutique/screenshot" \
+curl -s "$BASE_URL/v1/notification-channel-sessions/whatsapp/$SESSION/screenshot" \
   -H "Authorization: Bearer $API_KEY" -H "Accept: application/json"
 
 # Code d'appairage à saisir dans WhatsApp > Appareils connectés
-curl -s -X POST "$BASE_URL/v1/notification-channel-sessions/whatsapp/ma-boutique/pairing-code" \
+curl -s -X POST "$BASE_URL/v1/notification-channel-sessions/whatsapp/$SESSION/pairing-code" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
@@ -365,7 +371,8 @@ curl -s -X POST "$BASE_URL/v1/notification-channel-sessions/whatsapp/ma-boutique
 ```
 
 QR et capture : `200` avec `{"mime_type":"image/png","data":"<base64>"}`.
-Pairing-code : `200` avec `{"code":"MTCA-3VWR"}`. Le pairing-code déclenche une
+Pairing-code : `200` avec `{"code":"2692-4822"}`. Session inconnue de votre projet (ou
+session globale) : `422` `channel-session-not-found`, comme ci-dessus. Le pairing-code déclenche une
 notification de liaison sur le numéro fourni : n'utilisez que le vôtre.
 
 ## 7. Récapitulatif
@@ -383,7 +390,7 @@ notification de liaison sur le numéro fourni : n'utilisez que le vôtre.
 | `POST /v1/notifications/image` | oui (WAHA) | 201 `sent` |
 | `POST /v1/notifications/file` | oui (WAHA) | 201 `sent` |
 | `GET /v1/notifications/{id}` | oui | 200 |
-| `GET …/qr`, `GET …/screenshot`, `POST …/pairing-code` | oui (WAHA), avant que la session doive être enregistrée par l'admin ; depuis, couvert par les tests automatisés | 200 / 422 si non enregistrée |
+| `GET …/qr`, `GET …/screenshot`, `POST …/pairing-code` | oui (WAHA) | 200 / 422 si non enregistrée |
 
 Non couvert en réel : le passage d'un paiement à `succeeded` (nécessite que le client
 valide sur son téléphone et que MyCoolPay puisse joindre le Core par webhook) et donc le

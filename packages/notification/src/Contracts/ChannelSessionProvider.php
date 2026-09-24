@@ -18,13 +18,11 @@ namespace Core\Notification\Contracts;
  * (same `ProviderCode`, same `provider.gateway` tag) and narrow with an
  * `instanceof` check before calling any method here.
  *
- * Stateless on the Core side by design (ADR-0042 §4, revised): the Core
- * persists nothing about a session. `sessionRef` is supplied by the
- * caller on every request and forwarded to the provider as-is — the
- * provider itself is the only source of truth for what state a session
- * is in. This keeps the wire contract stable across providers: swapping
- * WAHA for a different WhatsApp API later only means writing a new
- * adapter, never touching the endpoints or their callers.
+ * The Core records WHICH sessions exist and who owns them (ADR-0057:
+ * `notification_channel_sessions`, created by an operator) but never their
+ * state — whether a phone is linked stays the provider's business. This
+ * keeps the wire contract stable across providers: swapping WAHA for a
+ * different WhatsApp API later only means writing a new adapter.
  */
 interface ChannelSessionProvider
 {

@@ -21,9 +21,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * `GET /v1/notification-channel-sessions/{channel}/{sessionRef}/qr` — a
- * thin proxy to whichever provider is routed for `channel` (ADR-0042
- * §4): the Core persists nothing about the session, `sessionRef` is
- * forwarded to the provider as-is.
+ * thin proxy to whichever provider is routed for `channel`, for a session
+ * the operator already created and registered for the calling Project
+ * (ADR-0057) — it never creates one.
  */
 final class GetChannelSessionQrCodeController
 {
@@ -34,9 +34,11 @@ final class GetChannelSessionQrCodeController
     /**
      * Get a scannable QR code for linking a phone to this channel session.
      *
-     * Requires the `notification_channel_sessions:read` scope. The session must already
-     * exist: sessions are created by the platform administrator, never by
-     * this call — one that does not exist is refused with an explicit error.
+     * Requires the `notification_channel_sessions:read` scope. Only for a session already
+     * created for your project by the platform administrator (a session that does not exist for
+     * your project — including a shared platform session — is refused with
+     * `422 channel-session-not-found`; this call never creates one). Scan the returned image with
+     * WhatsApp › Linked devices. Once the phone is linked the QR code is no longer available.
      *
      * @throws ChannelSessionNotFound the session does not exist for this project (422)
      * @throws ChannelDoesNotSupportSessions this channel's provider has no linked-device session concept (422)

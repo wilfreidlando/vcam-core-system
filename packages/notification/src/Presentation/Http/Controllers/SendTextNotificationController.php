@@ -33,14 +33,22 @@ final class SendTextNotificationController
     /**
      * Send a text message.
      *
-     * Requires the `notifications:write` scope. `to_party_ref` is a
-     * correlation reference only — resolving it to an actual delivery
-     * address is a provider adapter concern, not the Core's.
+     * Requires the `notifications:write` scope. The recipient's phone number goes in
+     * `variables.phone_number`; `to_party_ref` is only a reference of your own (never a
+     * contact address).
      *
-     * No `Idempotency-Key` HTTP header: deduplication, when
-     * the caller wants it, is supplied through the optional
-     * `client_reference` body field (see the request schema). Without
-     * that field, the Core generates a fresh UUID per request.
+     * The message is sent from the WhatsApp session named in `variables.session`. Sessions are
+     * created and linked by the platform administrator — ask for one for your project. A name
+     * that is not registered for your project (or shared with all projects) is refused with
+     * `422 channel-session-not-found` and nothing is sent.
+     *
+     * The send is synchronous. The response is `201` **even when the send failed**: always check
+     * `status` (`sent` or `failed`) and, when `failed`, `error_message` — for example a session
+     * whose phone is not linked yet says so explicitly.
+     *
+     * Deduplication, when you want it, is done with the optional `client_reference` body field:
+     * the same value on the same project returns the original notification without a second
+     * send. Without it, every request is a new send. There is no `Idempotency-Key` header here.
      *
      * @throws ChannelSessionNotFound the `variables.session` named is not registered for this project — nothing is sent (422)
      */

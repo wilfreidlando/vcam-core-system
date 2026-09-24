@@ -30,13 +30,18 @@ final class StartPayinPaymentController extends AbstractStartPaymentController
     /**
      * Start a payment via a direct, app-driven charge.
      *
-     * The request names only a `channel` (e.g. `mtn_momo`, `card`), never a
-     * provider — the Core resolves which provider actually
-     * handles it via the Project's routing configuration.
-     * Requires the `payments:write` scope and an `Idempotency-Key` header.
-     * There is no browser redirect for this flow — supply
-     * `callback_url` to be notified once the payment settles. Crediting a
-     * wallet on success is never implicit — it only happens if
+     * The request names only a `channel` (e.g. `mtn_momo`, `card`), never a provider — the
+     * Core resolves which provider handles it for your project. Requires the `payments:write`
+     * scope and an `Idempotency-Key` header.
+     *
+     * **Expect 15 to 20 seconds of latency**: the provider answers only once the customer's
+     * operator has been queried. Set your HTTP client timeout to at least 60 seconds, and reuse
+     * the same `Idempotency-Key` if you must retry.
+     *
+     * The customer receives a validation prompt on their phone. When `requires_action` is `true`,
+     * `action_hint` is the USSD code to dial if the prompt does not open. There is no browser
+     * redirect for this flow — supply `callback_url` to be notified once the payment settles.
+     * Crediting a wallet on success is never implicit — it only happens if
      * `wallet_recipient_external_ref` is given.
      *
      * @throws NoProviderForChannelException no provider is routed for the requested `channel` (422)

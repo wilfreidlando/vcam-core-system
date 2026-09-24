@@ -44,8 +44,11 @@ final class SendFileNotificationRequest extends FormRequest
              * Must be reachable from the provider's outbound
              * network (no private IPs, no localhost) — same
              * constraint as `POST /v1/webhook-endpoints`.
+             * The provider downloads it itself, so it must be directly
+             * downloadable without authentication or hotlink protection —
+             * otherwise the send ends `failed`.
              *
-             * @example "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+             * @example "https://www.orimi.com/pdf-test.pdf"
              */
             'media_url' => ['required', 'string', 'max:2048', 'url', 'starts_with:http://,https://', new SafeOutboundUrlRule],
             /**

@@ -219,7 +219,7 @@ final class ProviderWiringTest extends TestCase
                         'timeouts' => [],
                         'retries' => [],
                         'breaker' => [],
-                        'extras' => ['default_session' => 'default'],
+                        'extras' => [],
                     ],
                 ],
             ],

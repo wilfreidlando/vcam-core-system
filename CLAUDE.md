@@ -183,11 +183,25 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   `WahaAdapter` implémente `NotificationChannelProvider` (send
   texte/image/fichier, `OutboundMessage::body` porte le contenu brut
   fourni par l'appelant, interprété par l'adaptateur) **et** un nouveau
-  port `ChannelSessionProvider` (QR/pairing-code/screenshot,
-  `/v1/notification-channel-sessions/{channel}/{sessionRef}/*`) — le
-  **Core ne persiste rien sur une session** : `sessionRef` est fourni par
-  l'appelant à chaque requête et transmis tel quel au provider, qui reste
-  l'unique source de vérité sur son état. Le numéro de téléphone du
+  port `ChannelSessionProvider` (créer/supprimer une session, QR,
+  pairing-code, screenshot). **Les sessions sont créées par
+  l'administrateur dans la console** (« Sessions WhatsApp », par projet ou
+  globales), jamais par un client, et enregistrées dans la table
+  `notification_channel_sessions` du Core
+  ([ADR-0057](docs/adr/0057-whatsapp-session-du-client-obligatoire.md),
+  qui remplace le « le Core ne persiste rien sur une session » d'ADR-0042
+  §4) : `project_id` NULL = session globale, utilisable par tous les
+  projets. **`variables.session` est obligatoire** pour un envoi WhatsApp
+  et n'est vérifié que dans cette table (jamais auprès du provider) : un
+  nom non enregistré → `422 channel-session-not-found`, rien n'est écrit
+  ni envoyé ; il n'existe **aucune** session par défaut. La cascade passe
+  à l'adaptateur le nom côté provider (`<projectId>_<ref>` pour une session
+  de projet, `<ref>` pour une globale) ; le registre ne sait pas si un
+  téléphone est lié (c'est le provider qui refuse, traduit en
+  `ChannelSessionNotLinked` → notification `failed` au message explicite).
+  Les endpoints clients `/v1/notification-channel-sessions/{channel}/{sessionRef}/{qr,screenshot,pairing-code}`
+  ne créent rien et ne servent que les sessions **propres au projet**
+  déjà enregistrées. Le numéro de téléphone du
   destinataire voyage dans `variables['phone_number']`, jamais dans
   `to_party_ref`/`recipientRef` (G4). Ne pas supposer qu'un autre canal
   (SMS, email) est routable avant qu'un adaptateur soit tagué

@@ -47,6 +47,9 @@ final class SendImageNotificationRequest extends FormRequest
              * from the provider's outbound network (no private
              * IPs, no localhost) — this is the same constraint as
              * `POST /v1/webhook-endpoints`.
+             * The provider downloads it itself, so it must be directly
+             * downloadable without authentication or hotlink protection —
+             * otherwise the send ends `failed`.
              *
              * @example "https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png"
              */
