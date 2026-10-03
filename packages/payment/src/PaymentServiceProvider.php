@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Core\Payment;
 
 use Core\Events\Contracts\OutboxEventPublished;
+use Core\Payment\Application\Service\PaymentJourney;
 use Core\Payment\Application\UseCase\CountStuckPaymentsUseCase;
 use Core\Payment\Application\UseCase\GetPaymentStatusUseCase;
+use Core\Payment\Application\UseCase\GetPaymentTimelineUseCase;
 use Core\Payment\Application\UseCase\HandlePaymentStatusChangedUseCase;
 use Core\Payment\Application\UseCase\ListPaymentsUseCase;
 use Core\Payment\Application\UseCase\ListProviderApplicationsUseCase;
@@ -18,12 +20,14 @@ use Core\Payment\Application\UseCase\RegisterProviderApplication as RegisterProv
 use Core\Payment\Application\UseCase\StartPaymentUseCase;
 use Core\Payment\Contracts\CountStuckPayments;
 use Core\Payment\Contracts\GetPaymentStatus;
+use Core\Payment\Contracts\GetPaymentTimeline;
 use Core\Payment\Contracts\ListPayments;
 use Core\Payment\Contracts\ListProviderApplications;
 use Core\Payment\Contracts\ListStuckPayments;
 use Core\Payment\Contracts\PaymentActivitySummary;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Contracts\PaymentProviderRouter;
+use Core\Payment\Contracts\PaymentStats;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\PaymentStatusMapper;
 use Core\Payment\Contracts\ReconcilePayment;
@@ -34,9 +38,12 @@ use Core\Payment\Domain\Port\PaymentCallbackAuthenticator;
 use Core\Payment\Domain\Port\PaymentCallbackSecretGenerator;
 use Core\Payment\Domain\Port\PaymentCallbackSender;
 use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Payment\Domain\Port\PaymentTimeline;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Payment\Infrastructure\Delivery\HttpPaymentCallbackSender;
 use Core\Payment\Infrastructure\Persistence\Eloquent\EloquentPaymentRepository;
+use Core\Payment\Infrastructure\Persistence\Eloquent\EloquentPaymentStats;
+use Core\Payment\Infrastructure\Persistence\Eloquent\EloquentPaymentTimeline;
 use Core\Payment\Infrastructure\Persistence\Eloquent\EloquentProviderApplicationRepository;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayAdapter;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayCallbackAuthenticator;
@@ -170,6 +177,9 @@ final class PaymentServiceProvider extends ServiceProvider
         $this->app->bind(GetPaymentStatus::class, GetPaymentStatusUseCase::class);
         $this->app->bind(PaymentStatusChangeHandler::class, HandlePaymentStatusChangedUseCase::class);
         $this->app->bind(ListPayments::class, ListPaymentsUseCase::class);
+        $this->app->bind(PaymentStats::class, EloquentPaymentStats::class);
+        $this->app->bind(PaymentTimeline::class, EloquentPaymentTimeline::class);
+        $this->app->bind(GetPaymentTimeline::class, GetPaymentTimelineUseCase::class);
         $this->app->bind(RegisterProviderApplication::class, RegisterProviderApplicationUseCase::class);
         $this->app->bind(ListProviderApplications::class, ListProviderApplicationsUseCase::class);
 
@@ -187,6 +197,7 @@ final class PaymentServiceProvider extends ServiceProvider
                 logger: $app->make(\Psr\Log\LoggerInterface::class),
                 stuckAfterMinutes: $stuckAfterMinutes,
                 batchSize: $batchSize,
+                journey: $app->make(PaymentJourney::class),
             );
         });
 

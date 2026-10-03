@@ -117,6 +117,8 @@
         </div>
     @endif
 
+    @include('admin.payments.partials.journey')
+
     <div class="text-right">
         <a href="{{ route('admin.payments.index') }}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
             ← Retour aux paiements

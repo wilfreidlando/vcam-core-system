@@ -293,6 +293,9 @@ final class MyCoolPayWebhookControllerTest extends TestCase
             applications: $this->makeApplications(),
             authenticator: new MyCoolPayCallbackAuthenticator(['203.0.113.5']), // not the test client's IP
             logger: new NullLogger,
+            payments: app(\Core\Payment\Domain\Port\PaymentRepository::class),
+            journey: app(\Core\Payment\Application\Service\PaymentJourney::class),
+            redactor: app(\Core\Support\Integration\Redaction\PayloadRedactor::class),
         );
 
         $body = self::signedBody([
@@ -326,6 +329,9 @@ final class MyCoolPayWebhookControllerTest extends TestCase
             applications: $this->makeApplications(),
             authenticator: new MyCoolPayCallbackAuthenticator([]),
             logger: new NullLogger,
+            payments: app(\Core\Payment\Domain\Port\PaymentRepository::class),
+            journey: app(\Core\Payment\Application\Service\PaymentJourney::class),
+            redactor: app(\Core\Support\Integration\Redaction\PayloadRedactor::class),
         );
 
         $body = [
@@ -363,6 +369,9 @@ final class MyCoolPayWebhookControllerTest extends TestCase
             // not IP trust, which has its own dedicated test above.
             authenticator: new MyCoolPayCallbackAuthenticator([]),
             logger: new NullLogger,
+            payments: app(\Core\Payment\Domain\Port\PaymentRepository::class),
+            journey: app(\Core\Payment\Application\Service\PaymentJourney::class),
+            redactor: app(\Core\Support\Integration\Redaction\PayloadRedactor::class),
         );
     }
 
@@ -506,7 +515,7 @@ final class FakePaymentStatusChangeHandler implements PaymentStatusChangeHandler
     /** @var list<PaymentStatusChanged> */
     public array $handled = [];
 
-    public function handle(PaymentStatusChanged $event): void
+    public function handle(PaymentStatusChanged $event, string $source = 'provider_callback'): void
     {
         $this->handled[] = $event;
     }

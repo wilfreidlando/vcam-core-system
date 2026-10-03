@@ -1,0 +1,104 @@
+// Grafana Alloy (ADR-0059) — the single collector.
+//
+//  1. Logs: every Core container's stdout (JSON lines from the `structured`
+//     channel) → Loki, labelled by service, level and Project environment.
+//     `correlation_id` / `trace_id` / `project_id` stay in the log body
+//     (structured metadata) — never labels: unbounded cardinality.
+//  2. Traces: OTLP/HTTP from the app (OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318)
+//     → Tempo.
+
+// ── Logs ────────────────────────────────────────────────────────────────
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  filter {
+    name   = "label"
+    values = ["com.docker.compose.project=core-system-prod"]
+  }
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.relabel.containers.output
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to    = [loki.process.core.receiver]
+}
+
+loki.process "core" {
+  // Laravel's JsonFormatter line: {"message","context","level_name","extra":{correlation_id,…}}
+  stage.json {
+    expressions = {
+      level          = "level_name",
+      message        = "message",
+      correlation_id = "extra.correlation_id",
+      trace_id       = "extra.trace_id",
+      project_id     = "extra.project_id",
+      environment    = "extra.environment",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level       = "",
+      environment = "",
+    }
+  }
+
+  stage.structured_metadata {
+    values = {
+      correlation_id = "",
+      trace_id       = "",
+      project_id     = "",
+    }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// ── Traces ──────────────────────────────────────────────────────────────
+otelcol.receiver.otlp "default" {
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  output {
+    traces = [otelcol.processor.batch.default.input]
+  }
+}
+
+otelcol.processor.batch "default" {
+  output {
+    traces = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "tempo:4317"
+    tls {
+      insecure = true
+    }
+  }
+}

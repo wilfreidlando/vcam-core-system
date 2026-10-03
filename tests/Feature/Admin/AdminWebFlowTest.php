@@ -740,6 +740,45 @@ final class AdminWebFlowTest extends TestCase
         }
     }
 
+    #[Test]
+    public function the_payment_page_shows_its_journey(): void
+    {
+        // ADR-0059 — the "Parcours" section lists every recorded step.
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Journey Org'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Journey Project'), actor: 'service:test', correlationId: null)->project;
+
+        $paymentId = (string) Str::uuid();
+        app(PaymentRepository::class)->create(new Payment(
+            id: $paymentId,
+            projectId: $project->id,
+            channel: 'mtn_momo',
+            providerCode: 'my-coolpay',
+            idempotencyKey: (string) Str::uuid(),
+            providerTransactionRef: (string) Str::uuid(),
+            amount: 500,
+            currency: 'XAF',
+            status: PaymentStatus::Succeeded,
+            requiresAction: false,
+            actionHint: null,
+            paymentUrl: null,
+            errorMessage: null,
+            returnUrl: null,
+            walletRecipientExternalRef: null,
+        ));
+
+        $journey = app(\Core\Payment\Application\Service\PaymentJourney::class);
+        $journey->record($paymentId, $project->id, \Core\Payment\Domain\Model\PaymentTimelineEntryType::ApiRequestReceived, 'Requête POST /v1/payments/payin reçue de l\'intégrateur', ['body' => ['amount' => 500]]);
+        $journey->record($paymentId, $project->id, \Core\Payment\Domain\Model\PaymentTimelineEntryType::StatusChanged, 'Statut pending → succeeded (callback du provider) — statut final', ['to' => 'succeeded', 'is_final' => true]);
+
+        $this->get("/admin/payments/{$paymentId}?project_id={$project->id}")
+            ->assertOk()
+            ->assertSee('Parcours')
+            ->assertSee('Requête reçue')
+            ->assertSee('Statut pending → succeeded (callback du provider) — statut final');
+    }
+
     /**
      * Pulls the operator's plaintext bearer token out of the encrypted
      * session that `AuthController::completeLogin()` wrote at login time.

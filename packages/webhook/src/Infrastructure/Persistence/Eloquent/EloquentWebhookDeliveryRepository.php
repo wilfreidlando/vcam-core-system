@@ -40,6 +40,23 @@ final class EloquentWebhookDeliveryRepository implements WebhookDeliveryReposito
         return $record === null ? null : $this->toDomain($record);
     }
 
+    public function findByEventIds(array $eventIds): array
+    {
+        if ($eventIds === []) {
+            return [];
+        }
+
+        $rows = WebhookDeliveryRecord::query()
+            ->toBase()
+            ->whereIn('event_id', $eventIds)
+            ->orderBy('created_at')
+            ->get();
+
+        $records = WebhookDeliveryRecord::hydrate(array_map(static fn (mixed $row): array => (array) $row, $rows->all()));
+
+        return array_values($records->map(fn (WebhookDeliveryRecord $record): WebhookDelivery => $this->toDomain($record))->all());
+    }
+
     public function findStalledPending(DateTimeImmutable $overdueBefore, int $limit): array
     {
         $rows = WebhookDeliveryRecord::query()

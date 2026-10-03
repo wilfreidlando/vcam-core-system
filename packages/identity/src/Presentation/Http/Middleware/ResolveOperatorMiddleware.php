@@ -11,6 +11,7 @@ use Core\Identity\Domain\Exception\InvalidOperatorCredentials;
 use Core\Identity\Domain\Exception\OperatorRevoked;
 use Core\Support\Http\ProblemDetails;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Context;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -100,6 +101,7 @@ final class ResolveOperatorMiddleware
 
         app()->instance(OperatorContext::class, $context);
         $request->attributes->set(OperatorContext::class, $context);
+        Context::add('operator_id', $context->operatorId);
 
         return $next($request);
     }

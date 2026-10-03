@@ -30,7 +30,7 @@ function makeStartPaymentUseCase(): array
     $gateway = new FakePaymentGateway(ProviderCode::fromString('my-coolpay'));
     $registry->register($gateway);
 
-    $useCase = new StartPaymentUseCase($payments, $router, $registry, new SequentialIdentifier, new FixedPaymentCallbackSecretGenerator, new FakeIsSupportedCurrency);
+    $useCase = new StartPaymentUseCase($payments, $router, $registry, new SequentialIdentifier, new FixedPaymentCallbackSecretGenerator, new FakeIsSupportedCurrency, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
 
     return [$useCase, $payments, $gateway];
 }
@@ -183,7 +183,7 @@ it('refuses a currency outside the ledger allow-list, before ever calling the pr
     $registry = new FakePaymentGatewayRegistry;
     $gateway = new FakePaymentGateway(ProviderCode::fromString('my-coolpay'));
     $registry->register($gateway);
-    $useCase = new StartPaymentUseCase($payments, $router, $registry, new SequentialIdentifier, new FixedPaymentCallbackSecretGenerator, new FakeIsSupportedCurrency(['XAF']));
+    $useCase = new StartPaymentUseCase($payments, $router, $registry, new SequentialIdentifier, new FixedPaymentCallbackSecretGenerator, new FakeIsSupportedCurrency(['XAF']), Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
 
     $command = new StartPaymentCommand(
         projectId: 'project-1',

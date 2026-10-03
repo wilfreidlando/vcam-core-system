@@ -33,7 +33,7 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
         $this->payments->save($payment);
 
         $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
-        $job->handle($this->payments, $this->sender);
+        $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
 
         self::assertSame(0, $this->sender->callCount, 'sender must not be called when callbackUrl is null');
     }
@@ -56,7 +56,7 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
         $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
 
         // No expectException — the contract is "returns cleanly".
-        $job->handle($this->payments, $this->sender);
+        $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
 
         self::assertSame(1, $this->sender->callCount, 'sender called exactly once');
     }
@@ -73,7 +73,7 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('service unavailable');
 
-        $job->handle($this->payments, $this->sender);
+        $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
     }
 
     public function test_network_failure_status_null_is_treated_as_transient(): void
@@ -86,7 +86,7 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
         $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
 
         $this->expectException(RuntimeException::class);
-        $job->handle($this->payments, $this->sender);
+        $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
     }
 
     public function test_429_is_transient_even_though_it_is_4xx(): void
@@ -99,7 +99,7 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
         $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
 
         $this->expectException(RuntimeException::class);
-        $job->handle($this->payments, $this->sender);
+        $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
     }
 
     public function test_408_is_transient(): void
@@ -112,7 +112,7 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
         $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
 
         $this->expectException(RuntimeException::class);
-        $job->handle($this->payments, $this->sender);
+        $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
     }
 
     protected function setUp(): void

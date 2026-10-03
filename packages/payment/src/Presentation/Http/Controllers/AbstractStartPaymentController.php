@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace Core\Payment\Presentation\Http\Controllers;
 
 use Core\Identity\Contracts\ProjectContext;
+use Core\Payment\Application\Service\PaymentJourney;
 use Core\Payment\Contracts\PaymentChannel;
 use Core\Payment\Contracts\StartPayment;
 use Core\Payment\Contracts\StartPaymentCommand;
+use Core\Payment\Domain\Model\PaymentTimelineEntryType;
 use Core\Payment\PaymentFlow;
 use Core\Payment\Presentation\Http\Requests\StartPaymentRequest;
+use Core\Support\Clock;
 use Core\Support\Http\Middleware\RequireIdempotencyKey;
 use Core\Support\Http\ProblemDetails;
+use DateTimeImmutable;
 use Illuminate\Http\JsonResponse;
 use LogicException;
 use Symfony\Component\HttpFoundation\Response;
@@ -35,6 +39,8 @@ abstract class AbstractStartPaymentController
 {
     public function __construct(
         private readonly StartPayment $startPayment,
+        private readonly PaymentJourney $journey,
+        private readonly Clock $clock,
     ) {}
 
     public function __invoke(StartPaymentRequest $request, ProjectContext $project): JsonResponse|Response
@@ -51,6 +57,8 @@ abstract class AbstractStartPaymentController
             // cheaper than trusting it silently.
             throw new LogicException(static::class.' reached without a validated Idempotency-Key header.');
         }
+
+        $receivedAt = $this->clock->now();
 
         /** @var array{channel: string, amount: int, currency: string, reason: string, customer_phone_number?: string, customer_name?: string, customer_email?: string, customer_lang?: string, return_url?: string, wallet_recipient_external_ref?: string, callback_url?: string} $data */
         $data = $request->validated();
@@ -72,7 +80,7 @@ abstract class AbstractStartPaymentController
             callbackUrl: $data['callback_url'] ?? null,
         ));
 
-        return new JsonResponse([
+        $body = [
             'id' => $view->id,
             'channel' => $view->channel,
             'status' => $view->status,
@@ -92,7 +100,11 @@ abstract class AbstractStartPaymentController
             // endpoint's secret). Absent entirely when no callback_url
             // was supplied.
             ...($view->callbackSecret !== null ? ['callback_secret' => $view->callbackSecret] : []),
-        ], 201);
+        ];
+
+        $this->recordExchange($request, $data, $body, $receivedAt, $view->id, $project->projectId);
+
+        return new JsonResponse($body, 201);
     }
 
     /**
@@ -103,4 +115,43 @@ abstract class AbstractStartPaymentController
      *                                   truth for which flow this is.
      */
     abstract protected function flow(array $data): PaymentFlow;
+
+    /**
+     * ADR-0059 — the integrator's own request and the Core's answer, as the
+     * first and last steps of the payment's "Parcours" initiation.
+     *
+     * @param array<string, mixed> $data validated request body
+     * @param array<string, mixed> $body response body
+     */
+    private function recordExchange(StartPaymentRequest $request, array $data, array $body, DateTimeImmutable $receivedAt, string $paymentId, string $projectId): void
+    {
+        $this->journey->record(
+            $paymentId,
+            $projectId,
+            PaymentTimelineEntryType::ApiRequestReceived,
+            sprintf('Requête %s %s reçue de l\'intégrateur', $request->getMethod(), '/'.ltrim($request->path(), '/')),
+            [
+                'method' => $request->getMethod(),
+                'path' => '/'.ltrim($request->path(), '/'),
+                'idempotency_key' => $request->header(RequireIdempotencyKey::HEADER),
+                'client_ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'body' => $data,
+            ],
+            $receivedAt,
+        );
+
+        if (isset($body['callback_secret'])) {
+            // Shown once to the integrator, never stored in clear anywhere else.
+            $body['callback_secret'] = '***REDACTED***';
+        }
+
+        $this->journey->record(
+            $paymentId,
+            $projectId,
+            PaymentTimelineEntryType::ApiResponseSent,
+            'Réponse HTTP 201 envoyée à l\'intégrateur',
+            ['status' => 201, 'body' => $body],
+        );
+    }
 }

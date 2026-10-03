@@ -13,8 +13,10 @@ use Core\Webhook\Domain\Model\WebhookRetryPolicy;
 use Core\Webhook\Domain\Model\WebhookSendOutcome;
 use Core\Webhook\Tests\Unit\Fakes\FakeWebhookSender;
 use Core\Webhook\Tests\Unit\Fakes\FixedClock;
+use Core\Webhook\Tests\Unit\Fakes\InMemoryWebhookDeliveryAttemptRepository;
 use Core\Webhook\Tests\Unit\Fakes\InMemoryWebhookDeliveryRepository;
 use Core\Webhook\Tests\Unit\Fakes\InMemoryWebhookEndpointRepository;
+use Core\Webhook\Tests\Unit\Fakes\SequentialIdentifier;
 use PHPUnit\Framework\Assert;
 use Psr\Log\NullLogger;
 
@@ -29,7 +31,7 @@ function makeDeliverUseCase(WebhookRetryPolicy $retryPolicy = new WebhookRetryPo
     $deliveries = new InMemoryWebhookDeliveryRepository;
     $sender = new FakeWebhookSender;
 
-    $useCase = new DeliverWebhookUseCase($deliveries, $endpoints, $sender, $retryPolicy, new FixedClock, new NullLogger);
+    $useCase = new DeliverWebhookUseCase($deliveries, $endpoints, $sender, $retryPolicy, new FixedClock, new NullLogger, new InMemoryWebhookDeliveryAttemptRepository, new SequentialIdentifier);
 
     return [$useCase, $deliveries, $sender];
 }

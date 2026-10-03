@@ -44,6 +44,8 @@ final readonly class HttpPaymentCallbackSender implements PaymentCallbackSender
 {
     private const TIMEOUT_SECONDS = 10.0;
 
+    private const MAX_RESPONSE_BODY_LENGTH = 4096;
+
     public function __construct(
         private HttpTransport $transport,
         private RequestSigner $signer,
@@ -78,6 +80,10 @@ final readonly class HttpPaymentCallbackSender implements PaymentCallbackSender
         $timestamp = $this->clock->now()->getTimestamp();
         $this->signer->sign($policy, $headers, $body, $timestamp);
 
+        $shownHeaders = $headers;
+        $shownHeaders['X-Signature'] = '***REDACTED***';
+        $startedAt = hrtime(true);
+
         try {
             $response = $this->transport->send(
                 method: HttpMethod::POST,
@@ -87,16 +93,26 @@ final readonly class HttpPaymentCallbackSender implements PaymentCallbackSender
                 timeoutSeconds: self::TIMEOUT_SECONDS,
             );
         } catch (ProviderException $e) {
-            return PaymentCallbackSendOutcome::failure($e->httpStatus, $e->getMessage());
+            return PaymentCallbackSendOutcome::failure($e->httpStatus, $e->getMessage())
+                ->withExchange($shownHeaders, $body, null, self::elapsedMs($startedAt));
         }
 
+        $responseBody = mb_substr($response->rawBody, 0, self::MAX_RESPONSE_BODY_LENGTH);
+        $elapsed = self::elapsedMs($startedAt);
+
         if ($response->status >= 200 && $response->status < 300) {
-            return PaymentCallbackSendOutcome::success($response->status);
+            return PaymentCallbackSendOutcome::success($response->status)
+                ->withExchange($shownHeaders, $body, $responseBody, $elapsed);
         }
 
         return PaymentCallbackSendOutcome::failure(
             $response->status,
             sprintf('Callback endpoint responded with HTTP %d.', $response->status),
-        );
+        )->withExchange($shownHeaders, $body, $responseBody, $elapsed);
+    }
+
+    private static function elapsedMs(int|float $startedAt): int
+    {
+        return (int) round((hrtime(true) - $startedAt) / 1_000_000);
     }
 }

@@ -11,6 +11,7 @@ use Core\Webhook\Application\UseCase\ActivateWebhookEndpointUseCase;
 use Core\Webhook\Application\UseCase\DeactivateWebhookEndpointUseCase;
 use Core\Webhook\Application\UseCase\DeliverWebhookUseCase;
 use Core\Webhook\Application\UseCase\FailWebhookDeliveryUseCase;
+use Core\Webhook\Application\UseCase\GetWebhookDeliveryDetailsUseCase;
 use Core\Webhook\Application\UseCase\HandleRelayedEventUseCase;
 use Core\Webhook\Application\UseCase\ListDeadWebhookDeliveriesUseCase;
 use Core\Webhook\Application\UseCase\ListWebhookDeliveriesUseCase;
@@ -23,6 +24,7 @@ use Core\Webhook\Contracts\ActivateWebhookEndpoint;
 use Core\Webhook\Contracts\DeactivateWebhookEndpoint;
 use Core\Webhook\Contracts\DeliverWebhook;
 use Core\Webhook\Contracts\FailWebhookDelivery;
+use Core\Webhook\Contracts\GetWebhookDeliveryDetails;
 use Core\Webhook\Contracts\HandleRelayedEvent;
 use Core\Webhook\Contracts\ListDeadWebhookDeliveries;
 use Core\Webhook\Contracts\ListWebhookDeliveries;
@@ -32,13 +34,17 @@ use Core\Webhook\Contracts\RegisterWebhookEndpoint;
 use Core\Webhook\Contracts\ReplayWebhookDelivery;
 use Core\Webhook\Contracts\SweepStalledWebhookDeliveries;
 use Core\Webhook\Contracts\UpdateWebhookEndpoint;
+use Core\Webhook\Contracts\WebhookDeliveryStats;
 use Core\Webhook\Domain\Model\WebhookRetryPolicy;
+use Core\Webhook\Domain\Port\WebhookDeliveryAttemptRepository;
 use Core\Webhook\Domain\Port\WebhookDeliveryRepository;
 use Core\Webhook\Domain\Port\WebhookEndpointRepository;
 use Core\Webhook\Domain\Port\WebhookSecretGenerator;
 use Core\Webhook\Domain\Port\WebhookSender;
 use Core\Webhook\Infrastructure\Delivery\HttpWebhookSender;
+use Core\Webhook\Infrastructure\Persistence\Eloquent\EloquentWebhookDeliveryAttemptRepository;
 use Core\Webhook\Infrastructure\Persistence\Eloquent\EloquentWebhookDeliveryRepository;
+use Core\Webhook\Infrastructure\Persistence\Eloquent\EloquentWebhookDeliveryStats;
 use Core\Webhook\Infrastructure\Persistence\Eloquent\EloquentWebhookEndpointRepository;
 use Core\Webhook\Infrastructure\Security\RandomWebhookSecretGenerator;
 use Core\Webhook\Presentation\Console\Commands\ReplayWebhookDeliveryCommand;
@@ -78,9 +84,12 @@ final class WebhookServiceProvider extends ServiceProvider
         $this->app->bind(ReplayWebhookDelivery::class, ReplayWebhookDeliveryUseCase::class);
         $this->app->bind(SweepStalledWebhookDeliveries::class, SweepStalledWebhookDeliveriesUseCase::class);
         $this->app->bind(FailWebhookDelivery::class, FailWebhookDeliveryUseCase::class);
+        $this->app->bind(WebhookDeliveryAttemptRepository::class, EloquentWebhookDeliveryAttemptRepository::class);
+        $this->app->bind(GetWebhookDeliveryDetails::class, GetWebhookDeliveryDetailsUseCase::class);
         $this->app->bind(ListDeadWebhookDeliveries::class, ListDeadWebhookDeliveriesUseCase::class);
         $this->app->bind(ListWebhookDeliveries::class, ListWebhookDeliveriesUseCase::class);
         $this->app->bind(QueueWebhookDelivery::class, QueuedWebhookDeliveryDispatcher::class);
+        $this->app->bind(WebhookDeliveryStats::class, EloquentWebhookDeliveryStats::class);
 
         $this->app->singleton(WebhookRetryPolicy::class, static function (): WebhookRetryPolicy {
             /** @var int $maxAttempts */

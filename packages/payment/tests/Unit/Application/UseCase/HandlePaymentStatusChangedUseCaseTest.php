@@ -34,6 +34,7 @@ function makeHandler(): array
         new SequentialIdentifier,
         new FixedClock,
         new NullLogger,
+        Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
     return [$handler, $payments, $partyFinder, $creditWallet, $outbox];

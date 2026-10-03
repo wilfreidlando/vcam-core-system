@@ -40,4 +40,12 @@ interface WebhookDeliveryRepository
      * @return list<WebhookDelivery>
      */
     public function findStalledPending(DateTimeImmutable $overdueBefore, int $limit): array;
+
+    /**
+     * Every delivery (fan-out and replays) of these outbox events, oldest first.
+     *
+     * @param list<string> $eventIds
+     * @return list<WebhookDelivery>
+     */
+    public function findByEventIds(array $eventIds): array;
 }

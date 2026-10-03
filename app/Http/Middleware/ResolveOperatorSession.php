@@ -12,6 +12,7 @@ use Core\Identity\Domain\Exception\OperatorRevoked;
 use Core\Identity\Presentation\Http\Middleware\ResolveOperatorMiddleware;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Session;
 
 /**
@@ -67,6 +68,7 @@ final class ResolveOperatorSession
         // Bind the context for the duration of this request. Controllers
         // can type-hint OperatorContext and receive it via DI.
         app()->instance(OperatorContext::class, $context);
+        Context::add('operator_id', $context->operatorId);
 
         return $next($request);
     }

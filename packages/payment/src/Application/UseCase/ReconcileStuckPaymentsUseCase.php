@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Payment\Application\UseCase;
 
+use Core\Payment\Application\Service\PaymentJourney;
 use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
@@ -12,6 +13,7 @@ use Core\Payment\Contracts\ReconcileStuckPaymentsCommand;
 use Core\Payment\Contracts\ReconciliationSummary;
 use Core\Payment\Contracts\UnsupportedPaymentGatewayException;
 use Core\Payment\Domain\Model\Payment;
+use Core\Payment\Domain\Model\PaymentTimelineEntryType;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Support\Clock;
 use Core\Support\Integration\CircuitBreaker\CircuitOpenException;
@@ -50,6 +52,7 @@ final readonly class ReconcileStuckPaymentsUseCase implements ReconcileStuckPaym
         private LoggerInterface $logger,
         private int $stuckAfterMinutes,
         private int $batchSize,
+        private PaymentJourney $journey,
     ) {}
 
     public function reconcile(ReconcileStuckPaymentsCommand $command): ReconciliationSummary
@@ -99,7 +102,18 @@ final readonly class ReconcileStuckPaymentsUseCase implements ReconcileStuckPaym
     private function reconcileOne(Payment $payment): bool
     {
         $gateway = $this->gateways->gatewayFor(ProviderCode::fromString($payment->providerCode));
+        $this->journey->forgetPendingExchanges();
         $receipt = $gateway->checkStatus($payment->providerTransactionRef, $payment->projectId);
+        $this->journey->recordProviderExchanges($payment->id, $payment->projectId);
+        $this->journey->record(
+            $payment->id,
+            $payment->projectId,
+            PaymentTimelineEntryType::ReconciliationChecked,
+            $receipt->status === $payment->status
+                ? sprintf('Réconciliation : le provider confirme le statut « %s », rien à changer.', $payment->status->value)
+                : sprintf('Réconciliation : le provider annonce « %s » (Core : « %s »).', $receipt->status->value, $payment->status->value),
+            ['core_status' => $payment->status->value, 'provider_status' => $receipt->status->value, 'provider_message' => $receipt->errorMessage],
+        );
 
         if ($receipt->status === $payment->status) {
             return false;
@@ -116,7 +130,7 @@ final readonly class ReconcileStuckPaymentsUseCase implements ReconcileStuckPaym
             status: $receipt->status,
             reason: $receipt->errorMessage,
             occurredAt: $occurredAt,
-        ));
+        ), 'reconciliation');
 
         return true;
     }

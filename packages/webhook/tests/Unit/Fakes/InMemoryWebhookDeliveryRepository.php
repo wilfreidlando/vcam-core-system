@@ -70,4 +70,9 @@ final class InMemoryWebhookDeliveryRepository implements WebhookDeliveryReposito
 
         return array_slice($stalled, 0, $limit);
     }
+
+    public function findByEventIds(array $eventIds): array
+    {
+        return array_values(array_filter($this->deliveries, static fn (WebhookDelivery $d): bool => in_array($d->eventId, $eventIds, true)));
+    }
 }

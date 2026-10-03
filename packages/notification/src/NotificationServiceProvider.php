@@ -30,6 +30,7 @@ use Core\Notification\Contracts\ListChannelSessions;
 use Core\Notification\Contracts\ListNotifications;
 use Core\Notification\Contracts\NotificationChannelProviderRegistry;
 use Core\Notification\Contracts\NotificationProviderRouter;
+use Core\Notification\Contracts\NotificationStats;
 use Core\Notification\Contracts\NotificationStatusChangeHandler;
 use Core\Notification\Contracts\NotificationStatusMapper;
 use Core\Notification\Contracts\RequestChannelSessionPairingCode;
@@ -42,6 +43,7 @@ use Core\Notification\Domain\Port\NotificationRepository;
 use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentChannelSessionRepository;
 use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentNotificationDeliveryRepository;
 use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentNotificationRepository;
+use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentNotificationStats;
 use Core\Notification\Infrastructure\Provider\NotificationChannelProviderRegistryImpl;
 use Core\Notification\Infrastructure\Provider\Waha\WahaAdapter;
 use Core\Notification\Infrastructure\Provider\Waha\WahaStatusMapper;
@@ -98,6 +100,7 @@ final class NotificationServiceProvider extends ServiceProvider
         $this->app->bind(SendFileNotification::class, SendFileNotificationUseCase::class);
         $this->app->bind(GetNotificationStatus::class, GetNotificationStatusUseCase::class);
         $this->app->bind(ListNotifications::class, ListNotificationsUseCase::class);
+        $this->app->bind(NotificationStats::class, EloquentNotificationStats::class);
         $this->app->bind(NotificationStatusChangeHandler::class, HandleNotificationStatusChangedUseCase::class);
 
         $this->app->bind(CreateChannelSession::class, CreateChannelSessionUseCase::class);

@@ -5,17 +5,24 @@ declare(strict_types=1);
 namespace Core\Webhook\Application\UseCase;
 
 use Core\Support\Clock;
+use Core\Support\Identifier;
 use Core\Webhook\Contracts\DeliverWebhook;
 use Core\Webhook\Contracts\DeliverWebhookCommand;
 use Core\Webhook\Contracts\WebhookDeliveryOutcome;
 use Core\Webhook\Contracts\WebhookDeliveryOutcomeStatus;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
 use Core\Webhook\Domain\Exception\WebhookEndpointNotFound;
+use Core\Webhook\Domain\Model\WebhookDelivery;
+use Core\Webhook\Domain\Model\WebhookDeliveryAttempt;
 use Core\Webhook\Domain\Model\WebhookDeliveryStatus;
+use Core\Webhook\Domain\Model\WebhookEndpoint;
 use Core\Webhook\Domain\Model\WebhookRetryPolicy;
+use Core\Webhook\Domain\Model\WebhookSendOutcome;
+use Core\Webhook\Domain\Port\WebhookDeliveryAttemptRepository;
 use Core\Webhook\Domain\Port\WebhookDeliveryRepository;
 use Core\Webhook\Domain\Port\WebhookEndpointRepository;
 use Core\Webhook\Domain\Port\WebhookSender;
+use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -35,6 +42,8 @@ final readonly class DeliverWebhookUseCase implements DeliverWebhook
         private WebhookRetryPolicy $retryPolicy,
         private Clock $clock,
         private LoggerInterface $logger,
+        private WebhookDeliveryAttemptRepository $attempts,
+        private Identifier $identifier,
     ) {}
 
     public function deliver(DeliverWebhookCommand $command): WebhookDeliveryOutcome
@@ -89,6 +98,7 @@ final readonly class DeliverWebhookUseCase implements DeliverWebhook
 
         if ($outcome->success) {
             $this->deliveries->save($delivery->recordSuccess($now, $outcome->httpStatus, $outcome->responseBody));
+            $this->recordAttempt($delivery, $endpoint, $now, $outcome, 'delivered');
 
             return new WebhookDeliveryOutcome(WebhookDeliveryOutcomeStatus::Delivered, null);
         }
@@ -103,6 +113,8 @@ final readonly class DeliverWebhookUseCase implements DeliverWebhook
             $outcome->httpStatus,
             $outcome->responseBody,
         ));
+
+        $this->recordAttempt($delivery, $endpoint, $now, $outcome, $nextRetryAt === null ? 'dead' : 'retry_scheduled');
 
         if ($nextRetryAt === null) {
             $this->logger->warning('webhook.delivery.dead', [
@@ -125,5 +137,23 @@ final readonly class DeliverWebhookUseCase implements DeliverWebhook
         ]);
 
         return new WebhookDeliveryOutcome(WebhookDeliveryOutcomeStatus::RetryScheduled, $retryAfterSeconds);
+    }
+
+    private function recordAttempt(WebhookDelivery $delivery, WebhookEndpoint $endpoint, DateTimeImmutable $at, WebhookSendOutcome $outcome, string $decision): void
+    {
+        $this->attempts->record(new WebhookDeliveryAttempt(
+            id: $this->identifier->generate(),
+            deliveryId: $delivery->id,
+            attempt: $delivery->attempts + 1,
+            attemptedAt: $at,
+            url: $endpoint->url,
+            requestHeaders: $outcome->requestHeaders,
+            requestBody: $outcome->requestBody,
+            responseStatus: $outcome->httpStatus,
+            responseBody: $outcome->responseBody,
+            durationMs: $outcome->durationMs,
+            error: $outcome->error,
+            outcome: $decision,
+        ));
     }
 }

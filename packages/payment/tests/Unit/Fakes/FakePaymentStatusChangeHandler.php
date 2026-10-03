@@ -22,7 +22,7 @@ final class FakePaymentStatusChangeHandler implements PaymentStatusChangeHandler
      */
     public ?Throwable $handleException = null;
 
-    public function handle(PaymentStatusChanged $event): void
+    public function handle(PaymentStatusChanged $event, string $source = 'provider_callback'): void
     {
         if ($this->handleException !== null) {
             throw $this->handleException;

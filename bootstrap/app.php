@@ -2,11 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Observability\MetricsController;
+use App\Http\Controllers\Observability\ReadinessController;
 use App\Http\ExceptionProblemMapping;
+use App\Http\Middleware\RecordHttpMetrics;
 use Core\Identity\Presentation\Http\Middleware\ResolveOperatorMiddleware;
 use Core\Identity\Presentation\Http\Middleware\ResolveProjectMiddleware;
 use Core\Support\Http\Middleware\CorrelationId;
+use Core\Support\Http\Middleware\LogHttpExchange;
 use Core\Support\Http\Middleware\RequireIdempotencyKey;
+use Core\Support\Http\Middleware\TraceHttpRequest;
 use Core\Support\Http\ProblemDetails;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Console\Scheduling\Schedule;
@@ -15,6 +20,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
@@ -27,11 +33,23 @@ return Application::configure(basePath: dirname(__DIR__))
         // The published contract uses /v1/... paths (spec technique §13,
         // ADR-0028), not Laravel's default /api/v1/....
         apiPrefix: '',
+        // ADR-0059: probes and the Prometheus scrape — outside every
+        // middleware group (no session, no auth middleware: each guards
+        // itself).
+        then: function (): void {
+            Route::get('/ready', ReadinessController::class)->name('observability.ready');
+            Route::get('/metrics', MetricsController::class)->name('observability.metrics');
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Every request carries a correlation id, inbound or generated, so that
         // logs, events, webhooks and audit entries are traceable end to end.
         $middleware->append(CorrelationId::class);
+        // ADR-0059: request/response pair in the logs, after CorrelationId so
+        // both lines carry the correlation and trace ids.
+        $middleware->append(LogHttpExchange::class);
+        $middleware->append(TraceHttpRequest::class);
+        $middleware->append(RecordHttpMetrics::class);
 
         // Trusted reverse proxies: see config/trustedproxy.php (audit
         // 2026-10-03 §2.2). Laravel's global TrustProxies middleware reads
@@ -80,6 +98,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('model:prune', ['--model' => [
             'Core\\Events\\Infrastructure\\Persistence\\Eloquent\\EventOutboxRecord',
             'Core\\Webhook\\Infrastructure\\Persistence\\Eloquent\\WebhookDeliveryRecord',
+            'Core\\Payment\\Infrastructure\\Persistence\\Eloquent\\PaymentTimelineEntryRecord',
         ]])->dailyAt('03:17')->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {

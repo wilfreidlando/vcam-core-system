@@ -18,5 +18,10 @@ use Core\Payment\Contracts\Events\PaymentStatusChanged;
  */
 interface PaymentStatusChangeHandler
 {
-    public function handle(PaymentStatusChanged $event): void;
+    /**
+     * @param string $source what reported the change — `provider_callback`
+     *                       (webhook), `reconciliation` (scheduled/admin
+     *                       check), shown in the payment's "Parcours" (ADR-0059)
+     */
+    public function handle(PaymentStatusChanged $event, string $source = 'provider_callback'): void;
 }
