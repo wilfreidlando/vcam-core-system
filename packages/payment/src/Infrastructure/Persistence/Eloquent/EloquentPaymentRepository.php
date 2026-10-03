@@ -115,7 +115,7 @@ final class EloquentPaymentRepository implements PaymentRepository
         return $payments;
     }
 
-    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage): array
+    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage, ?Environment $environment = null): array
     {
         // See findStuckSince() above for why this goes through toBase()/hydrate().
         $query = PaymentRecord::query();
@@ -126,6 +126,10 @@ final class EloquentPaymentRepository implements PaymentRepository
 
         if ($status !== null) {
             $base->where('status', $status->value);
+        }
+
+        if ($environment !== null) {
+            $base->where('environment', $environment->value);
         }
 
         $total = (clone $base)->count();

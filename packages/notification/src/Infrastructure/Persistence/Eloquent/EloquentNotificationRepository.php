@@ -9,6 +9,7 @@ use Core\Notification\Domain\Model\Notification;
 use Core\Notification\Domain\Port\NotificationRepository;
 use Core\Notification\NotificationStatus;
 use Core\Support\Environment;
+use DateTimeImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -59,7 +60,7 @@ final class EloquentNotificationRepository implements NotificationRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage): array
+    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage, ?Environment $environment = null): array
     {
         // `orderBy`/`skip`/`take`/`count` are forwarded by Eloquent\Builder
         // to the underlying query builder rather than declared on it
@@ -70,6 +71,10 @@ final class EloquentNotificationRepository implements NotificationRepository
 
         if ($status !== null) {
             $base->where('status', $status->value);
+        }
+
+        if ($environment !== null) {
+            $base->where('environment', $environment->value);
         }
 
         $total = (clone $base)->count();
@@ -95,6 +100,16 @@ final class EloquentNotificationRepository implements NotificationRepository
         return ['items' => $notifications, 'total' => $total];
     }
 
+    public function redactContentCreatedBefore(DateTimeImmutable $before): int
+    {
+        return NotificationRecord::query()->toBase()
+            ->where('created_at', '<', $before->format('Y-m-d H:i:sP'))
+            ->where(static function (\Illuminate\Database\Query\Builder $query): void {
+                $query->whereNotNull('content')->orWhereNotNull('variables');
+            })
+            ->update(['content' => null, 'variables' => null]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -112,6 +127,8 @@ final class EloquentNotificationRepository implements NotificationRepository
             'provider_message_id' => $notification->providerMessageId,
             'error_message' => $notification->errorMessage,
             'environment' => $notification->environment->value,
+            'content' => $notification->content,
+            'variables' => $notification->variables,
         ];
     }
 
@@ -129,6 +146,10 @@ final class EloquentNotificationRepository implements NotificationRepository
             providerMessageId: $record->provider_message_id,
             errorMessage: $record->error_message,
             environment: Environment::from($record->environment),
+            content: $record->content ?? [],
+            variables: $record->variables ?? [],
+            createdAt: DateTimeImmutable::createFromInterface($record->created_at),
+            updatedAt: DateTimeImmutable::createFromInterface($record->updated_at),
         );
     }
 }

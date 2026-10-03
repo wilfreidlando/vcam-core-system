@@ -851,6 +851,140 @@ final class AdminWebFlowTest extends TestCase
             ->assertSee('Statut pending → succeeded (callback du provider) — statut final');
     }
 
+    #[Test]
+    public function a_projects_notifications_are_listed_and_their_detail_shows_content_variables_and_attempts(): void
+    {
+        // ADR-0062 — everything the Core knows about a notification.
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Notif Org'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Notif Project'), actor: 'service:test', correlationId: null)->project;
+
+        $notificationId = (string) Str::uuid();
+        app(\Core\Notification\Domain\Port\NotificationRepository::class)->create(new \Core\Notification\Domain\Model\Notification(
+            id: $notificationId,
+            projectId: $project->id,
+            channel: 'whatsapp',
+            toPartyRef: 'customer-42',
+            contentType: 'text',
+            idempotencyKey: 'order-42-confirmation',
+            status: \Core\Notification\NotificationStatus::Failed,
+            providerCode: null,
+            providerMessageId: null,
+            errorMessage: 'Session not linked',
+            environment: \Core\Support\Environment::Sandbox,
+            content: ['text' => 'Votre commande est confirmée'],
+            variables: ['phone_number' => '237690000000', 'session' => 'shop'],
+        ));
+        app(\Core\Notification\Domain\Port\NotificationDeliveryRepository::class)->record(
+            $notificationId, 'waha', null, \Core\Notification\NotificationStatus::Failed, 1, 'Session not linked',
+        );
+
+        $this->get("/admin/projects/{$project->id}/notifications?environment=sandbox")
+            ->assertOk()
+            ->assertSee(substr($notificationId, 0, 8))
+            ->assertSee('customer-42');
+
+        $this->get("/admin/projects/{$project->id}/notifications?environment=live")
+            ->assertOk()
+            ->assertDontSee(substr($notificationId, 0, 8));
+
+        $this->get("/admin/projects/{$project->id}/notifications/{$notificationId}")
+            ->assertOk()
+            ->assertSee('Votre commande est confirmée')
+            ->assertSee('237690000000')
+            ->assertSee('order-42-confirmation')
+            ->assertSee('waha')
+            ->assertSee('Session not linked')
+            ->assertSee('final');
+
+        // Scoped to the Project in the URL.
+        $other = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Other'), actor: 'service:test', correlationId: null)->project;
+        $this->get("/admin/projects/{$other->id}/notifications/{$notificationId}")->assertNotFound();
+    }
+
+    #[Test]
+    public function notification_content_older_than_the_retention_period_is_redacted(): void
+    {
+        // ADR-0062 / D5 — content and phone number kept 90 days only.
+        $repository = app(\Core\Notification\Domain\Port\NotificationRepository::class);
+        $old = (string) Str::uuid();
+        $recent = (string) Str::uuid();
+        foreach ([$old, $recent] as $id) {
+            $repository->create(new \Core\Notification\Domain\Model\Notification(
+                id: $id, projectId: (string) Str::uuid(), channel: 'whatsapp', toPartyRef: 'c', contentType: 'text',
+                idempotencyKey: $id, status: \Core\Notification\NotificationStatus::Sent, providerCode: 'waha',
+                providerMessageId: null, errorMessage: null,
+                content: ['text' => 'hello'], variables: ['phone_number' => '237690000000'],
+            ));
+        }
+        \Illuminate\Support\Facades\DB::table('notifications')->where('id', $old)->update(['created_at' => now()->subDays(91)]);
+
+        self::assertSame(0, \Illuminate\Support\Facades\Artisan::call('notification:redact-expired'));
+
+        $redacted = $repository->find($old);
+        $kept = $repository->find($recent);
+        self::assertNotNull($redacted);
+        self::assertNotNull($kept);
+        self::assertSame([], $redacted->variables);
+        self::assertSame([], $redacted->content);
+        self::assertSame(['phone_number' => '237690000000'], $kept->variables);
+    }
+
+    #[Test]
+    public function a_webhook_endpoint_registered_for_sandbox_from_the_console_is_a_sandbox_endpoint(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Env Org'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Env Project'), actor: 'service:test', correlationId: null)->project;
+
+        $this->post("/admin/projects/{$project->id}/webhook-endpoints", [
+            'url' => 'https://example.com/webhooks/sandbox',
+            'environment' => 'sandbox',
+            'all' => '1',
+        ])->assertRedirect();
+
+        $endpoints = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id));
+        self::assertCount(1, $endpoints);
+        self::assertSame('sandbox', $endpoints[0]->environment);
+    }
+
+    #[Test]
+    public function a_webhook_delivery_has_its_own_detail_page(): void
+    {
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $projectId = (string) Str::uuid();
+        $endpoint = app(RegisterWebhookEndpoint::class)->register(
+            new RegisterWebhookEndpointCommand($projectId, 'https://example.com/hook-detail', ['*']),
+        );
+        $delivery = new WebhookDelivery(
+            id: (string) Str::uuid(),
+            endpointId: $endpoint->id,
+            projectId: $projectId,
+            eventId: (string) Str::uuid(),
+            eventType: 'payment.status_changed',
+            payload: ['status' => 'failed'],
+            status: WebhookDeliveryStatus::Pending,
+            attempts: 0,
+            nextRetryAt: null,
+            lastAttemptAt: null,
+            lastError: null,
+            deliveredAt: null,
+        );
+        app(WebhookDeliveryRepository::class)->create($delivery);
+
+        $this->get("/admin/webhook-deliveries/{$delivery->id}")
+            ->assertOk()
+            ->assertSee($delivery->id)
+            ->assertSee('https://example.com/hook-detail')
+            ->assertSee('payment.status_changed');
+
+        $this->get('/admin/webhook-deliveries/'.Str::uuid())->assertRedirect(route('admin.webhook-deliveries.dead.web'));
+    }
+
     /**
      * Pulls the operator's plaintext bearer token out of the encrypted
      * session that `AuthController::completeLogin()` wrote at login time.

@@ -71,6 +71,13 @@
             <span class="font-medium text-slate-900">Wallets de ce projet</span>
             <span class="text-indigo-600">→</span>
         </a>
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('notifications:read'))
+            <a href="{{ route('admin.projects.notifications.index', ['projectId' => $project->id]) }}"
+               class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+                <span class="font-medium text-slate-900">Notifications de ce projet</span>
+                <span class="text-indigo-600">→</span>
+            </a>
+        @endif
         {{-- Permission checked here, not just in the controller (same
              pattern as organizations/index.blade.php's "+ New organization"
              button): OperatorContext resolved directly since $has() is

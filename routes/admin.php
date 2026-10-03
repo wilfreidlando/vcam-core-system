@@ -113,6 +113,12 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             // collide with — the JSON plane has no ledger drill-down yet.
             Route::get('{projectId}/wallets/{walletId}/ledger', [App\Http\Controllers\Admin\WalletsController::class, 'ledger'])
                 ->name('projects.wallets.ledger');
+            // ADR-0062 — no JSON `admin.projects.notifications.index`
+            // collision: the JSON plane's route is `admin.projects.notifications`.
+            Route::get('{projectId}/notifications', [App\Http\Controllers\Admin\NotificationsController::class, 'index'])
+                ->name('projects.notifications.index');
+            Route::get('{projectId}/notifications/{notificationId}', [App\Http\Controllers\Admin\NotificationsController::class, 'show'])
+                ->name('projects.notifications.show');
             // WhatsApp sessions owned by ONE Project: creation (which also
             // starts the session at the provider), QR, screenshot, pairing.
             Route::get('{projectId}/whatsapp-sessions', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'index'])
@@ -183,6 +189,8 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             // endpoint.
             Route::post('{delivery}/replay', [App\Http\Controllers\Admin\WebhookDeliveriesController::class, 'replay'])
                 ->name('webhook-deliveries.replay.web');
+            Route::get('{delivery}', [App\Http\Controllers\Admin\WebhookDeliveriesController::class, 'show'])
+                ->name('webhook-deliveries.show');
         });
 
         // Static reference documentation — no JSON equivalent, so no

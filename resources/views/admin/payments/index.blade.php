@@ -4,7 +4,7 @@
 
 @section('content')
 <form method="GET" action="{{ route('admin.payments.index') }}" class="bg-white border border-slate-200 rounded-lg p-4 mb-4">
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
         <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">Projet</label>
             <select name="project_id" class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base bg-white">
@@ -27,7 +27,15 @@
                 @endforeach
             </select>
         </div>
-        <div class="flex items-end gap-2 justify-end">
+        <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Environnement</label>
+            <select name="environment" class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base bg-white">
+                <option value="">(tous)</option>
+                <option value="live" @selected(($filters['environment'] ?? '') === 'live')>Live</option>
+                <option value="sandbox" @selected(($filters['environment'] ?? '') === 'sandbox')>Sandbox</option>
+            </select>
+        </div>
+        <div class="flex items-end gap-2 justify-end sm:col-span-2 lg:col-span-5">
             <a href="{{ route('admin.payments.index') }}" class="text-sm text-slate-500 hover:text-slate-700">Réinitialiser</a>
             <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-base font-medium text-white">Filtrer</button>
         </div>
@@ -35,33 +43,25 @@
 </form>
 
 <x-admin.table
-    :headers="['ID', 'Projet', 'Canal', 'Statut', 'Montant', 'Devise', 'Actions']"
+    :headers="['Créé le', 'ID', 'Projet', 'Env.', 'Canal', 'Statut', 'Montant', 'Devise', 'Actions']"
     :empty="'Aucun paiement ne correspond aux filtres.'">
     <tbody class="divide-y divide-slate-100 bg-white">
     @foreach ($payments as $payment)
         <tr>
+            <td class="px-4 py-2 text-sm text-slate-600 whitespace-nowrap tabular-nums">
+                {{ $payment->createdAt !== null ? \Illuminate\Support\Carbon::parse($payment->createdAt)->format('d/m/Y H:i') : '—' }}
+            </td>
             <td class="px-4 py-2 text-sm font-mono text-slate-700 truncate max-w-[8rem]" title="{{ $payment->id }}">
                 {{ substr($payment->id, 0, 8) }}…
             </td>
             <td class="px-4 py-2 text-base text-slate-900 truncate max-w-[10rem]" title="{{ $payment->projectId }}">
                 {{ $projectNames[$payment->projectId] ?? substr($payment->projectId, 0, 8).'…' }}
             </td>
+            <td class="px-4 py-2"><x-admin.env-badge :env="$payment->environment" /></td>
             <td class="px-4 py-2 text-sm font-mono text-slate-700">
                 {{ $payment->channel }}
             </td>
-            <td class="px-4 py-2">
-                @php $status = $payment->status; @endphp
-                <span @class([
-                    'inline-flex rounded-md px-2 py-0.5 font-mono text-xs',
-                    'bg-emerald-100 text-emerald-700' => $status === 'succeeded',
-                    'bg-rose-100 text-rose-700' => in_array($status, ['failed', 'expired'], true),
-                    'bg-slate-100 text-slate-700' => in_array($status, ['pending', 'processing'], true),
-                    'bg-amber-100 text-amber-700' => $status === 'refunded',
-                    'bg-purple-100 text-purple-700' => $status === 'canceled',
-                ])>
-                    {{ $status }}
-                </span>
-            </td>
+            <td class="px-4 py-2"><x-admin.status-badge :status="$payment->status" :final="$payment->isFinal" /></td>
             <td class="px-4 py-2 text-base font-mono text-slate-900 tabular-nums">
                 {{-- Minor units (G5) → major units, via Money::formattedAmount()
                      — currency-exponent-correct (0 decimals for XAF).

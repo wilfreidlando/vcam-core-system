@@ -100,6 +100,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'Core\\Webhook\\Infrastructure\\Persistence\\Eloquent\\WebhookDeliveryRecord',
             'Core\\Payment\\Infrastructure\\Persistence\\Eloquent\\PaymentTimelineEntryRecord',
         ]])->dailyAt('03:17')->withoutOverlapping();
+
+        // ADR-0062 / D5: notification content (phone numbers…) kept 90 days.
+        $schedule->command('notification:redact-expired')->dailyAt('03:27')->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // One error format across the whole Core's JSON surface: RFC 7807

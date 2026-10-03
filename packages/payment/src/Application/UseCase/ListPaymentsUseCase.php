@@ -12,6 +12,7 @@ use Core\Payment\Contracts\PaymentView;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\PaymentStatus;
+use Core\Support\Environment;
 
 final readonly class ListPaymentsUseCase implements ListPayments
 {
@@ -23,7 +24,7 @@ final readonly class ListPaymentsUseCase implements ListPayments
     {
         $status = $command->status !== null ? PaymentStatus::tryFrom($command->status) : null;
 
-        $result = $this->payments->findByProject($command->projectId, $status, $command->page, $command->perPage);
+        $result = $this->payments->findByProject($command->projectId, $status, $command->page, $command->perPage, $command->environment !== null ? Environment::tryFrom($command->environment) : null);
 
         $items = array_map(
             static fn (Payment $payment): PaymentView => PaymentViews::from($payment),

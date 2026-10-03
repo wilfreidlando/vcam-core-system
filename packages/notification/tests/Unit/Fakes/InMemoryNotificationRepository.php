@@ -8,6 +8,7 @@ use Core\Notification\Domain\Exception\NotificationAlreadyExists;
 use Core\Notification\Domain\Model\Notification;
 use Core\Notification\Domain\Port\NotificationRepository;
 use Core\Notification\NotificationStatus;
+use DateTimeImmutable;
 
 final class InMemoryNotificationRepository implements NotificationRepository
 {
@@ -64,17 +65,23 @@ final class InMemoryNotificationRepository implements NotificationRepository
         return count($this->notifications);
     }
 
-    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage): array
+    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage, ?\Core\Support\Environment $environment = null): array
     {
         $matching = array_values(array_filter(
             $this->notifications,
             static fn (Notification $notification): bool => $notification->projectId === $projectId
-                && ($status === null || $notification->status === $status),
+                && ($status === null || $notification->status === $status)
+                && ($environment === null || $notification->environment === $environment),
         ));
 
         $total = count($matching);
         $offset = ($page - 1) * $perPage;
 
         return ['items' => array_slice($matching, $offset, $perPage), 'total' => $total];
+    }
+
+    public function redactContentCreatedBefore(DateTimeImmutable $before): int
+    {
+        return 0;
     }
 }

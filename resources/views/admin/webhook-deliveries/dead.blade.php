@@ -86,8 +86,8 @@
                     </svg>
                 </button>
             </td>
-            <td class="px-4 py-2 text-sm font-mono text-slate-700 truncate max-w-[8rem]" title="{{ $delivery->id }}">
-                {{ substr($delivery->id, 0, 8) }}…
+            <td class="px-4 py-2 text-sm font-mono truncate max-w-[8rem]" title="{{ $delivery->id }}">
+                <a href="{{ route('admin.webhook-deliveries.show', ['delivery' => $delivery->id]) }}" class="text-indigo-600 hover:text-indigo-800">{{ substr($delivery->id, 0, 8) }}…</a>
             </td>
             <td class="px-4 py-2 text-sm font-mono text-slate-700 truncate max-w-[16rem]" title="{{ $endpointUrls[$delivery->endpointId] ?? $delivery->endpointId }}">
                 {{ $endpointUrls[$delivery->endpointId] ?? substr($delivery->endpointId, 0, 8).'…' }}
