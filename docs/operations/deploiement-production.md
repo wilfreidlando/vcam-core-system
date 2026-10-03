@@ -5,6 +5,20 @@ premier opérateur connecté et au premier paiement prêt à être encaissé. Po
 le *pourquoi* des choix (FrankenPHP, sidecar nginx, isolation réseau),
 voir [ADR-0053](../adr/0053-deploiement-production-frankenphp-vps-nginx-proxy.md).
 
+> **Depuis l'[ADR-0064](../adr/0064-infrastructure-vps-staging-observabilite-mutualisee.md)**,
+> le Core suit le **standard d'hébergement du VPS**
+> ([`infra/README.md`](../../infra/README.md)) :
+> - un staging isolé (`core-system-staging.visibilitycam.com`), déployé
+>   automatiquement ;
+> - une production mise à jour **uniquement** par promotion manuelle de l'image
+>   validée en staging (`make prod-promote`) ;
+> - une sauvegarde chiffrée avant chaque migration, et un retour arrière
+>   automatique.
+>
+> Les étapes 1 à 6 ci-dessous décrivent la toute première installation. Pour les
+> mises à jour, voir [§12](#12-déployer-une-mise-à-jour). Pour passer une
+> production existante au standard, voir [§12 bis](#12-bis-passer-une-production-existante-au-standard).
+
 ## 0. Prérequis
 
 - Un VPS avec Docker + le plugin Docker Compose installés.
@@ -235,17 +249,75 @@ webhooks) et `admin:reconcile-stuck-payments` (toutes les 5 minutes).
 
 ## 12. Déployer une mise à jour
 
+Deux checkouts sur le serveur (`infra/README.md` § 4) : `/app/core-system/staging`
+(avec `.env.staging`, copié depuis `.env.staging.example`) et `/app/core-system/prod`
+(avec `.env`).
+
 ```bash
-git pull
-make prod-build
-docker compose -f compose.prod.yaml up -d
-make prod-migrate   # seulement si de nouvelles migrations existent
+# Staging — automatique (cron, infra/README.md § 5), ou à la main :
+cd /app/core-system/staging && make staging-deploy            # REF=origin/ma-branche pour une autre branche
+
+# Recette sur https://core-system-staging.visibilitycam.com
+#   (MyCoolPay en sandbox, session WhatsApp de test — jamais les clés de production)
+
+# Production — manuelle, la même image :
+cd /app/core-system/prod && make prod-promote                 # demande de taper « oui »
+
+# En cas de problème :
+make rollback ENV=prod
+make deploy-status
 ```
 
-`up -d` ne recrée que les conteneurs dont l'image a changé — `postgres`/
-`valkey` ne redémarrent pas, leurs volumes sont intacts. Il y a une brève
-coupure (pas de rolling update avec ce montage à un seul réplica par
-service) : prévenir si une fenêtre de maintenance est nécessaire.
+`make prod-promote` enchaîne :
+1. sauvegarde chiffrée (refus de continuer si elle échoue) ;
+2. migrations avec la nouvelle image ;
+3. bascule des conteneurs ;
+4. contrôle de `/health/ready` (base et Valkey) pendant 2 minutes ;
+5. retour automatique à la version précédente si le contrôle échoue.
+
+Les migrations ne sont jamais annulées automatiquement. Au besoin, restaurer la
+sauvegarde `pre-deploy-*` (`infra/bin/restore.sh prod <fichier>`).
+
+## 12 bis. Passer une production existante au standard
+
+À faire une fois, en heure creuse. Coupure attendue : quelques secondes, le temps de
+recréer les conteneurs. **Les noms de conteneurs, le réseau `core-system-internal`
+et les volumes de données restent identiques** : la base n'est ni déplacée ni
+recréée.
+
+```bash
+# 0. Filet de sécurité manuel, avant toute chose
+docker exec core-system-postgres sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB"' > /root/core-avant-standard.dump
+
+# 1. Réseau partagé de l'observabilité (sans effet sur les autres projets)
+docker network create observability || true
+
+# 2. Checkouts : déplacer le checkout actuel en …/prod (le nom de projet Docker
+#    « core-system-prod » est fixé dans compose.prod.yaml, pas par le dossier)
+mkdir -p /app/core-system && mv <checkout actuel> /app/core-system/prod
+git clone <dépôt> /app/core-system/staging
+
+# 3. Compléter /app/core-system/prod/.env avec la section « VPS standard » de
+#    .env.production.example — en particulier TRUSTED_PROXY_TOKEN
+#    (openssl rand -hex 32), BACKUP_PASSPHRASE et les clés MEGA S4.
+#    Créer /app/core-system/staging/.env.staging depuis .env.staging.example
+#    (APP_KEY, DB_PASSWORD, TRUSTED_PROXY_TOKEN et BACKUP_PASSPHRASE DIFFÉRENTS).
+
+# 4. Premier staging (construit l'image et la sauvegarde), puis vérification
+cd /app/core-system/staging && make staging-deploy
+
+# 5. Promotion : sauvegarde, migrations, bascule, contrôle de santé
+cd /app/core-system/prod && make prod-promote
+
+# 6. Contrôles
+make deploy-status
+/app/core-system/prod/infra/bin/vps-audit.sh | sed -n '/core-system/,/^$/p'
+```
+
+Si l'ancienne stack d'observabilité tournait (`compose.observability.yaml`, projet
+`core-system-prod`), l'étape 5 en supprime les conteneurs (orphelins du projet). Ses
+volumes `core-system-prod_*-data` restent : les supprimer après vérification.
+Installer ensuite l'observabilité mutualisée (`infra/observability/README.md`).
 
 ## 13. Opérations courantes
 

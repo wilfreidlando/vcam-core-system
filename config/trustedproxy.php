@@ -24,4 +24,10 @@ declare(strict_types=1);
 
 return [
     'proxies' => env('TRUSTED_PROXIES', '127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7'),
+
+    // ADR-0064 — when set, forwarded headers are trusted only on requests
+    // carrying this token, added by this project's nginx sidecar
+    // (App\Http\Middleware\TrustProxiesFromSidecar). Required once the
+    // app shares the VPS-wide `observability` network with other projects.
+    'sidecar_token' => env('TRUSTED_PROXY_TOKEN', ''),
 ];

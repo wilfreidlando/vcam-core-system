@@ -131,6 +131,34 @@ horizon-status: ## Show queue worker status
 # Run on the VPS, next to a filled-in .env (see .env.production.example) and
 # a pre-existing external `nginx-proxy` network.
 
+# ─── VPS standard: staging / production (infra/README.md, ADR-0064) ────────
+# Staging checkout: make staging-deploy · production checkout: make prod-promote.
+DEPLOY := infra/bin/deploy.sh
+
+.PHONY: staging-deploy
+staging-deploy: ## Build REF (default origin/main) and deploy it to staging
+	sha=$$($(DEPLOY) build $(REF)) && $(DEPLOY) up staging $$sha
+
+.PHONY: prod-promote
+prod-promote: ## Deploy to production the exact version running on staging (asks for confirmation)
+	$(DEPLOY) promote $(SHA)
+
+.PHONY: rollback
+rollback: ## Redeploy the previous version: make rollback ENV=prod|staging
+	$(DEPLOY) rollback $(ENV)
+
+.PHONY: deploy-status
+deploy-status: ## Versions and containers of staging and production
+	$(DEPLOY) status
+
+.PHONY: prod-backup
+prod-backup: ## Encrypted database backup right now (local + S3)
+	$(DC_PROD) -p core-system-prod --env-file .env run --rm backup backup.sh
+
+.PHONY: vps-audit
+vps-audit: ## Read-only compliance report of every container on the VPS
+	infra/bin/vps-audit.sh
+
 .PHONY: prod-build
 prod-build: ## Build the production images (app/horizon/scheduler share one FrankenPHP image)
 	$(DC_PROD) build

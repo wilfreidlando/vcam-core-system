@@ -47,36 +47,42 @@ Rétention : 90 jours (`PAYMENT_TIMELINE_RETENTION_DAYS`), puis purge automatiqu
 
 ## Mise en place en production
 
+Depuis l'[ADR-0064](../adr/0064-infrastructure-vps-staging-observabilite-mutualisee.md),
+la stack d'observabilité **n'appartient plus au Core**. C'est un service mutualisé
+du VPS, dans son propre projet Docker (`observability`), partagé par tous les
+backends du serveur.
+
+- Installation et branchement d'un autre projet :
+  [`infra/observability/README.md`](../../infra/observability/README.md).
+- Le Core est déjà branché : `compose.prod.yaml` met `app`, `horizon` et
+  `scheduler` sur le réseau `observability`, avec les labels
+  `observability.app=core-system` et `observability.deployment=prod|staging`.
+
+Variables du `.env` du Core (et de `.env.staging`) :
+
 ```bash
-# 1. Variables (.env du VPS)
-OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318
-GRAFANA_URL=https://grafana.example.com
-GRAFANA_HOST=grafana.example.com
-GRAFANA_ADMIN_PASSWORD=<mot de passe fort>
-GRAFANA_ALERT_EMAIL=ops@example.com
-# + GF_SMTP_ENABLED/GF_SMTP_HOST/GF_SMTP_USER/GF_SMTP_PASSWORD pour l'envoi des alertes
-
-# 2. Démarrer la stack d'observabilité à côté de la stack applicative
-docker compose -f compose.prod.yaml -f compose.observability.yaml up -d
-
-# 3. Redémarrer app/horizon/scheduler pour qu'ils prennent l'endpoint OTLP
-docker compose -f compose.prod.yaml up -d --force-recreate app horizon scheduler
+OTEL_SERVICE_NAME=core-system            # core-system-staging en staging
+OTEL_EXPORTER_OTLP_ENDPOINT=http://observability-alloy:4318
+GRAFANA_URL=https://grafana.visibilitycam.com
 ```
 
 Composants (tous auto-hébergés, aucune donnée ne quitte le VPS) :
 
 | Service | Rôle | Rétention |
 |---|---|---|
-| Grafana Alloy | collecte les logs JSON de tous les conteneurs Core et reçoit les traces OTLP | — |
-| Loki | stockage des logs | 90 jours |
+| Grafana Alloy | découvre les conteneurs par labels, collecte leurs journaux JSON, interroge leur `/metrics`, reçoit les traces OTLP | — |
+| Loki | stockage des journaux | 90 jours |
 | Tempo | stockage des traces | 30 jours |
-| Prometheus | scrape `app:8000/metrics` toutes les 30 s | 30 jours (`PROMETHEUS_RETENTION`) |
+| Prometheus | stockage des métriques (envoyées par Alloy) | 30 jours (`PROMETHEUS_RETENTION`) |
 | Grafana | interface, tableaux de bord et alertes provisionnés en code | — |
 
 Seul Grafana est exposé, via nginx-proxy sur `GRAFANA_HOST`, derrière sa propre
 authentification. `/metrics` est refusé depuis Internet par le sidecar nginx.
 
-## Tableaux de bord (dossier « Core System »)
+Les tableaux de bord du Core ont un sélecteur **Déploiement** (`prod` / `staging`).
+**Les alertes ne portent que sur la production.**
+
+## Tableaux de bord (dossier « Core System », plus « Applications » pour tous les projets)
 
 - **Core — Vue d'ensemble** : disponibilité, retard de l'outbox, webhooks en DLQ, taux
   de 5xx, débit et latence p95 par route, paiements et notifications des dernières 24 h

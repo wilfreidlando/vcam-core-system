@@ -53,7 +53,12 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Trusted reverse proxies: see config/trustedproxy.php (audit
         // 2026-10-03 §2.2). Laravel's global TrustProxies middleware reads
-        // `trustedproxy.proxies` itself — nothing to register here.
+        // `trustedproxy.proxies` itself; ADR-0064 swaps it for a subclass that
+        // only honours forwarded headers coming from this project's sidecar.
+        $middleware->replace(
+            Illuminate\Http\Middleware\TrustProxies::class,
+            App\Http\Middleware\TrustProxiesFromSidecar::class,
+        );
 
         $middleware->api(prepend: [
             HandleCors::class,

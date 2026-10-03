@@ -12,7 +12,30 @@
   },
   "refresh": "30s",
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "deployment",
+        "label": "Déploiement",
+        "type": "custom",
+        "query": "prod,staging",
+        "current": {
+          "text": "prod",
+          "value": "prod"
+        },
+        "options": [
+          {
+            "text": "prod",
+            "value": "prod",
+            "selected": true
+          },
+          {
+            "text": "staging",
+            "value": "staging",
+            "selected": false
+          }
+        ]
+      }
+    ]
   },
   "panels": [
     {
@@ -32,7 +55,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(core_up)"
+          "expr": "max(core_up{deployment=\"$deployment\"})"
         }
       ],
       "fieldConfig": {
@@ -79,7 +102,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(core_outbox_oldest_unpublished_age_seconds)"
+          "expr": "max(core_outbox_oldest_unpublished_age_seconds{deployment=\"$deployment\"})"
         }
       ],
       "fieldConfig": {
@@ -131,7 +154,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(core_webhook_deliveries{status=\"dead\"})"
+          "expr": "sum(core_webhook_deliveries{deployment=\"$deployment\",status=\"dead\"})"
         }
       ],
       "fieldConfig": {
@@ -178,7 +201,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(core_http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(core_http_requests_total[5m])), 1e-9)"
+          "expr": "sum(rate(core_http_requests_total{deployment=\"$deployment\",status=~\"5..\"}[5m])) / clamp_min(sum(rate(core_http_requests_total{deployment=\"$deployment\"}[5m])), 1e-9)"
         }
       ],
       "fieldConfig": {
@@ -230,7 +253,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (route) (rate(core_http_requests_total[5m]))",
+          "expr": "sum by (route) (rate(core_http_requests_total{deployment=\"$deployment\"}[5m]))",
           "legendFormat": "{{route}}"
         }
       ],
@@ -264,7 +287,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(core_http_request_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(core_http_request_duration_seconds_bucket{deployment=\"$deployment\"}[5m])))",
           "legendFormat": "{{route}}"
         }
       ],
@@ -298,7 +321,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (status) (rate(core_http_requests_total[5m]))",
+          "expr": "sum by (status) (rate(core_http_requests_total{deployment=\"$deployment\"}[5m]))",
           "legendFormat": "{{status}}"
         }
       ],
@@ -332,7 +355,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (status) (core_payments_last_24h)",
+          "expr": "sum by (status) (core_payments_last_24h{deployment=\"$deployment\"})",
           "legendFormat": "{{status}}"
         }
       ],
@@ -364,7 +387,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (status) (core_webhook_deliveries)",
+          "expr": "sum by (status) (core_webhook_deliveries{deployment=\"$deployment\"})",
           "legendFormat": "{{status}}"
         }
       ],
@@ -396,7 +419,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (queue) (core_queue_size)",
+          "expr": "sum by (queue) (core_queue_size{deployment=\"$deployment\"})",
           "legendFormat": "{{queue}}"
         }
       ],
@@ -428,7 +451,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (status) (core_notifications_last_24h)",
+          "expr": "sum by (status) (core_notifications_last_24h{deployment=\"$deployment\"})",
           "legendFormat": "{{status}}"
         }
       ],
@@ -460,7 +483,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(core_outbox_unpublished)",
+          "expr": "max(core_outbox_unpublished{deployment=\"$deployment\"})",
           "legendFormat": "lignes"
         }
       ],
@@ -492,7 +515,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{service=~\"app|horizon|scheduler\", level=~\"ERROR|CRITICAL|ALERT|EMERGENCY|WARNING\"}"
+          "expr": "{app=\"core-system\", deployment=\"$deployment\", service=~\"app|horizon|scheduler\", level=~\"ERROR|CRITICAL|ALERT|EMERGENCY|WARNING\"}"
         }
       ],
       "options": {

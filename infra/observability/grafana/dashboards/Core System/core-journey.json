@@ -14,6 +14,28 @@
   "templating": {
     "list": [
       {
+        "name": "deployment",
+        "label": "Déploiement",
+        "type": "custom",
+        "query": "prod,staging",
+        "current": {
+          "text": "prod",
+          "value": "prod"
+        },
+        "options": [
+          {
+            "text": "prod",
+            "value": "prod",
+            "selected": true
+          },
+          {
+            "text": "staging",
+            "value": "staging",
+            "selected": false
+          }
+        ]
+      },
+      {
         "name": "correlation_id",
         "label": "Correlation-Id",
         "type": "textbox",
@@ -68,7 +90,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{service=~\".+\"} | correlation_id = `$correlation_id`"
+          "expr": "{app=\"core-system\", deployment=\"$deployment\", service=~\".+\"} | correlation_id = `$correlation_id`"
         }
       ],
       "options": {
@@ -95,7 +117,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{service=\"app\"} | correlation_id = `$correlation_id` | json | message =~ \"http\\\\.(request|response).*\""
+          "expr": "{app=\"core-system\", deployment=\"$deployment\", service=\"app\"} | correlation_id = `$correlation_id` | json | message =~ \"http\\\\.(request|response).*\""
         }
       ],
       "options": {
@@ -122,7 +144,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{service=~\".+\"} | correlation_id = `$correlation_id` | json | message =~ \"integration\\\\..*|webhook\\\\..*|payment\\\\.callback.*\""
+          "expr": "{app=\"core-system\", deployment=\"$deployment\", service=~\".+\"} | correlation_id = `$correlation_id` | json | message =~ \"integration\\\\..*|webhook\\\\..*|payment\\\\.callback.*\""
         }
       ],
       "options": {

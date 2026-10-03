@@ -69,6 +69,8 @@ Tout passe par `make` (Docker-first, [ADR-0019](docs/adr/0019-docker-first.md)) 
 | `make stan` | PHPStan niveau 10 + PHPat + règles maison |
 | `make test` | Suite de tests en parallèle |
 | `make shell` | Shell dans le conteneur app |
+| `make staging-deploy` / `make prod-promote` / `make rollback ENV=…` | Déploiement standard du VPS (ADR-0064, `infra/README.md`) |
+| `make vps-audit` | Audit en lecture seule des conteneurs du VPS |
 
 ## Séquencement (plan de delivery, amendé par ADR-0031)
 

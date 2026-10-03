@@ -40,4 +40,4 @@ Thumbs.db
 *.guardbak
 
 # Local CLI tooling (opencode), not part of this project
-/.opencode
+/.opencode.env.staging

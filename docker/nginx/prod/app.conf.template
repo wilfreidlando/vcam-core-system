@@ -1,3 +1,5 @@
+# Rendered to /etc/nginx/conf.d/app.conf by the nginx image at start
+# (envsubst of defined env vars only — nginx's own $variables are untouched).
 # Docker embedded DNS.
 # `app` can receive a new IP whenever its container is recreated during
 # deployment, so nginx must not permanently cache the IP resolved at startup.
@@ -33,6 +35,12 @@ server {
         # TLS is terminated by the shared nginx-proxy. Preserve the original
         # protocol instead of replacing it with this HTTP hop's scheme.
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+
+        # ADR-0064 — proves to the app that the forwarded headers above come
+        # from this sidecar, not from another container on the shared
+        # `observability` network. Substituted at container start from the
+        # TRUSTED_PROXY_TOKEN env var (nginx image templating).
+        proxy_set_header X-Core-Proxy-Token "${TRUSTED_PROXY_TOKEN}";
 
         # Payment initiation can take ~17s at MyCoolPay, twice on a retry.
         proxy_read_timeout 90s;

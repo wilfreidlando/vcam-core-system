@@ -1,6 +1,6 @@
 # ADR-0059 — Observabilité : stack centralisée (Loki/Tempo/Prometheus/Grafana) et parcours métier des paiements
 
-- **Statut** : Accepté
+- **Statut** : Accepté — topologie amendée par [ADR-0064](0064-infrastructure-vps-staging-observabilite-mutualisee.md) (stack mutualisée du VPS, `infra/observability/`)
 - **Date** : 2026-10-03
 - **Décideurs** : utilisateur (plan d'implémentation, phase 2 ; décisions D1 et D5)
 - **Dérives concernées** : D3 données/PII · D6 intégrité (traçabilité)
