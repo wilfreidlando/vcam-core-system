@@ -116,7 +116,7 @@ flottant), `pdo_pgsql`, `redis`, `pcntl` (signaux des workers Horizon).
 Sur le serveur, le Core tourne **deux fois** : `core-system-prod` et
 `core-system-staging`. Ce sont des copies isolées (base, volumes, clés, nom
 d'hôte), construites à partir de la même image. Elles suivent le standard
-d'hébergement du VPS ([vcam-infra-deployment](https://github.com/wilfreidlando/vcam-infra-deployment/blob/main/README.md),
+d'hébergement du VPS ([vcam-infra-deploy](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/README.md),
 [ADR-0064](../adr/0064-infrastructure-vps-staging-observabilite-mutualisee.md)) :
 
 ```mermaid

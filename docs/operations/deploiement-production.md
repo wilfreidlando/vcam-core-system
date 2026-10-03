@@ -7,7 +7,7 @@ voir [ADR-0053](../adr/0053-deploiement-production-frankenphp-vps-nginx-proxy.md
 
 > **Depuis l'[ADR-0064](../adr/0064-infrastructure-vps-staging-observabilite-mutualisee.md)**,
 > le Core suit le **standard d'hébergement du VPS**
-> ([vcam-infra-deployment](https://github.com/wilfreidlando/vcam-infra-deployment/blob/main/README.md), cloné dans `/app/vps-platform`) :
+> ([vcam-infra-deploy](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/README.md), cloné dans `/app/vps-platform`) :
 > - un staging isolé (`core-system-staging.visibilitycam.com`), déployé
 >   automatiquement ;
 > - une production mise à jour **uniquement** par promotion manuelle de l'image
@@ -317,7 +317,7 @@ make deploy-status
 Si l'ancienne stack d'observabilité tournait (`compose.observability.yaml`, projet
 `core-system-prod`), l'étape 5 en supprime les conteneurs (orphelins du projet). Ses
 volumes `core-system-prod_*-data` restent : les supprimer après vérification.
-Installer ensuite l'observabilité mutualisée ([`observability/README.md`](https://github.com/wilfreidlando/vcam-infra-deployment/blob/main/observability/README.md) de la plateforme).
+Installer ensuite l'observabilité mutualisée ([`observability/README.md`](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/observability/README.md) de la plateforme).
 
 ## 13. Opérations courantes
 

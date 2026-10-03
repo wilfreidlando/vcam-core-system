@@ -18,7 +18,7 @@
 name: core-system-prod
 
 # Log rotation per container, whatever the daemon default (VPS standard,
-# vcam-infra-deployment, cloned on the server in /app/vps-platform).
+# vcam-infra-deploy, cloned on the server in /app/vps-platform).
 x-logging: &logging
   driver: json-file
   options:
@@ -45,7 +45,7 @@ x-core-image: &core-image
       condition: service_healthy
   networks:
     - default
-    # Shared VPS observability (vcam-infra-deployment/observability): Alloy tails these
+    # Shared VPS observability (vcam-infra-deploy/observability): Alloy tails these
     # containers' logs, scrapes app's /metrics and receives OTLP traces here.
     # Postgres and Valkey are never attached to it.
     - observability
@@ -185,7 +185,7 @@ services:
           cpus: "0.5"
           memory: ${VALKEY_MEMORY:-256M}
 
-  # VPS standard backup agent (vcam-infra-deployment/images/db-backup): nightly encrypted
+  # VPS standard backup agent (vcam-infra-deploy/images/db-backup): nightly encrypted
   # pg_dump, kept locally and copied to S3-compatible storage (MEGA S4…).
   # Also run by deploy.sh right before every production migration. Built from
   # the platform clone (PLATFORM_DIR, default /app/vps-platform).

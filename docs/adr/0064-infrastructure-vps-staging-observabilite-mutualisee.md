@@ -1,7 +1,7 @@
 # ADR-0064 — Standard d'hébergement du VPS : staging, déploiement par promotion d'image, observabilité et sauvegardes mutualisées
 
 > **Amendement (2026-10-03).** `infra/` a quitté ce dépôt : la plateforme vit
-> désormais dans son propre dépôt, [vcam-infra-deployment](https://github.com/wilfreidlando/vcam-infra-deployment), à la racine
+> désormais dans son propre dépôt, [vcam-infra-deploy](https://github.com/wilfreidlando/vcam-infra-deploy), à la racine
 > (historique conservé), et elle est clonée sur le serveur dans `/app/vps-platform`.
 > Le Core n'en garde que ce qui le concerne : `compose.prod.yaml`, `platform.env` et
 > le `Makefile`, qui appelle `$(PLATFORM_DIR)/bin/deploy.sh`. Les chemins `infra/…`
@@ -112,7 +112,7 @@ Avant cette décision :
    - L'audit signale les collisions et `nginx -t` en échec.
    - Les apps à sous-domaines automatiques utilisent `VIRTUAL_HOST` wildcard et un
      certificat wildcard par DNS-01, que acme-companion 2.5.2 prend en charge
-     (vérifié dans son code source) ([guide 10](https://github.com/wilfreidlando/vcam-infra-deployment/blob/main/guides/10-sous-domaines-automatiques.md)).
+     (vérifié dans son code source) ([guide 10](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/guides/10-sous-domaines-automatiques.md)).
 9. **Tests réels rejouables (`infra/tests/`)**, exécutés avant livraison : de vrais
    conteneurs, de vraies bases et le vrai nginx-proxy 1.7. Ils ont révélé et fait
    corriger trois défauts que l'analyse statique ne voyait pas :

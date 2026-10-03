@@ -132,7 +132,7 @@ horizon-status: ## Show queue worker status
 # a pre-existing external `nginx-proxy` network.
 
 # ─── VPS standard: staging / production (ADR-0064) ─────────────────────────
-# Platform tools live in their own repository (vcam-infra-deployment), cloned
+# Platform tools live in their own repository (vcam-infra-deploy), cloned
 # on the server in /app/vps-platform. Staging checkout: make staging-deploy ·
 # production checkout: make prod-promote.
 PLATFORM_DIR ?= /app/vps-platform
