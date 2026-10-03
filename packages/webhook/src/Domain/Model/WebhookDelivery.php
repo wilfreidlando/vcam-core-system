@@ -72,6 +72,56 @@ final readonly class WebhookDelivery
     }
 
     /**
+     * Audit 2026-10-03 §4.4 — the endpoint was deactivated; nothing is sent.
+     */
+    public function cancel(DateTimeImmutable $at, string $reason): self
+    {
+        return new self(
+            $this->id,
+            $this->endpointId,
+            $this->projectId,
+            $this->eventId,
+            $this->eventType,
+            $this->payload,
+            WebhookDeliveryStatus::Canceled,
+            $this->attempts,
+            null,
+            $this->lastAttemptAt,
+            $reason,
+            null,
+            $this->replayedFromId,
+            $this->lastResponseStatus,
+            $this->lastResponseBody,
+        );
+    }
+
+    /**
+     * Marks a delivery dead without a new attempt — used when the queued job
+     * itself failed for good (exception, exhausted job tries), so the row
+     * reaches the DLQ instead of staying `pending` forever (audit §4.3).
+     */
+    public function markDead(DateTimeImmutable $at, string $reason): self
+    {
+        return new self(
+            $this->id,
+            $this->endpointId,
+            $this->projectId,
+            $this->eventId,
+            $this->eventType,
+            $this->payload,
+            WebhookDeliveryStatus::Dead,
+            $this->attempts,
+            null,
+            $this->lastAttemptAt ?? $at,
+            $reason,
+            null,
+            $this->replayedFromId,
+            $this->lastResponseStatus,
+            $this->lastResponseBody,
+        );
+    }
+
+    /**
      * @param DateTimeImmutable|null $nextRetryAt null means the retry budget is
      *                                            exhausted — the delivery moves to `dead` (DLQ).
      */

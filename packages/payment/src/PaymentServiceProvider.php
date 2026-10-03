@@ -49,6 +49,8 @@ use Core\Payment\Presentation\Listeners\DeliverPaymentCallbackListener;
 use Core\Support\Clock;
 use Core\Support\Integration\Provider\ProviderCode;
 use Core\Support\Integration\Provider\ProviderRegistry;
+use Core\Support\Integration\Transport\GuardedHttpTransport;
+use Core\Support\Integration\Transport\HttpTransport;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
@@ -160,6 +162,9 @@ final class PaymentServiceProvider extends ServiceProvider
         $this->app->bind(ProviderApplicationRepository::class, EloquentProviderApplicationRepository::class);
         $this->app->bind(PaymentCallbackSecretGenerator::class, RandomPaymentCallbackSecretGenerator::class);
         $this->app->bind(PaymentCallbackSender::class, HttpPaymentCallbackSender::class);
+        // Audit 2026-10-03 §2.1: a Project-chosen URL goes through the
+        // guarded transport (re-checked + pinned at connect time).
+        $this->app->when(HttpPaymentCallbackSender::class)->needs(HttpTransport::class)->give(GuardedHttpTransport::class);
 
         $this->app->bind(StartPayment::class, StartPaymentUseCase::class);
         $this->app->bind(GetPaymentStatus::class, GetPaymentStatusUseCase::class);

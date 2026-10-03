@@ -43,7 +43,10 @@ final class DeliverPaymentCallbackJob implements ShouldQueue
     public function __construct(
         private readonly string $providerCode,
         private readonly string $transactionRef,
-    ) {}
+    ) {
+        // Audit 2026-10-03 §3.2 — its own queue, never behind webhooks.
+        $this->onQueue('payment-callbacks');
+    }
 
     /**
      * @return list<int>

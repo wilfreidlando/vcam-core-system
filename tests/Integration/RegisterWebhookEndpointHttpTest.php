@@ -72,6 +72,21 @@ final class RegisterWebhookEndpointHttpTest extends TestCase
     }
 
     #[Test]
+    public function a_plain_http_url_is_rejected(): void
+    {
+        // Audit 2026-10-03 §2.3 — payment statuses and amounts never travel
+        // in clear text; http:// is only allowed with an explicit local opt-in.
+        $token = $this->issueTestApiKey();
+
+        $response = $this->postJson('/v1/webhook-endpoints', [
+            'url' => 'http://example.com/hooks/inbound',
+            'events' => ['payment.status_changed'],
+        ], ['Authorization' => "Bearer {$token}"]);
+
+        $response->assertStatus(422);
+    }
+
+    #[Test]
     public function the_documented_example_url_is_itself_accepted(): void
     {
         // User-reported: the `@example` on `RegisterWebhookEndpointRequest`'s

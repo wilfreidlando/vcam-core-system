@@ -28,6 +28,9 @@ use Throwable;
  *  - We never set a `stream` timeout; the foundation is request-response,
  *    not streaming.
  *
+ * Redirects are never followed (`allow_redirects => false`): a `3xx`
+ * comes back as a plain response the caller classifies as a failure.
+ *
  * Errors:
  *  - `ConnectionException` (network, DNS, TLS handshake, timeout) is
  *    translated to `ProviderTransientError`.
@@ -38,12 +41,24 @@ use Throwable;
  * caller's job (4xx is not always a failure, 2xx is not always success
  * when the body says otherwise).
  */
-final readonly class LaravelHttpTransport implements HttpTransport
+final readonly class LaravelHttpTransport implements PinnableHttpTransport
 {
+    /**
+     * @param list<string> $curlResolve `CURLOPT_RESOLVE` entries
+     *                                  (`host:port:ip`) — set only through `pinnedTo()`.
+     */
     public function __construct(
         private HttpFactory $factory,
         private Clock $clock,
+        private array $curlResolve = [],
     ) {}
+
+    public function pinnedTo(string $host, int $port, string $ip): HttpTransport
+    {
+        $address = str_contains($ip, ':') ? '['.$ip.']' : $ip;
+
+        return new self($this->factory, $this->clock, [sprintf('%s:%d:%s', $host, $port, $address)]);
+    }
 
     public function send(
         HttpMethod $method,
@@ -68,9 +83,14 @@ final readonly class LaravelHttpTransport implements HttpTransport
             ->timeout($timeoutInt)
             ->connectTimeout($connectTimeout)
             ->acceptJson()
-            ->withOptions([
+            ->withOptions(array_filter([
                 'http_errors' => false,
-            ]);
+                // Audit 2026-10-03 §2.1: never follow a redirect. A 3xx is
+                // returned to the caller as-is (a failed delivery), so a
+                // public URL cannot bounce the Core onto an internal address.
+                'allow_redirects' => false,
+                'curl' => $this->curlResolve === [] ? null : [CURLOPT_RESOLVE => $this->curlResolve],
+            ], static fn (mixed $value): bool => $value !== null));
 
         if ($body !== null) {
             if (is_array($body)) {

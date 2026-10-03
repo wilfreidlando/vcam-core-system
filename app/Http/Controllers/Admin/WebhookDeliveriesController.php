@@ -20,6 +20,7 @@ use Core\Webhook\Contracts\ReplayWebhookDelivery;
 use Core\Webhook\Contracts\ReplayWebhookDeliveryCommand;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotDead;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
+use Core\Webhook\Domain\Exception\WebhookEndpointInactive;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -118,6 +119,9 @@ final class WebhookDeliveriesController
         } catch (WebhookDeliveryNotDead) {
             return redirect()->route('admin.webhook-deliveries.dead.web')
                 ->withErrors(['id' => "Cette livraison n'est pas en échec ; aucun rejeu nécessaire."]);
+        } catch (WebhookEndpointInactive) {
+            return redirect()->route('admin.webhook-deliveries.dead.web')
+                ->withErrors(['id' => "L'endpoint de cette livraison est désactivé : réactivez-le avant de rejouer."]);
         }
 
         // The JSON API's equivalent controller queues the new delivery

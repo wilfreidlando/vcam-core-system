@@ -8,6 +8,7 @@ use Core\Webhook\Domain\Exception\WebhookDeliveryAlreadyExists;
 use Core\Webhook\Domain\Model\WebhookDelivery;
 use Core\Webhook\Domain\Model\WebhookDeliveryStatus;
 use Core\Webhook\Domain\Port\WebhookDeliveryRepository;
+use DateTimeImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -37,6 +38,26 @@ final class EloquentWebhookDeliveryRepository implements WebhookDeliveryReposito
         $record = WebhookDeliveryRecord::query()->find($id);
 
         return $record === null ? null : $this->toDomain($record);
+    }
+
+    public function findStalledPending(DateTimeImmutable $overdueBefore, int $limit): array
+    {
+        $rows = WebhookDeliveryRecord::query()
+            ->where('status', WebhookDeliveryStatus::Pending->value)
+            ->where(function ($query) use ($overdueBefore): void {
+                $query->where('next_retry_at', '<', $overdueBefore)
+                    ->orWhere(function ($inner) use ($overdueBefore): void {
+                        $inner->whereNull('next_retry_at')->where('created_at', '<', $overdueBefore);
+                    });
+            })
+            ->toBase()
+            ->orderBy('created_at')
+            ->limit($limit)
+            ->get();
+
+        $rows = WebhookDeliveryRecord::hydrate(array_map(static fn (mixed $row): array => (array) $row, $rows->all()));
+
+        return array_values($rows->map(fn (WebhookDeliveryRecord $record): WebhookDelivery => $this->toDomain($record))->all());
     }
 
     public function findByStatusPaginated(?WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage): array

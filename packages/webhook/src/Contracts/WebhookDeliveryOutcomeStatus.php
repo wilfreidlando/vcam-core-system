@@ -9,4 +9,5 @@ enum WebhookDeliveryOutcomeStatus
     case Delivered;
     case RetryScheduled;
     case Dead;
+    case Canceled;
 }

@@ -7,6 +7,7 @@ namespace Core\Webhook\Domain\Port;
 use Core\Webhook\Domain\Exception\WebhookDeliveryAlreadyExists;
 use Core\Webhook\Domain\Model\WebhookDelivery;
 use Core\Webhook\Domain\Model\WebhookDeliveryStatus;
+use DateTimeImmutable;
 
 interface WebhookDeliveryRepository
 {
@@ -30,4 +31,13 @@ interface WebhookDeliveryRepository
      * @return array{items: list<WebhookDelivery>, total: int}
      */
     public function findByStatusPaginated(?WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage): array;
+
+    /**
+     * `pending` deliveries whose due time (`next_retry_at`, or creation for
+     * a never-attempted one) is older than `$overdueBefore` — rows whose
+     * queued job was lost (audit 2026-10-03 §4.3).
+     *
+     * @return list<WebhookDelivery>
+     */
+    public function findStalledPending(DateTimeImmutable $overdueBefore, int $limit): array;
 }

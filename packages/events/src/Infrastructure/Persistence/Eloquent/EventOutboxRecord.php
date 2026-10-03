@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Events\Infrastructure\Persistence\Eloquent;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -18,6 +20,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class EventOutboxRecord extends Model
 {
+    use MassPrunable;
+
     public const UPDATED_AT = null;
 
     // Without this, Eloquent treats `id` as an auto-incrementing integer
@@ -40,4 +44,22 @@ final class EventOutboxRecord extends Model
         'created_at' => 'immutable_datetime',
         'skip_webhook_endpoint_fan_out' => 'bool',
     ];
+
+    /**
+     * Audit 2026-10-03 §4.6 — rows already relayed are kept
+     * `events.retention_days`, then deleted by the scheduled `model:prune`.
+     * An unpublished row is never pruned.
+     *
+     * @return Builder<self>
+     */
+    public function prunable(): Builder
+    {
+        $configured = config('events.retention_days', 30);
+        $days = is_numeric($configured) ? (int) $configured : 30;
+
+        // @phpstan-ignore staticMethod.dynamicCall (Eloquent builder forwarding — see EloquentWalletBalanceRepository)
+        return self::query()
+            ->whereNotNull('published_at')
+            ->where('published_at', '<', now()->subDays($days));
+    }
 }

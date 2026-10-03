@@ -20,8 +20,10 @@ use Core\Support\Integration\Provider\ProviderRegistry;
 use Core\Support\Integration\Provider\TaggedProviderRegistry;
 use Core\Support\Integration\Redaction\PayloadRedactor;
 use Core\Support\Integration\Redaction\SensitiveKeySet;
+use Core\Support\Integration\Security\OutboundUrlGuard;
 use Core\Support\Integration\Signing\HmacSha256RequestSigner;
 use Core\Support\Integration\Signing\RequestSigner;
+use Core\Support\Integration\Transport\GuardedHttpTransport;
 use Core\Support\Integration\Transport\HttpTransport;
 use Core\Support\Integration\Transport\LaravelHttpTransport;
 use Core\Support\SystemClock;
@@ -82,6 +84,16 @@ final class IntegrationServiceProvider extends ServiceProvider
                 $app->make(Clock::class),
             );
         });
+
+        $this->app->singleton(OutboundUrlGuard::class, fn (): OutboundUrlGuard => new OutboundUrlGuard);
+
+        // Audit 2026-10-03 §2.1 — the transport for Project-chosen URLs.
+        // Modules opt in per sender with a contextual binding.
+        $this->app->bind(GuardedHttpTransport::class, fn (Application $app): GuardedHttpTransport => new GuardedHttpTransport(
+            $app->make(HttpTransport::class),
+            $app->make(OutboundUrlGuard::class),
+            (bool) config('integration.outbound.enforce_at_connect', true),
+        ));
 
         $this->app->singleton(TokenCache::class, fn (): TokenCache => new NullTokenCache);
 

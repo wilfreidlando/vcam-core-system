@@ -15,6 +15,9 @@ enum WebhookDeliveryStatus: string
     case Pending = 'pending';
     case Delivered = 'delivered';
     case Dead = 'dead';
+    // Audit 2026-10-03 §4.4: the endpoint was deactivated before this
+    // delivery could land — never attempted again, never replayable.
+    case Canceled = 'canceled';
 
     public function isTerminal(): bool
     {

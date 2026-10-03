@@ -11,6 +11,7 @@ use Core\Webhook\Contracts\WebhookDeliveryOutcome;
 use Core\Webhook\Contracts\WebhookDeliveryOutcomeStatus;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
 use Core\Webhook\Domain\Exception\WebhookEndpointNotFound;
+use Core\Webhook\Domain\Model\WebhookDeliveryStatus;
 use Core\Webhook\Domain\Model\WebhookRetryPolicy;
 use Core\Webhook\Domain\Port\WebhookDeliveryRepository;
 use Core\Webhook\Domain\Port\WebhookEndpointRepository;
@@ -25,6 +26,8 @@ use Psr\Log\LoggerInterface;
  */
 final readonly class DeliverWebhookUseCase implements DeliverWebhook
 {
+    private const DUE_TIME_TOLERANCE_SECONDS = 5;
+
     public function __construct(
         private WebhookDeliveryRepository $deliveries,
         private WebhookEndpointRepository $endpoints,
@@ -45,11 +48,23 @@ final readonly class DeliverWebhookUseCase implements DeliverWebhook
             // Already delivered or dead — a duplicate job execution
             // (Horizon at-least-once) is a no-op, not an error.
             return new WebhookDeliveryOutcome(
-                status: $delivery->status->value === 'delivered'
-                    ? WebhookDeliveryOutcomeStatus::Delivered
-                    : WebhookDeliveryOutcomeStatus::Dead,
+                status: match ($delivery->status) {
+                    WebhookDeliveryStatus::Delivered => WebhookDeliveryOutcomeStatus::Delivered,
+                    WebhookDeliveryStatus::Canceled => WebhookDeliveryOutcomeStatus::Canceled,
+                    default => WebhookDeliveryOutcomeStatus::Dead,
+                },
                 retryAfterSeconds: null,
             );
+        }
+
+        $now = $this->clock->now();
+
+        // A job running well before the delivery's own due time is a
+        // superseded duplicate (a `webhook:sweep` re-dispatch raced the
+        // original job): the chain that set `next_retry_at` owns the next
+        // attempt, so this execution does nothing.
+        if ($delivery->nextRetryAt !== null && $now->getTimestamp() < $delivery->nextRetryAt->getTimestamp() - self::DUE_TIME_TOLERANCE_SECONDS) {
+            return new WebhookDeliveryOutcome(WebhookDeliveryOutcomeStatus::RetryScheduled, null);
         }
 
         $endpoint = $this->endpoints->find($delivery->endpointId);
@@ -57,7 +72,19 @@ final readonly class DeliverWebhookUseCase implements DeliverWebhook
             throw WebhookEndpointNotFound::withId($delivery->endpointId);
         }
 
-        $now = $this->clock->now();
+        if (! $endpoint->active) {
+            // Audit 2026-10-03 §4.4: a deactivated endpoint receives nothing
+            // more — not even the retries already scheduled before it was
+            // deactivated.
+            $this->deliveries->save($delivery->cancel($now, 'Endpoint deactivated before delivery.'));
+            $this->logger->info('webhook.delivery.canceled', [
+                'delivery_id' => $delivery->id,
+                'endpoint_id' => $delivery->endpointId,
+            ]);
+
+            return new WebhookDeliveryOutcome(WebhookDeliveryOutcomeStatus::Canceled, null);
+        }
+
         $outcome = $this->sender->send($endpoint, $delivery);
 
         if ($outcome->success) {

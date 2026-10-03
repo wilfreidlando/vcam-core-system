@@ -30,6 +30,7 @@ use Core\Support\Integration\Exception\ProviderTransientError;
 use Core\Wallet\Domain\Exception\WalletNotFound;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotDead;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
+use Core\Webhook\Domain\Exception\WebhookEndpointInactive;
 use Core\Webhook\Domain\Exception\WebhookEndpointNotFound;
 use Illuminate\Http\JsonResponse;
 use Throwable;
@@ -69,6 +70,7 @@ final class ExceptionProblemMapping
         WebhookEndpointNotFound::class => ['type' => 'webhook-endpoint-not-found', 'title' => 'Webhook endpoint not found', 'status' => 404],
         WebhookDeliveryNotFound::class => ['type' => 'webhook-delivery-not-found', 'title' => 'Webhook delivery not found', 'status' => 404],
         WebhookDeliveryNotDead::class => ['type' => 'webhook-delivery-not-dead', 'title' => 'Only a dead webhook delivery can be replayed', 'status' => 409],
+        WebhookEndpointInactive::class => ['type' => 'webhook-endpoint-inactive', 'title' => 'The webhook endpoint is deactivated', 'status' => 409],
         NotificationNotFound::class => ['type' => 'notification-not-found', 'title' => 'Notification not found', 'status' => 404],
         MissingRecipientPhoneNumber::class => ['type' => 'missing-recipient-phone-number', 'title' => 'The recipient phone number is missing', 'status' => 422],
         ChannelDoesNotSupportSessions::class => ['type' => 'channel-does-not-support-sessions', 'title' => 'This channel has no linked-device session to manage', 'status' => 422],

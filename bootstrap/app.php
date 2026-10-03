@@ -33,15 +33,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // logs, events, webhooks and audit entries are traceable end to end.
         $middleware->append(CorrelationId::class);
 
-        // Deployed topology (ADR-0053): the app container is never reached
-        // directly — only via a chain of two reverse proxies (the shared
-        // nginx-proxy + this project's own nginx sidecar), both on the
-        // Docker-internal network. Trusting every proxy is safe specifically
-        // because nothing else can reach this container's port at all; it's
-        // what makes `$request->ip()` (operator-auth's per-IP throttle,
-        // ADR-0046) and the detected request scheme (redirect URLs, secure
-        // cookies) reflect the real client instead of the proxy hop.
-        $middleware->trustProxies(at: '*');
+        // Trusted reverse proxies: see config/trustedproxy.php (audit
+        // 2026-10-03 §2.2). Laravel's global TrustProxies middleware reads
+        // `trustedproxy.proxies` itself — nothing to register here.
 
         $middleware->api(prepend: [
             HandleCors::class,
@@ -77,6 +71,16 @@ return Application::configure(basePath: dirname(__DIR__))
         // ADR-0044: background reconciliation for missed webhooks (spec
         // technique §10). Same overlap protection reasoning as events:relay.
         $schedule->command('admin:reconcile-stuck-payments')->everyFiveMinutes()->withoutOverlapping();
+
+        // Audit 2026-10-03 §4.3: re-dispatch webhook deliveries whose job was lost.
+        $schedule->command('webhook:sweep')->everyFiveMinutes()->withoutOverlapping();
+
+        // Audit 2026-10-03 §4.6: bounded retention. Class names as strings —
+        // the composition root never imports a module's Infrastructure.
+        $schedule->command('model:prune', ['--model' => [
+            'Core\\Events\\Infrastructure\\Persistence\\Eloquent\\EventOutboxRecord',
+            'Core\\Webhook\\Infrastructure\\Persistence\\Eloquent\\WebhookDeliveryRecord',
+        ]])->dailyAt('03:17')->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // One error format across the whole Core's JSON surface: RFC 7807
