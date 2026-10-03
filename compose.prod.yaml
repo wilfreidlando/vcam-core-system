@@ -85,9 +85,13 @@ services:
     logging: *logging
     tty: true
     environment:
-      VIRTUAL_HOST: ${VIRTUAL_HOST}
+      # Only this container declares itself to nginx-proxy. The env files use
+      # CORE_PUBLIC_HOST, not VIRTUAL_HOST, because app/horizon/scheduler/backup
+      # load them whole (env_file) and must never claim the name too.
+      # VIRTUAL_HOST is still read as a fallback for an older .env.
+      VIRTUAL_HOST: ${CORE_PUBLIC_HOST:-${VIRTUAL_HOST}}
       VIRTUAL_PORT: 80
-      LETSENCRYPT_HOST: ${VIRTUAL_HOST}
+      LETSENCRYPT_HOST: ${CORE_PUBLIC_HOST:-${VIRTUAL_HOST}}
       LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
       TRUSTED_PROXY_TOKEN: ${TRUSTED_PROXY_TOKEN:-}
     volumes:

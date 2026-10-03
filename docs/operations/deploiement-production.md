@@ -68,7 +68,7 @@ Points d'attention en le remplissant :
 | `DB_PASSWORD` | Générée ci-dessus |
 | `SESSION_SECURE_COOKIE` | `true` |
 | `CORE_ENVIRONMENT` | `sandbox` tant que tu testes ; `live` seulement quand tu es prêt à faire circuler du vrai argent (spec technique §14) |
-| `VIRTUAL_HOST` | Le domaine, sans schéma (ex. `core.mon-domaine.tld`) |
+| `CORE_PUBLIC_HOST` | Le domaine, sans schéma (ex. `core-system.visibilitycam.com`). Anciennement `VIRTUAL_HOST`, renommé pour que seul le sidecar web se déclare à nginx-proxy (ADR-0064) |
 | `LETSENCRYPT_EMAIL` | L'adresse qui recevra les alertes d'expiration de certificat |
 | `MTN_MOMO_*` / `ORANGE_MONEY_*` | Laisser vide tant que ces adaptateurs ne sont pas construits (hors périmètre actuel — voir `CLAUDE.md`) ; MyCoolPay ne passe pas par ces variables, voir [§9](#9-enregistrer-une-application-provider-mycoolpay) |
 | `WAHA_BASE_URL` / `WAHA_API_KEY` | **Obligatoires pour les notifications WhatsApp** : l'adresse de votre instance WAHA (joignable depuis le conteneur, pas `localhost`) et sa clé d'API. Sans elles, tout envoi WhatsApp répond `201` avec `status: failed` (`requires a non-empty api_key credential`). |
