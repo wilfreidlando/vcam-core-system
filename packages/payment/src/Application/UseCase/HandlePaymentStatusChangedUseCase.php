@@ -10,15 +10,18 @@ use Core\Parties\Contracts\FindOrCreatePartyCommand;
 use Core\Parties\Contracts\PartyFinder;
 use Core\Payment\Application\Service\PaymentJourney;
 use Core\Payment\Contracts\Events\PaymentStatusChanged;
+use Core\Payment\Contracts\Events\PaymentStatusNotification;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Model\PaymentTimelineEntryType;
 use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Payment\PaymentStatus;
 use Core\Support\Clock;
 use Core\Support\Identifier;
 use Core\Support\UnitOfWork;
 use Core\Wallet\Contracts\CreditWallet;
 use Core\Wallet\Contracts\CreditWalletCommand;
+use DateTimeZone;
 use LogicException;
 use Psr\Log\LoggerInterface;
 
@@ -73,18 +76,21 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
                 return;
             }
 
-            if ($payment->status->isTerminal()) {
+            if (! $payment->status->canTransitionTo($event->status)) {
                 // Idempotent: a replayed or duplicate webhook after the
                 // payment already settled is a no-op, not an error.
-                $this->logger->info('payment.status_changed.already_terminal', [
+                $this->logger->info('payment.status_changed.transition_refused', [
                     'payment_id' => $payment->id,
                     'status' => $payment->status->value,
+                    'reported_status' => $event->status->value,
                 ]);
                 $this->journey->record(
                     $payment->id,
                     $payment->projectId,
                     PaymentTimelineEntryType::StatusChangeIgnored,
-                    sprintf('Statut « %s » reçu (%s) mais le paiement est déjà final (« %s ») : ignoré.', $event->status->value, self::sourceLabel($source), $payment->status->value),
+                    $event->status === $payment->status
+                        ? sprintf('Statut « %s » reçu à nouveau (%s) : déjà appliqué, rien à faire.', $event->status->value, self::sourceLabel($source))
+                        : sprintf('Transition %s → %s refusée (%s) : %s', $payment->status->value, $event->status->value, self::sourceLabel($source), $payment->status->isFinal() ? 'le paiement est déjà final.' : 'transition non autorisée.'),
                     ['source' => $source, 'current_status' => $payment->status->value, 'reported_status' => $event->status->value, 'reason' => $event->reason],
                 );
 
@@ -98,12 +104,12 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
                 $payment->id,
                 $payment->projectId,
                 PaymentTimelineEntryType::StatusChanged,
-                sprintf('Statut %s → %s (%s)%s', $payment->status->value, $updated->status->value, self::sourceLabel($source), $updated->status->isTerminal() ? ' — statut final' : ''),
+                sprintf('Statut %s → %s (%s)%s', $payment->status->value, $updated->status->value, self::sourceLabel($source), $updated->status->isFinal() ? ' — statut final' : ' — statut intermédiaire'),
                 [
                     'source' => $source,
                     'from' => $payment->status->value,
                     'to' => $updated->status->value,
-                    'is_final' => $updated->status->isTerminal(),
+                    'is_final' => $updated->status->isFinal(),
                     'reason' => $event->reason,
                     'provider_reported_at' => $event->occurredAt,
                 ],
@@ -126,11 +132,23 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
             }
 
             $eventId = $this->identifier->generate();
+            $notification = new PaymentStatusNotification(
+                paymentId: $updated->id,
+                reference: $updated->idempotencyKey,
+                status: $updated->status->value,
+                isFinal: $updated->status->isFinal(),
+                amount: $updated->amount,
+                currency: $updated->currency,
+                failureReason: $updated->status === PaymentStatus::Succeeded ? null : $updated->errorMessage,
+                occurredAt: $this->clock->now()->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
+            );
             $this->outbox->append(new DomainEvent(
                 $eventId,
                 $updated->projectId,
                 'payment.status_changed',
-                $event->toPayload(),
+                // ADR-0061: the public, canonical shape — identical for
+                // webhook endpoints and the payment's callback_url.
+                $notification->toPayload(),
                 null,
                 $this->clock->now(),
                 // User-directed design: when the caller supplied its own
@@ -153,7 +171,7 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
                     'event_id' => $eventId,
                     'event_type' => 'payment.status_changed',
                     'delivery' => $updated->callbackUrl !== null ? 'callback_url' : 'webhook_endpoints',
-                    'payload' => $event->toPayload(),
+                    'payload' => $notification->toPayload(),
                 ],
             );
         });

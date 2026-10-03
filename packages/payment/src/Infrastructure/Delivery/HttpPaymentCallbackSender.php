@@ -52,20 +52,19 @@ final readonly class HttpPaymentCallbackSender implements PaymentCallbackSender
         private Clock $clock,
     ) {}
 
-    public function send(Payment $payment): PaymentCallbackSendOutcome
+    public function send(Payment $payment, string $eventId, array $data): PaymentCallbackSendOutcome
     {
         if ($payment->callbackUrl === null || $payment->callbackSecret === null) {
             return PaymentCallbackSendOutcome::noCallbackConfigured();
         }
 
         try {
+            // ADR-0061: byte-for-byte the webhook envelope — one parser,
+            // one deduplication key (`id`) on the integrator's side.
             $body = json_encode([
-                'event' => 'payment.status_changed',
-                'payment_id' => $payment->id,
-                'status' => $payment->status->value,
-                'amount' => $payment->amount,
-                'currency' => $payment->currency,
-                'error_message' => $payment->errorMessage,
+                'id' => $eventId,
+                'type' => 'payment.status_changed',
+                'data' => $data,
             ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
             return PaymentCallbackSendOutcome::failure(null, 'Payload could not be encoded as JSON: '.$e->getMessage());
@@ -76,7 +75,11 @@ final readonly class HttpPaymentCallbackSender implements PaymentCallbackSender
             secret: $payment->callbackSecret,
         );
 
-        $headers = ['Content-Type' => 'application/json'];
+        $headers = [
+            'Content-Type' => 'application/json',
+            'X-Event-Id' => $eventId,
+            'X-Event-Type' => 'payment.status_changed',
+        ];
         $timestamp = $this->clock->now()->getTimestamp();
         $this->signer->sign($policy, $headers, $body, $timestamp);
 

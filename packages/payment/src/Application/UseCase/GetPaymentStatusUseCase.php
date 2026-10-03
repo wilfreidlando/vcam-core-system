@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Payment\Application\UseCase;
 
+use Core\Payment\Application\Support\PaymentViews;
 use Core\Payment\Contracts\GetPaymentStatus;
 use Core\Payment\Contracts\GetPaymentStatusCommand;
 use Core\Payment\Contracts\PaymentView;
@@ -29,19 +30,6 @@ final readonly class GetPaymentStatusUseCase implements GetPaymentStatus
             throw PaymentNotFound::withId($command->paymentId);
         }
 
-        return new PaymentView(
-            id: $payment->id,
-            projectId: $payment->projectId,
-            channel: $payment->channel,
-            status: $payment->status->value,
-            amount: $payment->amount,
-            currency: $payment->currency,
-            requiresAction: $payment->requiresAction,
-            actionHint: $payment->actionHint,
-            paymentUrl: $payment->paymentUrl,
-            errorMessage: $payment->errorMessage,
-            idempotencyKey: $payment->idempotencyKey,
-            callbackUrl: $payment->callbackUrl,
-        );
+        return PaymentViews::from($payment);
     }
 }

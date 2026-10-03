@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Payment\Application\UseCase;
 
+use Core\Payment\Application\Support\PaymentViews;
 use Core\Payment\Contracts\ListPayments;
 use Core\Payment\Contracts\ListPaymentsCommand;
 use Core\Payment\Contracts\PaymentPage;
@@ -25,20 +26,7 @@ final readonly class ListPaymentsUseCase implements ListPayments
         $result = $this->payments->findByProject($command->projectId, $status, $command->page, $command->perPage);
 
         $items = array_map(
-            static fn (Payment $payment): PaymentView => new PaymentView(
-                id: $payment->id,
-                projectId: $payment->projectId,
-                channel: $payment->channel,
-                status: $payment->status->value,
-                amount: $payment->amount,
-                currency: $payment->currency,
-                requiresAction: $payment->requiresAction,
-                actionHint: $payment->actionHint,
-                paymentUrl: $payment->paymentUrl,
-                errorMessage: $payment->errorMessage,
-                idempotencyKey: $payment->idempotencyKey,
-                callbackUrl: $payment->callbackUrl,
-            ),
+            static fn (Payment $payment): PaymentView => PaymentViews::from($payment),
             $result['items'],
         );
 

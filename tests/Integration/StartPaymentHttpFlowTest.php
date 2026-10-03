@@ -197,7 +197,7 @@ final class StartPaymentHttpFlowTest extends TestCase
             'reason' => 'Sandbox order',
         ], ['Authorization' => "Bearer {$token}", 'Idempotency-Key' => (string) Str::uuid()]);
 
-        $start->assertStatus(201)->assertJsonPath('status', 'pending')->assertJsonPath('requires_action', true);
+        $start->assertStatus(201)->assertJsonPath('status', 'pending')->assertJsonPath('is_final', false);
         $hint = $start->json('action_hint');
         self::assertIsString($hint);
         self::assertStringContainsString('SANDBOX', $hint);

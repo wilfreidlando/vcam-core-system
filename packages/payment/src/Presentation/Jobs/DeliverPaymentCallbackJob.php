@@ -42,9 +42,13 @@ final class DeliverPaymentCallbackJob implements ShouldQueue
 
     public int $tries = 8;
 
+    /**
+     * @param array<string, mixed> $data the event's canonical `data` (ADR-0061)
+     */
     public function __construct(
-        private readonly string $providerCode,
-        private readonly string $transactionRef,
+        private readonly string $paymentId,
+        private readonly string $eventId,
+        private readonly array $data,
     ) {
         // Audit 2026-10-03 §3.2 — its own queue, never behind webhooks.
         $this->onQueue('payment-callbacks');
@@ -60,14 +64,14 @@ final class DeliverPaymentCallbackJob implements ShouldQueue
 
     public function handle(PaymentRepository $payments, PaymentCallbackSender $sender, PaymentJourney $journey): void
     {
-        $payment = $payments->findByProviderTransactionRef($this->providerCode, $this->transactionRef);
+        $payment = $payments->find($this->paymentId);
         if ($payment === null || $payment->callbackUrl === null) {
             // No callback configured for this payment — the common case,
             // since most payments don't set one. Nothing to do.
             return;
         }
 
-        $outcome = $sender->send($payment);
+        $outcome = $sender->send($payment, $this->eventId, $this->data);
 
         // ADR-0059 — every attempt is a step of the payment's "Parcours":
         // the exact signed request sent and what the integrator answered.
@@ -123,8 +127,8 @@ final class DeliverPaymentCallbackJob implements ShouldQueue
     public function failed(?Throwable $exception): void
     {
         app(LoggerInterface::class)->error('payment.callback.delivery_exhausted', [
-            'provider_code' => $this->providerCode,
-            'transaction_ref' => $this->transactionRef,
+            'payment_id' => $this->paymentId,
+            'event_id' => $this->eventId,
             'error' => $exception?->getMessage(),
         ]);
     }

@@ -32,7 +32,7 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
         $payment = $this->makePayment(callbackUrl: null);
         $this->payments->save($payment);
 
-        $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
+        $job = new DeliverPaymentCallbackJob('01a00000-0000-0000-0000-000000000001', 'evt-1', ['payment_id' => '01a00000-0000-0000-0000-000000000001', 'status' => 'succeeded']);
         $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
 
         self::assertSame(0, $this->sender->callCount, 'sender must not be called when callbackUrl is null');
@@ -53,7 +53,7 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
 
         $this->sender->nextOutcome = PaymentCallbackSendOutcome::failure(405, 'wrong method');
 
-        $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
+        $job = new DeliverPaymentCallbackJob('01a00000-0000-0000-0000-000000000001', 'evt-1', ['payment_id' => '01a00000-0000-0000-0000-000000000001', 'status' => 'succeeded']);
 
         // No expectException — the contract is "returns cleanly".
         $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
@@ -68,7 +68,7 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
 
         $this->sender->nextOutcome = PaymentCallbackSendOutcome::failure(503, 'service unavailable');
 
-        $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
+        $job = new DeliverPaymentCallbackJob('01a00000-0000-0000-0000-000000000001', 'evt-1', ['payment_id' => '01a00000-0000-0000-0000-000000000001', 'status' => 'succeeded']);
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('service unavailable');
@@ -83,7 +83,7 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
 
         $this->sender->nextOutcome = PaymentCallbackSendOutcome::failure(null, 'connection refused');
 
-        $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
+        $job = new DeliverPaymentCallbackJob('01a00000-0000-0000-0000-000000000001', 'evt-1', ['payment_id' => '01a00000-0000-0000-0000-000000000001', 'status' => 'succeeded']);
 
         $this->expectException(RuntimeException::class);
         $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
@@ -96,7 +96,7 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
 
         $this->sender->nextOutcome = PaymentCallbackSendOutcome::failure(429, 'slow down');
 
-        $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
+        $job = new DeliverPaymentCallbackJob('01a00000-0000-0000-0000-000000000001', 'evt-1', ['payment_id' => '01a00000-0000-0000-0000-000000000001', 'status' => 'succeeded']);
 
         $this->expectException(RuntimeException::class);
         $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
@@ -109,7 +109,7 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
 
         $this->sender->nextOutcome = PaymentCallbackSendOutcome::failure(408, 'request timeout');
 
-        $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
+        $job = new DeliverPaymentCallbackJob('01a00000-0000-0000-0000-000000000001', 'evt-1', ['payment_id' => '01a00000-0000-0000-0000-000000000001', 'status' => 'succeeded']);
 
         $this->expectException(RuntimeException::class);
         $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
@@ -157,7 +157,7 @@ final class RecordingCallbackSender implements PaymentCallbackSender
 
     public int $callCount = 0;
 
-    public function send(Payment $payment): PaymentCallbackSendOutcome
+    public function send(Payment $payment, string $eventId, array $data): PaymentCallbackSendOutcome
     {
         $this->callCount++;
 

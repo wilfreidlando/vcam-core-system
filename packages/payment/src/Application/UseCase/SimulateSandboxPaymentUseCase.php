@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Payment\Application\UseCase;
 
 use Core\Payment\Application\Port\SandboxPaymentSimulator;
+use Core\Payment\Application\Support\PaymentViews;
 use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\PaymentView;
@@ -64,19 +65,6 @@ final readonly class SimulateSandboxPaymentUseCase implements SimulateSandboxPay
 
         $updated = $this->payments->find($payment->id) ?? $payment;
 
-        return new PaymentView(
-            id: $updated->id,
-            projectId: $updated->projectId,
-            channel: $updated->channel,
-            status: $updated->status->value,
-            amount: $updated->amount,
-            currency: $updated->currency,
-            requiresAction: $updated->requiresAction,
-            actionHint: $updated->actionHint,
-            paymentUrl: $updated->paymentUrl,
-            errorMessage: $updated->errorMessage,
-            idempotencyKey: $updated->idempotencyKey,
-            callbackUrl: $updated->callbackUrl,
-        );
+        return PaymentViews::from($updated);
     }
 }

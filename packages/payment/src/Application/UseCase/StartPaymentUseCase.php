@@ -7,6 +7,7 @@ namespace Core\Payment\Application\UseCase;
 use Core\Ledger\Contracts\IsSupportedCurrency;
 use Core\Payment\Application\Port\SandboxPaymentSimulator;
 use Core\Payment\Application\Service\PaymentJourney;
+use Core\Payment\Application\Support\PaymentViews;
 use Core\Payment\Contracts\InitiatePaymentCommand;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Contracts\PaymentProviderRouter;
@@ -210,20 +211,6 @@ final readonly class StartPaymentUseCase implements StartPayment
 
     private function toView(Payment $payment, bool $includeCallbackSecret = false): PaymentView
     {
-        return new PaymentView(
-            id: $payment->id,
-            projectId: $payment->projectId,
-            channel: $payment->channel,
-            status: $payment->status->value,
-            amount: $payment->amount,
-            currency: $payment->currency,
-            requiresAction: $payment->requiresAction,
-            actionHint: $payment->actionHint,
-            paymentUrl: $payment->paymentUrl,
-            errorMessage: $payment->errorMessage,
-            idempotencyKey: $payment->idempotencyKey,
-            callbackUrl: $payment->callbackUrl,
-            callbackSecret: $includeCallbackSecret ? $payment->callbackSecret : null,
-        );
+        return PaymentViews::from($payment, $includeCallbackSecret);
     }
 }

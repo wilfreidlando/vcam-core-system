@@ -157,3 +157,35 @@ it('ignores a webhook for a transaction this Core never initiated', function ():
         ->and($creditWallet->credited)->toHaveCount(0)
         ->and($outbox->events)->toHaveCount(0);
 });
+
+it('refuses to move a succeeded payment backwards and traces it (ADR-0061)', function (): void {
+    $payments = new InMemoryPaymentRepository;
+    $timeline = new Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline;
+    $outbox = new InMemoryEventOutbox;
+
+    $payments->create(new Payment(
+        id: 'pay-1', projectId: 'project-1', channel: 'mtn_momo', providerCode: 'my-coolpay', idempotencyKey: 'idem-1',
+        providerTransactionRef: 'tx-1', amount: 1000, currency: 'XAF', status: PaymentStatus::Succeeded,
+        requiresAction: false, actionHint: null, paymentUrl: null, errorMessage: null, returnUrl: null, walletRecipientExternalRef: null,
+    ));
+
+    $useCase = new HandlePaymentStatusChangedUseCase(
+        new PassthroughUnitOfWork,
+        $payments,
+        new FakePartyFinder,
+        new FakeCreditWallet,
+        $outbox,
+        new SequentialIdentifier,
+        new FixedClock,
+        new NullLogger,
+        Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey($timeline),
+    );
+
+    $useCase->handle(new PaymentStatusChanged(
+        providerCode: 'my-coolpay', transactionRef: 'tx-1', appTransactionRef: 'idem-1',
+        status: PaymentStatus::Failed, reason: 'late callback', occurredAt: null,
+    ));
+
+    expect($payments->find('pay-1')?->status)->toBe(PaymentStatus::Succeeded)
+        ->and($timeline->types())->toBe(['status_change_ignored']);
+});

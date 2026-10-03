@@ -81,25 +81,21 @@ abstract class AbstractStartPaymentController
             environment: $project->environment,
         ));
 
+        // ADR-0061 — the strict minimum to continue the flow: what to show
+        // or do next (`payment_url` for a paylink, `action_hint` for a USSD
+        // payin), whether the outcome is settled (`is_final`), and the
+        // one-time `callback_secret`. Nothing the caller already sent.
         $body = [
             'id' => $view->id,
-            'channel' => $view->channel,
             'status' => $view->status,
+            'is_final' => $view->isFinal,
             'amount' => $view->amount,
             'currency' => $view->currency,
-            'requires_action' => $view->requiresAction,
-            'action_hint' => $view->actionHint,
-            'payment_url' => $view->paymentUrl,
-            // The same value the caller sent as its Idempotency-Key
-            // header — handed back so a caller can confirm which of its
-            // own transactions this response is for without a separate
-            // side-lookup.
-            'idempotency_key' => $view->idempotencyKey,
-            'callback_url' => $view->callbackUrl,
-            // Shown once, on this response only — never re-derivable
-            // afterwards (same pattern as an API key or a webhook
-            // endpoint's secret). Absent entirely when no callback_url
-            // was supplied.
+            'channel' => $view->channel,
+            'created_at' => $view->createdAt,
+            ...($view->paymentUrl !== null ? ['payment_url' => $view->paymentUrl] : []),
+            ...($view->actionHint !== null ? ['action_hint' => $view->actionHint] : []),
+            ...($view->isFinal && $view->status !== 'succeeded' && $view->errorMessage !== null ? ['failure_reason' => $view->errorMessage] : []),
             ...($view->callbackSecret !== null ? ['callback_secret' => $view->callbackSecret] : []),
         ];
 
