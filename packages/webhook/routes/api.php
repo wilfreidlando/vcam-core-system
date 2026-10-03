@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Core\Webhook\Presentation\Http\Controllers\DeactivateWebhookEndpointController;
 use Core\Webhook\Presentation\Http\Controllers\ListWebhookEndpointsController;
 use Core\Webhook\Presentation\Http\Controllers\RegisterWebhookEndpointController;
+use Core\Webhook\Presentation\Http\Controllers\TestWebhookEndpointController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -25,4 +26,9 @@ Route::middleware(['project.auth'])
         Route::delete('/webhook-endpoints/{endpointId}', DeactivateWebhookEndpointController::class)
             ->whereUuid('endpointId')
             ->name('webhook-endpoints.deactivate');
+        // ADR-0063 — a signed `webhook.test` event, sent synchronously.
+        Route::post('/webhook-endpoints/{endpointId}/test', TestWebhookEndpointController::class)
+            ->whereUuid('endpointId')
+            ->middleware('throttle:10,1')
+            ->name('webhook-endpoints.test');
     });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\OpenApi;
 
+use Core\Webhook\Contracts\WebhookEventTypes;
 use Dedoc\Scramble\Contracts\DocumentTransformer;
 use Dedoc\Scramble\OpenApiContext;
 use Dedoc\Scramble\Support\Generator\OpenApi;
@@ -152,13 +153,7 @@ final class EventSchemasDocumentTransformer implements DocumentTransformer
     private function buildWebhookEventTypeSchema(): Schema
     {
         $enum = new OpenApiTypes\StringType;
-        $enum->enum([
-            'payment.status_changed',
-            'notification.status_changed',
-            'notification.failed',
-            'wallet.credited',
-            'wallet.debited',
-        ]);
+        $enum->enum(WebhookEventTypes::ALL);
         $enum->description = 'Closed set of `type` values the Core emits via the outbox. `*` (subscriber-only, never produced) is allowed as a wildcard in `POST /v1/webhook-endpoints`. Adding a new event type is a Core release, not a config change.';
 
         $built = Schema::fromType($enum);

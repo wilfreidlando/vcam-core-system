@@ -82,7 +82,8 @@ it('publishes WebhookEventType schema with the closed enum of emitted types', fu
     /** @var Schema $schema */
     Assert::assertSame([
         'payment.status_changed',
-        'notification.status_changed',
+        'notification.delivered',
+        'notification.read',
         'notification.failed',
         'wallet.credited',
         'wallet.debited',

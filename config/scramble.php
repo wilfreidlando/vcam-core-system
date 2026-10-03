@@ -83,7 +83,7 @@ return [
             '- `WebhookEvent` — envelope `{id, type, data}` POSTed to subscribed endpoints, signed HMAC-SHA256 '.
             '(headers `X-Signature`, `X-Timestamp`, `X-Event-Id`, `X-Event-Type`). '.
             '- `WebhookEventType` — the closed enum of event types the Core emits (`payment.status_changed`, '.
-            '`notification.status_changed`, `notification.failed`, `wallet.credited`, `wallet.debited`). '.
+            '`notification.delivered`, `notification.read`, `notification.failed`, `wallet.credited`, `wallet.debited`). '.
             '- `PaymentCallbackEvent` — the body POSTed to a per-payment `callback_url`. Same signature scheme, '.
             'per-payment secret returned once in the initiation response. '.
             "\n\n".

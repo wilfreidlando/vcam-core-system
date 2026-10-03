@@ -3,7 +3,7 @@
     "info": {
         "title": "Core System API",
         "version": "v1",
-        "description": "Enterprise Core System \u2014 the cross-cutting capabilities (identity, ledger, wallet, payment, notification, webhook) shared across every product. Authenticate with `Authorization: Bearer pk_<env>_<id>.<secret>` \u2014 see `GET /v1/whoami`. \n\n## Reading this document \n\n- Every request body attribute has a description and a realistic example. `required` is marked. - Every operation carries an `x-required-scopes` field listing the API key scopes the caller must hold. - The wildcard scope `*` covers every concrete scope \u2014 a key issued with `--scope=\"*\"` is the whole Core for this tenant and passes every scope check. - Every monetary POST under `/v1/payments/*` requires an `Idempotency-Key` header (cached response on replay, `409` on conflict). \n\n## Outbound events (Core \u2192 caller) \n\nThe Core emits events on two planes \u2014 register `POST /v1/webhook-endpoints` to subscribe, or supply `callback_url` on `POST /v1/payments` for a per-payment delivery: \n\n- `WebhookEvent` \u2014 envelope `{id, type, data}` POSTed to subscribed endpoints, signed HMAC-SHA256 (headers `X-Signature`, `X-Timestamp`, `X-Event-Id`, `X-Event-Type`). - `WebhookEventType` \u2014 the closed enum of event types the Core emits (`payment.status_changed`, `notification.status_changed`, `notification.failed`, `wallet.credited`, `wallet.debited`). - `PaymentCallbackEvent` \u2014 the body POSTed to a per-payment `callback_url`. Same signature scheme, per-payment secret returned once in the initiation response. \n\n## Errors \n\nEvery error response is `application/problem+json` (RFC 7807) with `{type, title, status, detail, correlation_id}`. 422 from a `FormRequest` adds an `errors: {field: [msg]}` map. Quote `correlation_id` when contacting support."
+        "description": "Enterprise Core System \u2014 the cross-cutting capabilities (identity, ledger, wallet, payment, notification, webhook) shared across every product. Authenticate with `Authorization: Bearer pk_<env>_<id>.<secret>` \u2014 see `GET /v1/whoami`. \n\n## Reading this document \n\n- Every request body attribute has a description and a realistic example. `required` is marked. - Every operation carries an `x-required-scopes` field listing the API key scopes the caller must hold. - The wildcard scope `*` covers every concrete scope \u2014 a key issued with `--scope=\"*\"` is the whole Core for this tenant and passes every scope check. - Every monetary POST under `/v1/payments/*` requires an `Idempotency-Key` header (cached response on replay, `409` on conflict). \n\n## Outbound events (Core \u2192 caller) \n\nThe Core emits events on two planes \u2014 register `POST /v1/webhook-endpoints` to subscribe, or supply `callback_url` on `POST /v1/payments` for a per-payment delivery: \n\n- `WebhookEvent` \u2014 envelope `{id, type, data}` POSTed to subscribed endpoints, signed HMAC-SHA256 (headers `X-Signature`, `X-Timestamp`, `X-Event-Id`, `X-Event-Type`). - `WebhookEventType` \u2014 the closed enum of event types the Core emits (`payment.status_changed`, `notification.delivered`, `notification.read`, `notification.failed`, `wallet.credited`, `wallet.debited`). - `PaymentCallbackEvent` \u2014 the body POSTed to a per-payment `callback_url`. Same signature scheme, per-payment secret returned once in the initiation response. \n\n## Errors \n\nEvery error response is `application/problem+json` (RFC 7807) with `{type, title, status, detail, correlation_id}`. 422 from a `FormRequest` adds an `errors: {field: [msg]}` map. Quote `correlation_id` when contacting support."
     },
     "servers": [
         {
@@ -3966,6 +3966,125 @@
                     "webhooks:write"
                 ]
             }
+        },
+        "/webhook-endpoints/{endpointId}/test": {
+            "post": {
+                "operationId": "webhook-endpoints.test",
+                "description": "Sends one signed `webhook.test` event to the endpoint, right now, with\nthe same envelope, headers and signature as a real event \u2014 use it to\ncheck that your receiver is reachable and verifies the signature.\nNever retried, never counted as a delivery. Requires the\n`webhooks:write` scope.\n\n`delivered` is true when your endpoint answered 2xx; otherwise\n`response_status` / `error` say why.",
+                "summary": "Send a test event to a webhook endpoint",
+                "tags": [
+                    "Webhook"
+                ],
+                "parameters": [
+                    {
+                        "name": "endpointId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "delivered": {
+                                            "type": "boolean"
+                                        },
+                                        "event_id": {
+                                            "type": "string"
+                                        },
+                                        "response_status": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "response_body": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "error": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "duration_ms": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "delivered",
+                                        "event_id",
+                                        "response_status",
+                                        "response_body",
+                                        "error",
+                                        "duration_ms"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Webhook endpoint not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/webhook-endpoint-not-found"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Webhook endpoint not found"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error."
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "webhooks:write"
+                ]
+            }
         }
     },
     "components": {
@@ -4139,7 +4258,8 @@
                             "enum": [
                                 "*",
                                 "payment.status_changed",
-                                "notification.status_changed",
+                                "notification.delivered",
+                                "notification.read",
                                 "notification.failed",
                                 "wallet.credited",
                                 "wallet.debited"
@@ -4808,7 +4928,8 @@
                 "description": "Closed set of `type` values the Core emits via the outbox. `*` (subscriber-only, never produced) is allowed as a wildcard in `POST /v1/webhook-endpoints`. Adding a new event type is a Core release, not a config change.",
                 "enum": [
                     "payment.status_changed",
-                    "notification.status_changed",
+                    "notification.delivered",
+                    "notification.read",
                     "notification.failed",
                     "wallet.credited",
                     "wallet.debited"

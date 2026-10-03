@@ -206,7 +206,11 @@ final readonly class StartPaymentUseCase implements StartPayment
             ],
         );
 
-        return $this->toView($payment, includeCallbackSecret: true);
+        // Re-read so the response carries the persisted `created_at` (the
+        // in-memory aggregate has none until it is stored).
+        $stored = $this->payments->find($payment->id) ?? $payment;
+
+        return $this->toView($stored, includeCallbackSecret: true);
     }
 
     private function toView(Payment $payment, bool $includeCallbackSecret = false): PaymentView

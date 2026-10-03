@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Webhook\Presentation\Http\Requests;
 
 use Core\Support\Integration\Security\SafeOutboundUrlRule;
+use Core\Webhook\Contracts\WebhookEventTypes;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -59,14 +60,7 @@ final class RegisterWebhookEndpointRequest extends FormRequest
              *
              * @example "payment.status_changed"
              */
-            'events.*' => ['required', 'string', Rule::in([
-                '*',
-                'payment.status_changed',
-                'notification.status_changed',
-                'notification.failed',
-                'wallet.credited',
-                'wallet.debited',
-            ])],
+            'events.*' => ['required', 'string', Rule::in(['*', ...WebhookEventTypes::ALL])],
         ];
     }
 }
