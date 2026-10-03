@@ -96,6 +96,31 @@ Avant cette décision :
    - optionnellement, la fusion de `daemon.json`, par un script qui active
      live-restore avant tout redémarrage de Docker.
 
+8. **Sous-domaines.**
+   - `vps-hosts.sh` fait l'inventaire de tous les noms revendiqués (conteneurs
+     arrêtés compris, certificats, Certificate Transparency).
+   - `deploy.sh` refuse un nom déjà pris par un autre projet, exactement ou via un
+     wildcard, ainsi qu'un nginx-proxy dont la configuration est déjà invalide. Un
+     déploiement qui rend cette configuration invalide est traité comme un échec.
+   - L'audit signale les collisions et `nginx -t` en échec.
+   - Les apps à sous-domaines automatiques utilisent `VIRTUAL_HOST` wildcard et un
+     certificat wildcard par DNS-01, que acme-companion 2.5.2 prend en charge
+     (vérifié dans son code source) ([guide 10](../../infra/guides/10-sous-domaines-automatiques.md)).
+9. **Tests réels rejouables (`infra/tests/`)**, exécutés avant livraison : de vrais
+   conteneurs, de vraies bases et le vrai nginx-proxy 1.7. Ils ont révélé et fait
+   corriger trois défauts que l'analyse statique ne voyait pas :
+   - le chiffrement `gpg` exige un `gpg-agent`, absent de l'image MariaDB ; il est
+     remplacé par `openssl` AES-256 + PBKDF2 ;
+   - `mariadb-dump` sans `--no-tablespaces` échoue avec un utilisateur MySQL
+     applicatif ;
+   - une collision de nom ne différant que par la casse rend la configuration de
+     nginx-proxy invalide pour tout le serveur. Les protections du point 8 en
+     découlent.
+
+   Par ailleurs, l'image de sauvegarde n'est plus construite qu'à partir d'images
+   officielles (`postgres:18`, `mariadb:11`, `amazon/aws-cli`), sans gestionnaire de
+   paquets : la même construction marche partout.
+
 ## Conséquences
 
 - **Plusieurs projets, un seul serveur** : les limites mémoire et la rotation des
@@ -107,17 +132,18 @@ Avant cette décision :
     hors serveur et la surveillance externe sont le minimum.
   - **l'annulation des migrations** lors d'un retour arrière : la sauvegarde
     préalable et des migrations rétrocompatibles en tiennent lieu.
-- **Ce qui n'a pas pu être exécuté dans l'environnement de développement** :
-  - la construction de l'image `db-backup` : le dépôt Alpine y était bloqué par le
-    proxy ;
-  - un déploiement complet du Core.
-
-  Ce qui l'a été :
-  - l'observabilité de bout en bout : journaux, métriques et traces d'un conteneur
-    étiqueté ; un conteneur non étiqueté est ignoré ;
-  - `deploy.sh` de bout en bout sur un projet témoin (staging automatique,
-    promotion, retour arrière automatique sur une version cassée, absence de
-    boucle, mode `BUILD_PER_ENV`) ;
-  - l'audit ;
-  - le rendu des fichiers compose de production et de staging, et des modèles ;
+- **Validé par les tests réels (`infra/tests/`)** :
+  - sauvegardes : 34 vérifications contre PostgreSQL 18, MySQL 8.4, MariaDB 11 et
+    un stockage S3 ;
+  - déploiement : 23 vérifications ;
+  - sous-domaines et nginx-proxy : 24 vérifications ;
+  - observabilité : 9 vérifications ;
   - shellcheck sur tous les scripts.
+- **Non vérifiable hors du serveur** :
+  - l'émission réelle des certificats Let's Encrypt, dont le wildcard DNS-01 ;
+  - l'accès au compte MEGA S4 ;
+  - le redémarrage de dockerd sous systemd (`apply-daemon-config.sh`) ;
+  - la requête crt.sh (bloquée dans l'environnement de développement).
+
+  Chaque guide inclut l'étape de vérification correspondante, à faire sur le
+  serveur.

@@ -224,9 +224,11 @@ networks:
   # entirely — not an acceptable trade for a financial system.
   default:
     name: ${STACK_PREFIX:-core-system}-internal
+  # Overridable only so infra/tests can run an isolated copy next to the
+  # real thing; on the VPS the defaults are the shared networks.
   nginx-proxy:
-    name: nginx-proxy
+    name: ${NGINX_PROXY_NETWORK:-nginx-proxy}
     external: true
   observability:
-    name: observability
+    name: ${OBS_NETWORK:-observability}
     external: true
