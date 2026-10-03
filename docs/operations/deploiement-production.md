@@ -7,7 +7,7 @@ voir [ADR-0053](../adr/0053-deploiement-production-frankenphp-vps-nginx-proxy.md
 
 > **Depuis l'[ADR-0064](../adr/0064-infrastructure-vps-staging-observabilite-mutualisee.md)**,
 > le Core suit le **standard d'hébergement du VPS**
-> ([`infra/README.md`](../../infra/README.md)) :
+> ([vcam-infra-deployment](https://github.com/wilfreidlando/vcam-infra-deployment/blob/main/README.md), cloné dans `/app/vps-platform`) :
 > - un staging isolé (`core-system-staging.visibilitycam.com`), déployé
 >   automatiquement ;
 > - une production mise à jour **uniquement** par promotion manuelle de l'image
@@ -249,12 +249,12 @@ webhooks) et `admin:reconcile-stuck-payments` (toutes les 5 minutes).
 
 ## 12. Déployer une mise à jour
 
-Deux checkouts sur le serveur (`infra/README.md` § 4) : `/app/core-system/staging`
+Deux checkouts sur le serveur (plateforme, `README.md` § 4) : `/app/core-system/staging`
 (avec `.env.staging`, copié depuis `.env.staging.example`) et `/app/core-system/prod`
 (avec `.env`).
 
 ```bash
-# Staging — automatique (cron, infra/README.md § 5), ou à la main :
+# Staging — automatique (cron, plateforme `README.md` § 5), ou à la main :
 cd /app/core-system/staging && make staging-deploy            # REF=origin/ma-branche pour une autre branche
 
 # Recette sur https://core-system-staging.visibilitycam.com
@@ -276,7 +276,7 @@ make deploy-status
 5. retour automatique à la version précédente si le contrôle échoue.
 
 Les migrations ne sont jamais annulées automatiquement. Au besoin, restaurer la
-sauvegarde `pre-deploy-*` (`infra/bin/restore.sh prod <fichier>`).
+sauvegarde `pre-deploy-*` (`/app/vps-platform/bin/restore.sh prod <fichier>`).
 
 ## 12 bis. Passer une production existante au standard
 
@@ -311,13 +311,13 @@ cd /app/core-system/prod && make prod-promote
 
 # 6. Contrôles
 make deploy-status
-/app/core-system/prod/infra/bin/vps-audit.sh | sed -n '/core-system/,/^$/p'
+/app/vps-platform/bin/vps-audit.sh | sed -n '/core-system/,/^$/p'
 ```
 
 Si l'ancienne stack d'observabilité tournait (`compose.observability.yaml`, projet
 `core-system-prod`), l'étape 5 en supprime les conteneurs (orphelins du projet). Ses
 volumes `core-system-prod_*-data` restent : les supprimer après vérification.
-Installer ensuite l'observabilité mutualisée (`infra/observability/README.md`).
+Installer ensuite l'observabilité mutualisée ([`observability/README.md`](https://github.com/wilfreidlando/vcam-infra-deployment/blob/main/observability/README.md) de la plateforme).
 
 ## 13. Opérations courantes
 

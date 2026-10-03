@@ -17,7 +17,8 @@
 # below are production's. The deploy/ scripts always pass both.
 name: core-system-prod
 
-# Log rotation per container, whatever the daemon default (infra/README.md).
+# Log rotation per container, whatever the daemon default (VPS standard,
+# vcam-infra-deployment, cloned on the server in /app/vps-platform).
 x-logging: &logging
   driver: json-file
   options:
@@ -44,7 +45,7 @@ x-core-image: &core-image
       condition: service_healthy
   networks:
     - default
-    # Shared VPS observability (infra/observability): Alloy tails these
+    # Shared VPS observability (vcam-infra-deployment/observability): Alloy tails these
     # containers' logs, scrapes app's /metrics and receives OTLP traces here.
     # Postgres and Valkey are never attached to it.
     - observability
@@ -184,12 +185,13 @@ services:
           cpus: "0.5"
           memory: ${VALKEY_MEMORY:-256M}
 
-  # VPS standard backup agent (infra/images/db-backup): nightly encrypted
+  # VPS standard backup agent (vcam-infra-deployment/images/db-backup): nightly encrypted
   # pg_dump, kept locally and copied to S3-compatible storage (MEGA S4…).
-  # Also run by infra/bin/deploy.sh right before every production migration.
+  # Also run by deploy.sh right before every production migration. Built from
+  # the platform clone (PLATFORM_DIR, default /app/vps-platform).
   backup:
     build:
-      context: infra/images/db-backup
+      context: ${PLATFORM_DIR:-/app/vps-platform}/images/db-backup
     image: vps/db-backup:1
     container_name: ${STACK_PREFIX:-core-system}-backup
     restart: unless-stopped
@@ -228,7 +230,7 @@ networks:
   # entirely — not an acceptable trade for a financial system.
   default:
     name: ${STACK_PREFIX:-core-system}-internal
-  # Overridable only so infra/tests can run an isolated copy next to the
+  # Overridable only so the platform tests can run an isolated copy next to the
   # real thing; on the VPS the defaults are the shared networks.
   nginx-proxy:
     name: ${NGINX_PROXY_NETWORK:-nginx-proxy}

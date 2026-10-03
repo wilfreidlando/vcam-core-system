@@ -53,7 +53,7 @@ du VPS, dans son propre projet Docker (`observability`), partagé par tous les
 backends du serveur.
 
 - Installation et branchement d'un autre projet :
-  [`infra/observability/README.md`](../../infra/observability/README.md).
+  [`observability/README.md`](https://github.com/wilfreidlando/vcam-infra-deployment/blob/main/observability/README.md) de la plateforme.
 - Le Core est déjà branché : `compose.prod.yaml` met `app`, `horizon` et
   `scheduler` sur le réseau `observability`, avec les labels
   `observability.app=core-system` et `observability.deployment=prod|staging`.
