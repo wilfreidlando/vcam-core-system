@@ -129,6 +129,13 @@ Avant cette décision :
     - le guide 12, reprise après sinistre ;
     - les 28 schémas Mermaid ont été rendus par mermaid-cli pour valider leur
       syntaxe.
+11. **Seul le conteneur web déclare `VIRTUAL_HOST`.**
+    - Défaut trouvé par `test-platform.sh` : le `.env`, chargé en entier dans
+      app, horizon, scheduler et backup, leur faisait aussi déclarer le nom à
+      nginx-proxy.
+    - Le nom public s'appelle désormais `CORE_PUBLIC_HOST` (Core) ou
+      `APP_PUBLIC_HOST` (modèles), et il est mappé sur le seul conteneur web.
+      L'ancien `VIRTUAL_HOST` reste lu en secours.
 
 ## Conséquences
 
@@ -147,6 +154,10 @@ Avant cette décision :
   - déploiement : 23 vérifications ;
   - sous-domaines et nginx-proxy : 24 vérifications ;
   - observabilité : 9 vérifications ;
+  - plateforme complète (Core en production et en staging déployés par
+    `deploy.sh` derrière nginx-proxy 1.7, vraies migrations, sauvegarde avant
+    migration, routage, isolation des bases, anti-usurpation d'IP, SaaS wildcard,
+    audit) : 27 vérifications, soit **117 au total** ;
   - shellcheck sur tous les scripts.
 - **Non vérifiable hors du serveur** :
   - l'émission réelle des certificats Let's Encrypt, dont le wildcard DNS-01 ;
