@@ -55,6 +55,7 @@ final class ResolveProjectMiddleware
         // and environment it belongs to.
         Context::add('project_id', $context->projectId);
         Context::add('environment', $context->environment->value);
+        Context::add('api_key_prefix', $context->apiKeyPrefix);
 
         return $next($request);
     }

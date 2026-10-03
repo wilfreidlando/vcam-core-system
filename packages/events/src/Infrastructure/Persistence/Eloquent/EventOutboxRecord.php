@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Carbon\CarbonImmutable|null $published_at
  * @property \Carbon\CarbonImmutable $created_at
  * @property bool $skip_webhook_endpoint_fan_out
+ * @property string $environment
  */
 final class EventOutboxRecord extends Model
 {
@@ -37,7 +38,7 @@ final class EventOutboxRecord extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'project_id', 'type', 'payload', 'correlation_id', 'trace_id', 'published_at', 'created_at', 'skip_webhook_endpoint_fan_out'];
+    protected $fillable = ['id', 'project_id', 'type', 'payload', 'correlation_id', 'trace_id', 'published_at', 'created_at', 'skip_webhook_endpoint_fan_out', 'environment'];
 
     protected $casts = [
         'payload' => 'array',

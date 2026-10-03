@@ -27,5 +27,6 @@ final readonly class ApiKeySummaryView
         public array $scopes,
         public bool $revoked,
         public DateTimeImmutable $createdAt,
+        public ?DateTimeImmutable $lastUsedAt = null,
     ) {}
 }

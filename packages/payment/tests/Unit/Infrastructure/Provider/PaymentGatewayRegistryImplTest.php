@@ -179,7 +179,7 @@ final class PaymentGatewayRegistryImplTest extends TestCase
                 );
             }
 
-            public function checkStatus(string $transactionRef, string $projectId): PaymentReceipt
+            public function checkStatus(string $transactionRef, string $projectId, \Core\Support\Environment $environment = \Core\Support\Environment::Live): PaymentReceipt
             {
                 return new PaymentReceipt(
                     transactionRef: $transactionRef,

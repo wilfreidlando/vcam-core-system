@@ -7,6 +7,7 @@ use Core\Identity\Domain\Exception\InvalidApiKey;
 use Core\Identity\Domain\Exception\ProjectNotActive;
 use Core\Identity\Domain\Model\ApiKey;
 use Core\Identity\Domain\Model\Project;
+use Core\Identity\Tests\Unit\Fakes\FixedClock;
 use Core\Identity\Tests\Unit\Fakes\InMemoryApiKeyRepository;
 use Core\Identity\Tests\Unit\Fakes\InMemoryProjectRepository;
 use Core\Support\Environment;
@@ -31,7 +32,7 @@ function seededApiKeyResolver(string $projectStatus = 'active'): array
         issuedAt: new DateTimeImmutable('2026-09-15T10:00:00Z'),
     ));
 
-    return [new ResolveProjectFromBearerToken($apiKeys, $projects), $apiKeys];
+    return [new ResolveProjectFromBearerToken($apiKeys, $projects, new FixedClock), $apiKeys];
 }
 
 it('resolves the project context for a valid token', function (): void {

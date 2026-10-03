@@ -39,7 +39,7 @@ final class GetPaymentStatusController
             return ProblemDetails::forbidden('The payments:read scope is required.');
         }
 
-        $view = $this->getPaymentStatus->get(new GetPaymentStatusCommand($paymentId, $project->projectId));
+        $view = $this->getPaymentStatus->get(new GetPaymentStatusCommand($paymentId, $project->projectId, $project->environment));
 
         return new JsonResponse([
             'id' => $view->id,

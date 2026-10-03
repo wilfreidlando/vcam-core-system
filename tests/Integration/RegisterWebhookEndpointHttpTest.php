@@ -123,7 +123,7 @@ final class RegisterWebhookEndpointHttpTest extends TestCase
         )->project;
 
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, Environment::Sandbox, [$scope]),
+            new IssueApiKeyCommand($project->id, Environment::Sandbox, [$scope], replaceExisting: true),
             actor: 'service:test',
             correlationId: null,
         );

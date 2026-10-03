@@ -24,6 +24,12 @@ final readonly class ListProviderApplicationsUseCase implements ListProviderAppl
             static fn (ProviderApplication $application): ProviderApplicationView => new ProviderApplicationView(
                 providerCode: $application->providerCode,
                 publicKey: $application->publicKey,
+                id: $application->id ?? '',
+                environment: $application->environment->value,
+                label: $application->label,
+                maskedPublicKey: $application->maskedPublicKey(),
+                createdAt: $application->createdAt?->format(DATE_ATOM),
+                updatedAt: $application->updatedAt?->format(DATE_ATOM),
             ),
             $applications,
         );

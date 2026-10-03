@@ -81,6 +81,7 @@ final class SendTextNotificationController
             text: $data['text'],
             variables: $data['variables'] ?? [],
             idempotencyKey: $idempotencyKey,
+            environment: $project->environment,
         ));
 
         return new JsonResponse([

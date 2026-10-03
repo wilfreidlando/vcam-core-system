@@ -12,6 +12,7 @@ use Core\Identity\Tests\Unit\Fakes\FixedApiKeySecretGenerator;
 use Core\Identity\Tests\Unit\Fakes\FixedClock;
 use Core\Identity\Tests\Unit\Fakes\InMemoryApiKeyRepository;
 use Core\Identity\Tests\Unit\Fakes\InMemoryProjectRepository;
+use Core\Identity\Tests\Unit\Fakes\PassthroughUnitOfWork;
 use Core\Identity\Tests\Unit\Fakes\RecordingAuditLogger;
 use Core\Identity\Tests\Unit\Fakes\SequentialIdentifier;
 use Core\Support\Environment;
@@ -38,6 +39,7 @@ final readonly class IssueApiKeyFixture
             new SequentialIdentifier,
             $audit,
             new FixedClock,
+            new PassthroughUnitOfWork,
         );
 
         return new self($useCase, $projects, $apiKeys, $audit);
@@ -101,3 +103,26 @@ it('refuses to issue a key for an inactive project', function (): void {
         correlationId: null,
     );
 })->throws(ProjectNotActive::class);
+
+it('refuses a second key for the same environment (ADR-0060)', function (): void {
+    $fixture = IssueApiKeyFixture::make();
+    $fixture->projects->save(Project::create('project-1', 'org-1', 'Test Project'));
+
+    $fixture->useCase->issue(new IssueApiKeyCommand('project-1', Environment::Live, ['payments:write']), actor: 'operator:1', correlationId: null);
+
+    $fixture->useCase->issue(new IssueApiKeyCommand('project-1', Environment::Live, ['payments:write']), actor: 'operator:1', correlationId: null);
+})->throws(Core\Identity\Domain\Exception\ApiKeyAlreadyExistsForEnvironment::class);
+
+it('regenerating replaces the environment key and leaves the other environment alone', function (): void {
+    $fixture = IssueApiKeyFixture::make();
+    $fixture->projects->save(Project::create('project-1', 'org-1', 'Test Project'));
+
+    $live = $fixture->useCase->issue(new IssueApiKeyCommand('project-1', Environment::Live, ['*']), actor: 'operator:1', correlationId: null);
+    $sandbox = $fixture->useCase->issue(new IssueApiKeyCommand('project-1', Environment::Sandbox, ['*']), actor: 'operator:1', correlationId: null);
+    $regenerated = $fixture->useCase->issue(new IssueApiKeyCommand('project-1', Environment::Live, ['*'], replaceExisting: true), actor: 'operator:1', correlationId: null);
+
+    expect($fixture->apiKeys->find($live->apiKeyId))->toBeNull()
+        ->and($fixture->apiKeys->find($regenerated->apiKeyId))->not->toBeNull()
+        ->and($fixture->apiKeys->find($sandbox->apiKeyId))->not->toBeNull()
+        ->and(array_map(static fn ($e) => $e->action, $fixture->audit->entries))->toContain('api_key.replaced', 'api_key.regenerated');
+});

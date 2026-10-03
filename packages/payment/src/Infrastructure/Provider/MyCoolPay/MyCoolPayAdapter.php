@@ -12,6 +12,7 @@ use Core\Payment\Domain\Exception\ProviderApplicationNotFound;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Payment\PaymentFlow;
 use Core\Payment\PaymentStatus;
+use Core\Support\Environment;
 use Core\Support\Integration\Configuration\ProviderConfig;
 use Core\Support\Integration\ExternalApiCaller;
 use Core\Support\Integration\ExternalRequest;
@@ -86,7 +87,7 @@ final readonly class MyCoolPayAdapter implements PaymentGateway
 
     public function initiate(InitiatePaymentCommand $command): PaymentReceipt
     {
-        $publicKey = $this->publicKeyForProject($command->projectId);
+        $publicKey = $this->publicKeyForProject($command->projectId, $command->environment);
 
         // Build the request body once — shared shape between /payin and /paylink.
         $body = [
@@ -133,7 +134,7 @@ final readonly class MyCoolPayAdapter implements PaymentGateway
 
     public function submitAction(PaymentAction $action): PaymentReceipt
     {
-        $publicKey = $this->publicKeyForProject($action->projectId);
+        $publicKey = $this->publicKeyForProject($action->projectId, $action->environment);
 
         $request = new ExternalRequest(
             method: HttpMethod::POST,
@@ -153,9 +154,9 @@ final readonly class MyCoolPayAdapter implements PaymentGateway
         return $this->buildReceiptFromInitResponse($response->body, PaymentFlow::Payin);
     }
 
-    public function checkStatus(string $transactionRef, string $projectId): PaymentReceipt
+    public function checkStatus(string $transactionRef, string $projectId, Environment $environment = Environment::Live): PaymentReceipt
     {
-        $publicKey = $this->publicKeyForProject($projectId);
+        $publicKey = $this->publicKeyForProject($projectId, $environment);
 
         $request = new ExternalRequest(
             method: HttpMethod::GET,
@@ -178,9 +179,9 @@ final readonly class MyCoolPayAdapter implements PaymentGateway
      * default: a Project without its own registered application cannot
      * pay through MyCoolPay, full stop (security review finding).
      */
-    private function publicKeyForProject(string $projectId): string
+    private function publicKeyForProject(string $projectId, Environment $environment): string
     {
-        $application = $this->applications->findByProjectAndProvider($projectId, $this->config->code->toString())
+        $application = $this->applications->findByProjectAndProvider($projectId, $this->config->code->toString(), $environment)
             ?? throw ProviderApplicationNotFound::forProject($projectId, $this->config->code->toString());
 
         return $application->publicKey;

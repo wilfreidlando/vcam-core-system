@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Core\Payment\Presentation\Http\Controllers\GetPaymentStatusController;
+use Core\Payment\Presentation\Http\Controllers\SimulateSandboxPaymentController;
 use Core\Payment\Presentation\Http\Controllers\StartPayinPaymentController;
 use Core\Payment\Presentation\Http\Controllers\StartPaylinkPaymentController;
 use Core\Payment\Presentation\Http\Controllers\StartPaymentController;
@@ -34,6 +35,11 @@ Route::middleware(['project.auth'])
         Route::post('/payments/payin', StartPayinPaymentController::class)
             ->middleware('idempotency')
             ->name('payments.start.payin');
+        // ADR-0060 — sandbox keys only.
+        Route::post('/sandbox/payments/{paymentId}/simulate', SimulateSandboxPaymentController::class)
+            ->middleware('idempotency')
+            ->whereUuid('paymentId')
+            ->name('sandbox.payments.simulate');
         Route::get('/payments/{paymentId}', GetPaymentStatusController::class)
             ->whereUuid('paymentId')
             ->name('payments.status');

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Payment\Application\UseCase;
 
 use Core\Ledger\Contracts\IsSupportedCurrency;
+use Core\Payment\Application\Port\SandboxPaymentSimulator;
 use Core\Payment\Application\Service\PaymentJourney;
 use Core\Payment\Contracts\InitiatePaymentCommand;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
@@ -18,7 +19,10 @@ use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Model\PaymentTimelineEntryType;
 use Core\Payment\Domain\Port\PaymentCallbackSecretGenerator;
 use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Payment\Domain\Port\ProviderApplicationRepository;
+use Core\Support\Environment;
 use Core\Support\Identifier;
+use Core\Support\Integration\Provider\ProviderCode;
 use LogicException;
 
 /**
@@ -60,6 +64,8 @@ final readonly class StartPaymentUseCase implements StartPayment
         private PaymentCallbackSecretGenerator $callbackSecrets,
         private IsSupportedCurrency $currencies,
         private PaymentJourney $journey,
+        private ProviderApplicationRepository $applications,
+        private SandboxPaymentSimulator $sandbox,
     ) {}
 
     public function start(StartPaymentCommand $command): PaymentView
@@ -87,10 +93,8 @@ final readonly class StartPaymentUseCase implements StartPayment
         }
 
         $providerCode = $this->router->resolveProvider($command->channel, $command->projectId);
-        $gateway = $this->gateways->gatewayFor($providerCode);
 
-        $this->journey->forgetPendingExchanges();
-        $receipt = $gateway->initiate(new InitiatePaymentCommand(
+        $initiate = new InitiatePaymentCommand(
             projectId: $command->projectId,
             amount: $command->amount,
             currency: $command->currency,
@@ -103,7 +107,23 @@ final readonly class StartPaymentUseCase implements StartPayment
             flow: $command->flow,
             channel: $command->channel,
             returnUrl: $command->returnUrl,
-        ));
+            environment: $command->environment,
+        );
+
+        // ADR-0060 / D2 — a sandbox payment goes to the provider's own
+        // sandbox only when the project registered a sandbox application
+        // there; otherwise to the built-in simulator (no outbound call, no
+        // real money). Live always goes to the routed provider.
+        $simulated = ! $command->environment->isLive()
+            && $this->applications->findByProjectAndProvider($command->projectId, $providerCode->toString(), Environment::Sandbox) === null;
+
+        $this->journey->forgetPendingExchanges();
+        if ($simulated) {
+            $receipt = $this->sandbox->initiate($initiate);
+            $providerCode = ProviderCode::fromString(SandboxPaymentSimulator::PROVIDER_CODE);
+        } else {
+            $receipt = $this->gateways->gatewayFor($providerCode)->initiate($initiate);
+        }
 
         $payment = new Payment(
             id: $this->identifier->generate(),
@@ -123,6 +143,7 @@ final readonly class StartPaymentUseCase implements StartPayment
             walletRecipientExternalRef: $command->walletRecipientExternalRef,
             callbackUrl: $command->callbackUrl,
             callbackSecret: $command->callbackUrl === null ? null : $this->callbackSecrets->generate(),
+            environment: $command->environment,
         );
 
         try {
@@ -148,7 +169,8 @@ final readonly class StartPaymentUseCase implements StartPayment
             $payment->projectId,
             PaymentTimelineEntryType::Initiated,
             sprintf(
-                'Paiement de %d %s créé via %s (canal %s) — statut %s%s',
+                'Paiement %s de %d %s créé via %s (canal %s) — statut %s%s',
+                $payment->environment->value,
                 $payment->amount,
                 $payment->currency,
                 $payment->providerCode,
@@ -157,6 +179,8 @@ final readonly class StartPaymentUseCase implements StartPayment
                 $payment->status->isTerminal() ? ' (final)' : ' (intermédiaire)',
             ),
             [
+                'environment' => $payment->environment->value,
+                'simulated' => $simulated,
                 'channel' => $payment->channel,
                 'provider' => $payment->providerCode,
                 'flow' => $command->flow->value,

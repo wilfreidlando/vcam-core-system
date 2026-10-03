@@ -69,7 +69,7 @@ final class ApiKeysController
         return response()->view('admin.api-keys.create', [
             'title' => 'Clés API · '.$project->name,
             'project' => $project,
-            'apiKeys' => $this->listApiKeys->list(new ListApiKeysCommand($projectId)),
+            'keysByEnvironment' => $this->keysByEnvironment($projectId),
             'created' => session('admin.api-keys.created'),
         ]);
     }
@@ -82,15 +82,18 @@ final class ApiKeysController
 
         Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
 
-        /** @var array{environment: string} $data */
+        /** @var array{environment: string, mode?: string|null} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
             'environment' => ['required', 'string', 'in:sandbox,live'],
+            'mode' => ['nullable', 'string', 'in:generate,regenerate'],
         ]);
+
+        $regenerate = ($data['mode'] ?? 'generate') === 'regenerate';
 
         try {
             $issued = $this->issueApiKey->issue(
-                new IssueApiKeyCommand($projectId, Environment::from($data['environment']), ApiKeyScopes::ALL),
+                new IssueApiKeyCommand($projectId, Environment::from($data['environment']), ApiKeyScopes::ALL, replaceExisting: $regenerate),
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
             );
@@ -108,6 +111,7 @@ final class ApiKeysController
         // for operator/organization/project actions).
         // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
         session()->flash('admin.api-keys.created', [
+            'environment' => $data['environment'],
             'prefix' => $issued->prefix,
             'plaintextToken' => $issued->plaintextToken,
         ]);
@@ -128,7 +132,7 @@ final class ApiKeysController
 
         try {
             $this->revokeApiKey->revoke(
-                new RevokeApiKeyCommand($apiKeyId),
+                new RevokeApiKeyCommand($apiKeyId, projectId: $projectId),
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
             );
@@ -137,6 +141,23 @@ final class ApiKeysController
         }
 
         return redirect()->route('admin.projects.api-keys.create', ['projectId' => $projectId])
-            ->with('status', 'Clé API révoquée.');
+            ->with('status', 'Clé API révoquée et supprimée. Vous pouvez en générer une nouvelle.');
+    }
+
+    /**
+     * ADR-0060 — at most one key per environment.
+     *
+     * @return array<string, \Core\Identity\Contracts\ApiKeySummaryView>
+     */
+    private function keysByEnvironment(string $projectId): array
+    {
+        $byEnvironment = [];
+        foreach ($this->listApiKeys->list(new ListApiKeysCommand($projectId)) as $key) {
+            if (! $key->revoked) {
+                $byEnvironment[$key->environment->value] ??= $key;
+            }
+        }
+
+        return $byEnvironment;
     }
 }

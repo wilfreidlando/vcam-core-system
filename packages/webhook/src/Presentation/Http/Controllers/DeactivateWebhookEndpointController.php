@@ -36,6 +36,7 @@ final class DeactivateWebhookEndpointController
         $this->deactivateWebhookEndpoint->deactivate(new DeactivateWebhookEndpointCommand(
             projectId: $project->projectId,
             endpointId: $endpointId,
+            environment: $project->environment,
         ));
 
         return new JsonResponse(status: 204);

@@ -44,6 +44,7 @@ final class PaymentJourneyFlowTest extends TestCase
             providerCode: 'my-coolpay',
             publicKey: 'pub-journey',
             privateKey: self::PRIVATE_KEY,
+            environment: Environment::Sandbox,
         ));
 
         Http::fake([
@@ -155,7 +156,7 @@ final class PaymentJourneyFlowTest extends TestCase
         $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Journey Org'), actor: 'service:test', correlationId: null);
         $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Journey Project'), actor: 'service:test', correlationId: null)->project;
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, Environment::Sandbox, ['payments:write', 'payments:read', 'webhooks:write']),
+            new IssueApiKeyCommand($project->id, Environment::Sandbox, ['payments:write', 'payments:read', 'webhooks:write'], replaceExisting: true),
             actor: 'service:test',
             correlationId: null,
         );

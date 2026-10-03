@@ -31,7 +31,7 @@ final class ListWebhookEndpointsController
         }
 
         /** @var list<WebhookEndpointView> $endpoints */
-        $endpoints = $this->listWebhookEndpoints->list(new ListWebhookEndpointsCommand($project->projectId));
+        $endpoints = $this->listWebhookEndpoints->list(new ListWebhookEndpointsCommand($project->projectId, $project->environment));
 
         return new JsonResponse(['data' => $endpoints]);
     }

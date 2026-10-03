@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property list<string> $scopes
  * @property CarbonImmutable|null $revoked_at
  * @property CarbonImmutable $created_at
+ * @property CarbonImmutable|null $last_used_at
  */
 final class ApiKeyRecord extends Model
 {
@@ -34,5 +35,6 @@ final class ApiKeyRecord extends Model
         // repository can hand these straight to the Domain entity.
         'revoked_at' => 'immutable_datetime',
         'created_at' => 'immutable_datetime',
+        'last_used_at' => 'immutable_datetime',
     ];
 }

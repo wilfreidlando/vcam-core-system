@@ -536,7 +536,7 @@ final class AdminHttpFlowTest extends TestCase
         $this->getJson('/v1/admin/audit-log?action=provider_application.registered', ['Authorization' => "Bearer {$auditorToken}"])
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('data.0.resource', 'provider_application:'.$project->id.':my-coolpay');
+            ->assertJsonPath('data.0.resource', 'provider_application:'.$project->id.':my-coolpay:live');
     }
 
     #[Test]

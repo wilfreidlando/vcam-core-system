@@ -12,13 +12,13 @@ use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayCallbackAuthenticator;
 use Core\Payment\PaymentStatus;
 use Core\Payment\Presentation\Http\Controllers\MyCoolPayWebhookController;
+use Core\Payment\Tests\Unit\Fakes\InMemoryProviderApplicationRepository;
 use Core\Support\Clock;
 use Core\Support\Integration\Provider\ProviderCode;
 use DateTimeImmutable;
 use Illuminate\Http\Request;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
-use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -379,39 +379,9 @@ final class MyCoolPayWebhookControllerTest extends TestCase
     {
         $privateKey = self::PRIVATE_KEY;
 
-        return new class($privateKey) implements ProviderApplicationRepository
-        {
-            public function __construct(private string $privateKey) {}
-
-            public function save(ProviderApplication $application): void
-            {
-                throw new RuntimeException('Not needed by this fake.');
-            }
-
-            public function findByProjectAndProvider(string $projectId, string $providerCode): ?ProviderApplication
-            {
-                throw new RuntimeException('Not needed by this fake — inbound path only.');
-            }
-
-            public function findByProviderAndPublicKey(string $providerCode, string $publicKey): ?ProviderApplication
-            {
-                if ($providerCode === 'my-coolpay' && $publicKey === 'pub-test-1234') {
-                    return new ProviderApplication(
-                        projectId: 'project-1',
-                        providerCode: 'my-coolpay',
-                        publicKey: 'pub-test-1234',
-                        privateKey: $this->privateKey,
-                    );
-                }
-
-                return null;
-            }
-
-            public function findAllByProject(string $projectId): array
-            {
-                throw new RuntimeException('Not needed by this fake — inbound path only.');
-            }
-        };
+        return new InMemoryProviderApplicationRepository([
+            new ProviderApplication(projectId: 'project-1', providerCode: 'my-coolpay', publicKey: 'pub-test-1234', privateKey: $privateKey),
+        ]);
     }
 
     /**

@@ -6,6 +6,7 @@ namespace Core\Identity\Presentation\Console\Commands;
 
 use Core\Identity\Contracts\IssueApiKey;
 use Core\Identity\Contracts\IssueApiKeyCommand as Command;
+use Core\Identity\Domain\Exception\ApiKeyAlreadyExistsForEnvironment;
 use Core\Identity\Domain\Exception\ProjectNotActive;
 use Core\Identity\Domain\Exception\ProjectNotFound;
 use Core\Support\Environment;
@@ -18,9 +19,10 @@ final class IssueApiKeyCommand extends ConsoleCommand
     protected $signature = 'identity:issue-api-key
         {project : The Project id}
         {environment : sandbox or live}
-        {--scope=* : A scope to grant, repeatable (e.g. --scope=payments:write)}';
+        {--scope=* : A scope to grant, repeatable (e.g. --scope=payments:write)}
+        {--replace : Regenerate: replace the existing key of this environment (ADR-0060)}';
 
-    protected $description = 'Issue a new API key for a Project. The plaintext key is shown once and never stored.';
+    protected $description = 'Issue (or, with --replace, regenerate) the API key of a Project for one environment. Shown once, never stored.';
 
     public function handle(IssueApiKey $issueApiKey): int
     {
@@ -41,11 +43,12 @@ final class IssueApiKeyCommand extends ConsoleCommand
                     projectId: $this->argument('project'),
                     environment: $environment,
                     scopes: $scopes,
+                    replaceExisting: $this->option('replace') === true,
                 ),
                 actor: 'service:cli',
                 correlationId: (string) Str::uuid(),
             );
-        } catch (ProjectNotFound|ProjectNotActive $e) {
+        } catch (ProjectNotFound|ProjectNotActive|ApiKeyAlreadyExistsForEnvironment $e) {
             $this->error($e->getMessage());
 
             return self::FAILURE;

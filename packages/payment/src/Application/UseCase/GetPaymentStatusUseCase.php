@@ -20,7 +20,9 @@ final readonly class GetPaymentStatusUseCase implements GetPaymentStatus
     {
         $payment = $this->payments->find($command->paymentId);
 
-        if ($payment === null || $payment->projectId !== $command->requestingProjectId) {
+        if ($payment === null
+            || $payment->projectId !== $command->requestingProjectId
+            || ($command->requestingEnvironment !== null && $payment->environment !== $command->requestingEnvironment)) {
             // Same exception for "does not exist" and "belongs to another
             // project": distinguishing them would let a caller enumerate
             // payment ids that exist outside its own project.

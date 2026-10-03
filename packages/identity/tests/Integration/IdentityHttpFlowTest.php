@@ -80,7 +80,7 @@ final class IdentityHttpFlowTest extends TestCase
             correlationId: null,
         )->project;
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, Environment::Sandbox, []),
+            new IssueApiKeyCommand($project->id, Environment::Sandbox, [], replaceExisting: true),
             actor: 'service:test',
             correlationId: null,
         );
@@ -105,11 +105,12 @@ final class IdentityHttpFlowTest extends TestCase
 
         // organization.created, project.created, api_key.issued (sandbox,
         // auto-provisioned), api_key.issued (live, auto-provisioned),
-        // api_key.issued (the explicit-scope test key `issueTestApiKey`
-        // issues on top of the two auto-provisioned ones).
-        self::assertCount(5, $rows);
+        // then the explicit-scope test key `issueTestApiKey` REGENERATES the
+        // sandbox one (ADR-0060 — one key per environment): the old key's
+        // deletion (api_key.replaced) and the new one (api_key.regenerated).
+        self::assertCount(6, $rows);
         self::assertSame(
-            ['organization.created', 'project.created', 'api_key.issued', 'api_key.issued', 'api_key.issued'],
+            ['organization.created', 'project.created', 'api_key.issued', 'api_key.issued', 'api_key.replaced', 'api_key.regenerated'],
             $rows->pluck('action')->all(),
         );
 
@@ -136,7 +137,7 @@ final class IdentityHttpFlowTest extends TestCase
         )->project;
 
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, Environment::Sandbox, [$scope]),
+            new IssueApiKeyCommand($project->id, Environment::Sandbox, [$scope], replaceExisting: true),
             actor: 'service:test',
             correlationId: null,
         );

@@ -19,6 +19,7 @@ use Core\Notification\Contracts\NoProviderForNotificationChannelException;
 use Core\Notification\Domain\Exception\NotificationNotFound;
 use Core\Payment\Contracts\NoProviderForChannelException;
 use Core\Payment\Domain\Exception\PaymentNotFound;
+use Core\Payment\Domain\Exception\PaymentNotSimulable;
 use Core\Payment\Domain\Exception\ProviderApplicationNotFound;
 use Core\Payment\Domain\Exception\UnsupportedCurrency;
 use Core\Support\Http\ProblemDetails;
@@ -63,6 +64,7 @@ final class ExceptionProblemMapping
     private const MAP = [
         WalletNotFound::class => ['type' => 'wallet-not-found', 'title' => 'Wallet not found', 'status' => 404],
         PaymentNotFound::class => ['type' => 'payment-not-found', 'title' => 'Payment not found', 'status' => 404],
+        PaymentNotSimulable::class => ['type' => 'payment-not-simulable', 'title' => 'This payment cannot be simulated', 'status' => 409],
         NoProviderForChannelException::class => ['type' => 'no-provider-for-channel', 'title' => 'No provider is configured for this channel', 'status' => 422],
         ProviderApplicationNotFound::class => ['type' => 'no-provider-application', 'title' => 'No provider application is registered for this project', 'status' => 422],
         NoProviderForNotificationChannelException::class => ['type' => 'no-provider-for-notification-channel', 'title' => 'No provider is configured for this notification channel', 'status' => 422],

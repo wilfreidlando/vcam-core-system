@@ -352,7 +352,7 @@ final class DocumentedApiExamplesTest extends TestCase
         )->project;
 
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, Environment::Sandbox, ApiKeyScopes::ALL),
+            new IssueApiKeyCommand($project->id, Environment::Sandbox, ApiKeyScopes::ALL, replaceExisting: true),
             actor: 'service:test',
             correlationId: null,
         );

@@ -26,6 +26,7 @@ final class EloquentEventOutbox implements EventOutbox
             'published_at' => null,
             'created_at' => $event->occurredAt,
             'skip_webhook_endpoint_fan_out' => $event->skipWebhookEndpointFanOut,
+            'environment' => $event->environment ?? 'live',
         ]);
     }
 }

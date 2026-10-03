@@ -6,6 +6,7 @@ namespace Core\Payment\Presentation\Console\Commands;
 
 use Core\Payment\Contracts\RegisterProviderApplication;
 use Core\Payment\Contracts\RegisterProviderApplicationCommand as Command;
+use Core\Support\Environment;
 use Illuminate\Console\Command as ConsoleCommand;
 use RuntimeException;
 
@@ -35,7 +36,8 @@ final class RegisterProviderApplicationCommand extends ConsoleCommand
         {project : The Project id}
         {provider : The provider code, e.g. my-coolpay}
         {public-key : The application\'s public key}
-        {private-key : The application\'s private key (kept encrypted at rest)}';
+        {private-key : The application\'s private key (kept encrypted at rest)}
+        {--environment=live : live or sandbox (ADR-0060)}';
 
     protected $description = "Register (or rotate) a Project's own application/merchant-account with a payment provider.";
 
@@ -56,6 +58,7 @@ final class RegisterProviderApplicationCommand extends ConsoleCommand
                 providerCode: $providerCode,
                 publicKey: $publicKey,
                 privateKey: $privateKey,
+                environment: Environment::tryFrom((string) $this->option('environment')) ?? Environment::Live,
             ));
         } catch (RuntimeException $e) {
             $this->error($e->getMessage());

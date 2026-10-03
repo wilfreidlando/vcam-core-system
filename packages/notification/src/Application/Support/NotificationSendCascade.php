@@ -23,6 +23,7 @@ use Core\Notification\NotificationStatus;
 use Core\Parties\Contracts\FindOrCreatePartyCommand;
 use Core\Parties\Contracts\PartyFinder;
 use Core\Support\Clock;
+use Core\Support\Environment;
 use Core\Support\Identifier;
 use Core\Support\UnitOfWork;
 use Psr\Log\LoggerInterface;
@@ -80,6 +81,7 @@ final readonly class NotificationSendCascade
         array $body,
         string $contentType,
         string $idempotencyKey,
+        Environment $environment = Environment::Live,
     ): NotificationView {
         $existing = $this->notifications->findByIdempotencyKey($projectId, $idempotencyKey);
         if ($existing !== null) {
@@ -118,6 +120,7 @@ final readonly class NotificationSendCascade
             providerCode: null,
             providerMessageId: null,
             errorMessage: null,
+            environment: $environment,
         );
 
         try {
@@ -202,6 +205,7 @@ final readonly class NotificationSendCascade
                 ],
                 null,
                 $this->clock->now(),
+                environment: $failed->environment->value,
             ));
         });
 

@@ -110,7 +110,19 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
             );
 
             if ($updated->shouldCreditWallet()) {
-                $this->creditWalletFor($updated);
+                if ($updated->isSandbox()) {
+                    // ADR-0060: sandbox never moves real money — the
+                    // instruction is acknowledged, the ledger untouched.
+                    $this->journey->record(
+                        $payment->id,
+                        $payment->projectId,
+                        PaymentTimelineEntryType::WalletCredited,
+                        sprintf('SANDBOX — crédit de %d %s du wallet « %s » simulé (aucune écriture ledger)', $updated->amount, $updated->currency, (string) $updated->walletRecipientExternalRef),
+                        ['simulated' => true, 'wallet_recipient_external_ref' => $updated->walletRecipientExternalRef, 'amount' => $updated->amount, 'currency' => $updated->currency],
+                    );
+                } else {
+                    $this->creditWalletFor($updated);
+                }
             }
 
             $eventId = $this->identifier->generate();
@@ -127,6 +139,7 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
                 // endpoint registered for the Project. See
                 // `DomainEvent::$skipWebhookEndpointFanOut`'s docblock.
                 skipWebhookEndpointFanOut: $updated->callbackUrl !== null,
+                environment: $updated->environment->value,
             ));
 
             $this->journey->record(
@@ -151,6 +164,7 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
         return match ($source) {
             'provider_callback' => 'callback du provider',
             'reconciliation' => 'réconciliation',
+            'sandbox_simulation' => 'simulation sandbox',
             default => $source,
         };
     }

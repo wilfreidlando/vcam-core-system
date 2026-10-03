@@ -429,39 +429,74 @@ final class AdminWebFlowTest extends TestCase
             correlationId: null,
         )->project;
 
+        $listingUrl = "/admin/projects/{$project->id}/provider-applications/create";
+
         $first = $this->post("/admin/projects/{$project->id}/provider-applications", [
             'provider' => 'my-coolpay',
+            'environment' => 'live',
             'public_key' => 'pub-key-first',
             'private_key' => 'secret-first',
         ]);
-        $first->assertRedirect(route('admin.projects.show', ['projectId' => $project->id]));
+        $first->assertRedirect($listingUrl);
         $this->get('/admin/audit-log')->assertSee('provider_application.registered');
 
-        // Review finding, user-directed: rotating a key already worked
-        // (re-submitting for the same provider replaces it), but nothing
-        // in the console surfaced that this second call is a rotation,
-        // not a fresh registration — the audit trail now says so.
+        // ADR-0060: editing keeps the stored private key when the field is left empty.
         $second = $this->post("/admin/projects/{$project->id}/provider-applications", [
             'provider' => 'my-coolpay',
+            'environment' => 'live',
             'public_key' => 'pub-key-second',
-            'private_key' => 'secret-second',
+            'private_key' => '',
         ]);
-        $second->assertRedirect(route('admin.projects.show', ['projectId' => $project->id]));
+        $second->assertRedirect($listingUrl);
         $this->get('/admin/audit-log')->assertSee('provider_application.rotated');
 
-        // The "Remplacer" link on the listing preselects the provider via
-        // ?provider=, so the operator lands back on the same dropdown
-        // option rather than having to know to pick it themselves.
-        $listing = $this->get("/admin/projects/{$project->id}/provider-applications/create");
-        $listing->assertOk();
-        $listing->assertSee('Remplacer');
+        $stored = app(\Core\Payment\Domain\Port\ProviderApplicationRepository::class)->findByProjectAndProvider($project->id, 'my-coolpay');
+        self::assertNotNull($stored);
+        self::assertSame('pub-key-second', $stored->publicKey);
+        self::assertSame('secret-first', $stored->privateKey);
 
-        $preselected = $this->get("/admin/projects/{$project->id}/provider-applications/create?provider=my-coolpay");
-        $preselected->assertOk();
-        // Default `$escape = true` escapes this needle the same way
-        // Blade escaped the actual apostrophe — avoids hardcoding which
-        // HTML entity that becomes.
-        $preselected->assertSee("Remplacer l'application « my-coolpay »");
+        // A separate sandbox application can coexist with the live one.
+        $this->post("/admin/projects/{$project->id}/provider-applications", [
+            'provider' => 'my-coolpay',
+            'environment' => 'sandbox',
+            'public_key' => 'pub-key-sandbox',
+            'private_key' => 'secret-sandbox',
+        ])->assertRedirect($listingUrl);
+
+        $listing = $this->get($listingUrl);
+        $listing->assertOk()->assertSee('LIVE')->assertSee('SANDBOX')->assertSee('Modifier');
+
+        // The edit page is reachable from the listing.
+        $this->get("/admin/projects/{$project->id}/provider-applications/{$stored->id}/edit")
+            ->assertOk()
+            ->assertSee("Modifier l'application my-coolpay (LIVE)");
+    }
+
+    #[Test]
+    public function reusing_a_public_key_of_another_project_gives_a_clear_message_not_a_sql_error(): void
+    {
+        // The reported bug: editing an application answered with the raw
+        // PostgreSQL "duplicate key" message.
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Dup Org'), actor: 'service:test', correlationId: null);
+        $owner = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Projet Propriétaire'), actor: 'service:test', correlationId: null)->project;
+        $other = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Autre Projet'), actor: 'service:test', correlationId: null)->project;
+
+        $this->post("/admin/projects/{$owner->id}/provider-applications", [
+            'provider' => 'my-coolpay', 'environment' => 'live', 'public_key' => 'shared-pub', 'private_key' => 's1',
+        ])->assertRedirect();
+
+        $this->from("/admin/projects/{$other->id}/provider-applications/create")
+            ->post("/admin/projects/{$other->id}/provider-applications", [
+                'provider' => 'my-coolpay', 'environment' => 'live', 'public_key' => 'shared-pub', 'private_key' => 's2',
+            ])
+            ->assertRedirect("/admin/projects/{$other->id}/provider-applications/create")
+            ->assertSessionHasErrors(['public_key' => 'Cette clé publique est déjà utilisée par le projet « Projet Propriétaire » (live). Une application my-coolpay ne peut servir qu\'un seul projet et un seul environnement : c\'est elle qui permet au Core d\'attribuer chaque callback au bon projet. Créez une application distincte chez le provider, ou modifiez celle du projet « Projet Propriétaire ».']);
+
+        $page = $this->get("/admin/projects/{$other->id}/provider-applications/create");
+        $page->assertDontSee('duplicate key')->assertDontSee('SQLSTATE');
     }
 
     #[Test]
@@ -738,6 +773,43 @@ final class AdminWebFlowTest extends TestCase
             $this->getJson('/v1/admin/operators', ['Authorization' => "Bearer {$bearer}"])
                 ->assertOk();
         }
+    }
+
+    #[Test]
+    public function a_project_has_exactly_one_live_and_one_sandbox_key_that_can_be_regenerated_and_revoked(): void
+    {
+        // ADR-0060.
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Keys Org'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Keys Project'), actor: 'service:test', correlationId: null)->project;
+        $keys = static fn (): array => app(\Core\Identity\Contracts\ListApiKeys::class)->list(new \Core\Identity\Contracts\ListApiKeysCommand($project->id));
+
+        // Auto-provisioned at creation: one of each.
+        self::assertCount(2, $keys());
+        $this->get("/admin/projects/{$project->id}/api-keys/create")->assertOk()->assertSee('Clé Live')->assertSee('Clé Sandbox')->assertSee('Régénérer');
+
+        // Generating a second live key is refused with a clear message.
+        $this->post("/admin/projects/{$project->id}/api-keys", ['environment' => 'live', 'mode' => 'generate'])
+            ->assertSessionHasErrors('environment');
+        self::assertCount(2, $keys());
+
+        // Regenerating replaces it: still exactly two keys, a new live prefix.
+        $oldLive = collect($keys())->first(fn ($k) => $k->environment->value === 'live');
+        $this->post("/admin/projects/{$project->id}/api-keys", ['environment' => 'live', 'mode' => 'regenerate'])->assertRedirect();
+        $afterRegenerate = $keys();
+        self::assertCount(2, $afterRegenerate);
+        $newLive = collect($afterRegenerate)->first(fn ($k) => $k->environment->value === 'live');
+        self::assertNotNull($oldLive);
+        self::assertNotNull($newLive);
+        self::assertNotSame($oldLive->prefix, $newLive->prefix);
+
+        // Revoking deletes; the environment can then be generated again.
+        $this->post("/admin/projects/{$project->id}/api-keys/{$newLive->id}/revoke")->assertRedirect();
+        self::assertCount(1, $keys());
+        $this->post("/admin/projects/{$project->id}/api-keys", ['environment' => 'live', 'mode' => 'generate'])->assertRedirect();
+        self::assertCount(2, $keys());
     }
 
     #[Test]

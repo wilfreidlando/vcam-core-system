@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $provider_code
  * @property string|null $provider_message_id
  * @property string|null $error_message
+ * @property string $environment
  * @property \Carbon\CarbonImmutable $created_at
  * @property \Carbon\CarbonImmutable $updated_at
  */
@@ -29,6 +30,6 @@ final class NotificationRecord extends Model
 
     protected $fillable = [
         'id', 'project_id', 'channel', 'to_party_ref', 'content_type',
-        'idempotency_key', 'status', 'provider_code', 'provider_message_id', 'error_message',
+        'idempotency_key', 'status', 'provider_code', 'provider_message_id', 'error_message', 'environment',
     ];
 }

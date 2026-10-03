@@ -6,6 +6,7 @@ namespace Core\Notification\Domain\Model;
 
 use Core\Notification\Domain\Exception\InvalidNotificationStatusTransition;
 use Core\Notification\NotificationStatus;
+use Core\Support\Environment;
 
 /**
  * One notification this Core sent (or attempted to). `providerCode`/
@@ -32,6 +33,8 @@ final readonly class Notification
         public ?string $providerCode,
         public ?string $providerMessageId,
         public ?string $errorMessage,
+        // ADR-0060 — the environment of the API key that sent it.
+        public Environment $environment = Environment::Live,
     ) {}
 
     /**
@@ -55,6 +58,7 @@ final readonly class Notification
             providerCode: $this->providerCode,
             providerMessageId: $this->providerMessageId,
             errorMessage: $reason,
+            environment: $this->environment,
         );
     }
 
@@ -77,6 +81,7 @@ final readonly class Notification
             providerCode: $providerCode,
             providerMessageId: $providerMessageId,
             errorMessage: $this->errorMessage,
+            environment: $this->environment,
         );
     }
 }

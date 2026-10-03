@@ -8,6 +8,7 @@ use Core\Notification\Domain\Exception\NotificationAlreadyExists;
 use Core\Notification\Domain\Model\Notification;
 use Core\Notification\Domain\Port\NotificationRepository;
 use Core\Notification\NotificationStatus;
+use Core\Support\Environment;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -110,6 +111,7 @@ final class EloquentNotificationRepository implements NotificationRepository
             'provider_code' => $notification->providerCode,
             'provider_message_id' => $notification->providerMessageId,
             'error_message' => $notification->errorMessage,
+            'environment' => $notification->environment->value,
         ];
     }
 
@@ -126,6 +128,7 @@ final class EloquentNotificationRepository implements NotificationRepository
             providerCode: $record->provider_code,
             providerMessageId: $record->provider_message_id,
             errorMessage: $record->error_message,
+            environment: Environment::from($record->environment),
         );
     }
 }

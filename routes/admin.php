@@ -133,6 +133,10 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->name('projects.provider-applications.create');
             Route::post('{projectId}/provider-applications', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'store'])
                 ->name('projects.provider-applications.store');
+            Route::get('{projectId}/provider-applications/{applicationId}/edit', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'edit'])
+                ->name('projects.provider-applications.edit');
+            Route::post('{projectId}/provider-applications/{applicationId}/delete', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'destroy'])
+                ->name('projects.provider-applications.delete');
             // No collision risk with `packages/webhook/routes/api.php`'s
             // `webhook-endpoints.register`/`.list` — those are unprefixed
             // (the Project/API-key plane), these are `admin.projects.*`

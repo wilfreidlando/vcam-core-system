@@ -22,7 +22,9 @@ final readonly class DeactivateWebhookEndpointUseCase implements DeactivateWebho
         // Not found and "belongs to another project" get the same
         // exception — the anti-enumeration convention this codebase
         // already applies to Payment and Wallet reads.
-        if ($endpoint === null || $endpoint->projectId !== $command->projectId) {
+        if ($endpoint === null
+            || $endpoint->projectId !== $command->projectId
+            || ($command->environment !== null && $endpoint->environment !== $command->environment)) {
             throw WebhookEndpointNotFound::withId($command->endpointId);
         }
 

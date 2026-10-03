@@ -6,6 +6,9 @@ namespace Core\Identity\Infrastructure\Persistence\Eloquent;
 
 use Core\Identity\Domain\Model\ApiKey;
 use Core\Identity\Domain\Port\ApiKeyRepository;
+use Core\Support\Environment;
+use DateTimeImmutable;
+use Illuminate\Support\Facades\DB;
 
 final class EloquentApiKeyRepository implements ApiKeyRepository
 {
@@ -60,6 +63,29 @@ final class EloquentApiKeyRepository implements ApiKeyRepository
         return $items;
     }
 
+    public function findByProjectAndEnvironment(string $projectId, Environment $environment): ?ApiKey
+    {
+        $record = ApiKeyRecord::query()
+            ->where('project_id', $projectId)
+            ->where('environment', $environment->value)
+            ->first();
+
+        return $record === null ? null : $this->toDomain($record);
+    }
+
+    public function delete(string $id): void
+    {
+        ApiKeyRecord::query()->whereKey($id)->delete();
+    }
+
+    public function touchLastUsed(string $id, DateTimeImmutable $at): void
+    {
+        DB::update(
+            'UPDATE api_keys SET last_used_at = ? WHERE id = ? AND (last_used_at IS NULL OR last_used_at < ?)',
+            [$at, $id, $at->modify('-60 seconds')],
+        );
+    }
+
     private function toDomain(ApiKeyRecord $record): ApiKey
     {
         return new ApiKey(
@@ -71,6 +97,7 @@ final class EloquentApiKeyRepository implements ApiKeyRepository
             $record->scopes,
             $record->revoked_at,
             $record->created_at,
+            $record->last_used_at,
         );
     }
 }

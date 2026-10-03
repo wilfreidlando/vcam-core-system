@@ -151,9 +151,11 @@ final class StartPaymentHttpFlowTest extends TestCase
     }
 
     #[Test]
-    public function starting_a_payment_without_a_registered_application_fails_cleanly(): void
+    public function starting_a_live_payment_without_a_registered_application_fails_cleanly(): void
     {
-        [$token] = $this->authenticatedProject();
+        // Live only: a sandbox payment without a sandbox application goes
+        // to the built-in simulator instead (ADR-0060, tested below).
+        [$token] = $this->authenticatedProject(environment: Environment::Live);
         // Deliberately no registerMyCoolPayApplication() call — this
         // Project has no MyCoolPay application registered yet.
 
@@ -175,10 +177,78 @@ final class StartPaymentHttpFlowTest extends TestCase
         $response->assertStatus(422);
     }
 
+    #[Test]
+    public function a_sandbox_payment_without_a_sandbox_application_is_simulated_end_to_end(): void
+    {
+        // ADR-0060 / D2: no provider call, no real money — the integrator
+        // drives the outcome and receives the same notifications as live.
+        Http::preventStrayRequests();
+        Http::fake(['example.com/hooks/sandbox' => Http::response(['ok' => true], 200)]);
+
+        [$token, $projectId] = $this->authenticatedProject('*');
+
+        $this->postJson('/v1/webhook-endpoints', ['url' => 'https://example.com/hooks/sandbox', 'events' => ['payment.status_changed']], ['Authorization' => "Bearer {$token}"])
+            ->assertStatus(201);
+
+        $start = $this->postJson('/v1/payments/payin', [
+            'channel' => 'mtn_momo',
+            'amount' => 750,
+            'currency' => 'XAF',
+            'reason' => 'Sandbox order',
+        ], ['Authorization' => "Bearer {$token}", 'Idempotency-Key' => (string) Str::uuid()]);
+
+        $start->assertStatus(201)->assertJsonPath('status', 'pending')->assertJsonPath('requires_action', true);
+        $hint = $start->json('action_hint');
+        self::assertIsString($hint);
+        self::assertStringContainsString('SANDBOX', $hint);
+        $paymentId = $start->json('id');
+        self::assertIsString($paymentId);
+
+        $this->postJson("/v1/sandbox/payments/{$paymentId}/simulate", ['status' => 'succeeded'], [
+            'Authorization' => "Bearer {$token}",
+            'Idempotency-Key' => (string) Str::uuid(),
+        ])->assertOk()->assertJsonPath('status', 'succeeded');
+
+        $this->getJson("/v1/payments/{$paymentId}", ['Authorization' => "Bearer {$token}"])->assertOk()->assertJsonPath('status', 'succeeded');
+
+        // A final payment can no longer be simulated.
+        $this->postJson("/v1/sandbox/payments/{$paymentId}/simulate", ['status' => 'failed'], [
+            'Authorization' => "Bearer {$token}",
+            'Idempotency-Key' => (string) Str::uuid(),
+        ])->assertStatus(409);
+
+        // The sandbox webhook endpoint is notified like in live.
+        app(\Core\Events\Contracts\RelayOutboxEvents::class)->relay(100);
+        Http::assertSent(fn (\Illuminate\Http\Client\Request $request): bool => $request->url() === 'https://example.com/hooks/sandbox'
+            && str_contains($request->body(), '"status":"succeeded"'));
+    }
+
+    #[Test]
+    public function a_live_key_cannot_simulate_nor_read_a_sandbox_payment(): void
+    {
+        [$sandboxToken, $projectId] = $this->authenticatedProject('*');
+        $paymentId = $this->postJson('/v1/payments/payin', [
+            'channel' => 'mtn_momo', 'amount' => 100, 'currency' => 'XAF', 'reason' => 'x',
+        ], ['Authorization' => "Bearer {$sandboxToken}", 'Idempotency-Key' => (string) Str::uuid()])->json('id');
+        self::assertIsString($paymentId);
+
+        $liveToken = app(IssueApiKey::class)->issue(
+            new IssueApiKeyCommand($projectId, Environment::Live, ['*'], replaceExisting: true),
+            actor: 'service:test',
+            correlationId: null,
+        )->plaintextToken;
+
+        $this->getJson("/v1/payments/{$paymentId}", ['Authorization' => "Bearer {$liveToken}"])->assertNotFound();
+        $this->postJson("/v1/sandbox/payments/{$paymentId}/simulate", ['status' => 'succeeded'], [
+            'Authorization' => "Bearer {$liveToken}",
+            'Idempotency-Key' => (string) Str::uuid(),
+        ])->assertForbidden();
+    }
+
     /**
      * @return array{0: string, 1: string} [bearer token, project id]
      */
-    private function authenticatedProject(string $scope = 'payments:write'): array
+    private function authenticatedProject(string $scope = 'payments:write', Environment $environment = Environment::Sandbox): array
     {
         $organization = app(CreateOrganization::class)->create(
             new CreateOrganizationCommand('Test Org'),
@@ -193,7 +263,7 @@ final class StartPaymentHttpFlowTest extends TestCase
         )->project;
 
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, Environment::Sandbox, [$scope]),
+            new IssueApiKeyCommand($project->id, $environment, [$scope], replaceExisting: true),
             actor: 'service:test',
             correlationId: null,
         );
@@ -208,6 +278,9 @@ final class StartPaymentHttpFlowTest extends TestCase
             providerCode: 'my-coolpay',
             publicKey: $publicKey,
             privateKey: 'test-private-key',
+            // Sandbox key + sandbox application: the call goes to the
+            // provider's sandbox, not the built-in simulator (ADR-0060).
+            environment: Environment::Sandbox,
         ));
     }
 }

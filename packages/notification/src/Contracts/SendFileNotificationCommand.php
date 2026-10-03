@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Notification\Contracts;
 
+use Core\Support\Environment;
+
 final readonly class SendFileNotificationCommand
 {
     /**
@@ -19,5 +21,7 @@ final readonly class SendFileNotificationCommand
         public ?string $caption,
         public array $variables,
         public string $idempotencyKey,
+        // ADR-0060 — the environment of the calling API key.
+        public Environment $environment = Environment::Live,
     ) {}
 }

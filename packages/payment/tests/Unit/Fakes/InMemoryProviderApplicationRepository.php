@@ -4,22 +4,50 @@ declare(strict_types=1);
 
 namespace Core\Payment\Tests\Unit\Fakes;
 
+use Core\Payment\Domain\Exception\ProviderApplicationPublicKeyAlreadyUsed;
 use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
+use Core\Support\Environment;
 
 final class InMemoryProviderApplicationRepository implements ProviderApplicationRepository
 {
     /** @var array<string, ProviderApplication> */
     private array $applications = [];
 
-    public function save(ProviderApplication $application): void
+    /**
+     * @param list<ProviderApplication> $seed
+     */
+    public function __construct(array $seed = [])
     {
-        $this->applications[$application->providerCode.':'.$application->projectId] = $application;
+        foreach ($seed as $application) {
+            $this->save($application);
+        }
     }
 
-    public function findByProjectAndProvider(string $projectId, string $providerCode): ?ProviderApplication
+    public function save(ProviderApplication $application): void
     {
-        return $this->applications[$providerCode.':'.$projectId] ?? null;
+        $owner = $this->findByProviderAndPublicKey($application->providerCode, $application->publicKey);
+        if ($owner !== null && ($owner->projectId !== $application->projectId || $owner->environment !== $application->environment)) {
+            throw new ProviderApplicationPublicKeyAlreadyUsed($owner->projectId, $owner->environment->value);
+        }
+
+        $key = self::key($application->projectId, $application->providerCode, $application->environment);
+        $id = $application->id ?? ($this->applications[$key]->id ?? 'app-'.(count($this->applications) + 1));
+
+        $this->applications[$key] = new ProviderApplication(
+            projectId: $application->projectId,
+            providerCode: $application->providerCode,
+            publicKey: $application->publicKey,
+            privateKey: $application->privateKey,
+            environment: $application->environment,
+            id: $id,
+            label: $application->label,
+        );
+    }
+
+    public function findByProjectAndProvider(string $projectId, string $providerCode, Environment $environment = Environment::Live): ?ProviderApplication
+    {
+        return $this->applications[self::key($projectId, $providerCode, $environment)] ?? null;
     }
 
     public function findByProviderAndPublicKey(string $providerCode, string $publicKey): ?ProviderApplication
@@ -33,6 +61,26 @@ final class InMemoryProviderApplicationRepository implements ProviderApplication
         return null;
     }
 
+    public function find(string $id): ?ProviderApplication
+    {
+        foreach ($this->applications as $application) {
+            if ($application->id === $id) {
+                return $application;
+            }
+        }
+
+        return null;
+    }
+
+    public function delete(string $id): void
+    {
+        foreach ($this->applications as $key => $application) {
+            if ($application->id === $id) {
+                unset($this->applications[$key]);
+            }
+        }
+    }
+
     public function findAllByProject(string $projectId): array
     {
         $applications = array_values(array_filter(
@@ -43,5 +91,10 @@ final class InMemoryProviderApplicationRepository implements ProviderApplication
         usort($applications, static fn (ProviderApplication $a, ProviderApplication $b): int => $a->providerCode <=> $b->providerCode);
 
         return $applications;
+    }
+
+    private static function key(string $projectId, string $providerCode, Environment $environment): string
+    {
+        return $providerCode.':'.$projectId.':'.$environment->value;
     }
 }
