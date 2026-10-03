@@ -121,6 +121,15 @@ Avant cette décision :
    officielles (`postgres:18`, `mariadb:11`, `amazon/aws-cli`), sans gestionnaire de
    paquets : la même construction marche partout.
 
+10. **Documentation pour toute l'équipe**, développeurs compris :
+    - `infra/docs/` : un schéma par élément (serveur, réseaux, trajet d'une visite,
+      anatomie d'un projet, livraison, déploiement pas à pas, sauvegardes,
+      observabilité, SaaS, fichiers, relations), la résilience (panne → parade) et
+      l'évolutivité par paliers, un glossaire et un démarrage rapide ;
+    - le guide 12, reprise après sinistre ;
+    - les 28 schémas Mermaid ont été rendus par mermaid-cli pour valider leur
+      syntaxe.
+
 ## Conséquences
 
 - **Plusieurs projets, un seul serveur** : les limites mémoire et la rotation des
