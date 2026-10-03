@@ -1682,7 +1682,7 @@
                                                 {}
                                             ]
                                         },
-                                        "channel": {
+                                        "status": {
                                             "anyOf": [
                                                 {
                                                     "type": "string"
@@ -1690,10 +1690,10 @@
                                                 {}
                                             ]
                                         },
-                                        "status": {
+                                        "is_final": {
                                             "anyOf": [
                                                 {
-                                                    "type": "string"
+                                                    "type": "boolean"
                                                 },
                                                 {}
                                             ]
@@ -1714,46 +1714,15 @@
                                                 {}
                                             ]
                                         },
-                                        "requires_action": {
+                                        "channel": {
                                             "anyOf": [
                                                 {
-                                                    "type": "boolean"
+                                                    "type": "string"
                                                 },
                                                 {}
                                             ]
                                         },
-                                        "action_hint": {
-                                            "anyOf": [
-                                                {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "payment_url": {
-                                            "anyOf": [
-                                                {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "idempotency_key": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string",
-                                                    "description": "The same value the caller sent as its Idempotency-Key\nheader \u2014 handed back so a caller can confirm which of its\nown transactions this response is for without a separate\nside-lookup."
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "callback_url": {
+                                        "created_at": {
                                             "anyOf": [
                                                 {
                                                     "type": [
@@ -1767,15 +1736,12 @@
                                     },
                                     "required": [
                                         "id",
-                                        "channel",
                                         "status",
+                                        "is_final",
                                         "amount",
                                         "currency",
-                                        "requires_action",
-                                        "action_hint",
-                                        "payment_url",
-                                        "idempotency_key",
-                                        "callback_url"
+                                        "channel",
+                                        "created_at"
                                     ],
                                     "additionalProperties": {}
                                 }
@@ -2187,7 +2153,7 @@
                                                 {}
                                             ]
                                         },
-                                        "channel": {
+                                        "status": {
                                             "anyOf": [
                                                 {
                                                     "type": "string"
@@ -2195,10 +2161,10 @@
                                                 {}
                                             ]
                                         },
-                                        "status": {
+                                        "is_final": {
                                             "anyOf": [
                                                 {
-                                                    "type": "string"
+                                                    "type": "boolean"
                                                 },
                                                 {}
                                             ]
@@ -2219,46 +2185,15 @@
                                                 {}
                                             ]
                                         },
-                                        "requires_action": {
+                                        "channel": {
                                             "anyOf": [
                                                 {
-                                                    "type": "boolean"
+                                                    "type": "string"
                                                 },
                                                 {}
                                             ]
                                         },
-                                        "action_hint": {
-                                            "anyOf": [
-                                                {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "payment_url": {
-                                            "anyOf": [
-                                                {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "idempotency_key": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string",
-                                                    "description": "The same value the caller sent as its Idempotency-Key\nheader \u2014 handed back so a caller can confirm which of its\nown transactions this response is for without a separate\nside-lookup."
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "callback_url": {
+                                        "created_at": {
                                             "anyOf": [
                                                 {
                                                     "type": [
@@ -2272,15 +2207,12 @@
                                     },
                                     "required": [
                                         "id",
-                                        "channel",
                                         "status",
+                                        "is_final",
                                         "amount",
                                         "currency",
-                                        "requires_action",
-                                        "action_hint",
-                                        "payment_url",
-                                        "idempotency_key",
-                                        "callback_url"
+                                        "channel",
+                                        "created_at"
                                     ],
                                     "additionalProperties": {}
                                 }
@@ -2692,7 +2624,7 @@
                                                 {}
                                             ]
                                         },
-                                        "channel": {
+                                        "status": {
                                             "anyOf": [
                                                 {
                                                     "type": "string"
@@ -2700,10 +2632,10 @@
                                                 {}
                                             ]
                                         },
-                                        "status": {
+                                        "is_final": {
                                             "anyOf": [
                                                 {
-                                                    "type": "string"
+                                                    "type": "boolean"
                                                 },
                                                 {}
                                             ]
@@ -2724,46 +2656,15 @@
                                                 {}
                                             ]
                                         },
-                                        "requires_action": {
+                                        "channel": {
                                             "anyOf": [
                                                 {
-                                                    "type": "boolean"
+                                                    "type": "string"
                                                 },
                                                 {}
                                             ]
                                         },
-                                        "action_hint": {
-                                            "anyOf": [
-                                                {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "payment_url": {
-                                            "anyOf": [
-                                                {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "idempotency_key": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string",
-                                                    "description": "The same value the caller sent as its Idempotency-Key\nheader \u2014 handed back so a caller can confirm which of its\nown transactions this response is for without a separate\nside-lookup."
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "callback_url": {
+                                        "created_at": {
                                             "anyOf": [
                                                 {
                                                     "type": [
@@ -2777,15 +2678,12 @@
                                     },
                                     "required": [
                                         "id",
-                                        "channel",
                                         "status",
+                                        "is_final",
                                         "amount",
                                         "currency",
-                                        "requires_action",
-                                        "action_hint",
-                                        "payment_url",
-                                        "idempotency_key",
-                                        "callback_url"
+                                        "channel",
+                                        "created_at"
                                     ],
                                     "additionalProperties": {}
                                 }
@@ -3150,6 +3048,260 @@
                 ]
             }
         },
+        "/sandbox/payments/{paymentId}/simulate": {
+            "post": {
+                "operationId": "sandbox.payments.simulate",
+                "description": "Sandbox keys only. Moves a payment created with a sandbox key (and\nprocessed by the built-in simulator, i.e. no sandbox provider\napplication registered) to the outcome you choose \u2014 exactly as a real\nprovider callback would: same status change, same `payment.status_changed`\nwebhook or `callback_url` call. Use it to test your whole integration,\nwebhooks included, without real money. Requires `payments:write`.",
+                "summary": "Simulate the outcome of a sandbox payment",
+                "tags": [
+                    "Payment"
+                ],
+                "parameters": [
+                    {
+                        "name": "paymentId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. Mandatory on every route that moves money.",
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 255
+                        },
+                        "example": "01HMZ9XK3P-9XK3P-9XK3P"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SimulateSandboxPaymentRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Idempotency-Key header is required",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-required"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key header is required"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 400
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "This route mutates state and must be called with an Idempotency-Key header."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Idempotency-Key was reused",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-conflict"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key was reused"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 409
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "Either a concurrent request with this Idempotency-Key is still in flight, or the key was reused with a different request body."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "payments:write"
+                ]
+            }
+        },
         "/payments/{paymentId}": {
             "get": {
                 "operationId": "payments.status",
@@ -3177,65 +3329,87 @@
                                     "type": "object",
                                     "properties": {
                                         "id": {
-                                            "type": "string"
-                                        },
-                                        "channel": {
-                                            "type": "string"
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {}
+                                            ]
                                         },
                                         "status": {
-                                            "type": "string"
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {}
+                                            ]
+                                        },
+                                        "is_final": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "boolean"
+                                                },
+                                                {}
+                                            ]
                                         },
                                         "amount": {
-                                            "type": "integer"
+                                            "anyOf": [
+                                                {
+                                                    "type": "integer"
+                                                },
+                                                {}
+                                            ]
                                         },
                                         "currency": {
-                                            "type": "string"
-                                        },
-                                        "requires_action": {
-                                            "type": "boolean"
-                                        },
-                                        "action_hint": {
-                                            "type": [
-                                                "string",
-                                                "null"
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {}
                                             ]
                                         },
-                                        "payment_url": {
-                                            "type": [
-                                                "string",
-                                                "null"
+                                        "channel": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {}
                                             ]
                                         },
-                                        "error_message": {
-                                            "type": [
-                                                "string",
-                                                "null"
+                                        "created_at": {
+                                            "anyOf": [
+                                                {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                {}
                                             ]
                                         },
-                                        "idempotency_key": {
-                                            "type": "string",
-                                            "description": "Review finding, user-directed: this is the documented\nfallback truth source when a webhook is missed \u2014 it must\nhand back the same caller-supplied context the webhook\nalready does (its own Idempotency-Key, and the callback_url\nit registered), or polling here loses information the\nwebhook has."
-                                        },
-                                        "callback_url": {
-                                            "type": [
-                                                "string",
-                                                "null"
+                                        "updated_at": {
+                                            "anyOf": [
+                                                {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                {}
                                             ]
                                         }
                                     },
                                     "required": [
                                         "id",
-                                        "channel",
                                         "status",
+                                        "is_final",
                                         "amount",
                                         "currency",
-                                        "requires_action",
-                                        "action_hint",
-                                        "payment_url",
-                                        "error_message",
-                                        "idempotency_key",
-                                        "callback_url"
-                                    ]
+                                        "channel",
+                                        "created_at",
+                                        "updated_at"
+                                    ],
+                                    "additionalProperties": {}
                                 }
                             }
                         }
@@ -3805,70 +3979,128 @@
         "schemas": {
             "PaymentCallbackEvent": {
                 "type": "object",
-                "description": "Body POSTed to the `callback_url` of a payment when it reaches a terminal state. Signed with HMAC-SHA256 (same algorithm as the webhook plane, but the secret is per-payment \u2014 returned once in the initiation response). Headers: `X-Signature`, `X-Timestamp`.",
+                "description": "Body POSTed to a payment's `callback_url` at every status change \u2014 byte-for-byte the webhook envelope (ADR-0061). Signed with the per-payment `callback_secret` returned once at creation: `X-Signature` = hex HMAC-SHA256 of `X-Timestamp + \".\" + raw body`. Headers `X-Event-Id`, `X-Event-Type` too.",
                 "examples": [
                     {
-                        "event": "payment.status_changed",
-                        "payment_id": "01HMZ9XK3P-PAYMENT-001",
-                        "status": "succeeded",
-                        "amount": 50000,
-                        "currency": "XAF",
-                        "error_message": null
+                        "id": "01a1c3b2-7d2e-7f10-8a9b-0c1d2e3f4a5b",
+                        "type": "payment.status_changed",
+                        "data": {
+                            "payment_id": "01a1c3b2-6f1e-7a2b-9c4d-5e6f7a8b9c0d",
+                            "reference": "order-2026-0042",
+                            "status": "succeeded",
+                            "is_final": true,
+                            "amount": 5000,
+                            "currency": "XAF",
+                            "failure_reason": null,
+                            "occurred_at": "2026-10-03T10:15:00Z"
+                        }
                     }
                 ],
                 "properties": {
-                    "event": {
+                    "id": {
+                        "type": "string",
+                        "description": "Unique event id \u2014 the same as the webhook plane would use. Deduplicate on it.",
+                        "examples": [
+                            "01a1c3b2-7d2e-7f10-8a9b-0c1d2e3f4a5b"
+                        ]
+                    },
+                    "type": {
                         "type": "string",
                         "description": "Always `payment.status_changed` on this plane.",
                         "examples": [
                             "payment.status_changed"
                         ]
                     },
-                    "payment_id": {
-                        "type": "string",
-                        "examples": [
-                            "01HMZ9XK3P-PAYMENT-001"
+                    "data": {
+                        "type": "object",
+                        "description": "`data` of a `payment.status_changed` event.",
+                        "properties": {
+                            "payment_id": {
+                                "type": "string",
+                                "description": "The payment id returned when you created it.",
+                                "examples": [
+                                    "01a1c3b2-6f1e-7a2b-9c4d-5e6f7a8b9c0d"
+                                ]
+                            },
+                            "reference": {
+                                "type": "string",
+                                "description": "Your own reference: the `Idempotency-Key` you sent when creating the payment.",
+                                "examples": [
+                                    "order-2026-0042"
+                                ]
+                            },
+                            "status": {
+                                "type": "string",
+                                "description": "Canonical payment status. Intermediate: `pending`, `processing`. Final: `succeeded`, `failed`, `expired`, `canceled`, `refunded`.",
+                                "enum": [
+                                    "pending",
+                                    "processing",
+                                    "succeeded",
+                                    "failed",
+                                    "expired",
+                                    "refunded",
+                                    "canceled"
+                                ],
+                                "examples": [
+                                    "succeeded"
+                                ]
+                            },
+                            "is_final": {
+                                "type": "boolean",
+                                "description": "`true` once the outcome is settled: deliver the order on `succeeded`, offer a new attempt otherwise. `false` = keep waiting.",
+                                "examples": [
+                                    true
+                                ]
+                            },
+                            "amount": {
+                                "type": "integer",
+                                "description": "Minor units (XAF has none: 5000 = 5 000 XAF).",
+                                "examples": [
+                                    5000
+                                ]
+                            },
+                            "currency": {
+                                "type": "string",
+                                "description": "ISO 4217.",
+                                "examples": [
+                                    "XAF"
+                                ]
+                            },
+                            "failure_reason": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "description": "Why the payment did not succeed; `null` on success and on intermediate statuses.",
+                                "examples": [
+                                    null
+                                ]
+                            },
+                            "occurred_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "When the Core recorded this status (UTC). Use it to ignore an older notification arriving after a newer one.",
+                                "examples": [
+                                    "2026-10-03T10:15:00Z"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "payment_id",
+                            "reference",
+                            "status",
+                            "is_final",
+                            "amount",
+                            "currency",
+                            "failure_reason",
+                            "occurred_at"
                         ]
-                    },
-                    "status": {
-                        "type": "string",
-                        "description": "Canonical payment status. Mirrors the value returned by `GET /v1/payments/{payment_id}`.",
-                        "enum": [
-                            "pending",
-                            "processing",
-                            "succeeded",
-                            "failed",
-                            "expired",
-                            "refunded",
-                            "canceled"
-                        ]
-                    },
-                    "amount": {
-                        "type": "integer",
-                        "description": "Minor units.",
-                        "examples": [
-                            50000
-                        ]
-                    },
-                    "currency": {
-                        "type": "string",
-                        "description": "ISO 4217.",
-                        "examples": [
-                            "XAF"
-                        ]
-                    },
-                    "error_message": {
-                        "type": "string",
-                        "description": "null when the payment succeeded."
                     }
                 },
                 "required": [
-                    "event",
-                    "payment_id",
-                    "status",
-                    "amount",
-                    "currency",
-                    "error_message"
+                    "id",
+                    "type",
+                    "data"
                 ],
                 "title": "PaymentCallbackEvent"
             },
@@ -4234,6 +4466,40 @@
                 ],
                 "title": "SendTextNotificationRequest"
             },
+            "SimulateSandboxPaymentRequest": {
+                "type": "object",
+                "description": "Validates `POST /v1/sandbox/payments/{paymentId}/simulate` (ADR-0060).",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "description": "The outcome to simulate. All four are final: once applied,\nthe payment can no longer change.",
+                        "enum": [
+                            "succeeded",
+                            "failed",
+                            "expired",
+                            "canceled"
+                        ],
+                        "examples": [
+                            "succeeded"
+                        ]
+                    },
+                    "reason": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Optional failure reason, returned as `error_message` on the\npayment and in the notification.",
+                        "examples": [
+                            "Insufficient balance"
+                        ],
+                        "maxLength": 255
+                    }
+                },
+                "required": [
+                    "status"
+                ],
+                "title": "SimulateSandboxPaymentRequest"
+            },
             "StartPaymentRequest": {
                 "type": "object",
                 "description": "Validates `POST /v1/payments`. The `payments:write` scope is enforced\nin the controller against the calling Project \u2014 this class only\nvalidates payload shape.\n\nTwo headers sit above this body and are documented separately by\nScramble: `Authorization` (Project API key) and `Idempotency-Key`\n(required on every monetary mutation \u2014 replay the same key to get\nthe cached response without re-charging).",
@@ -4396,44 +4662,45 @@
                     },
                     "active": {
                         "type": "boolean"
+                    },
+                    "environment": {
+                        "type": "string"
                     }
                 },
                 "required": [
                     "id",
                     "url",
                     "events",
-                    "active"
+                    "active",
+                    "environment"
                 ],
                 "title": "WebhookEndpointView"
             },
             "WebhookEvent": {
                 "type": "object",
-                "description": "Envelope POSTed to every endpoint registered via `POST /v1/webhook-endpoints`. Body is `{id, type, data}`. Headers `X-Signature`, `X-Timestamp`, `X-Event-Id`, `X-Event-Type` are always present (HMAC-SHA256 over `timestamp + \".\" + raw_body`). The `_headers` block in the example below is documentation only \u2014 the actual headers are on the HTTP request, not in the body.",
+                "description": "Body POSTed to every endpoint registered via `POST /v1/webhook-endpoints` \u2014 and, identically, to a payment's `callback_url`. Headers: `X-Signature` (hex HMAC-SHA256 of `X-Timestamp + \".\" + raw body`, with your endpoint secret \u2014 or the payment's `callback_secret`), `X-Timestamp` (Unix seconds), `X-Event-Id`, `X-Event-Type`, `X-Delivery-Id`. Answer `2xx` within 10 s; deduplicate on `id`. The example shows `payment.status_changed`.",
                 "examples": [
                     {
-                        "id": "01HMZ9XK3P-9XK3P-9XK3P",
+                        "id": "01a1c3b2-7d2e-7f10-8a9b-0c1d2e3f4a5b",
                         "type": "payment.status_changed",
                         "data": {
-                            "payment_id": "01HMZ9XK3P-PAYMENT-001",
+                            "payment_id": "01a1c3b2-6f1e-7a2b-9c4d-5e6f7a8b9c0d",
+                            "reference": "order-2026-0042",
                             "status": "succeeded",
-                            "amount": 50000,
+                            "is_final": true,
+                            "amount": 5000,
                             "currency": "XAF",
-                            "error_message": null
-                        },
-                        "_headers": {
-                            "X-Signature": "5e7c2d...c0a1 (HMAC-SHA256 of \"1763875200.<raw_body>\" with the endpoint secret)",
-                            "X-Timestamp": "1763875200",
-                            "X-Event-Id": "01HMZ9XK3P-9XK3P-9XK3P",
-                            "X-Event-Type": "payment.status_changed"
+                            "failure_reason": null,
+                            "occurred_at": "2026-10-03T10:15:00Z"
                         }
                     }
                 ],
                 "properties": {
                     "id": {
                         "type": "string",
-                        "description": "Unique event id (UUIDv7). Use this to deduplicate on the receiver side across retries.",
+                        "description": "Unique event id. The same event is delivered again on retry or replay with the same id: deduplicate on it.",
                         "examples": [
-                            "01HMZ9XK3P-9XK3P-9XK3P"
+                            "01a1c3b2-7d2e-7f10-8a9b-0c1d2e3f4a5b"
                         ]
                     },
                     "type": {
@@ -4445,16 +4712,25 @@
                     },
                     "data": {
                         "type": "object",
-                        "description": "`data` payload when `type === \"payment.status_changed\"`. Schema depends on `type` \u2014 see WebhookEventType for the full list.",
+                        "description": "`data` of a `payment.status_changed` event.",
                         "properties": {
                             "payment_id": {
                                 "type": "string",
+                                "description": "The payment id returned when you created it.",
                                 "examples": [
-                                    "01HMZ9XK3P-PAYMENT-001"
+                                    "01a1c3b2-6f1e-7a2b-9c4d-5e6f7a8b9c0d"
+                                ]
+                            },
+                            "reference": {
+                                "type": "string",
+                                "description": "Your own reference: the `Idempotency-Key` you sent when creating the payment.",
+                                "examples": [
+                                    "order-2026-0042"
                                 ]
                             },
                             "status": {
                                 "type": "string",
+                                "description": "Canonical payment status. Intermediate: `pending`, `processing`. Final: `succeeded`, `failed`, `expired`, `canceled`, `refunded`.",
                                 "enum": [
                                     "pending",
                                     "processing",
@@ -4468,25 +4744,56 @@
                                     "succeeded"
                                 ]
                             },
+                            "is_final": {
+                                "type": "boolean",
+                                "description": "`true` once the outcome is settled: deliver the order on `succeeded`, offer a new attempt otherwise. `false` = keep waiting.",
+                                "examples": [
+                                    true
+                                ]
+                            },
                             "amount": {
                                 "type": "integer",
+                                "description": "Minor units (XAF has none: 5000 = 5 000 XAF).",
                                 "examples": [
-                                    50000
+                                    5000
                                 ]
                             },
                             "currency": {
                                 "type": "string",
+                                "description": "ISO 4217.",
                                 "examples": [
                                     "XAF"
                                 ]
                             },
-                            "error_message": {
-                                "type": "string",
+                            "failure_reason": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "description": "Why the payment did not succeed; `null` on success and on intermediate statuses.",
                                 "examples": [
                                     null
                                 ]
+                            },
+                            "occurred_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "When the Core recorded this status (UTC). Use it to ignore an older notification arriving after a newer one.",
+                                "examples": [
+                                    "2026-10-03T10:15:00Z"
+                                ]
                             }
-                        }
+                        },
+                        "required": [
+                            "payment_id",
+                            "reference",
+                            "status",
+                            "is_final",
+                            "amount",
+                            "currency",
+                            "failure_reason",
+                            "occurred_at"
+                        ]
                     }
                 },
                 "required": [
