@@ -151,13 +151,14 @@ Avant cette décision :
 - **Validé par les tests réels (`infra/tests/`)** :
   - sauvegardes : 34 vérifications contre PostgreSQL 18, MySQL 8.4, MariaDB 11 et
     un stockage S3 ;
-  - déploiement : 23 vérifications ;
+  - déploiement : 28 vérifications (dont trois environnements dev → staging → prod) ;
   - sous-domaines et nginx-proxy : 24 vérifications ;
-  - observabilité : 9 vérifications ;
+  - observabilité : 11 vérifications (dont journaux d'un conteneur privé, hors
+    réseau partagé — cas PHP-FPM) ;
   - plateforme complète (Core en production et en staging déployés par
     `deploy.sh` derrière nginx-proxy 1.7, vraies migrations, sauvegarde avant
     migration, routage, isolation des bases, anti-usurpation d'IP, SaaS wildcard,
-    audit) : 27 vérifications, soit **117 au total** ;
+    audit) : 27 vérifications, soit **124 au total** ;
   - shellcheck sur tous les scripts.
 - **Non vérifiable hors du serveur** :
   - l'émission réelle des certificats Let's Encrypt, dont le wildcard DNS-01 ;
