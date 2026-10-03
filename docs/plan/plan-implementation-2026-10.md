@@ -1,6 +1,6 @@
 # Plan d'implémentation — durcissement, observabilité, clés, statuts, console, doc
 
-**Statut** : proposition, à valider avant tout code.
+**Statut** : décisions D1–D5 validées le 2026-10-03 (voir fin du document) ; implémentation phase par phase.
 **Base** : [audit du 2026-10-03](../audit/audit-2026-10-03.md) et demandes du 2026-10-03.
 **Règle** : une phase = une PR = `make ci` + `make guard-test` verts. Chaque décision
 structurante fait l'objet d'une ADR (la phase la cite). Le graphe de modules reste
@@ -306,3 +306,13 @@ Règle transverse : chaque identifiant est cliquable (paiement → projet → wa
 - **D5 — Données personnelles dans les journaux** : téléphones et noms visibles en
   clair pour les opérateurs autorisés (avec rétention de 90 jours), ou masqués
   partiellement (`+2376••••12`).
+
+### Décisions validées (2026-10-03)
+
+| # | Décision retenue |
+|---|---|
+| D1 | Stack auto-hébergée sur le VPS : OpenTelemetry Collector + Grafana + Loki + Tempo + Prometheus. |
+| D2 | Simulateur interne par défaut en sandbox, **et** possibilité d'utiliser les identifiants sandbox du provider quand il en fournit. |
+| D3 | Aucun intégrateur en production : `/v1` est modifié directement, et une ADR acte la rupture. |
+| D4 | Pour chaque projet et environnement, la clé la plus récente est conservée ; les autres sont supprimées, avec une trace d'audit. |
+| D5 | Téléphones et noms visibles en clair pour les opérateurs autorisés, avec une rétention de 90 jours. Les secrets sont toujours masqués. |
