@@ -162,6 +162,14 @@ prod-backup: ## Encrypted database backup right now (local + S3)
 vps-audit: ## Read-only compliance report of every container on the VPS
 	$(PLATFORM_DIR)/bin/vps-audit.sh
 
+.PHONY: vps-inventory
+vps-inventory: ## Read-only, secret-free Markdown inventory of the whole VPS (platform guide 13)
+	$(PLATFORM_DIR)/bin/vps-inventory.sh
+
+.PHONY: vps-check
+vps-check: ## Pre-flight of a deploy, changes nothing (ENV=staging|prod) — run from the env's checkout
+	$(PLATFORM_DIR)/bin/deploy.sh check $(or $(ENV),staging)
+
 .PHONY: prod-build
 prod-build: ## Build the production images (app/horizon/scheduler share one FrankenPHP image)
 	$(DC_PROD) build
