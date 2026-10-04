@@ -78,7 +78,7 @@ services:
       - postgres-data:/var/lib/postgresql
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-core} -d ${DB_DATABASE:-core}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${DB_USERNAME:-core} -d ${DB_DATABASE:-core}"]
       interval: 5s
       timeout: 5s
       retries: 10
