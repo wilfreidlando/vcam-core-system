@@ -4,6 +4,8 @@
 .env
 .env.backup
 .env.production
+# Secrets du staging (VPS standard, contrat C10) : jamais commités
+.env.staging
 .phpactor.json
 .phpunit.result.cache
 /.codex
