@@ -186,9 +186,11 @@ services:
           memory: ${VALKEY_MEMORY:-256M}
 
   # VPS standard backup agent (vcam-infra-deploy/images/db-backup): nightly encrypted
-  # pg_dump, kept locally and copied to S3-compatible storage (MEGA S4…).
-  # Also run by deploy.sh right before every production migration. Built from
-  # the platform clone (PLATFORM_DIR, default /app/vps-platform).
+  # pg_dump, copied to S3-compatible storage (MEGA S4…) and then DELETED from the server: backups
+  # live on S3 only (ADR-0067). No S3 configured = the agent refuses; BACKUP_DISABLED=1 declares an
+  # environment deliberately not backed up (staging). deploy.sh takes no backup of its own: the
+  # nightly one is the safety net, and `deploy.sh backup` takes one by hand before a risky migration.
+  # Built from the platform clone (PLATFORM_DIR, default /app/vps-platform).
   backup:
     build:
       context: ${PLATFORM_DIR:-/app/vps-platform}/images/db-backup
@@ -210,6 +212,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Backup logs in Grafana (« uploaded to s3://… » each night, or its absence: alert after 36 h).
+    labels:
+      <<: *observability-labels
+    # « healthy » = an upload to S3 succeeded less than 36 h ago (marker /backups/.last-upload).
+    healthcheck:
+      test: [ "CMD-SHELL", "find /backups -maxdepth 1 -name .last-upload -mmin -2160 | grep -q ." ]
+      interval: 1h
+      timeout: 10s
+      retries: 1
+      start_period: 30h
     deploy:
       resources:
         limits:
