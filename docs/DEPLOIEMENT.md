@@ -120,7 +120,7 @@ Le détail : [`docs/operations/observabilite.md`](operations/observabilite.md) e
 
 | Écart | Pourquoi | Risque | Pour le résorber |
 | --- | --- | --- | --- |
-| **Production sans sauvegarde automatique** | Pas de bucket S3 pour l'instant (décision du 2026-10-05) | Une perte de la base ne serait récupérable qu'à partir de la copie manuelle du 2026-10-05 | Créer le bucket, renseigner `BACKUP_S3_*`, retirer `BACKUP_DISABLED`, **refaire un exercice de restauration** |
+| **Production sans sauvegarde automatique** | Pas de bucket S3 pour l'instant (décision du 2026-10-05) | Une perte de la base ne serait récupérable qu'à partir de la copie manuelle du 2026-10-05. **Un rappel par e-mail est envoyé une fois par jour** (alerte « Une sauvegarde de production n'envoie plus de copie depuis 36 heures »), à partir du premier passage nocturne de l'agent suivant le déploiement de cette alerte | Créer le bucket, renseigner `BACKUP_S3_*`, retirer `BACKUP_DISABLED`, **refaire un exercice de restauration** |
 | **Le staging porte des secrets et des données de production** | Recette avec la copie de la base de production, `APP_KEY` et clés WhatsApp de production, à la demande du responsable | Des envois réels depuis le staging si une file ou une tâche planifiée s'y exécute (l'horizon et le planificateur du staging sont **en marche**) | Après la recette : base de test, nouvelle `APP_KEY`, identifiants de test, `CORE_ENVIRONMENT=sandbox` |
 | **Double authentification de la console désactivée** | Décision du responsable, production et staging | Un mot de passe volé suffit | Réactiver `IDENTITY_DISABLE_MFA=false` |
 | **`WAHA_WEBHOOK_SECRET` absent** | Jamais renseigné | Les rappels WhatsApp entrants ne sont pas authentifiés | Le générer et le déclarer des deux côtés |
