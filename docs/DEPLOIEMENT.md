@@ -9,8 +9,8 @@
 
 | Environnement | Adresse | Dossier sur le serveur | Fichier d'environnement | Version déployée | Qui déploie, et comment | Sauvegardée ? |
 | --- | --- | --- | --- | --- | --- | --- |
-| **staging** | `https://core-system-staging.visibilitycam.com` | `/app/core-system/staging` | `.env.staging` (600) | `develop` (`STAGING_BRANCH=develop` dans `platform.env`, ancien nom de `BRANCH_STAGING`) | `make staging-deploy` (ou `deploy.sh watch`) | non (`BACKUP_DISABLED=1`) |
-| **production** | `https://core-system.visibilitycam.com` | `/app/core-system/prod` | `.env` (600) | **la version validée en staging**, jamais construite en production | le responsable du Core : `make prod-promote` | **non, pour l'instant** : exception acceptée (pas de bucket S3, `BACKUP_DISABLED=1`), voir « Écarts connus ». La règle du standard est **S3, obligatoire** |
+| **staging** | `https://core-system-staging.visibilitycam.com` | `/app/core-system/staging` | `.env.staging` (600) | `develop` (`BRANCH_STAGING=develop` dans `platform.env`) | `make staging-deploy` (ou `deploy.sh watch`) | non (`BACKUP_DISABLED=1`) |
+| **production** | `https://core-system.visibilitycam.com` | `/app/core-system/prod` | `.env` (600) | **la version validée en staging**, jamais construite en production, **et déjà fusionnée dans `main`** (`BRANCH_PROD=main` : sinon la plateforme refuse) | le responsable du Core : `make prod-promote` | **non, pour l'instant** : exception acceptée (pas de bucket S3, `BACKUP_DISABLED=1`), voir « Écarts connus ». La règle du standard est **S3, obligatoire** |
 
 Les noms des conteneurs de **production** sont **historiques** (`core-system-app`, `core-system-postgres`…, réseau `core-system-internal`) : ne jamais les renommer. Ceux du staging sont préfixés `core-system-staging-`.
 
@@ -68,7 +68,10 @@ cd /app/core-system/prod    && sudo /app/vps-platform/bin/deploy.sh check prod &
 | 4. Migrations : **les répéter sur une copie de la production** | le responsable du Core | [guide 6, étape 5 bis](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/guides/06-core-au-standard.md) | comparer les lignes avant et après ; lire toute migration qui **supprime** |
 | 5. Une **sauvegarde à la main** avant une migration risquée | le responsable | `/app/vps-platform/bin/deploy.sh backup prod` | `uploaded to s3://…` |
 | 6. Contrat d'API modifié ? | le responsable | **annoncer aux intégrateurs avant** | — |
-| 7. Production | le responsable | `cd /app/core-system/prod && make prod-promote` (taper « oui ») | `/health/ready` 200, `make deploy-status`, Grafana |
+| 7. **Fusionner `develop` dans `main`** (la recette est bonne) | le responsable | merge request `develop` → `main` ; la plateforme **refuse** de promouvoir une version qui n'est pas dans `main` | la version du staging figure dans `origin/main` |
+| 8. Production | le responsable | `cd /app/core-system/prod && make prod-promote` (taper « oui ») | `/health/ready` 200, `make deploy-status`, Grafana |
+
+**La mise en place de la garde.** `BRANCH_PROD=main` est lu dans la version déployée en production : la **première** promotion qui porte cette ligne n'est donc pas encore contrôlée, les suivantes le sont. `main` datait d'avant le standard : sa première fusion avec `develop` est une simple avance (aucun conflit).
 
 La production n'est **jamais** déployée automatiquement. **Les migrations du Core sont dans les modules** (`packages/*/database/migrations`), pas seulement dans `database/migrations` : les chercher avec
 `git diff --name-status <version en production> <nouvelle version> -- '*migrations*'`.
@@ -125,7 +128,6 @@ Le détail : [`docs/operations/observabilite.md`](operations/observabilite.md) e
 | --- | --- | --- | --- |
 | **Production sans sauvegarde automatique** | Pas de bucket S3 pour l'instant (décision du 2026-10-05) | Une perte de la base ne serait récupérable qu'à partir de la copie manuelle du 2026-10-05. **Un rappel par e-mail est envoyé une fois par jour** (alerte « Une sauvegarde de production n'envoie plus de copie depuis 36 heures »), à partir du premier passage nocturne de l'agent suivant le déploiement de cette alerte | Créer le bucket, renseigner `BACKUP_S3_*`, retirer `BACKUP_DISABLED`, **refaire un exercice de restauration** |
 | **Le staging porte des secrets et des données de production** | Recette avec la copie de la base de production, `APP_KEY` et clés WhatsApp de production, à la demande du responsable | Des envois réels depuis le staging si une file ou une tâche planifiée s'y exécute (l'horizon et le planificateur du staging sont **en marche**) | Après la recette : base de test, nouvelle `APP_KEY`, identifiants de test, `CORE_ENVIRONMENT=sandbox` |
-| **Aucune garde de branche en production** | Le staging suit `develop` et la production reçoit son image ; `main` n'est plus la branche de livraison (elle date d'avant le standard) et `BRANCH_PROD` n'est pas déclaré | Une version peut partir en production sans avoir été fusionnée dans `main` | Décider du flux : fusionner `develop` dans `main` après la recette et déclarer `BRANCH_PROD=main` (la plateforme refusera alors toute version absente de `main`), ou garder `develop` seule et le dire ici |
 | **Double authentification de la console désactivée** | Décision du responsable, production et staging | Un mot de passe volé suffit | Réactiver `IDENTITY_DISABLE_MFA=false` |
 | **`WAHA_WEBHOOK_SECRET` absent** | Jamais renseigné | Les rappels WhatsApp entrants ne sont pas authentifiés | Le générer et le déclarer des deux côtés |
 | **Contrat d'API modifié, intégrateurs non prévenus** | Beaucoup de changements dans `develop` par rapport à l'ancien `main` | Un intégrateur peut casser sans préavis | Annoncer les changements (liste dans les ADR depuis 0051) |
@@ -135,4 +137,5 @@ Le détail : [`docs/operations/observabilite.md`](operations/observabilite.md) e
 | Date | Changement |
 | --- | --- |
 | 2026-10-05 | Création d'après le modèle de la plateforme : environnements, répétition des migrations, sauvegardes sur S3, observabilité portée par le dépôt |
+| 2026-10-05 | Décision : `develop` pour le staging, `main` pour la production (`BRANCH_PROD=main`, garde de la plateforme) ; étape « fusionner dans `main` » avant la promotion |
 | 2026-10-05 | Contrôle en profondeur : la fiche disait « production sauvegardée sur S3 » et « jamais de secrets de production au staging » alors que ce n'est pas l'état réel ; ajout des **écarts connus**. Contrat 2.5 |
