@@ -12,8 +12,9 @@ voir [ADR-0053](../adr/0053-deploiement-production-frankenphp-vps-nginx-proxy.md
 >   automatiquement ;
 > - une production mise à jour **uniquement** par promotion manuelle de l'image
 >   validée en staging (`make prod-promote`) ;
-> - une sauvegarde chiffrée **chaque nuit sur S3** (une sauvegarde à la main avant une
->   migration risquée : `deploy.sh backup prod`), et un retour arrière automatique ;
+> - une sauvegarde chiffrée **chaque nuit sur S3** (**la règle** ; **état actuel : désactivée pour le Core**, faute de bucket, voir les
+>   [écarts connus](../DEPLOIEMENT.md#11-écarts-connus-avec-le-standard-à-résorber)) ; une sauvegarde à la main avant une
+>   migration risquée : `deploy.sh backup prod` ; et un retour arrière automatique ;
 > - **la fiche de déploiement par environnement : [`docs/DEPLOIEMENT.md`](../DEPLOIEMENT.md)**
 >   (à lire en premier ; ce document-ci détaille la première installation).
 >
@@ -363,5 +364,5 @@ docker compose -f compose.prod.yaml exec app php artisan migrate:rollback
       pas modifier sans relire ADR-0053 §isolation réseau).
 - [ ] `MYCOOLPAY_CALLBACK_TRUSTED_IPS` reflète toujours l'IP officielle
       documentée par MyCoolPay.
-- [ ] Sauvegarde Postgres planifiée (cron externe au conteneur — rien dans
-      cette stack ne le fait automatiquement aujourd'hui).
+- [ ] Sauvegarde : le service `backup` envoie chaque nuit une copie chiffrée sur S3 (`BACKUP_DISABLED` absent en production,
+      `BACKUP_S3_*` renseignés). **État actuel du Core : désactivée** (voir les [écarts connus](../DEPLOIEMENT.md#11-écarts-connus-avec-le-standard-à-résorber)).

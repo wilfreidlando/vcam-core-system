@@ -1,6 +1,6 @@
 # ADR-0035 — Étendre le vocabulaire canonique `PaymentStatus` avec `canceled`
 
-- **Statut** : Accepté — étend [G6b](../adr/0006-… non applicable ; voir `CanonicalStatusTest`](../../../tests/Architecture/CanonicalStatusTest.php))
+- **Statut** : Accepté — précise le garde-fou G6b (vocabulaire canonique des statuts) ; voir [`CanonicalStatusTest`](../../tests/Architecture/CanonicalStatusTest.php)
 - **Date** : 2026-09-15
 - **Dérives concernées** : D3 (vocabulaire provider dans les couches hautes)
 

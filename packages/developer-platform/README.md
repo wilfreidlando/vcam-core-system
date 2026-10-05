@@ -2,7 +2,7 @@
 
 **Bounded context:** `developer-platform`
 **Responsibility:** API gateway concerns, scopes, quotas, developer portal, OpenAPI publication, SDKs. Out of MVP scope (external).
-**Delivery lot:** Post-MVP — see [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+**Delivery lot:** Post-MVP — see [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## Internal structure
 

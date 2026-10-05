@@ -6,7 +6,7 @@
 [ADR-0044](../../docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md),
 [ADR-0045](../../docs/adr/0045-lot-6-listing-generique-admin.md),
 [ADR-0046](../../docs/adr/0046-lot-6-revue-de-code-correctifs.md)
-and [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+and [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## What's delivered so far
 

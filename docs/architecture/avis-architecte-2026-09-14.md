@@ -29,7 +29,7 @@ exponentiel.
 | F1 | **Ledger au plus bas, zéro dépendance inter-modules** | Personne ne peut pousser une dépendance sur ton actif financier le plus critique. Rare. |
 | F2 | **Deux Deptrac (modules + couches)** | Beaucoup de projets font l'un ou l'autre, rarement les deux bien. La règle « Presentation peut utiliser Domain » est inhabituelle mais pragmatique (énums domaine exposés en réponse API). |
 | F3 | **Registre des garde-fous inactifs avec `GuardCoverageTest`** | Discipline rare : une règle qu'on croit active et qui ne mord pas est *pire* qu'aucune règle. Vous avez internalisé ça. |
-| F4 | **PHPat pour la framework-purity du Domain** au-delà de Deptrac (qui est lexical). Combiné à Larastan, c'est l'étalon-or pour un Domain pur PHP en écosystème Laravel. |
+| F4 | **PHPat pour la framework-purity du Domain** | Au-delà de Deptrac (qui est lexical). Combiné à Larastan, c'est l'étalon-or pour un Domain pur PHP en écosystème Laravel. |
 | F5 | **Money = `bigint` minor units + bcmath/gmp + Brick/Money** | Choix non-négociable pour de la finance, verrouillé dès le Dockerfile (`--data-checksums` PG18, ADR-0017). |
 | F6 | **Makefile miroir exact de la CI** + lefthook < 10 s | Pas de divergence local/CI — la principale source de « ça marchait chez moi ». |
 | F7 | **Valkey au lieu de Redis 8** (AGPL) | Décision juridique correcte pour un propriétaire financier. |

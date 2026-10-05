@@ -1,6 +1,6 @@
 # ADR-0054 — La doc Scramble OpenAPI doit être aussi complète que l'API elle-même : descriptions, exemples, choix bornés
 
-- **Statut** : Accepté
+- **Statut** : Accepté — **point 5 (garde-fou) non livré** : constat du 2026-10-05, `tests/Architecture/OpenApiCompletenessTest.php` n'a jamais existé dans l'historique git ; seuls le snapshot `openapi/v1.json` et `make openapi` (points 1 à 4) sont en place
 - **Date** : 2026-09-22
 - **Décideurs** : équipe Core (auto-imposé, déclencheur : constat empirique pendant l'audit de `/docs/api` contre l'API réelle)
 - **Dérives concernées** : D5 contrat, D2 couplage

@@ -2,7 +2,7 @@
 
 **Bounded context:** `wallet`
 **Responsibility:** Wallets: deposits, withdrawals, transfers, holds — backed by the Ledger.
-**Delivery lot:** Lot 2 — see [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+**Delivery lot:** Lot 2 — see [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## Internal structure
 

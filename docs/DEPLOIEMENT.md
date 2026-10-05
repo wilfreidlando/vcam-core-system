@@ -1,6 +1,6 @@
 # Déploiement du Core System
 
-> **Pour toute l'équipe.** Comment le Core est déployé sur le VPS, environnement par environnement. À jour au **2026-10-05**, version du contrat de la plateforme : **2.4**.
+> **Pour toute l'équipe.** Comment le Core est déployé sur le VPS, environnement par environnement. À jour au **2026-10-05**, version du contrat de la plateforme : **2.5**.
 > La plateforme (outils, règles, runbooks) : <https://github.com/wilfreidlando/vcam-infra-deploy>. Profil de projet : **A, standard (staging puis production)**
 > ([profils](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/docs/reference/profils-de-projet.md)).
 > Le détail de la **toute première installation**, du premier opérateur et du premier paiement : [`docs/operations/deploiement-production.md`](operations/deploiement-production.md).
@@ -10,7 +10,7 @@
 | Environnement | Adresse | Dossier sur le serveur | Fichier d'environnement | Version déployée | Qui déploie, et comment | Sauvegardée ? |
 | --- | --- | --- | --- | --- | --- | --- |
 | **staging** | `https://core-system-staging.visibilitycam.com` | `/app/core-system/staging` | `.env.staging` (600) | `develop` (`STAGING_BRANCH` dans `platform.env`) | `make staging-deploy` (ou `deploy.sh watch`) | non (`BACKUP_DISABLED=1`) |
-| **production** | `https://core-system.visibilitycam.com` | `/app/core-system/prod` | `.env` (600) | **la version validée en staging**, jamais construite en production | le responsable du Core : `make prod-promote` | **sur S3** (variables `BACKUP_S3_*` obligatoires) |
+| **production** | `https://core-system.visibilitycam.com` | `/app/core-system/prod` | `.env` (600) | **la version validée en staging**, jamais construite en production | le responsable du Core : `make prod-promote` | **non, pour l'instant** : exception acceptée (pas de bucket S3, `BACKUP_DISABLED=1`), voir « Écarts connus ». La règle du standard est **S3, obligatoire** |
 
 Les noms des conteneurs de **production** sont **historiques** (`core-system-app`, `core-system-postgres`…, réseau `core-system-internal`) : ne jamais les renommer. Ceux du staging sont préfixés `core-system-staging-`.
 
@@ -39,10 +39,10 @@ Aucun port n'est publié sur Internet.
 | `CORE_ENVIRONMENT` | `sandbox` ou `live` : seul `live` fait circuler de l'argent réel | **oui : le staging est toujours `sandbox`** | fixe |
 | `DEPLOYMENT`, `STACK_PREFIX`, `CORE_ENV_FILE` | Identité de la pile | oui | exemples du dépôt |
 | `MTN_MOMO_*`, `ORANGE_MONEY_*`, `WAHA_*`, `MAIL_*` | Fournisseurs et messagerie | **oui : au staging, des identifiants de test** | les fournisseurs |
-| `IDENTITY_DISABLE_MFA`, `IDENTITY_DISABLE_TOTP_IN_LOCAL` | Double authentification de la console | à décider | l'exemple dit `false` partout |
-| `BACKUP_*`, `AWS_*`, `BACKUP_DISABLED` | Sauvegardes sur S3 ; `BACKUP_DISABLED=1` au staging | production : S3 ; staging : désactivée | la plateforme |
+| `IDENTITY_DISABLE_MFA`, `IDENTITY_DISABLE_TOTP_IN_LOCAL` | Double authentification de la console | **désactivée** en production et en staging (décision du 2026-10-05) ; l'exemple dit `false` | à réactiver : voir « Écarts connus » |
+| `BACKUP_*`, `AWS_*`, `BACKUP_DISABLED` | Sauvegardes sur S3 ; `BACKUP_DISABLED=1` au staging | staging : désactivée ; **production : `BACKUP_DISABLED=1` aussi pour l'instant** (exception, voir « Écarts connus »), S3 à brancher | la plateforme |
 
-Modèles : `.env.production.example` et `.env.staging.example`. Droits des `.env` : `600`, propriétaire `root`. **Jamais les secrets de la production au staging.**
+Modèles : `.env.production.example` et `.env.staging.example`. Droits des `.env` : `600`, propriétaire `root`. **La règle : jamais les secrets de la production au staging** (écart actuel : voir « Écarts connus »).
 
 ## 4. Premier déploiement d'un environnement
 
@@ -87,7 +87,8 @@ La production n'est **jamais** déployée automatiquement. **Les migrations du C
 
 ## 8. Sauvegarde et restauration
 
-- Sauvegarde chiffrée **chaque nuit**, envoyée sur **S3** puis effacée du serveur ; aucune copie ne reste sur le disque. À la demande : `deploy.sh backup prod`.
+- **Règle du standard** : sauvegarde chiffrée **chaque nuit**, envoyée sur **S3** puis effacée du serveur ; aucune copie ne reste sur le disque. À la demande : `deploy.sh backup prod`.
+- **État actuel : la production du Core n'est PAS sauvegardée automatiquement** (pas de bucket S3, `BACKUP_DISABLED=1`). Une copie manuelle a été faite le 2026-10-05 avant le passage au standard : `/root/core-avant-standard-2026-10-05.dump` sur le serveur, **à ne pas supprimer** tant que le bucket n'existe pas. `deploy.sh backup prod` et la restauration ci-dessous **ne fonctionneront qu'une fois S3 branché**.
 - **Restaurer** : `restore.sh prod s3://<bucket>/<préfixe>/core-system/<fichier>` avec la phrase de chiffrement ; la base est **remplacée** (état exact de la sauvegarde).
 - Le staging n'est **pas** sauvegardé.
 - **Exercice de restauration chaque mois** : [procédure](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/docs/runbooks/exercice-de-restauration.md).
@@ -115,8 +116,19 @@ Le détail : [`docs/operations/observabilite.md`](operations/observabilite.md) e
 
 **Qui prévenir** : le responsable du Core ; plateforme : le responsable de la plateforme.
 
-## 11. Historique de ce document
+## 11. Écarts connus avec le standard (à résorber)
+
+| Écart | Pourquoi | Risque | Pour le résorber |
+| --- | --- | --- | --- |
+| **Production sans sauvegarde automatique** | Pas de bucket S3 pour l'instant (décision du 2026-10-05) | Une perte de la base ne serait récupérable qu'à partir de la copie manuelle du 2026-10-05 | Créer le bucket, renseigner `BACKUP_S3_*`, retirer `BACKUP_DISABLED`, **refaire un exercice de restauration** |
+| **Le staging porte des secrets et des données de production** | Recette avec la copie de la base de production, `APP_KEY` et clés WhatsApp de production, à la demande du responsable | Des envois réels depuis le staging si une file ou une tâche planifiée s'y exécute (l'horizon et le planificateur du staging sont **en marche**) | Après la recette : base de test, nouvelle `APP_KEY`, identifiants de test, `CORE_ENVIRONMENT=sandbox` |
+| **Double authentification de la console désactivée** | Décision du responsable, production et staging | Un mot de passe volé suffit | Réactiver `IDENTITY_DISABLE_MFA=false` |
+| **`WAHA_WEBHOOK_SECRET` absent** | Jamais renseigné | Les rappels WhatsApp entrants ne sont pas authentifiés | Le générer et le déclarer des deux côtés |
+| **Contrat d'API modifié, intégrateurs non prévenus** | Beaucoup de changements dans `develop` par rapport à l'ancien `main` | Un intégrateur peut casser sans préavis | Annoncer les changements (liste dans les ADR depuis 0051) |
+
+## 12. Historique de ce document
 
 | Date | Changement |
 | --- | --- |
 | 2026-10-05 | Création d'après le modèle de la plateforme : environnements, répétition des migrations, sauvegardes sur S3, observabilité portée par le dépôt |
+| 2026-10-05 | Contrôle en profondeur : la fiche disait « production sauvegardée sur S3 » et « jamais de secrets de production au staging » alors que ce n'est pas l'état réel ; ajout des **écarts connus**. Contrat 2.5 |

@@ -2,7 +2,7 @@
 
 **Bounded context:** `billing`
 **Responsibility:** Plans, subscriptions, entitlements, usage metering. Out of MVP scope.
-**Delivery lot:** Post-MVP — see [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+**Delivery lot:** Post-MVP — see [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## Internal structure
 

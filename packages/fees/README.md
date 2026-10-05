@@ -2,7 +2,7 @@
 
 **Bounded context:** `fees`
 **Responsibility:** Fee & commission rules engine: evaluation, distribution plans, simulation, applied-rule history.
-**Delivery lot:** Lot 3 — see [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+**Delivery lot:** Lot 3 — see [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## Internal structure
 
