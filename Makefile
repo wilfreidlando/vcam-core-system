@@ -138,20 +138,25 @@ horizon-status: ## Show queue worker status
 PLATFORM_DIR ?= /app/vps-platform
 DEPLOY := $(PLATFORM_DIR)/bin/deploy.sh
 
+# Fails FIRST, in plain words, when the platform is not where PLATFORM_DIR says (instead of "No such file or directory" half-way through a deploy).
+.PHONY: _platform
+_platform:
+	@test -x "$(DEPLOY)" || { echo "make : plateforme introuvable ($(DEPLOY))." >&2; echo "  Dossier attendu : $(PLATFORM_DIR). S'il a changé : make <cible> PLATFORM_DIR=<dossier>. Sur le serveur elle se clone dans /app/vps-platform (guide 3 de vcam-infra-deploy)." >&2; exit 127; }
+
 .PHONY: staging-deploy
-staging-deploy: ## Build REF (default origin/main) and deploy it to staging
+staging-deploy: _platform ## Build REF (default origin/main) and deploy it to staging
 	sha=$$($(DEPLOY) build $(REF)) && $(DEPLOY) up staging $$sha
 
 .PHONY: prod-promote
-prod-promote: ## Deploy to production the exact version running on staging (asks for confirmation)
+prod-promote: _platform ## Deploy to production the exact version running on staging (asks for confirmation)
 	$(DEPLOY) promote $(SHA)
 
 .PHONY: rollback
-rollback: ## Redeploy the previous version: make rollback ENV=prod|staging
+rollback: _platform ## Redeploy the previous version: make rollback ENV=prod|staging
 	$(DEPLOY) rollback $(ENV)
 
 .PHONY: deploy-status
-deploy-status: ## Versions and containers of staging and production
+deploy-status: _platform ## Versions and containers of staging and production
 	$(DEPLOY) status
 
 .PHONY: prod-backup
@@ -159,15 +164,15 @@ prod-backup: ## Encrypted database backup right now (local + S3)
 	$(DC_PROD) -p core-system-prod --env-file .env run --rm backup backup.sh
 
 .PHONY: vps-audit
-vps-audit: ## Read-only compliance report of every container on the VPS
+vps-audit: _platform ## Read-only compliance report of every container on the VPS
 	$(PLATFORM_DIR)/bin/vps-audit.sh
 
 .PHONY: vps-inventory
-vps-inventory: ## Read-only, secret-free Markdown inventory of the whole VPS (platform guide 13)
+vps-inventory: _platform ## Read-only, secret-free Markdown inventory of the whole VPS (platform guide 13)
 	$(PLATFORM_DIR)/bin/vps-inventory.sh
 
 .PHONY: vps-check
-vps-check: ## Pre-flight of a deploy, changes nothing (ENV=staging|prod) — run from the env's checkout
+vps-check: _platform ## Pre-flight of a deploy, changes nothing (ENV=staging|prod) — run from the env's checkout
 	$(PLATFORM_DIR)/bin/deploy.sh check $(or $(ENV),staging)
 
 .PHONY: prod-build

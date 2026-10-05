@@ -9,7 +9,7 @@
 
 | Environnement | Adresse | Dossier sur le serveur | Fichier d'environnement | Version déployée | Qui déploie, et comment | Sauvegardée ? |
 | --- | --- | --- | --- | --- | --- | --- |
-| **staging** | `https://core-system-staging.visibilitycam.com` | `/app/core-system/staging` | `.env.staging` (600) | `develop` (`STAGING_BRANCH` dans `platform.env`) | `make staging-deploy` (ou `deploy.sh watch`) | non (`BACKUP_DISABLED=1`) |
+| **staging** | `https://core-system-staging.visibilitycam.com` | `/app/core-system/staging` | `.env.staging` (600) | `develop` (`STAGING_BRANCH=develop` dans `platform.env`, ancien nom de `BRANCH_STAGING`) | `make staging-deploy` (ou `deploy.sh watch`) | non (`BACKUP_DISABLED=1`) |
 | **production** | `https://core-system.visibilitycam.com` | `/app/core-system/prod` | `.env` (600) | **la version validée en staging**, jamais construite en production | le responsable du Core : `make prod-promote` | **non, pour l'instant** : exception acceptée (pas de bucket S3, `BACKUP_DISABLED=1`), voir « Écarts connus ». La règle du standard est **S3, obligatoire** |
 
 Les noms des conteneurs de **production** sont **historiques** (`core-system-app`, `core-system-postgres`…, réseau `core-system-internal`) : ne jamais les renommer. Ceux du staging sont préfixés `core-system-staging-`.
@@ -45,6 +45,8 @@ Aucun port n'est publié sur Internet.
 Modèles : `.env.production.example` et `.env.staging.example`. Droits des `.env` : `600`, propriétaire `root`. **La règle : jamais les secrets de la production au staging** (écart actuel : voir « Écarts connus »).
 
 ## 4. Premier déploiement d'un environnement
+
+> **Commandes.** Elles s'écrivent `/app/vps-platform/bin/deploy.sh …` ou `make staging-deploy` / `make prod-promote`, ou `vps-deploy …` quand les commandes courtes de la plateforme sont installées (`vps` donne l'aide, `vps where` dit où est la plateforme).
 
 Voir [`docs/operations/deploiement-production.md`](operations/deploiement-production.md) (installation complète). En bref, une fois les dossiers et les `.env` prêts :
 
@@ -113,6 +115,7 @@ Le détail : [`docs/operations/observabilite.md`](operations/observabilite.md) e
 | `deploy.sh` s'arrête avec une erreur | [runbook « déploiement en échec »](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/docs/runbooks/deploiement-en-echec.md) |
 | Un conteneur redémarre sans cesse | [runbook « conteneur en boucle »](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/docs/runbooks/conteneur-en-boucle.md) |
 | La base est inaccessible | [runbook « base inaccessible »](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/docs/runbooks/base-inaccessible.md) |
+| `make` répond « **plateforme introuvable** » | La plateforme n'est pas dans `/app/vps-platform`. Relancer avec `PLATFORM_DIR=<dossier>` (par exemple `make prod-promote PLATFORM_DIR=/autre/dossier`) ; `vps-deploy where` (commandes courtes de la plateforme, [guide 3](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/guides/03-installer-plateforme.md)) dit où elle est |
 
 **Qui prévenir** : le responsable du Core ; plateforme : le responsable de la plateforme.
 
@@ -122,6 +125,7 @@ Le détail : [`docs/operations/observabilite.md`](operations/observabilite.md) e
 | --- | --- | --- | --- |
 | **Production sans sauvegarde automatique** | Pas de bucket S3 pour l'instant (décision du 2026-10-05) | Une perte de la base ne serait récupérable qu'à partir de la copie manuelle du 2026-10-05. **Un rappel par e-mail est envoyé une fois par jour** (alerte « Une sauvegarde de production n'envoie plus de copie depuis 36 heures »), à partir du premier passage nocturne de l'agent suivant le déploiement de cette alerte | Créer le bucket, renseigner `BACKUP_S3_*`, retirer `BACKUP_DISABLED`, **refaire un exercice de restauration** |
 | **Le staging porte des secrets et des données de production** | Recette avec la copie de la base de production, `APP_KEY` et clés WhatsApp de production, à la demande du responsable | Des envois réels depuis le staging si une file ou une tâche planifiée s'y exécute (l'horizon et le planificateur du staging sont **en marche**) | Après la recette : base de test, nouvelle `APP_KEY`, identifiants de test, `CORE_ENVIRONMENT=sandbox` |
+| **Aucune garde de branche en production** | Le staging suit `develop` et la production reçoit son image ; `main` n'est plus la branche de livraison (elle date d'avant le standard) et `BRANCH_PROD` n'est pas déclaré | Une version peut partir en production sans avoir été fusionnée dans `main` | Décider du flux : fusionner `develop` dans `main` après la recette et déclarer `BRANCH_PROD=main` (la plateforme refusera alors toute version absente de `main`), ou garder `develop` seule et le dire ici |
 | **Double authentification de la console désactivée** | Décision du responsable, production et staging | Un mot de passe volé suffit | Réactiver `IDENTITY_DISABLE_MFA=false` |
 | **`WAHA_WEBHOOK_SECRET` absent** | Jamais renseigné | Les rappels WhatsApp entrants ne sont pas authentifiés | Le générer et le déclarer des deux côtés |
 | **Contrat d'API modifié, intégrateurs non prévenus** | Beaucoup de changements dans `develop` par rapport à l'ancien `main` | Un intégrateur peut casser sans préavis | Annoncer les changements (liste dans les ADR depuis 0051) |
