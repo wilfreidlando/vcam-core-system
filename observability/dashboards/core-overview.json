@@ -154,7 +154,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(core_webhook_deliveries{deployment=\"$deployment\",status=\"dead\"})"
+          "expr": "sum(core_webhook_deliveries{deployment=\"$deployment\",status=\"dead\"}) or vector(0)"
         }
       ],
       "fieldConfig": {
@@ -171,7 +171,14 @@
                 "value": 1
               }
             ]
-          }
+          },
+          "links": [
+            {
+              "title": "Voir les erreurs et avertissements du Core",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bapp%3D%5C%22core-system%5C%22%2C%20deployment%3D%5C%22${deployment:percentencode}%5C%22%2C%20level%3D~%5C%22ERROR%7CCRITICAL%7CALERT%7CEMERGENCY%7CWARNING%5C%22%7D%22%2C%22queryType%22%3A%22range%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D",
+              "targetBlank": false
+            }
+          ]
         },
         "overrides": []
       },
@@ -182,7 +189,8 @@
           ]
         },
         "colorMode": "background"
-      }
+      },
+      "description": "Livraisons de webhooks abandonnées après tous les essais. 0 = bon état. Si > 0 : console → Webhooks → DLQ (rejouer après correction du point d'arrivée du client). Les lignes concernées : cliquer sur le chiffre (ouvre Explore), ou le panneau « Erreurs et avertissements récents » juste dessous."
     },
     {
       "id": 4,
@@ -201,7 +209,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(core_http_requests_total{deployment=\"$deployment\",status=~\"5..\"}[5m])) / clamp_min(sum(rate(core_http_requests_total{deployment=\"$deployment\"}[5m])), 1e-9)"
+          "expr": "(sum(rate(core_http_requests_total{deployment=\"$deployment\",status=~\"5..\"}[5m])) or vector(0)) / clamp_min(sum(rate(core_http_requests_total{deployment=\"$deployment\"}[5m])), 1e-9)"
         }
       ],
       "fieldConfig": {
@@ -223,7 +231,14 @@
               }
             ]
           },
-          "unit": "percentunit"
+          "unit": "percentunit",
+          "links": [
+            {
+              "title": "Voir les erreurs et avertissements du Core",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bapp%3D%5C%22core-system%5C%22%2C%20deployment%3D%5C%22${deployment:percentencode}%5C%22%2C%20level%3D~%5C%22ERROR%7CCRITICAL%7CALERT%7CEMERGENCY%7CWARNING%5C%22%7D%22%2C%22queryType%22%3A%22range%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22%7D%7D%7D",
+              "targetBlank": false
+            }
+          ]
         },
         "overrides": []
       },
@@ -234,7 +249,39 @@
           ]
         },
         "colorMode": "background"
-      }
+      },
+      "description": "Part des réponses en erreur serveur (5xx) sur 5 minutes. 0 % = bon état (aucune erreur serveur). Les lignes concernées : cliquer sur le chiffre (ouvre Explore), ou le panneau « Erreurs et avertissements récents » juste dessous."
+    },
+    {
+      "id": 13,
+      "type": "logs",
+      "title": "Erreurs et avertissements récents",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{app=\"core-system\", deployment=\"$deployment\", service=~\"app|horizon|scheduler\", level=~\"ERROR|CRITICAL|ALERT|EMERGENCY|WARNING\"}"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      },
+      "fieldConfig": {
+        "defaults": {}
+      },
+      "description": "Les lignes d'erreur et d'avertissement du Core. C'est ici qu'on lit le détail d'un chiffre du bandeau."
     },
     {
       "id": 5,
@@ -242,7 +289,7 @@
       "title": "Requêtes HTTP par route",
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 14,
         "w": 12,
         "h": 8
       },
@@ -276,7 +323,7 @@
       "title": "Latence p95 par route",
       "gridPos": {
         "x": 12,
-        "y": 4,
+        "y": 14,
         "w": 12,
         "h": 8
       },
@@ -310,7 +357,7 @@
       "title": "Réponses par code",
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 22,
         "w": 12,
         "h": 8
       },
@@ -344,7 +391,7 @@
       "title": "Paiements créés (24 h) par statut",
       "gridPos": {
         "x": 12,
-        "y": 12,
+        "y": 22,
         "w": 12,
         "h": 8
       },
@@ -360,7 +407,9 @@
         }
       ],
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": "Aucun paiement créé sur 24 h"
+        },
         "overrides": []
       },
       "options": {
@@ -368,7 +417,8 @@
           "displayMode": "table",
           "placement": "right"
         }
-      }
+      },
+      "description": "Vide = aucune activité sur la période, ce n'est pas une panne."
     },
     {
       "id": 9,
@@ -376,7 +426,7 @@
       "title": "Livraisons webhook par statut",
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 30,
         "w": 12,
         "h": 8
       },
@@ -392,7 +442,9 @@
         }
       ],
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": "Aucune livraison de webhook"
+        },
         "overrides": []
       },
       "options": {
@@ -400,7 +452,8 @@
           "displayMode": "table",
           "placement": "right"
         }
-      }
+      },
+      "description": "Vide = aucune activité sur la période, ce n'est pas une panne."
     },
     {
       "id": 10,
@@ -408,7 +461,7 @@
       "title": "Files Horizon (jobs en attente)",
       "gridPos": {
         "x": 12,
-        "y": 20,
+        "y": 30,
         "w": 12,
         "h": 8
       },
@@ -440,7 +493,7 @@
       "title": "Notifications (24 h) par statut",
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 38,
         "w": 12,
         "h": 8
       },
@@ -456,7 +509,9 @@
         }
       ],
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": "Aucune notification sur 24 h"
+        },
         "overrides": []
       },
       "options": {
@@ -464,7 +519,8 @@
           "displayMode": "table",
           "placement": "right"
         }
-      }
+      },
+      "description": "Vide = aucune activité sur la période, ce n'est pas une panne."
     },
     {
       "id": 12,
@@ -472,7 +528,7 @@
       "title": "Outbox non relayé",
       "gridPos": {
         "x": 12,
-        "y": 28,
+        "y": 38,
         "w": 12,
         "h": 8
       },
@@ -496,33 +552,6 @@
           "displayMode": "table",
           "placement": "right"
         }
-      }
-    },
-    {
-      "id": 13,
-      "type": "logs",
-      "title": "Erreurs et avertissements récents",
-      "gridPos": {
-        "x": 0,
-        "y": 36,
-        "w": 24,
-        "h": 10
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "{app=\"core-system\", deployment=\"$deployment\", service=~\"app|horizon|scheduler\", level=~\"ERROR|CRITICAL|ALERT|EMERGENCY|WARNING\"}"
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "wrapLogMessage": true,
-        "sortOrder": "Descending",
-        "enableLogDetails": true
       }
     }
   ]
