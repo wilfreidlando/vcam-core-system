@@ -82,7 +82,13 @@ authentification. `/metrics` est refusé depuis Internet par le sidecar nginx.
 Les tableaux de bord du Core ont un sélecteur **Déploiement** (`prod` / `staging`).
 **Les alertes ne portent que sur la production.**
 
-## Tableaux de bord (dossier « Core System », plus « Applications » pour tous les projets)
+## Tableaux de bord (dossier « core-system », plus « Plateforme » et « Applications » pour tous les projets)
+
+> **Ces tableaux et ces alertes vivent dans CE dépôt** (`observability/dashboards/*.json`, `observability/alerts/core-alerts.yaml`) : `deploy.sh` les publie dans Grafana après une promotion
+> en production, ou à la demande avec `deploy.sh obs-sync` ; la plateforme n'est pas modifiée ([guide 19](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/guides/19-observabilite-de-mon-projet.md)).
+> Les tableaux se rechargent seuls ; **les alertes ne sont relues qu'à la recréation de Grafana**. Règles : `uid` uniques, dossier d'alertes = `core-system`,
+> jamais de points de contact ni de politique de notification (ils sont à la plateforme).
+> L'état d'ensemble d'une application se voit aussi dans **Plateforme → Application — vue d'ensemble → `core-system`**.
 
 - **Core — Vue d'ensemble** : disponibilité, retard de l'outbox, webhooks en DLQ, taux
   de 5xx, débit et latence p95 par route, paiements et notifications des dernières 24 h

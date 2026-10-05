@@ -12,8 +12,10 @@ voir [ADR-0053](../adr/0053-deploiement-production-frankenphp-vps-nginx-proxy.md
 >   automatiquement ;
 > - une production mise à jour **uniquement** par promotion manuelle de l'image
 >   validée en staging (`make prod-promote`) ;
-> - une sauvegarde chiffrée avant chaque migration, et un retour arrière
->   automatique.
+> - une sauvegarde chiffrée **chaque nuit sur S3** (une sauvegarde à la main avant une
+>   migration risquée : `deploy.sh backup prod`), et un retour arrière automatique ;
+> - **la fiche de déploiement par environnement : [`docs/DEPLOIEMENT.md`](../DEPLOIEMENT.md)**
+>   (à lire en premier ; ce document-ci détaille la première installation).
 >
 > Les étapes 1 à 6 ci-dessous décrivent la toute première installation. Pour les
 > mises à jour, voir [§12](#12-déployer-une-mise-à-jour). Pour passer une
@@ -269,14 +271,19 @@ make deploy-status
 ```
 
 `make prod-promote` enchaîne :
-1. sauvegarde chiffrée (refus de continuer si elle échoue) ;
-2. migrations avec la nouvelle image ;
-3. bascule des conteneurs ;
-4. contrôle de `/health/ready` (base et Valkey) pendant 2 minutes ;
-5. retour automatique à la version précédente si le contrôle échoue.
+1. migrations avec la nouvelle image ;
+2. bascule des conteneurs ;
+3. contrôle de `/health/ready` (base et Valkey) pendant 2 minutes ;
+4. retour automatique à la version précédente si le contrôle échoue (sauf la toute première
+   promotion d'un projet existant : retour manuel).
 
-Les migrations ne sont jamais annulées automatiquement. Au besoin, restaurer la
-sauvegarde `pre-deploy-*` (`/app/vps-platform/bin/restore.sh prod <fichier>`).
+**Aucune sauvegarde n'est prise au déploiement** (la nocturne est le filet) : avant une migration
+risquée, `/app/vps-platform/bin/deploy.sh backup prod`. Les migrations du Core sont **dans les modules**
+(`packages/*/database/migrations`) : les **répéter sur une copie de la production** avant de promouvoir
+([guide 6, étape 5 bis](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/guides/06-core-au-standard.md)).
+
+Les migrations ne sont jamais annulées automatiquement. Au besoin, restaurer la dernière sauvegarde
+(`/app/vps-platform/bin/restore.sh prod s3://<bucket>/<préfixe>/core-system/<fichier>`).
 
 ## 12 bis. Passer une production existante au standard
 
@@ -292,21 +299,24 @@ docker exec core-system-postgres sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "$POSTGR
 # 1. Réseau partagé de l'observabilité (sans effet sur les autres projets)
 docker network create observability || true
 
-# 2. Checkouts : déplacer le checkout actuel en …/prod (le nom de projet Docker
-#    « core-system-prod » est fixé dans compose.prod.yaml, pas par le dossier)
-mkdir -p /app/core-system && mv <checkout actuel> /app/core-system/prod
+# 2. Checkouts : COPIER (pas déplacer) le checkout actuel en …/prod. Un conteneur peut monter un
+#    dossier par son chemin (ici la configuration nginx) : déplacer le dossier ferait tomber le site
+#    au prochain redémarrage du conteneur. L'ancien dossier reste la base de retour arrière.
+#    Le nom de projet Docker « core-system-prod » est fixé dans compose.prod.yaml, pas par le dossier.
+mkdir -p /app/core-system && cp -a <checkout actuel> /app/core-system/prod
 git clone <dépôt> /app/core-system/staging
 
 # 3. Compléter /app/core-system/prod/.env avec la section « VPS standard » de
 #    .env.production.example — en particulier TRUSTED_PROXY_TOKEN
-#    (openssl rand -hex 32), BACKUP_PASSPHRASE et les clés MEGA S4.
+#    (openssl rand -hex 32), BACKUP_PASSPHRASE et les variables S3. Remplacer VIRTUAL_HOST par
+#    CORE_PUBLIC_HOST (même valeur) DANS LA COPIE seulement.
 #    Créer /app/core-system/staging/.env.staging depuis .env.staging.example
 #    (APP_KEY, DB_PASSWORD, TRUSTED_PROXY_TOKEN et BACKUP_PASSPHRASE DIFFÉRENTS).
 
-# 4. Premier staging (construit l'image et la sauvegarde), puis vérification
+# 4. Premier staging (construit l'image), puis vérification ; répéter les migrations sur une copie de la production
 cd /app/core-system/staging && make staging-deploy
 
-# 5. Promotion : sauvegarde, migrations, bascule, contrôle de santé
+# 5. Promotion : migrations, bascule, contrôle de santé (une sauvegarde à la main avant : deploy.sh backup prod)
 cd /app/core-system/prod && make prod-promote
 
 # 6. Contrôles
@@ -331,13 +341,12 @@ make prod-shell
 # Revenir en arrière sur les migrations (chaque migration a un down())
 docker compose -f compose.prod.yaml exec app php artisan migrate:rollback
 
-# Sauvegarder Postgres
-docker compose -f compose.prod.yaml exec postgres \
-    pg_dump -U core core > backup-$(date +%F).sql
+# Sauvegarder : l'agent le fait chaque nuit sur S3 ; à la demande :
+/app/vps-platform/bin/deploy.sh backup prod
 
-# Restaurer
-cat backup-2026-09-22.sql | docker compose -f compose.prod.yaml exec -T postgres \
-    psql -U core core
+# Restaurer (la base est REMPLACÉE par l'état exact de la sauvegarde ; jamais un simple « psql < fichier »,
+# qui laisse ce qui a été créé après) :
+/app/vps-platform/bin/restore.sh prod s3://<bucket>/<préfixe>/core-system/<fichier>
 ```
 
 ## 14. Check-list de sécurité avant de passer un Project en `live`
