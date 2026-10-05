@@ -87,6 +87,10 @@ final readonly class LogHttpExchange
 
         match (true) {
             $status >= 500 => $this->logger->error('http.response.sent', $context),
+            // A 404 on a path no route matches is Internet noise (scanners probing /.env, /wp-login.php…): the Core
+            // answered correctly and nothing is actionable. Logged as a WARNING it drowned the real ones (311 of 317
+            // in 24 h on 2026-10-05). The line is still written, at info, so it stays searchable by path.
+            $status === 404 && $request->route() === null => $this->logger->info('http.response.sent', $context),
             $status >= 400 => $this->logger->warning('http.response.sent', $context),
             default => $this->logger->info('http.response.sent', $context),
         };

@@ -69,16 +69,8 @@ final class ObservabilityEndpointsTest extends TestCase
     #[Test]
     public function request_and_response_are_logged_with_secrets_redacted(): void
     {
-        $logger = new class extends AbstractLogger
-        {
-            /** @var list<array{level: mixed, message: string, context: array<mixed>}> */
-            public array $records = [];
+        $logger = $this->recordingLogger();
 
-            public function log($level, string|Stringable $message, array $context = []): void
-            {
-                $this->records[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];
-            }
-        };
         $this->app->instance(LoggerInterface::class, $logger);
 
         $this->postJson('/v1/webhook-endpoints', ['url' => 'https://example.com/x', 'secret' => 'do-not-log'], [
@@ -99,5 +91,37 @@ final class ObservabilityEndpointsTest extends TestCase
 
         self::assertSame('warning', $sent[0]['level']);
         self::assertStringContainsString('"status":401', (string) json_encode($sent[0]['context']));
+    }
+
+    #[Test]
+    public function a_scanner_probing_an_unknown_path_is_logged_at_info_not_as_a_warning(): void
+    {
+        $logger = $this->recordingLogger();
+        $this->app->instance(LoggerInterface::class, $logger);
+
+        $this->getJson('/aws/.env')->assertNotFound();
+
+        $sent = array_values(array_filter($logger->records, static fn (array $r): bool => $r['message'] === 'http.response.sent'));
+
+        self::assertCount(1, $sent, 'the exchange is still logged, so the probe stays searchable by path');
+        self::assertSame('info', $sent[0]['level']);
+        self::assertStringContainsString('"status":404', (string) json_encode($sent[0]['context']));
+    }
+
+    /**
+     * @return AbstractLogger&object{records: list<array{level: mixed, message: string, context: array<mixed>}>}
+     */
+    private function recordingLogger(): AbstractLogger
+    {
+        return new class extends AbstractLogger
+        {
+            /** @var list<array{level: mixed, message: string, context: array<mixed>}> */
+            public array $records = [];
+
+            public function log($level, string|Stringable $message, array $context = []): void
+            {
+                $this->records[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];
+            }
+        };
     }
 }

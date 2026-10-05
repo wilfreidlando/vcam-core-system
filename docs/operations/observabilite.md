@@ -121,6 +121,11 @@ Les tableaux de bord du Core ont un sélecteur **Déploiement** (`prod` / `stagi
 - Chaque requête HTTP : une ligne `http.request.received` (méthode, chemin, IP, en-têtes
   et corps **rédigés**) et une ligne `http.response.sent` (route, statut, durée, corps
   JSON rédigé). Les sondes, `/metrics` et la documentation sont exclus.
+  **Niveau de la ligne de réponse** : `ERROR` pour un 5xx ; `WARNING` pour un 4xx (401, 403, 422, 429, ou un 404
+  sur une route qui existe) ; **`INFO` pour un 404 sur un chemin qu'aucune route ne reconnaît** : ce sont les robots
+  d'Internet qui sondent `/.env`, `/wp-login.php`… (311 des 317 avertissements du 2026-10-05). Le Core répond correctement,
+  rien n'est à faire ; la ligne reste dans Loki (`{app="core-system"} |= "\"route\":null"`) si l'on veut voir qui sonde.
+  Un compteur d'avertissements qui monte signifie donc de vrais refus de clients, pas du bruit.
 - Chaque appel provider : `integration.attempt.completed` / `.transient`.
 - Chaque livraison webhook : `webhook.delivery.*`.
 - **Jamais en clair** : en-têtes `Authorization`, clés API, clés privées provider,
