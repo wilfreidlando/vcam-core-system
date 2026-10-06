@@ -31,6 +31,9 @@ groups:
         title: Relais outbox bloqué
         condition: C
         for: 5m
+        # Pas de donnée = rien à signaler (aucune requête en erreur, aucun événement) : ce n'est pas une panne.
+        # La panne de l'application est couverte par « Core injoignable » (noDataState: Alerting).
+        noDataState: OK
         annotations:
           summary: Un événement attend depuis plus de 5 minutes — aucun webhook ni callback ne part. Vérifier le conteneur scheduler (events:relay).
         data:
@@ -46,6 +49,9 @@ groups:
         title: Nouvelles livraisons webhook en DLQ
         condition: C
         for: 0m
+        # Pas de donnée = rien à signaler (aucune requête en erreur, aucun événement) : ce n'est pas une panne.
+        # La panne de l'application est couverte par « Core injoignable » (noDataState: Alerting).
+        noDataState: OK
         annotations:
           summary: Des livraisons webhook ont épuisé leurs tentatives ; à rejouer depuis la console (Webhooks → DLQ) une fois l'endpoint corrigé.
         data:
@@ -61,6 +67,9 @@ groups:
         title: Taux d'erreurs 5xx élevé
         condition: C
         for: 5m
+        # Pas de donnée = rien à signaler (aucune requête en erreur, aucun événement) : ce n'est pas une panne.
+        # La panne de l'application est couverte par « Core injoignable » (noDataState: Alerting).
+        noDataState: OK
         annotations:
           summary: Plus de 5 % des requêtes répondent 5xx sur 5 minutes.
         data:
@@ -76,6 +85,9 @@ groups:
         title: Callbacks provider rejetés
         condition: C
         for: 0m
+        # Pas de donnée = rien à signaler (aucune requête en erreur, aucun événement) : ce n'est pas une panne.
+        # La panne de l'application est couverte par « Core injoignable » (noDataState: Alerting).
+        noDataState: OK
         annotations:
           summary: Des callbacks MyCoolPay/WAHA ont été rejetés (IP, signature ou secret invalide) — tentative de fraude ou configuration provider à revoir.
         data:
@@ -94,6 +106,9 @@ groups:
         title: File Horizon en retard
         condition: C
         for: 10m
+        # Pas de donnée = rien à signaler (aucune requête en erreur, aucun événement) : ce n'est pas une panne.
+        # La panne de l'application est couverte par « Core injoignable » (noDataState: Alerting).
+        noDataState: OK
         annotations:
           summary: Plus de 500 jobs en attente sur une file pendant 10 minutes — vérifier le conteneur horizon.
         data:
