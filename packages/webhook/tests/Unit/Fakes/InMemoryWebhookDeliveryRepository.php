@@ -8,6 +8,7 @@ use Core\Webhook\Domain\Exception\WebhookDeliveryAlreadyExists;
 use Core\Webhook\Domain\Model\WebhookDelivery;
 use Core\Webhook\Domain\Model\WebhookDeliveryStatus;
 use Core\Webhook\Domain\Port\WebhookDeliveryRepository;
+use DateTimeImmutable;
 
 final class InMemoryWebhookDeliveryRepository implements WebhookDeliveryRepository
 {
@@ -57,5 +58,21 @@ final class InMemoryWebhookDeliveryRepository implements WebhookDeliveryReposito
         $offset = ($page - 1) * $perPage;
 
         return ['items' => array_slice($matching, $offset, $perPage), 'total' => $total];
+    }
+
+    public function findStalledPending(DateTimeImmutable $overdueBefore, int $limit): array
+    {
+        $stalled = array_values(array_filter(
+            $this->deliveries,
+            static fn (WebhookDelivery $delivery): bool => $delivery->status === WebhookDeliveryStatus::Pending
+                && ($delivery->nextRetryAt === null || $delivery->nextRetryAt < $overdueBefore),
+        ));
+
+        return array_slice($stalled, 0, $limit);
+    }
+
+    public function findByEventIds(array $eventIds): array
+    {
+        return array_values(array_filter($this->deliveries, static fn (WebhookDelivery $d): bool => in_array($d->eventId, $eventIds, true)));
     }
 }

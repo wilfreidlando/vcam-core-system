@@ -32,8 +32,8 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
         $payment = $this->makePayment(callbackUrl: null);
         $this->payments->save($payment);
 
-        $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
-        $job->handle($this->payments, $this->sender);
+        $job = new DeliverPaymentCallbackJob('01a00000-0000-0000-0000-000000000001', 'evt-1', ['payment_id' => '01a00000-0000-0000-0000-000000000001', 'status' => 'succeeded']);
+        $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
 
         self::assertSame(0, $this->sender->callCount, 'sender must not be called when callbackUrl is null');
     }
@@ -53,10 +53,10 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
 
         $this->sender->nextOutcome = PaymentCallbackSendOutcome::failure(405, 'wrong method');
 
-        $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
+        $job = new DeliverPaymentCallbackJob('01a00000-0000-0000-0000-000000000001', 'evt-1', ['payment_id' => '01a00000-0000-0000-0000-000000000001', 'status' => 'succeeded']);
 
         // No expectException — the contract is "returns cleanly".
-        $job->handle($this->payments, $this->sender);
+        $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
 
         self::assertSame(1, $this->sender->callCount, 'sender called exactly once');
     }
@@ -68,12 +68,12 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
 
         $this->sender->nextOutcome = PaymentCallbackSendOutcome::failure(503, 'service unavailable');
 
-        $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
+        $job = new DeliverPaymentCallbackJob('01a00000-0000-0000-0000-000000000001', 'evt-1', ['payment_id' => '01a00000-0000-0000-0000-000000000001', 'status' => 'succeeded']);
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('service unavailable');
 
-        $job->handle($this->payments, $this->sender);
+        $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
     }
 
     public function test_network_failure_status_null_is_treated_as_transient(): void
@@ -83,10 +83,10 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
 
         $this->sender->nextOutcome = PaymentCallbackSendOutcome::failure(null, 'connection refused');
 
-        $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
+        $job = new DeliverPaymentCallbackJob('01a00000-0000-0000-0000-000000000001', 'evt-1', ['payment_id' => '01a00000-0000-0000-0000-000000000001', 'status' => 'succeeded']);
 
         $this->expectException(RuntimeException::class);
-        $job->handle($this->payments, $this->sender);
+        $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
     }
 
     public function test_429_is_transient_even_though_it_is_4xx(): void
@@ -96,10 +96,10 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
 
         $this->sender->nextOutcome = PaymentCallbackSendOutcome::failure(429, 'slow down');
 
-        $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
+        $job = new DeliverPaymentCallbackJob('01a00000-0000-0000-0000-000000000001', 'evt-1', ['payment_id' => '01a00000-0000-0000-0000-000000000001', 'status' => 'succeeded']);
 
         $this->expectException(RuntimeException::class);
-        $job->handle($this->payments, $this->sender);
+        $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
     }
 
     public function test_408_is_transient(): void
@@ -109,10 +109,10 @@ final class DeliverPaymentCallbackJobTest extends PHPUnit\Framework\TestCase
 
         $this->sender->nextOutcome = PaymentCallbackSendOutcome::failure(408, 'request timeout');
 
-        $job = new DeliverPaymentCallbackJob('mycoolpay', 'tx-1');
+        $job = new DeliverPaymentCallbackJob('01a00000-0000-0000-0000-000000000001', 'evt-1', ['payment_id' => '01a00000-0000-0000-0000-000000000001', 'status' => 'succeeded']);
 
         $this->expectException(RuntimeException::class);
-        $job->handle($this->payments, $this->sender);
+        $job->handle($this->payments, $this->sender, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey());
     }
 
     protected function setUp(): void
@@ -157,7 +157,7 @@ final class RecordingCallbackSender implements PaymentCallbackSender
 
     public int $callCount = 0;
 
-    public function send(Payment $payment): PaymentCallbackSendOutcome
+    public function send(Payment $payment, string $eventId, array $data): PaymentCallbackSendOutcome
     {
         $this->callCount++;
 

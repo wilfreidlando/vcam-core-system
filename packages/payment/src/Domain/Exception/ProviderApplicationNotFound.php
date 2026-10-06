@@ -20,6 +20,11 @@ final class ProviderApplicationNotFound extends RuntimeException
         return new self("No {$providerCode} application is registered for project {$projectId}.");
     }
 
+    public static function withId(string $id): self
+    {
+        return new self("Provider application {$id} not found.");
+    }
+
     public static function forPublicKey(string $providerCode, string $publicKey): self
     {
         return new self("No {$providerCode} application is registered for public key {$publicKey}.");

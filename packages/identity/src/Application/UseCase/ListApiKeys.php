@@ -27,6 +27,7 @@ final readonly class ListApiKeys implements ListApiKeysPort
                 scopes: $apiKey->scopes(),
                 revoked: $apiKey->isRevoked(),
                 createdAt: $apiKey->createdAt,
+                lastUsedAt: $apiKey->lastUsedAt,
             ),
             $this->apiKeys->findAllByProject($command->projectId),
         );

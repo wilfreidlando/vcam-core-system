@@ -9,6 +9,7 @@ use Core\Events\Contracts\OutboxEventPublished;
 use Core\Events\Contracts\RelayOutboxEvents;
 use Core\Events\Infrastructure\Persistence\Eloquent\EventOutboxRecord;
 use Core\Support\Clock;
+use Core\Support\Observability\TraceContext;
 
 /**
  * The single physical reader of `event_outbox` (ADR-0040 §1). Every
@@ -56,6 +57,16 @@ final readonly class OutboxRelay implements RelayOutboxEvents
                 correlationId: $row->correlation_id,
                 occurredAt: $row->created_at,
                 skipWebhookEndpointFanOut: $row->skip_webhook_endpoint_fan_out,
+                environment: $row->environment,
+            );
+
+            // ADR-0059: the relay runs in the scheduler, outside the request
+            // that wrote the row — restore that request's correlation and
+            // trace ids so the queued listeners and the jobs they dispatch
+            // (Laravel carries Context into jobs) stay on the same thread.
+            TraceContext::begin(
+                TraceContext::sanitizeCorrelationId($row->correlation_id),
+                is_string($row->trace_id) && preg_match('/^[0-9a-f]{32}$/', $row->trace_id) === 1 ? $row->trace_id : null,
             );
 
             event(new OutboxEventPublished($event));

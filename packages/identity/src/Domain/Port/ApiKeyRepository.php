@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Identity\Domain\Port;
 
 use Core\Identity\Domain\Model\ApiKey;
+use DateTimeImmutable;
 
 interface ApiKeyRepository
 {
@@ -28,4 +29,20 @@ interface ApiKeyRepository
      * @return list<ApiKey>
      */
     public function findAllByProject(string $projectId): array;
+
+    /**
+     * ADR-0060 — the project's single key for that environment, if any.
+     */
+    public function findByProjectAndEnvironment(string $projectId, \Core\Support\Environment $environment): ?ApiKey;
+
+    /**
+     * ADR-0060 — revoking deletes the key; the audit trail keeps the record.
+     */
+    public function delete(string $id): void;
+
+    /**
+     * Records that the key was just used, at most once a minute (cheap
+     * enough to run on every authenticated request).
+     */
+    public function touchLastUsed(string $id, DateTimeImmutable $at): void;
 }

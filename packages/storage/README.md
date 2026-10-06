@@ -2,7 +2,7 @@
 
 **Bounded context:** `storage`
 **Responsibility:** Object storage, media metadata, signed URLs, lifecycle. Out of MVP scope (advanced).
-**Delivery lot:** Post-MVP — see [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+**Delivery lot:** Post-MVP — see [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## Internal structure
 

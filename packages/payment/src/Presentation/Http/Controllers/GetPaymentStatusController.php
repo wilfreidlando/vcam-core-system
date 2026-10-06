@@ -39,26 +39,22 @@ final class GetPaymentStatusController
             return ProblemDetails::forbidden('The payments:read scope is required.');
         }
 
-        $view = $this->getPaymentStatus->get(new GetPaymentStatusCommand($paymentId, $project->projectId));
+        $view = $this->getPaymentStatus->get(new GetPaymentStatusCommand($paymentId, $project->projectId, $project->environment));
 
+        // ADR-0061 — same shape as the creation response, plus `updated_at`.
+        // `is_final` tells the caller whether to keep waiting.
         return new JsonResponse([
             'id' => $view->id,
-            'channel' => $view->channel,
             'status' => $view->status,
+            'is_final' => $view->isFinal,
             'amount' => $view->amount,
             'currency' => $view->currency,
-            'requires_action' => $view->requiresAction,
-            'action_hint' => $view->actionHint,
-            'payment_url' => $view->paymentUrl,
-            'error_message' => $view->errorMessage,
-            // Review finding, user-directed: this is the documented
-            // fallback truth source when a webhook is missed — it must
-            // hand back the same caller-supplied context the webhook
-            // already does (its own Idempotency-Key, and the callback_url
-            // it registered), or polling here loses information the
-            // webhook has.
-            'idempotency_key' => $view->idempotencyKey,
-            'callback_url' => $view->callbackUrl,
+            'channel' => $view->channel,
+            'created_at' => $view->createdAt,
+            'updated_at' => $view->updatedAt,
+            ...($view->paymentUrl !== null && ! $view->isFinal ? ['payment_url' => $view->paymentUrl] : []),
+            ...($view->actionHint !== null && ! $view->isFinal ? ['action_hint' => $view->actionHint] : []),
+            ...($view->isFinal && $view->status !== 'succeeded' && $view->errorMessage !== null ? ['failure_reason' => $view->errorMessage] : []),
         ]);
     }
 }

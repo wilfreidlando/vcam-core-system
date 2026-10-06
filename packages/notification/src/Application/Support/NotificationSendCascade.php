@@ -23,6 +23,7 @@ use Core\Notification\NotificationStatus;
 use Core\Parties\Contracts\FindOrCreatePartyCommand;
 use Core\Parties\Contracts\PartyFinder;
 use Core\Support\Clock;
+use Core\Support\Environment;
 use Core\Support\Identifier;
 use Core\Support\UnitOfWork;
 use Psr\Log\LoggerInterface;
@@ -80,6 +81,7 @@ final readonly class NotificationSendCascade
         array $body,
         string $contentType,
         string $idempotencyKey,
+        Environment $environment = Environment::Live,
     ): NotificationView {
         $existing = $this->notifications->findByIdempotencyKey($projectId, $idempotencyKey);
         if ($existing !== null) {
@@ -118,6 +120,9 @@ final readonly class NotificationSendCascade
             providerCode: null,
             providerMessageId: null,
             errorMessage: null,
+            environment: $environment,
+            content: $body,
+            variables: $variables,
         );
 
         try {
@@ -153,7 +158,7 @@ final readonly class NotificationSendCascade
                 $result = $gateway->send($outbound);
             } catch (Throwable $e) {
                 $lastError = $e->getMessage();
-                $this->deliveries->record($id, $providerCode->toString(), null, NotificationStatus::Failed, $attempt);
+                $this->deliveries->record($id, $providerCode->toString(), null, NotificationStatus::Failed, $attempt, $lastError);
                 $this->logger->warning('notification.send.provider_failed', [
                     'notification_id' => $id,
                     'provider_code' => $providerCode->toString(),
@@ -164,7 +169,7 @@ final readonly class NotificationSendCascade
                 continue;
             }
 
-            $this->deliveries->record($id, $providerCode->toString(), $result->providerMessageId, $result->status, $attempt);
+            $this->deliveries->record($id, $providerCode->toString(), $result->providerMessageId, $result->status, $attempt, $result->errorMessage);
 
             $sent = $queued
                 ->withStatusChange($result->status, $result->errorMessage)
@@ -202,6 +207,7 @@ final readonly class NotificationSendCascade
                 ],
                 null,
                 $this->clock->now(),
+                environment: $failed->environment->value,
             ));
         });
 

@@ -47,6 +47,7 @@ it('does nothing when no payment is stuck', function (): void {
         logger: new NullLogger,
         stuckAfterMinutes: 15,
         batchSize: 100,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
     $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand);
@@ -75,6 +76,7 @@ it('does not call the handler when checkStatus reports the same status', functio
         logger: new NullLogger,
         stuckAfterMinutes: 15,
         batchSize: 100,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
     $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand);
@@ -102,6 +104,7 @@ it('hands the handler a correctly-shaped event when the provider reports a settl
         logger: new NullLogger,
         stuckAfterMinutes: 15,
         batchSize: 100,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
     $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand);
@@ -136,6 +139,7 @@ it('logs and skips a payment whose provider call fails, without aborting the bat
         logger: new NullLogger,
         stuckAfterMinutes: 15,
         batchSize: 100,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
     $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand);
@@ -172,6 +176,7 @@ it('logs and skips a payment whose handler fails with a non-provider exception, 
         logger: new NullLogger,
         stuckAfterMinutes: 15,
         batchSize: 100,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
     $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand);
@@ -201,6 +206,7 @@ it('honours limitOverride over the configured batch size', function (): void {
         logger: new NullLogger,
         stuckAfterMinutes: 15,
         batchSize: 100,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
     $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand(limitOverride: 2));

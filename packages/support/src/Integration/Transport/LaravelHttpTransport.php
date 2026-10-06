@@ -10,6 +10,9 @@ use Core\Support\Integration\Exception\ProviderTransientError;
 use Core\Support\Integration\ExternalResponse;
 use Core\Support\Integration\HttpMethod;
 use Core\Support\Integration\Provider\ProviderCode;
+use Core\Support\Observability\TraceContext;
+use Core\Support\Observability\Tracing\SpanKind;
+use Core\Support\Observability\Tracing\Tracer;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Response;
@@ -28,6 +31,9 @@ use Throwable;
  *  - We never set a `stream` timeout; the foundation is request-response,
  *    not streaming.
  *
+ * Redirects are never followed (`allow_redirects => false`): a `3xx`
+ * comes back as a plain response the caller classifies as a failure.
+ *
  * Errors:
  *  - `ConnectionException` (network, DNS, TLS handshake, timeout) is
  *    translated to `ProviderTransientError`.
@@ -38,12 +44,25 @@ use Throwable;
  * caller's job (4xx is not always a failure, 2xx is not always success
  * when the body says otherwise).
  */
-final readonly class LaravelHttpTransport implements HttpTransport
+final readonly class LaravelHttpTransport implements PinnableHttpTransport
 {
+    /**
+     * @param list<string> $curlResolve `CURLOPT_RESOLVE` entries
+     *                                  (`host:port:ip`) — set only through `pinnedTo()`.
+     */
     public function __construct(
         private HttpFactory $factory,
         private Clock $clock,
+        private array $curlResolve = [],
+        private Tracer $tracer = new Tracer,
     ) {}
+
+    public function pinnedTo(string $host, int $port, string $ip): HttpTransport
+    {
+        $address = str_contains($ip, ':') ? '['.$ip.']' : $ip;
+
+        return new self($this->factory, $this->clock, [sprintf('%s:%d:%s', $host, $port, $address)], $this->tracer);
+    }
 
     public function send(
         HttpMethod $method,
@@ -53,6 +72,18 @@ final readonly class LaravelHttpTransport implements HttpTransport
         ?float $timeoutSeconds = null,
     ): ExternalResponse {
         $startedAt = $this->nowMs();
+
+        // ADR-0059: one CLIENT span per outbound call, and a W3C
+        // `traceparent` so a receiver that speaks Trace Context can join.
+        $span = $this->tracer->start('HTTP '.$method->value, SpanKind::Client, [
+            'http.request.method' => $method->value,
+            'url.full' => self::withoutQuery($url),
+            'server.address' => (string) parse_url($url, PHP_URL_HOST),
+        ]);
+        $traceparent = TraceContext::traceparent($span->spanId);
+        if ($traceparent !== null && $this->tracer->enabled()) {
+            $headers['traceparent'] = $traceparent;
+        }
 
         $resolvedTimeout = $timeoutSeconds ?? 30.0;
         $connectTimeout = 2;
@@ -68,9 +99,14 @@ final readonly class LaravelHttpTransport implements HttpTransport
             ->timeout($timeoutInt)
             ->connectTimeout($connectTimeout)
             ->acceptJson()
-            ->withOptions([
+            ->withOptions(array_filter([
                 'http_errors' => false,
-            ]);
+                // Audit 2026-10-03 §2.1: never follow a redirect. A 3xx is
+                // returned to the caller as-is (a failed delivery), so a
+                // public URL cannot bounce the Core onto an internal address.
+                'allow_redirects' => false,
+                'curl' => $this->curlResolve === [] ? null : [CURLOPT_RESOLVE => $this->curlResolve],
+            ], static fn (mixed $value): bool => $value !== null));
 
         if ($body !== null) {
             if (is_array($body)) {
@@ -91,12 +127,16 @@ final readonly class LaravelHttpTransport implements HttpTransport
                 HttpMethod::DELETE => $pending->delete($url),
             };
         } catch (ConnectionException $e) {
+            $this->tracer->end($span->markError($e->getMessage()));
+
             throw new ProviderTransientError(
                 sprintf('HTTP transport failed for %s %s: %s', $method->value, $url, $e->getMessage()),
                 ProviderCode::fromString('transport'),
                 previous: $e,
             );
         } catch (Throwable $e) {
+            $this->tracer->end($span->markError($e->getMessage()));
+
             throw new ProviderPermanentError(
                 sprintf('HTTP transport failed for %s %s: %s', $method->value, $url, $e->getMessage()),
                 ProviderCode::fromString('transport'),
@@ -106,7 +146,20 @@ final readonly class LaravelHttpTransport implements HttpTransport
 
         $endedAt = $this->nowMs();
 
+        $span->setAttribute('http.response.status_code', $response->status());
+        if ($response->status() >= 500) {
+            $span->markError('HTTP '.$response->status());
+        }
+        $this->tracer->end($span);
+
         return $this->adaptResponse($response, max(0, $endedAt - $startedAt));
+    }
+
+    private static function withoutQuery(string $url): string
+    {
+        $position = strpos($url, '?');
+
+        return $position === false ? $url : substr($url, 0, $position);
     }
 
     private function nowMs(): int

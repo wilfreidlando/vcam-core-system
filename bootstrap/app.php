@@ -2,11 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Observability\MetricsController;
+use App\Http\Controllers\Observability\ReadinessController;
 use App\Http\ExceptionProblemMapping;
+use App\Http\Middleware\RecordHttpMetrics;
 use Core\Identity\Presentation\Http\Middleware\ResolveOperatorMiddleware;
 use Core\Identity\Presentation\Http\Middleware\ResolveProjectMiddleware;
 use Core\Support\Http\Middleware\CorrelationId;
+use Core\Support\Http\Middleware\LogHttpExchange;
 use Core\Support\Http\Middleware\RequireIdempotencyKey;
+use Core\Support\Http\Middleware\TraceHttpRequest;
 use Core\Support\Http\ProblemDetails;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Console\Scheduling\Schedule;
@@ -15,6 +20,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
@@ -27,21 +33,32 @@ return Application::configure(basePath: dirname(__DIR__))
         // The published contract uses /v1/... paths (spec technique §13,
         // ADR-0028), not Laravel's default /api/v1/....
         apiPrefix: '',
+        // ADR-0059: probes and the Prometheus scrape — outside every
+        // middleware group (no session, no auth middleware: each guards
+        // itself).
+        then: function (): void {
+            Route::get('/ready', ReadinessController::class)->name('observability.ready');
+            Route::get('/metrics', MetricsController::class)->name('observability.metrics');
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Every request carries a correlation id, inbound or generated, so that
         // logs, events, webhooks and audit entries are traceable end to end.
         $middleware->append(CorrelationId::class);
+        // ADR-0059: request/response pair in the logs, after CorrelationId so
+        // both lines carry the correlation and trace ids.
+        $middleware->append(LogHttpExchange::class);
+        $middleware->append(TraceHttpRequest::class);
+        $middleware->append(RecordHttpMetrics::class);
 
-        // Deployed topology (ADR-0053): the app container is never reached
-        // directly — only via a chain of two reverse proxies (the shared
-        // nginx-proxy + this project's own nginx sidecar), both on the
-        // Docker-internal network. Trusting every proxy is safe specifically
-        // because nothing else can reach this container's port at all; it's
-        // what makes `$request->ip()` (operator-auth's per-IP throttle,
-        // ADR-0046) and the detected request scheme (redirect URLs, secure
-        // cookies) reflect the real client instead of the proxy hop.
-        $middleware->trustProxies(at: '*');
+        // Trusted reverse proxies: see config/trustedproxy.php (audit
+        // 2026-10-03 §2.2). Laravel's global TrustProxies middleware reads
+        // `trustedproxy.proxies` itself; ADR-0064 swaps it for a subclass that
+        // only honours forwarded headers coming from this project's sidecar.
+        $middleware->replace(
+            Illuminate\Http\Middleware\TrustProxies::class,
+            App\Http\Middleware\TrustProxiesFromSidecar::class,
+        );
 
         $middleware->api(prepend: [
             HandleCors::class,
@@ -77,6 +94,20 @@ return Application::configure(basePath: dirname(__DIR__))
         // ADR-0044: background reconciliation for missed webhooks (spec
         // technique §10). Same overlap protection reasoning as events:relay.
         $schedule->command('admin:reconcile-stuck-payments')->everyFiveMinutes()->withoutOverlapping();
+
+        // Audit 2026-10-03 §4.3: re-dispatch webhook deliveries whose job was lost.
+        $schedule->command('webhook:sweep')->everyFiveMinutes()->withoutOverlapping();
+
+        // Audit 2026-10-03 §4.6: bounded retention. Class names as strings —
+        // the composition root never imports a module's Infrastructure.
+        $schedule->command('model:prune', ['--model' => [
+            'Core\\Events\\Infrastructure\\Persistence\\Eloquent\\EventOutboxRecord',
+            'Core\\Webhook\\Infrastructure\\Persistence\\Eloquent\\WebhookDeliveryRecord',
+            'Core\\Payment\\Infrastructure\\Persistence\\Eloquent\\PaymentTimelineEntryRecord',
+        ]])->dailyAt('03:17')->withoutOverlapping();
+
+        // ADR-0062 / D5: notification content (phone numbers…) kept 90 days.
+        $schedule->command('notification:redact-expired')->dailyAt('03:27')->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // One error format across the whole Core's JSON surface: RFC 7807

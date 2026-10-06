@@ -2,7 +2,7 @@
 
 **Bounded context:** `payment`
 **Responsibility:** Payment intents, orchestration state machine, provider adapters (MTN MoMo, Orange Money), refunds.
-**Delivery lot:** Lot 3 — see [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+**Delivery lot:** Lot 3 — see [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## Internal structure
 

@@ -8,6 +8,7 @@ use Core\Payment\Domain\Exception\PaymentAlreadyExists;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\PaymentStatus;
+use Core\Support\Environment;
 use DateTimeImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Crypt;
@@ -114,7 +115,7 @@ final class EloquentPaymentRepository implements PaymentRepository
         return $payments;
     }
 
-    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage): array
+    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage, ?Environment $environment = null): array
     {
         // See findStuckSince() above for why this goes through toBase()/hydrate().
         $query = PaymentRecord::query();
@@ -125,6 +126,10 @@ final class EloquentPaymentRepository implements PaymentRepository
 
         if ($status !== null) {
             $base->where('status', $status->value);
+        }
+
+        if ($environment !== null) {
+            $base->where('environment', $environment->value);
         }
 
         $total = (clone $base)->count();
@@ -191,6 +196,7 @@ final class EloquentPaymentRepository implements PaymentRepository
             'wallet_recipient_external_ref' => $payment->walletRecipientExternalRef,
             'callback_url' => $payment->callbackUrl,
             'callback_secret_encrypted' => $payment->callbackSecret === null ? null : Crypt::encryptString($payment->callbackSecret),
+            'environment' => $payment->environment->value,
         ];
     }
 
@@ -223,6 +229,8 @@ final class EloquentPaymentRepository implements PaymentRepository
             // framework-free (G3b), so this is where the conversion has
             // to happen.
             updatedAt: DateTimeImmutable::createFromInterface($record->updated_at),
+            environment: Environment::from($record->environment),
+            createdAt: DateTimeImmutable::createFromInterface($record->created_at),
         );
     }
 }

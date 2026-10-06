@@ -24,7 +24,7 @@ final class NotificationDeliveryRecord extends Model
 
     protected $table = 'notification_deliveries';
 
-    protected $fillable = ['id', 'notification_id', 'provider_code', 'provider_message_id', 'canonical_status', 'attempt'];
+    protected $fillable = ['id', 'notification_id', 'provider_code', 'provider_message_id', 'canonical_status', 'attempt', 'error'];
 
     protected $casts = [
         'attempt' => 'int',

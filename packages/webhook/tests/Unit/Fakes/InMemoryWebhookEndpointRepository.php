@@ -27,19 +27,21 @@ final class InMemoryWebhookEndpointRepository implements WebhookEndpointReposito
         return $this->endpoints[$id] ?? null;
     }
 
-    public function findActiveForProject(string $projectId): array
+    public function findActiveForProject(string $projectId, ?\Core\Support\Environment $environment = null): array
     {
         return array_values(array_filter(
             $this->endpoints,
-            static fn (WebhookEndpoint $endpoint): bool => $endpoint->projectId === $projectId && $endpoint->active,
+            static fn (WebhookEndpoint $endpoint): bool => $endpoint->projectId === $projectId && $endpoint->active
+                && ($environment === null || $endpoint->environment === $environment),
         ));
     }
 
-    public function findAllForProject(string $projectId): array
+    public function findAllForProject(string $projectId, ?\Core\Support\Environment $environment = null): array
     {
         return array_values(array_filter(
             $this->endpoints,
-            static fn (WebhookEndpoint $endpoint): bool => $endpoint->projectId === $projectId,
+            static fn (WebhookEndpoint $endpoint): bool => $endpoint->projectId === $projectId
+                && ($environment === null || $endpoint->environment === $environment),
         ));
     }
 }

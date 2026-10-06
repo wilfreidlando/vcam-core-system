@@ -27,6 +27,7 @@ final class ApiKey
         private array $scopes,
         private ?DateTimeImmutable $revokedAt,
         public readonly DateTimeImmutable $createdAt,
+        public readonly ?DateTimeImmutable $lastUsedAt = null,
     ) {}
 
     /**

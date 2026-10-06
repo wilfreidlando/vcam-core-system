@@ -15,4 +15,7 @@ return [
         'multiplier' => (int) env('WEBHOOK_RETRY_MULTIPLIER', 3),
         'max_delay_seconds' => (int) env('WEBHOOK_RETRY_MAX_DELAY_SECONDS', 21_600),
     ],
+
+    // Terminal deliveries older than this are pruned (audit 2026-10-03 §4.6).
+    'retention_days' => (int) env('WEBHOOK_RETENTION_DAYS', 90),
 ];

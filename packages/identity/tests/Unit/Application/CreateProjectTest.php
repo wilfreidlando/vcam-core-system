@@ -13,6 +13,7 @@ use Core\Identity\Tests\Unit\Fakes\FixedClock;
 use Core\Identity\Tests\Unit\Fakes\InMemoryApiKeyRepository;
 use Core\Identity\Tests\Unit\Fakes\InMemoryOrganizationRepository;
 use Core\Identity\Tests\Unit\Fakes\InMemoryProjectRepository;
+use Core\Identity\Tests\Unit\Fakes\PassthroughUnitOfWork;
 use Core\Identity\Tests\Unit\Fakes\RecordingAuditLogger;
 use Core\Identity\Tests\Unit\Fakes\SequentialIdentifier;
 
@@ -25,7 +26,7 @@ it('creates a project under an existing organization, provisions a sandbox and a
     $audit = new RecordingAuditLogger;
     $identifier = new SequentialIdentifier;
     $clock = new FixedClock;
-    $issueApiKey = new IssueApiKey($projects, $apiKeys, new FixedApiKeySecretGenerator, $identifier, $audit, $clock);
+    $issueApiKey = new IssueApiKey($projects, $apiKeys, new FixedApiKeySecretGenerator, $identifier, $audit, $clock, new PassthroughUnitOfWork);
     $useCase = new CreateProject($organizations, $projects, $issueApiKey, $identifier, $audit, $clock);
 
     $provisioned = $useCase->create(new CreateProjectCommand('org-1', 'Tourism Platform'), actor: 'operator:1', correlationId: 'corr-1');
@@ -48,7 +49,7 @@ it('refuses to create a project under an unknown organization', function (): voi
     $useCase = new CreateProject(
         new InMemoryOrganizationRepository,
         $projects,
-        new IssueApiKey($projects, $apiKeys, new FixedApiKeySecretGenerator, $identifier, $audit, $clock),
+        new IssueApiKey($projects, $apiKeys, new FixedApiKeySecretGenerator, $identifier, $audit, $clock, new PassthroughUnitOfWork),
         $identifier,
         $audit,
         $clock,

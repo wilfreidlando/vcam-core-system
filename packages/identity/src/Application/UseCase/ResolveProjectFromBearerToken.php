@@ -10,6 +10,7 @@ use Core\Identity\Domain\Exception\ProjectNotActive;
 use Core\Identity\Domain\Model\ApiKeyToken;
 use Core\Identity\Domain\Port\ApiKeyRepository;
 use Core\Identity\Domain\Port\ProjectRepository;
+use Core\Support\Clock;
 
 /**
  * The authentication path every capability request runs through
@@ -23,6 +24,7 @@ final readonly class ResolveProjectFromBearerToken
     public function __construct(
         private ApiKeyRepository $apiKeys,
         private ProjectRepository $projects,
+        private Clock $clock,
     ) {}
 
     public function __invoke(string $bearerToken): ProjectContext
@@ -47,11 +49,14 @@ final readonly class ResolveProjectFromBearerToken
             throw ProjectNotActive::withId($project->id);
         }
 
+        $this->apiKeys->touchLastUsed($apiKey->id, $this->clock->now());
+
         return new ProjectContext(
             projectId: $project->id,
             organizationId: $project->organizationId,
             environment: $apiKey->environment,
             scopes: $apiKey->scopes(),
+            apiKeyPrefix: $apiKey->prefix,
         );
     }
 }

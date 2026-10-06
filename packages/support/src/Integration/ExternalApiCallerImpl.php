@@ -15,6 +15,9 @@ use Core\Support\Integration\Exception\ProviderTransientError;
 use Core\Support\Integration\Redaction\PayloadRedactor;
 use Core\Support\Integration\Signing\RequestSigner;
 use Core\Support\Integration\Transport\HttpTransport;
+use Core\Support\Observability\ExchangeJournal;
+use Core\Support\Observability\IntegrationExchange;
+use Core\Support\Observability\NullExchangeJournal;
 use LogicException;
 use Psr\Log\LoggerInterface;
 
@@ -61,6 +64,7 @@ final readonly class ExternalApiCallerImpl implements ExternalApiCaller
         private LoggerInterface $logger,
         private iterable $authProviders,
         private CorrelationIdProvider $correlationIds,
+        private ExchangeJournal $journal = new NullExchangeJournal,
     ) {}
 
     public function send(ProviderConfig $config, ExternalRequest $request): ExternalResponse
@@ -118,6 +122,7 @@ final readonly class ExternalApiCallerImpl implements ExternalApiCaller
                     'correlation_id' => $correlationId,
                     'operation' => $request->operation,
                 ]);
+                $this->journal->record($this->exchange($config, $request, $url, $headers, $body, null, null, 0, $attempt, $e->getMessage()));
                 $this->circuitBreaker->recordFailure($config->code);
                 $this->sleepBeforeNextAttempt($config, $attempt);
 
@@ -141,6 +146,8 @@ final readonly class ExternalApiCallerImpl implements ExternalApiCaller
                 'redacted_headers' => $this->redactor->redactHeaders($response->headers),
                 'redacted_body' => $this->redactor->redact($response->body),
             ]);
+
+            $this->journal->record($this->exchange($config, $request, $url, $headers, $body, $response->status, $response->body ?? $response->rawBody, $latencyMs, $attempt, null));
 
             if ($config->debug) {
                 $this->logger->debug('integration.debug.completed', [
@@ -214,6 +221,56 @@ final readonly class ExternalApiCallerImpl implements ExternalApiCaller
             sprintf('Provider "%s" exhausted %d attempts.', $config->code->toString(), $maxAttempts),
             $config->code,
         );
+    }
+
+    /**
+     * @param array<string, string> $headers
+     */
+    private function exchange(
+        ProviderConfig $config,
+        ExternalRequest $request,
+        string $url,
+        array $headers,
+        mixed $body,
+        ?int $status,
+        mixed $responseBody,
+        int $latencyMs,
+        int $attempt,
+        ?string $error,
+    ): IntegrationExchange {
+        return new IntegrationExchange(
+            provider: $config->code->toString(),
+            operation: $request->operation ?? 'call',
+            method: $request->method->value,
+            url: $this->appendQuery($url, $this->redactQuery($request->query)),
+            requestHeaders: $this->redactor->redactHeaders($headers),
+            requestBody: $this->redactor->redact($body),
+            responseStatus: $status,
+            responseBody: $this->redactor->redact($responseBody),
+            latencyMs: $latencyMs,
+            attempt: $attempt,
+            error: $error,
+            occurredAt: $this->clock->now(),
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $query
+     * @return array<string, mixed>
+     */
+    private function redactQuery(array $query): array
+    {
+        $redacted = $this->redactor->redact($query);
+        if (! is_array($redacted)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($redacted as $key => $value) {
+            $result[(string) $key] = $value;
+        }
+
+        return $result;
     }
 
     private function assertProviderCodesMatch(ProviderConfig $config, ExternalRequest $request): void

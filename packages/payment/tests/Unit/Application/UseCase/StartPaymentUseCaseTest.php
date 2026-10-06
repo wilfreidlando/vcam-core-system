@@ -30,7 +30,7 @@ function makeStartPaymentUseCase(): array
     $gateway = new FakePaymentGateway(ProviderCode::fromString('my-coolpay'));
     $registry->register($gateway);
 
-    $useCase = new StartPaymentUseCase($payments, $router, $registry, new SequentialIdentifier, new FixedPaymentCallbackSecretGenerator, new FakeIsSupportedCurrency);
+    $useCase = new StartPaymentUseCase($payments, $router, $registry, new SequentialIdentifier, new FixedPaymentCallbackSecretGenerator, new FakeIsSupportedCurrency, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(), new Core\Payment\Tests\Unit\Fakes\InMemoryProviderApplicationRepository, new Core\Payment\Tests\Unit\Fakes\FakeSandboxSimulator);
 
     return [$useCase, $payments, $gateway];
 }
@@ -183,7 +183,7 @@ it('refuses a currency outside the ledger allow-list, before ever calling the pr
     $registry = new FakePaymentGatewayRegistry;
     $gateway = new FakePaymentGateway(ProviderCode::fromString('my-coolpay'));
     $registry->register($gateway);
-    $useCase = new StartPaymentUseCase($payments, $router, $registry, new SequentialIdentifier, new FixedPaymentCallbackSecretGenerator, new FakeIsSupportedCurrency(['XAF']));
+    $useCase = new StartPaymentUseCase($payments, $router, $registry, new SequentialIdentifier, new FixedPaymentCallbackSecretGenerator, new FakeIsSupportedCurrency(['XAF']), Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(), new Core\Payment\Tests\Unit\Fakes\InMemoryProviderApplicationRepository, new Core\Payment\Tests\Unit\Fakes\FakeSandboxSimulator);
 
     $command = new StartPaymentCommand(
         projectId: 'project-1',
@@ -217,4 +217,32 @@ it('never re-exposes the callback secret on an idempotent replay', function (): 
 
     expect($first->callbackSecret)->toBe('fixed-callback-secret')
         ->and($second->callbackSecret)->toBeNull();
+});
+
+it('sends a sandbox payment to the simulator when the project has no sandbox application (ADR-0060)', function (): void {
+    $payments = new InMemoryPaymentRepository;
+    $router = new FakePaymentProviderRouter;
+    $registry = new FakePaymentGatewayRegistry;
+    $gateway = new FakePaymentGateway(ProviderCode::fromString('my-coolpay'));
+    $registry->register($gateway);
+    $simulator = new Core\Payment\Tests\Unit\Fakes\FakeSandboxSimulator;
+
+    $useCase = new StartPaymentUseCase($payments, $router, $registry, new SequentialIdentifier, new FixedPaymentCallbackSecretGenerator, new FakeIsSupportedCurrency, Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(), new Core\Payment\Tests\Unit\Fakes\InMemoryProviderApplicationRepository, $simulator);
+
+    $command = new StartPaymentCommand(
+        projectId: 'project-1',
+        channel: PaymentChannel::fromString('mtn_momo'),
+        amount: 1_000,
+        currency: 'XAF',
+        reason: 'Sandbox order',
+        idempotencyKey: 'idem-sbx',
+        environment: Core\Support\Environment::Sandbox,
+    );
+
+    $view = $useCase->start($command);
+    $stored = $payments->find($view->id);
+
+    expect($simulator->calls)->toBe(1)
+        ->and($stored?->providerCode)->toBe('sandbox')
+        ->and($stored?->environment)->toBe(Core\Support\Environment::Sandbox);
 });

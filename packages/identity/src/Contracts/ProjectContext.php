@@ -23,6 +23,9 @@ final readonly class ProjectContext
         public string $organizationId,
         public Environment $environment,
         public array $scopes,
+        // The visible part of the key that authenticated the request
+        // (never the secret) — for logs and the payment "Parcours".
+        public string $apiKeyPrefix = '',
     ) {}
 
     public function hasScope(string $scope): bool

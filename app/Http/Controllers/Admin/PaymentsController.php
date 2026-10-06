@@ -12,8 +12,10 @@ use Core\Identity\Contracts\ListProjectsCommand;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Payment\Contracts\GetPaymentStatus;
 use Core\Payment\Contracts\GetPaymentStatusCommand;
+use Core\Payment\Contracts\GetPaymentTimeline;
 use Core\Payment\Contracts\ListPayments;
 use Core\Payment\Contracts\ListPaymentsCommand;
+use Core\Webhook\Contracts\GetWebhookDeliveryDetails;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use RuntimeException;
@@ -42,11 +44,29 @@ final class PaymentsController
      */
     private const PROJECT_OPTIONS_LIMIT = 100;
 
+    private const JOURNEY_LABELS = [
+        'api_request_received' => 'Requête reçue',
+        'provider_exchange' => 'Appel provider',
+        'initiated' => 'Paiement créé',
+        'idempotent_replay' => 'Requête rejouée',
+        'api_response_sent' => 'Réponse envoyée',
+        'provider_callback_received' => 'Callback provider',
+        'provider_callback_rejected' => 'Callback rejeté',
+        'reconciliation_checked' => 'Réconciliation',
+        'status_changed' => 'Changement de statut',
+        'status_change_ignored' => 'Statut ignoré',
+        'wallet_credited' => 'Wallet crédité',
+        'event_published' => 'Événement publié',
+        'callback_attempt' => 'Callback URL',
+    ];
+
     public function __construct(
         private readonly ListPayments $listPayments,
         private readonly GetPaymentStatus $getPaymentStatus,
         private readonly ListProjects $listProjects,
         private readonly GetProject $getProject,
+        private readonly GetPaymentTimeline $timeline,
+        private readonly GetWebhookDeliveryDetails $webhookDeliveries,
     ) {}
 
     public function index(Request $request, OperatorContext $operator): Response
@@ -60,6 +80,10 @@ final class PaymentsController
         $projectId = (string) $request->query('project_id', '');
         $channel = (string) $request->query('channel', '');
         $status = (string) $request->query('status', '');
+        $environment = (string) $request->query('environment', '');
+        if (! in_array($environment, ['', 'live', 'sandbox'], true)) {
+            $environment = '';
+        }
 
         // A malformed (non-UUID) project_id would otherwise reach a
         // `WHERE project_id = ?` against a Postgres `uuid` column and
@@ -82,6 +106,7 @@ final class PaymentsController
             status: $status === '' ? null : $status,
             page: $page,
             perPage: $perPage,
+            environment: $environment === '' ? null : $environment,
         ));
 
         // Filter by channel client-side (contract doesn't carry a channel
@@ -106,6 +131,7 @@ final class PaymentsController
                 'project_id' => $projectId,
                 'channel' => $channel,
                 'status' => $status,
+                'environment' => $environment,
             ],
             'projects' => $projects->items,
             'projectNames' => $projectNames,
@@ -152,6 +178,111 @@ final class PaymentsController
             'payment' => $view,
             'project' => $project,
             'projectId' => $projectId,
+            'journey' => $this->journey($view->id),
+            'grafanaUrl' => self::grafanaUrl(),
         ]);
+    }
+
+    /**
+     * ADR-0059 — the payment's "Parcours": its own timeline, plus every
+     * attempt of every webhook delivery of the events it published, merged
+     * in chronological order.
+     *
+     * @return list<array{at: string, kind: string, label: string, summary: string, details: array<string, mixed>, correlation_id: ?string, trace_id: ?string, tone: string}>
+     */
+    private function journey(string $paymentId): array
+    {
+        $items = [];
+        $eventIds = [];
+
+        foreach ($this->timeline->forPayment($paymentId) as $entry) {
+            if ($entry->type === 'event_published' && is_string($entry->details['event_id'] ?? null)) {
+                $eventIds[] = $entry->details['event_id'];
+            }
+
+            $items[] = [
+                'at' => $entry->occurredAt,
+                'kind' => $entry->type,
+                'label' => self::JOURNEY_LABELS[$entry->type] ?? $entry->type,
+                'summary' => $entry->summary,
+                'details' => $entry->details,
+                'correlation_id' => $entry->correlationId,
+                'trace_id' => $entry->traceId,
+                'tone' => self::tone($entry->type, $entry->details),
+            ];
+        }
+
+        foreach ($this->webhookDeliveries->forEvents($eventIds) as $delivery) {
+            if ($delivery->attempts === []) {
+                $items[] = [
+                    'at' => $delivery->lastAttemptAt ?? $delivery->nextRetryAt ?? '',
+                    'kind' => 'webhook_delivery',
+                    'label' => 'Webhook',
+                    'summary' => sprintf('Livraison vers %s : %s (aucune tentative encore)', $delivery->endpointUrl ?? $delivery->endpointId, $delivery->status),
+                    'details' => ['delivery_id' => $delivery->id, 'event_id' => $delivery->eventId, 'status' => $delivery->status, 'payload' => $delivery->payload],
+                    'correlation_id' => null,
+                    'trace_id' => null,
+                    'tone' => 'neutral',
+                ];
+            }
+
+            foreach ($delivery->attempts as $attempt) {
+                $items[] = [
+                    'at' => $attempt->attemptedAt,
+                    'kind' => 'webhook_attempt',
+                    'label' => 'Webhook',
+                    'summary' => sprintf(
+                        'POST %s — tentative %d : %s%s',
+                        $attempt->url,
+                        $attempt->attempt,
+                        match ($attempt->outcome) {
+                            'delivered' => 'livré',
+                            'dead' => 'échec définitif (DLQ)',
+                            default => 'échec, nouvel essai programmé',
+                        },
+                        $attempt->responseStatus === null ? ' (aucune réponse)' : ' (HTTP '.$attempt->responseStatus.')',
+                    ),
+                    'details' => [
+                        'delivery_id' => $delivery->id,
+                        'event_id' => $delivery->eventId,
+                        'endpoint_id' => $delivery->endpointId,
+                        'request' => ['headers' => $attempt->requestHeaders, 'body' => json_decode($attempt->requestBody, true) ?? $attempt->requestBody],
+                        'response' => ['status' => $attempt->responseStatus, 'body' => $attempt->responseBody],
+                        'duration_ms' => $attempt->durationMs,
+                        'error' => $attempt->error,
+                        'outcome' => $attempt->outcome,
+                    ],
+                    'correlation_id' => $attempt->correlationId,
+                    'trace_id' => $attempt->traceId,
+                    'tone' => $attempt->outcome === 'delivered' ? 'success' : ($attempt->outcome === 'dead' ? 'danger' : 'warning'),
+                ];
+            }
+        }
+
+        usort($items, static fn (array $a, array $b): int => strcmp($a['at'], $b['at']));
+
+        return $items;
+    }
+
+    private static function grafanaUrl(): string
+    {
+        $url = config('observability.grafana_url');
+
+        return is_string($url) ? rtrim($url, '/') : '';
+    }
+
+    /**
+     * @param array<string, mixed> $details
+     */
+    private static function tone(string $type, array $details): string
+    {
+        return match ($type) {
+            'provider_callback_rejected', 'status_change_ignored' => 'danger',
+            'callback_attempt' => ($details['success'] ?? false) === true ? 'success' : 'warning',
+            'status_changed' => ($details['to'] ?? null) === 'succeeded' ? 'success' : ((($details['is_final'] ?? false) === true) ? 'danger' : 'neutral'),
+            'provider_exchange' => is_array($details['response'] ?? null) && is_int($details['response']['status'] ?? null) && $details['response']['status'] < 400 ? 'neutral' : 'warning',
+            'wallet_credited' => 'success',
+            default => 'neutral',
+        };
     }
 }

@@ -22,28 +22,24 @@ final readonly class RevokeApiKey implements RevokeApiKeyPort
 
     public function revoke(RevokeApiKeyCommand $command, string $actor, ?string $correlationId): void
     {
-        $apiKey = $this->apiKeys->find($command->apiKeyId)
-            ?? throw ApiKeyNotFound::withId($command->apiKeyId);
-
-        $wasAlreadyRevoked = $apiKey->isRevoked();
-        $now = $this->clock->now();
-
-        $apiKey->revoke($now);
-        $this->apiKeys->save($apiKey);
-
-        if ($wasAlreadyRevoked) {
-            return;
+        $apiKey = $this->apiKeys->find($command->apiKeyId);
+        if ($apiKey === null || ($command->projectId !== null && $apiKey->projectId !== $command->projectId)) {
+            throw ApiKeyNotFound::withId($command->apiKeyId);
         }
+
+        // ADR-0060: revoking deletes the key — an application using it is
+        // rejected at its next request. The audit trail keeps the record.
+        $this->apiKeys->delete($apiKey->id);
 
         $this->audit->record(new AuditEntry(
             actor: $actor,
             action: 'api_key.revoked',
             resource: 'api_key:'.$apiKey->id,
-            before: ['revoked_at' => null],
-            after: ['revoked_at' => $now->format(DATE_ATOM)],
+            before: ['project_id' => $apiKey->projectId, 'environment' => $apiKey->environment->value, 'prefix' => $apiKey->prefix],
+            after: null,
             context: [],
             correlationId: $correlationId,
-            occurredAt: $now,
+            occurredAt: $this->clock->now(),
         ));
     }
 }

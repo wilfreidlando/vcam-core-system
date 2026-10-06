@@ -2,7 +2,7 @@
 
 **Bounded context:** `parties`
 **Responsibility:** Party references (lazy-created, no PII) and their attachments.
-**Delivery lot:** Lot 2 — see [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+**Delivery lot:** Lot 2 — see [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## Internal structure
 

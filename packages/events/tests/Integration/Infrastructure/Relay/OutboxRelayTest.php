@@ -8,6 +8,7 @@ use Core\Events\Contracts\DomainEvent;
 use Core\Events\Contracts\EventOutbox;
 use Core\Events\Contracts\OutboxEventPublished;
 use Core\Events\Contracts\RelayOutboxEvents;
+use Core\Support\Observability\TraceContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -92,6 +93,41 @@ final class OutboxRelayTest extends TestCase
         $relayed = app(RelayOutboxEvents::class)->relay(2);
 
         self::assertSame(2, $relayed);
+    }
+
+    #[Test]
+    public function the_writing_requests_correlation_and_trace_ids_survive_the_outbox(): void
+    {
+        // ADR-0059: a use case appends without a correlation id; the row
+        // still carries the request's, and the relay restores both ids
+        // into the Context its listeners (and their jobs) inherit.
+        TraceContext::begin('corr-from-request', str_repeat('a', 32));
+
+        $eventId = (string) Str::uuid();
+        app(EventOutbox::class)->append(new DomainEvent(
+            id: $eventId,
+            projectId: (string) Str::uuid(),
+            type: 'test.event',
+            payload: [],
+            correlationId: null,
+            occurredAt: now()->toImmutable(),
+        ));
+
+        $row = DB::table('event_outbox')->where('id', $eventId)->first();
+        self::assertNotNull($row);
+        self::assertSame('corr-from-request', $row->correlation_id);
+        self::assertSame(str_repeat('a', 32), $row->trace_id);
+
+        // The relay runs later, in another process: nothing in Context.
+        TraceContext::begin('scheduler-run', str_repeat('b', 32));
+        $seen = [];
+        Event::listen(OutboxEventPublished::class, function () use (&$seen): void {
+            $seen = [TraceContext::correlationId(), TraceContext::traceId()];
+        });
+
+        app(RelayOutboxEvents::class)->relay(100);
+
+        self::assertSame(['corr-from-request', str_repeat('a', 32)], $seen);
     }
 
     protected function setUp(): void

@@ -111,6 +111,43 @@ financière propriétaire (ADR-0017) — protocole compatible, Horizon et
 `bcmath`/`gmp` (arithmétique entière exacte pour le ledger, jamais de
 flottant), `pdo_pgsql`, `redis`, `pcntl` (signaux des workers Horizon).
 
+### 2 bis. En production : le VPS et ses environnements
+
+Sur le serveur, le Core tourne **deux fois** : `core-system-prod` et
+`core-system-staging`. Ce sont des copies isolées (base, volumes, clés, nom
+d'hôte), construites à partir de la même image. Elles suivent le standard
+d'hébergement du VPS ([vcam-infra-deploy](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/README.md),
+[ADR-0064](../adr/0064-infrastructure-vps-staging-observabilite-mutualisee.md)) :
+
+```mermaid
+graph TB
+    Internet((Internet)) -->|"core-system.visibilitycam.com<br/>core-system-staging.visibilitycam.com"| NP["nginx-proxy + acme-companion<br/>(partagés par tous les projets du VPS)"]
+    subgraph Prod["core-system-prod — réseau core-system-internal"]
+        PW["webserver (nginx)<br/>ajoute X-Core-Proxy-Token"] --> PA["app (FrankenPHP)"]
+        PA --> PDB[("postgres")] & PV[("valkey")]
+        PH["horizon"] & PS["scheduler"] --> PDB
+        PB["backup"] --> PDB
+    end
+    subgraph Stg["core-system-staging — réseau core-system-staging-internal"]
+        SW["webserver"] --> SA["app"] --> SDB[("postgres")]
+    end
+    NP --> PW & SW
+    subgraph Obs["observability (mutualisé)"]
+        Alloy["alloy"]
+    end
+    PA & PH & PS & SA -. "réseau observability<br/>logs · /metrics · OTLP" .-> Alloy
+    PB -. "pg_dump chiffré" .-> S3[("MEGA S4")]
+```
+
+Le passage d'une version en production :
+- `make staging-deploy` (automatique) construit l'image du commit et la déploie en
+  staging ;
+- `make prod-promote` (manuel) déploie **cette même image** en production, après
+  une sauvegarde, et revient automatiquement en arrière si `/health/ready` échoue.
+
+Mode opératoire complet :
+[`docs/operations/deploiement-production.md`](../operations/deploiement-production.md).
+
 ## 3. Environnements, configuration et déploiement
 
 Deux axes de configuration, volontairement séparés :

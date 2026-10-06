@@ -3,7 +3,7 @@
 **Bounded context:** `identity`
 **Responsibility:** Organizations, Projects, API keys (machine identity, Plan 2);
 Operators, RBAC, MFA (platform identity, Plan 1, ADR-0044).
-**Delivery lot:** Lot 1 (Plan 2) + Lot 6 (Plan 1) — see [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+**Delivery lot:** Lot 1 (Plan 2) + Lot 6 (Plan 1) — see [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## Internal structure
 

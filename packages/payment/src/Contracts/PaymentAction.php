@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Payment\Contracts;
 
+use Core\Support\Environment;
+
 /**
  * Information submitted by the customer to satisfy the provider's
  * out-of-band authentication step (OTP code sent by SMS, 3DS
@@ -23,5 +25,6 @@ final readonly class PaymentAction
         public string $projectId,
         public string $transactionRef,
         public string $code,
+        public Environment $environment = Environment::Live,
     ) {}
 }

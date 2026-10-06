@@ -79,6 +79,12 @@
         <env name="CORE_ENVIRONMENT" value="sandbox"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <!-- Connect-time SSRF re-check resolves real DNS; it is covered
+             hermetically by GuardedHttpTransportTest instead. -->
+        <env name="OUTBOUND_ENFORCE_AT_CONNECT" value="false"/>
+        <!-- WAHA auth needs a non-empty key; tests must not depend on a
+             developer .env to provide one. -->
+        <env name="WAHA_API_KEY" value="test-waha-api-key"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="LOG_CHANNEL" value="stack"/>
         <env name="PULSE_ENABLED" value="false"/>

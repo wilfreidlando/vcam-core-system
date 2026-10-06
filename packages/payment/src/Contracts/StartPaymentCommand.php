@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Payment\Contracts;
 
 use Core\Payment\PaymentFlow;
+use Core\Support\Environment;
 
 /**
  * The public-facing command — what a Project asks for when it starts a
@@ -48,5 +49,7 @@ final readonly class StartPaymentCommand
          * `POST /v1/webhook-endpoints`) before it ever reaches this DTO.
          */
         public ?string $callbackUrl = null,
+        // ADR-0060 — the environment of the calling API key.
+        public Environment $environment = Environment::Live,
     ) {}
 }

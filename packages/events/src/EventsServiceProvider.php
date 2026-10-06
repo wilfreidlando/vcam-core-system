@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Core\Events;
 
 use Core\Events\Contracts\EventOutbox;
+use Core\Events\Contracts\OutboxHealth;
 use Core\Events\Contracts\RelayOutboxEvents;
 use Core\Events\Infrastructure\Persistence\Eloquent\EloquentEventOutbox;
+use Core\Events\Infrastructure\Persistence\Eloquent\EloquentOutboxHealth;
 use Core\Events\Infrastructure\Relay\OutboxRelay;
 use Core\Events\Presentation\Console\Commands\RelayOutboxEventsCommand;
 use Illuminate\Support\ServiceProvider;
@@ -24,6 +26,7 @@ final class EventsServiceProvider extends ServiceProvider
     {
         $this->app->bind(EventOutbox::class, EloquentEventOutbox::class);
         $this->app->bind(RelayOutboxEvents::class, OutboxRelay::class);
+        $this->app->bind(OutboxHealth::class, EloquentOutboxHealth::class);
     }
 
     public function boot(): void

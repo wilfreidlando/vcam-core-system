@@ -11,6 +11,7 @@ use Core\Notification\Application\UseCase\GetChannelSessionQrCodeUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionScreenshotUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionStatusUseCase;
 use Core\Notification\Application\UseCase\GetChannelSessionUseCase;
+use Core\Notification\Application\UseCase\GetNotificationDetailsUseCase;
 use Core\Notification\Application\UseCase\GetNotificationStatusUseCase;
 use Core\Notification\Application\UseCase\HandleNotificationStatusChangedUseCase;
 use Core\Notification\Application\UseCase\ListChannelSessionsUseCase;
@@ -25,11 +26,13 @@ use Core\Notification\Contracts\GetChannelSession;
 use Core\Notification\Contracts\GetChannelSessionQrCode;
 use Core\Notification\Contracts\GetChannelSessionScreenshot;
 use Core\Notification\Contracts\GetChannelSessionStatus;
+use Core\Notification\Contracts\GetNotificationDetails;
 use Core\Notification\Contracts\GetNotificationStatus;
 use Core\Notification\Contracts\ListChannelSessions;
 use Core\Notification\Contracts\ListNotifications;
 use Core\Notification\Contracts\NotificationChannelProviderRegistry;
 use Core\Notification\Contracts\NotificationProviderRouter;
+use Core\Notification\Contracts\NotificationStats;
 use Core\Notification\Contracts\NotificationStatusChangeHandler;
 use Core\Notification\Contracts\NotificationStatusMapper;
 use Core\Notification\Contracts\RequestChannelSessionPairingCode;
@@ -42,10 +45,12 @@ use Core\Notification\Domain\Port\NotificationRepository;
 use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentChannelSessionRepository;
 use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentNotificationDeliveryRepository;
 use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentNotificationRepository;
+use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentNotificationStats;
 use Core\Notification\Infrastructure\Provider\NotificationChannelProviderRegistryImpl;
 use Core\Notification\Infrastructure\Provider\Waha\WahaAdapter;
 use Core\Notification\Infrastructure\Provider\Waha\WahaStatusMapper;
 use Core\Notification\Infrastructure\Routing\ConfigNotificationProviderRouter;
+use Core\Notification\Presentation\Console\Commands\RedactExpiredNotificationContentCommand;
 use Core\Support\Integration\Configuration\ProviderConfigRegistry;
 use Core\Support\Integration\ExternalApiCaller;
 use Core\Support\Integration\Provider\ProviderCode;
@@ -98,6 +103,8 @@ final class NotificationServiceProvider extends ServiceProvider
         $this->app->bind(SendFileNotification::class, SendFileNotificationUseCase::class);
         $this->app->bind(GetNotificationStatus::class, GetNotificationStatusUseCase::class);
         $this->app->bind(ListNotifications::class, ListNotificationsUseCase::class);
+        $this->app->bind(GetNotificationDetails::class, GetNotificationDetailsUseCase::class);
+        $this->app->bind(NotificationStats::class, EloquentNotificationStats::class);
         $this->app->bind(NotificationStatusChangeHandler::class, HandleNotificationStatusChangedUseCase::class);
 
         $this->app->bind(CreateChannelSession::class, CreateChannelSessionUseCase::class);
@@ -118,6 +125,10 @@ final class NotificationServiceProvider extends ServiceProvider
 
         Route::middleware('api')->group(__DIR__.'/../routes/api.php');
         $this->loadRoutesFrom(__DIR__.'/../routes/webhooks.php');
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([RedactExpiredNotificationContentCommand::class]);
+        }
     }
 
     /**

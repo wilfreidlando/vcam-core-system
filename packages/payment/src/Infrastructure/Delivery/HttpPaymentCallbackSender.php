@@ -44,26 +44,27 @@ final readonly class HttpPaymentCallbackSender implements PaymentCallbackSender
 {
     private const TIMEOUT_SECONDS = 10.0;
 
+    private const MAX_RESPONSE_BODY_LENGTH = 4096;
+
     public function __construct(
         private HttpTransport $transport,
         private RequestSigner $signer,
         private Clock $clock,
     ) {}
 
-    public function send(Payment $payment): PaymentCallbackSendOutcome
+    public function send(Payment $payment, string $eventId, array $data): PaymentCallbackSendOutcome
     {
         if ($payment->callbackUrl === null || $payment->callbackSecret === null) {
             return PaymentCallbackSendOutcome::noCallbackConfigured();
         }
 
         try {
+            // ADR-0061: byte-for-byte the webhook envelope — one parser,
+            // one deduplication key (`id`) on the integrator's side.
             $body = json_encode([
-                'event' => 'payment.status_changed',
-                'payment_id' => $payment->id,
-                'status' => $payment->status->value,
-                'amount' => $payment->amount,
-                'currency' => $payment->currency,
-                'error_message' => $payment->errorMessage,
+                'id' => $eventId,
+                'type' => 'payment.status_changed',
+                'data' => $data,
             ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
             return PaymentCallbackSendOutcome::failure(null, 'Payload could not be encoded as JSON: '.$e->getMessage());
@@ -74,9 +75,17 @@ final readonly class HttpPaymentCallbackSender implements PaymentCallbackSender
             secret: $payment->callbackSecret,
         );
 
-        $headers = ['Content-Type' => 'application/json'];
+        $headers = [
+            'Content-Type' => 'application/json',
+            'X-Event-Id' => $eventId,
+            'X-Event-Type' => 'payment.status_changed',
+        ];
         $timestamp = $this->clock->now()->getTimestamp();
         $this->signer->sign($policy, $headers, $body, $timestamp);
+
+        $shownHeaders = $headers;
+        $shownHeaders['X-Signature'] = '***REDACTED***';
+        $startedAt = hrtime(true);
 
         try {
             $response = $this->transport->send(
@@ -87,16 +96,26 @@ final readonly class HttpPaymentCallbackSender implements PaymentCallbackSender
                 timeoutSeconds: self::TIMEOUT_SECONDS,
             );
         } catch (ProviderException $e) {
-            return PaymentCallbackSendOutcome::failure($e->httpStatus, $e->getMessage());
+            return PaymentCallbackSendOutcome::failure($e->httpStatus, $e->getMessage())
+                ->withExchange($shownHeaders, $body, null, self::elapsedMs($startedAt));
         }
 
+        $responseBody = mb_substr($response->rawBody, 0, self::MAX_RESPONSE_BODY_LENGTH);
+        $elapsed = self::elapsedMs($startedAt);
+
         if ($response->status >= 200 && $response->status < 300) {
-            return PaymentCallbackSendOutcome::success($response->status);
+            return PaymentCallbackSendOutcome::success($response->status)
+                ->withExchange($shownHeaders, $body, $responseBody, $elapsed);
         }
 
         return PaymentCallbackSendOutcome::failure(
             $response->status,
             sprintf('Callback endpoint responded with HTTP %d.', $response->status),
-        );
+        )->withExchange($shownHeaders, $body, $responseBody, $elapsed);
+    }
+
+    private static function elapsedMs(int|float $startedAt): int
+    {
+        return (int) round((hrtime(true) - $startedAt) / 1_000_000);
     }
 }

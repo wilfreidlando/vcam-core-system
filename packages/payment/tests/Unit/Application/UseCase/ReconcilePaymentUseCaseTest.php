@@ -41,6 +41,7 @@ it('throws PaymentNotFound — never a bare RuntimeException a provider failure 
         gateways: new FakePaymentGatewayRegistry,
         statusChangeHandler: new FakePaymentStatusChangeHandler,
         clock: new FixedClock,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
     $useCase->reconcile(new ReconcilePaymentCommand('missing'));
@@ -61,6 +62,7 @@ it('reports no change when the provider confirms the same status', function (): 
         gateways: $registry,
         statusChangeHandler: $handler,
         clock: new FixedClock,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
     $result = $useCase->reconcile(new ReconcilePaymentCommand('p1'));
@@ -86,6 +88,7 @@ it('converges on the status-change handler when the provider reports a different
         gateways: $registry,
         statusChangeHandler: $handler,
         clock: new FixedClock,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
     $result = $useCase->reconcile(new ReconcilePaymentCommand('p1'));
@@ -115,6 +118,7 @@ it('lets a provider failure propagate rather than swallowing it', function (): v
         gateways: $registry,
         statusChangeHandler: new FakePaymentStatusChangeHandler,
         clock: new FixedClock,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
     $useCase->reconcile(new ReconcilePaymentCommand('p1'));

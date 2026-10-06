@@ -11,6 +11,7 @@ use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Support\Clock;
 use Core\Webhook\Contracts\DeliverWebhookCommand;
+use Core\Webhook\Contracts\GetWebhookDeliveryDetails;
 use Core\Webhook\Contracts\ListWebhookDeliveries;
 use Core\Webhook\Contracts\ListWebhookDeliveriesCommand;
 use Core\Webhook\Contracts\ListWebhookEndpoints;
@@ -20,6 +21,7 @@ use Core\Webhook\Contracts\ReplayWebhookDelivery;
 use Core\Webhook\Contracts\ReplayWebhookDeliveryCommand;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotDead;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
+use Core\Webhook\Domain\Exception\WebhookEndpointInactive;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -50,7 +52,34 @@ final class WebhookDeliveriesController
         private readonly Clock $clock,
         private readonly GetProject $getProject,
         private readonly ListWebhookEndpoints $listEndpoints,
+        private readonly GetWebhookDeliveryDetails $details,
     ) {}
+
+    /**
+     * ADR-0062 — one delivery with every attempt: the exact signed request
+     * sent (signature masked), the receiver's answer, the duration and what
+     * the Core decided next.
+     */
+    public function show(string $delivery, OperatorContext $operator): Response|RedirectResponse
+    {
+        if (! $operator->hasPermission('webhooks:read')) {
+            abort(403, 'La permission webhooks:read est requise.');
+        }
+
+        Validator::make(['delivery' => $delivery], ['delivery' => 'uuid'])->validate();
+
+        $view = $this->details->forDelivery($delivery);
+        if ($view === null) {
+            return redirect()->route('admin.webhook-deliveries.dead.web')->withErrors(['id' => 'Livraison introuvable.']);
+        }
+
+        return response()->view('admin.webhook-deliveries.show', [
+            'title' => 'Livraison '.substr($view->id, 0, 8).'…',
+            'delivery' => $view,
+            'projectNames' => $this->resolveProjectNames($this->getProject, [$view->projectId]),
+            'canReplay' => $operator->hasPermission('webhooks:replay'),
+        ]);
+    }
 
     public function index(Request $request, OperatorContext $operator): Response
     {
@@ -118,6 +147,9 @@ final class WebhookDeliveriesController
         } catch (WebhookDeliveryNotDead) {
             return redirect()->route('admin.webhook-deliveries.dead.web')
                 ->withErrors(['id' => "Cette livraison n'est pas en échec ; aucun rejeu nécessaire."]);
+        } catch (WebhookEndpointInactive) {
+            return redirect()->route('admin.webhook-deliveries.dead.web')
+                ->withErrors(['id' => "L'endpoint de cette livraison est désactivé : réactivez-le avant de rejouer."]);
         }
 
         // The JSON API's equivalent controller queues the new delivery

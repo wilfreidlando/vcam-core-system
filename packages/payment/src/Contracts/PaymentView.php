@@ -63,5 +63,16 @@ final readonly class PaymentView
          * re-derivable from stored state on purpose.
          */
         public ?string $callbackSecret = null,
+        // ADR-0061 — intermediate (`pending`, `processing`) vs final.
+        public bool $isFinal = false,
+        // Read-model detail for the operator console (ADR-0045/0061) —
+        // never all exposed on the public API.
+        public string $environment = 'live',
+        public ?string $providerCode = null,
+        public ?string $providerTransactionRef = null,
+        public ?string $returnUrl = null,
+        public ?string $walletRecipientExternalRef = null,
+        public ?string $createdAt = null,
+        public ?string $updatedAt = null,
     ) {}
 }

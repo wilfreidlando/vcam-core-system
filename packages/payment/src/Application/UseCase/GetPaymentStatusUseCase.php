@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Payment\Application\UseCase;
 
+use Core\Payment\Application\Support\PaymentViews;
 use Core\Payment\Contracts\GetPaymentStatus;
 use Core\Payment\Contracts\GetPaymentStatusCommand;
 use Core\Payment\Contracts\PaymentView;
@@ -20,26 +21,15 @@ final readonly class GetPaymentStatusUseCase implements GetPaymentStatus
     {
         $payment = $this->payments->find($command->paymentId);
 
-        if ($payment === null || $payment->projectId !== $command->requestingProjectId) {
+        if ($payment === null
+            || $payment->projectId !== $command->requestingProjectId
+            || ($command->requestingEnvironment !== null && $payment->environment !== $command->requestingEnvironment)) {
             // Same exception for "does not exist" and "belongs to another
             // project": distinguishing them would let a caller enumerate
             // payment ids that exist outside its own project.
             throw PaymentNotFound::withId($command->paymentId);
         }
 
-        return new PaymentView(
-            id: $payment->id,
-            projectId: $payment->projectId,
-            channel: $payment->channel,
-            status: $payment->status->value,
-            amount: $payment->amount,
-            currency: $payment->currency,
-            requiresAction: $payment->requiresAction,
-            actionHint: $payment->actionHint,
-            paymentUrl: $payment->paymentUrl,
-            errorMessage: $payment->errorMessage,
-            idempotencyKey: $payment->idempotencyKey,
-            callbackUrl: $payment->callbackUrl,
-        );
+        return PaymentViews::from($payment);
     }
 }

@@ -6,6 +6,7 @@ namespace Core\Identity\Tests\Unit\Fakes;
 
 use Core\Identity\Domain\Model\ApiKey;
 use Core\Identity\Domain\Port\ApiKeyRepository;
+use DateTimeImmutable;
 
 final class InMemoryApiKeyRepository implements ApiKeyRepository
 {
@@ -40,4 +41,22 @@ final class InMemoryApiKeyRepository implements ApiKeyRepository
             static fn (ApiKey $apiKey): bool => $apiKey->projectId === $projectId,
         ));
     }
+
+    public function findByProjectAndEnvironment(string $projectId, \Core\Support\Environment $environment): ?ApiKey
+    {
+        foreach ($this->apiKeys as $key) {
+            if ($key->projectId === $projectId && $key->environment === $environment) {
+                return $key;
+            }
+        }
+
+        return null;
+    }
+
+    public function delete(string $id): void
+    {
+        unset($this->apiKeys[$id]);
+    }
+
+    public function touchLastUsed(string $id, DateTimeImmutable $at): void {}
 }

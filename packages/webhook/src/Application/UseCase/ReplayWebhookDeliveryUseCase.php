@@ -10,9 +10,11 @@ use Core\Webhook\Contracts\ReplayWebhookDelivery;
 use Core\Webhook\Contracts\ReplayWebhookDeliveryCommand;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotDead;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
+use Core\Webhook\Domain\Exception\WebhookEndpointInactive;
 use Core\Webhook\Domain\Model\WebhookDelivery;
 use Core\Webhook\Domain\Model\WebhookDeliveryStatus;
 use Core\Webhook\Domain\Port\WebhookDeliveryRepository;
+use Core\Webhook\Domain\Port\WebhookEndpointRepository;
 
 /**
  * CLI-only for now (`webhook:replay`) — the Core Admin control ADR-0009
@@ -25,6 +27,7 @@ final readonly class ReplayWebhookDeliveryUseCase implements ReplayWebhookDelive
 {
     public function __construct(
         private WebhookDeliveryRepository $deliveries,
+        private WebhookEndpointRepository $endpoints,
         private Identifier $identifier,
     ) {}
 
@@ -37,6 +40,11 @@ final readonly class ReplayWebhookDeliveryUseCase implements ReplayWebhookDelive
 
         if ($dead->status !== WebhookDeliveryStatus::Dead) {
             throw WebhookDeliveryNotDead::withId($command->deliveryId);
+        }
+
+        $endpoint = $this->endpoints->find($dead->endpointId);
+        if ($endpoint === null || ! $endpoint->active) {
+            throw WebhookEndpointInactive::withId($dead->endpointId);
         }
 
         $fresh = new WebhookDelivery(

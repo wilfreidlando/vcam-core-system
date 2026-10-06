@@ -26,6 +26,10 @@
 > guide) · le DSL de templates et l'`EndpointCatalog` conçus avant le deuxième provider ·
 > les providers hors périmètre MVP.
 
+> **Document historique** : il fixe les principes de conception, pas le contrat
+> public. Pour le comportement réel des API et des webhooks, la référence est
+> `docs/integration/` et `/docs/api` ; en cas de désaccord, ce sont eux qui font foi.
+
 Ce document pose les **idées structurantes**, pas le code. Le code sera écrit au fil des lots ; ce qui ne doit pas bouger, ce sont les principes.
 
 ---
@@ -182,9 +186,19 @@ Les tests spécifiques à un provider (un test pour l'endpoint `mtn.refund` qui 
 
 Le Core expose **un seul** contrat vers l'extérieur, versionné (`v1`, `v2`…). Tout ce qui sort du Core parle ce contrat.
 
-**REST API** — préfixe `/api/v{version}/...`. Chaque ressource canonique est exposée **une seule fois**, le Core choisit le provider en interne. Le schéma OpenAPI (Scramble) **est** le contrat. Diff breakage = ADR + nouvelle version.
+**REST API** — préfixe `/v{version}/...` (ce qui a été construit : `/v1`). Chaque ressource canonique est exposée **une seule fois**, le Core choisit le provider en interne. Le schéma OpenAPI (Scramble) **est** le contrat. Diff breakage = ADR + nouvelle version.
 
-**Webhooks sortants** — le Core appelle les apps quand un événement les concerne. URLs déclarées via `POST /api/v1/webhooks/endpoints`. Format signé HMAC-SHA256. Headers standardisés (`X-Core-Event`, `X-Core-Signature`, `X-Core-Delivery`, `Idempotency-Key`). Retry exponentiel 5 tentatives, dead-letter après 5 échecs.
+**Webhooks sortants** — le Core appelle les apps quand un événement les concerne. URLs déclarées via `POST /v1/webhook-endpoints`. Format signé HMAC-SHA256.
+
+> **Corrigé le 2026-10-03 (audit, point 14)** : cette section proposait à l'origine des
+> en-têtes `X-Core-*`, un `Idempotency-Key` et 5 tentatives. **Ce qui est livré** :
+> enveloppe `{id, type, data}`, en-têtes `X-Signature` (HMAC de
+> `X-Timestamp + "." + corps`), `X-Timestamp`, `X-Event-Id`, `X-Event-Type`,
+> `X-Delivery-Id`, 8 tentatives avec backoff ×3 plafonné à 6 h, puis DLQ. La référence
+> pour un intégrateur est [`docs/integration/webhooks.md`](../../integration/webhooks.md)
+> ([ADR-0040](../../adr/0040-conception-lot-4-relais-outbox-webhooks-sortants.md),
+> [ADR-0061](../../adr/0061-statuts-finals-et-contrat-api-minimal.md),
+> [ADR-0063](../../adr/0063-documentation-integrateur-testable-et-test-de-webhook.md)).
 
 **Événements domaine** — publiés sur l'outbox transactionnel en interne. Les apps peuvent s'abonner via webhooks (parution temps réel) ou via une file dédiée (Lot 5+).
 

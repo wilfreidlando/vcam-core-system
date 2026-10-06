@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Core\Payment\Application\UseCase;
 
 use Core\Ledger\Contracts\IsSupportedCurrency;
+use Core\Payment\Application\Port\SandboxPaymentSimulator;
+use Core\Payment\Application\Service\PaymentJourney;
+use Core\Payment\Application\Support\PaymentViews;
 use Core\Payment\Contracts\InitiatePaymentCommand;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Contracts\PaymentProviderRouter;
@@ -14,9 +17,13 @@ use Core\Payment\Contracts\StartPaymentCommand;
 use Core\Payment\Domain\Exception\PaymentAlreadyExists;
 use Core\Payment\Domain\Exception\UnsupportedCurrency;
 use Core\Payment\Domain\Model\Payment;
+use Core\Payment\Domain\Model\PaymentTimelineEntryType;
 use Core\Payment\Domain\Port\PaymentCallbackSecretGenerator;
 use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Payment\Domain\Port\ProviderApplicationRepository;
+use Core\Support\Environment;
 use Core\Support\Identifier;
+use Core\Support\Integration\Provider\ProviderCode;
 use LogicException;
 
 /**
@@ -57,6 +64,9 @@ final readonly class StartPaymentUseCase implements StartPayment
         private Identifier $identifier,
         private PaymentCallbackSecretGenerator $callbackSecrets,
         private IsSupportedCurrency $currencies,
+        private PaymentJourney $journey,
+        private ProviderApplicationRepository $applications,
+        private SandboxPaymentSimulator $sandbox,
     ) {}
 
     public function start(StartPaymentCommand $command): PaymentView
@@ -72,13 +82,20 @@ final readonly class StartPaymentUseCase implements StartPayment
 
         $existing = $this->payments->findByIdempotencyKey($command->projectId, $command->idempotencyKey);
         if ($existing !== null) {
+            $this->journey->record(
+                $existing->id,
+                $existing->projectId,
+                PaymentTimelineEntryType::IdempotentReplay,
+                'Requête rejouée avec la même Idempotency-Key : paiement existant renvoyé, provider non rappelé.',
+                ['idempotency_key' => $command->idempotencyKey],
+            );
+
             return $this->toView($existing);
         }
 
         $providerCode = $this->router->resolveProvider($command->channel, $command->projectId);
-        $gateway = $this->gateways->gatewayFor($providerCode);
 
-        $receipt = $gateway->initiate(new InitiatePaymentCommand(
+        $initiate = new InitiatePaymentCommand(
             projectId: $command->projectId,
             amount: $command->amount,
             currency: $command->currency,
@@ -91,7 +108,23 @@ final readonly class StartPaymentUseCase implements StartPayment
             flow: $command->flow,
             channel: $command->channel,
             returnUrl: $command->returnUrl,
-        ));
+            environment: $command->environment,
+        );
+
+        // ADR-0060 / D2 — a sandbox payment goes to the provider's own
+        // sandbox only when the project registered a sandbox application
+        // there; otherwise to the built-in simulator (no outbound call, no
+        // real money). Live always goes to the routed provider.
+        $simulated = ! $command->environment->isLive()
+            && $this->applications->findByProjectAndProvider($command->projectId, $providerCode->toString(), Environment::Sandbox) === null;
+
+        $this->journey->forgetPendingExchanges();
+        if ($simulated) {
+            $receipt = $this->sandbox->initiate($initiate);
+            $providerCode = ProviderCode::fromString(SandboxPaymentSimulator::PROVIDER_CODE);
+        } else {
+            $receipt = $this->gateways->gatewayFor($providerCode)->initiate($initiate);
+        }
 
         $payment = new Payment(
             id: $this->identifier->generate(),
@@ -111,11 +144,14 @@ final readonly class StartPaymentUseCase implements StartPayment
             walletRecipientExternalRef: $command->walletRecipientExternalRef,
             callbackUrl: $command->callbackUrl,
             callbackSecret: $command->callbackUrl === null ? null : $this->callbackSecrets->generate(),
+            environment: $command->environment,
         );
 
         try {
             $this->payments->create($payment);
         } catch (PaymentAlreadyExists) {
+            $this->journey->forgetPendingExchanges();
+
             // Lost a race: another concurrent call with the same
             // idempotency key created it first (see the class docblock).
             $winner = $this->payments->findByIdempotencyKey($command->projectId, $command->idempotencyKey)
@@ -128,25 +164,57 @@ final readonly class StartPaymentUseCase implements StartPayment
         // payment is actually created. Every other path through
         // toView() (idempotent replay above, or GetPaymentStatusUseCase/
         // ListPaymentsUseCase entirely) must never re-expose it.
-        return $this->toView($payment, includeCallbackSecret: true);
+        $this->journey->recordProviderExchanges($payment->id, $payment->projectId);
+        $this->journey->record(
+            $payment->id,
+            $payment->projectId,
+            PaymentTimelineEntryType::Initiated,
+            sprintf(
+                'Paiement %s de %d %s créé via %s (canal %s) — statut %s%s',
+                $payment->environment->value,
+                $payment->amount,
+                $payment->currency,
+                $payment->providerCode,
+                $payment->channel,
+                $payment->status->value,
+                $payment->status->isTerminal() ? ' (final)' : ' (intermédiaire)',
+            ),
+            [
+                'environment' => $payment->environment->value,
+                'simulated' => $simulated,
+                'channel' => $payment->channel,
+                'provider' => $payment->providerCode,
+                'flow' => $command->flow->value,
+                'amount' => $payment->amount,
+                'currency' => $payment->currency,
+                'reason' => $command->reason,
+                'customer' => [
+                    'phone_number' => $command->customerPhoneNumber,
+                    'name' => $command->customerName,
+                    'email' => $command->customerEmail,
+                    'lang' => $command->customerLang,
+                ],
+                'return_url' => $payment->returnUrl,
+                'callback_url' => $payment->callbackUrl,
+                'wallet_recipient_external_ref' => $payment->walletRecipientExternalRef,
+                'provider_transaction_ref' => $payment->providerTransactionRef,
+                'status' => $payment->status->value,
+                'requires_action' => $payment->requiresAction,
+                'action_hint' => $payment->actionHint,
+                'payment_url' => $payment->paymentUrl,
+                'error_message' => $payment->errorMessage,
+            ],
+        );
+
+        // Re-read so the response carries the persisted `created_at` (the
+        // in-memory aggregate has none until it is stored).
+        $stored = $this->payments->find($payment->id) ?? $payment;
+
+        return $this->toView($stored, includeCallbackSecret: true);
     }
 
     private function toView(Payment $payment, bool $includeCallbackSecret = false): PaymentView
     {
-        return new PaymentView(
-            id: $payment->id,
-            projectId: $payment->projectId,
-            channel: $payment->channel,
-            status: $payment->status->value,
-            amount: $payment->amount,
-            currency: $payment->currency,
-            requiresAction: $payment->requiresAction,
-            actionHint: $payment->actionHint,
-            paymentUrl: $payment->paymentUrl,
-            errorMessage: $payment->errorMessage,
-            idempotencyKey: $payment->idempotencyKey,
-            callbackUrl: $payment->callbackUrl,
-            callbackSecret: $includeCallbackSecret ? $payment->callbackSecret : null,
-        );
+        return PaymentViews::from($payment, $includeCallbackSecret);
     }
 }

@@ -6,11 +6,22 @@ use Core\Webhook\Application\UseCase\ReplayWebhookDeliveryUseCase;
 use Core\Webhook\Contracts\ReplayWebhookDeliveryCommand;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotDead;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
+use Core\Webhook\Domain\Exception\WebhookEndpointInactive;
 use Core\Webhook\Domain\Model\WebhookDelivery;
 use Core\Webhook\Domain\Model\WebhookDeliveryStatus;
+use Core\Webhook\Domain\Model\WebhookEndpoint;
 use Core\Webhook\Tests\Unit\Fakes\InMemoryWebhookDeliveryRepository;
+use Core\Webhook\Tests\Unit\Fakes\InMemoryWebhookEndpointRepository;
 use Core\Webhook\Tests\Unit\Fakes\SequentialIdentifier;
 use PHPUnit\Framework\Assert;
+
+function replayEndpoints(bool $active = true): InMemoryWebhookEndpointRepository
+{
+    $endpoints = new InMemoryWebhookEndpointRepository;
+    $endpoints->create(new WebhookEndpoint('endpoint-1', 'project-1', 'https://example.test/hooks', 'whsec_test', ['*'], $active));
+
+    return $endpoints;
+}
 
 function seedDeadDelivery(InMemoryWebhookDeliveryRepository $deliveries, string $id = 'delivery-1'): void
 {
@@ -33,7 +44,7 @@ function seedDeadDelivery(InMemoryWebhookDeliveryRepository $deliveries, string 
 it('creates a fresh delivery for the same (endpoint, event) pair, exempt from the fan-out uniqueness', function (): void {
     $deliveries = new InMemoryWebhookDeliveryRepository;
     seedDeadDelivery($deliveries);
-    $useCase = new ReplayWebhookDeliveryUseCase($deliveries, new SequentialIdentifier);
+    $useCase = new ReplayWebhookDeliveryUseCase($deliveries, replayEndpoints(), new SequentialIdentifier);
 
     $view = $useCase->replay(new ReplayWebhookDeliveryCommand('delivery-1'));
 
@@ -48,7 +59,7 @@ it('creates a fresh delivery for the same (endpoint, event) pair, exempt from th
 });
 
 it('rejects replaying an unknown delivery', function (): void {
-    $useCase = new ReplayWebhookDeliveryUseCase(new InMemoryWebhookDeliveryRepository, new SequentialIdentifier);
+    $useCase = new ReplayWebhookDeliveryUseCase(new InMemoryWebhookDeliveryRepository, replayEndpoints(), new SequentialIdentifier);
 
     $useCase->replay(new ReplayWebhookDeliveryCommand('unknown'));
 })->throws(WebhookDeliveryNotFound::class);
@@ -69,7 +80,16 @@ it('rejects replaying a delivery that is not dead', function (): void {
         lastError: null,
         deliveredAt: null,
     ));
-    $useCase = new ReplayWebhookDeliveryUseCase($deliveries, new SequentialIdentifier);
+    $useCase = new ReplayWebhookDeliveryUseCase($deliveries, replayEndpoints(), new SequentialIdentifier);
 
     $useCase->replay(new ReplayWebhookDeliveryCommand('delivery-1'));
 })->throws(WebhookDeliveryNotDead::class);
+
+it('refuses to replay toward a deactivated endpoint (audit 2026-10-03 §4.4)', function (): void {
+    $deliveries = new InMemoryWebhookDeliveryRepository;
+    seedDeadDelivery($deliveries);
+    $useCase = new ReplayWebhookDeliveryUseCase($deliveries, replayEndpoints(active: false), new SequentialIdentifier);
+
+    expect(fn () => $useCase->replay(new ReplayWebhookDeliveryCommand('delivery-1')))
+        ->toThrow(WebhookEndpointInactive::class);
+});

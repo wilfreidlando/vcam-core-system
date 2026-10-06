@@ -10,6 +10,7 @@ use Core\Identity\Contracts\OperatorContext;
 use Core\Payment\Contracts\RegisterProviderApplication;
 use Core\Payment\Contracts\RegisterProviderApplicationCommand;
 use Core\Support\Clock;
+use Core\Support\Environment;
 use Core\Support\Http\ProblemDetails;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,36 +39,45 @@ final class RegisterProviderApplicationController
             return ProblemDetails::forbidden('The provider-applications:write permission is required.');
         }
 
-        /** @var array{project_id: string, provider: string, public_key: string, private_key: string} $data */
+        /** @var array{project_id: string, provider: string, environment?: string|null, label?: string|null, public_key: string, private_key?: string|null} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
             'project_id' => ['required', 'uuid'],
             'provider' => ['required', 'string'],
-            'public_key' => ['required', 'string'],
-            'private_key' => ['required', 'string'],
+            'environment' => ['nullable', 'string', 'in:live,sandbox'],
+            'label' => ['nullable', 'string', 'max:120'],
+            'public_key' => ['required', 'string', 'max:1024'],
+            // Optional on update (keeps the stored key), required on creation.
+            'private_key' => ['nullable', 'string', 'max:1024'],
         ]);
 
+        $environment = Environment::from($data['environment'] ?? 'live');
+
         try {
-            $this->registerProviderApplication->register(new RegisterProviderApplicationCommand(
+            $rotated = $this->registerProviderApplication->register(new RegisterProviderApplicationCommand(
                 $data['project_id'],
                 $data['provider'],
                 $data['public_key'],
-                $data['private_key'],
+                $data['private_key'] ?? null,
+                $environment,
+                $data['label'] ?? null,
             ));
         } catch (RuntimeException $e) {
-            // The concrete exception (ProjectNotFound) lives in identity's
-            // Domain layer; admin must not reference it (G3c).
-            return ProblemDetails::make('project-not-found', 'Project not found', 422, $e->getMessage());
+            // ADR-0060: every failure carries an operator-readable message
+            // (unknown project, public key already used elsewhere, missing
+            // private key) — never a raw SQL error.
+            return ProblemDetails::make('provider-application-rejected', 'Provider application rejected', 422, $e->getMessage());
         }
 
         $this->audit->record(new AuditEntry(
             actor: 'operator:'.$operator->operatorId,
-            action: 'provider_application.registered',
-            resource: 'provider_application:'.$data['project_id'].':'.$data['provider'],
+            action: $rotated ? 'provider_application.rotated' : 'provider_application.registered',
+            resource: 'provider_application:'.$data['project_id'].':'.$data['provider'].':'.$environment->value,
             before: null,
             after: [
                 'project_id' => $data['project_id'],
                 'provider_code' => $data['provider'],
+                'environment' => $environment->value,
                 'public_key' => $data['public_key'],
             ],
             context: [],
@@ -78,6 +88,7 @@ final class RegisterProviderApplicationController
         return new JsonResponse([
             'project_id' => $data['project_id'],
             'provider_code' => $data['provider'],
+            'environment' => $environment->value,
             'public_key' => $data['public_key'],
         ], 201);
     }

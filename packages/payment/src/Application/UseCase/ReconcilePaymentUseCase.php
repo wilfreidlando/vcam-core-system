@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Payment\Application\UseCase;
 
+use Core\Payment\Application\Port\SandboxPaymentSimulator;
+use Core\Payment\Application\Service\PaymentJourney;
 use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Contracts\PaymentReconciliationResult;
@@ -11,6 +13,7 @@ use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\ReconcilePayment;
 use Core\Payment\Contracts\ReconcilePaymentCommand;
 use Core\Payment\Domain\Exception\PaymentNotFound;
+use Core\Payment\Domain\Model\PaymentTimelineEntryType;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Support\Clock;
 use Core\Support\Integration\Provider\ProviderCode;
@@ -32,6 +35,7 @@ final readonly class ReconcilePaymentUseCase implements ReconcilePayment
         private PaymentGatewayRegistry $gateways,
         private PaymentStatusChangeHandler $statusChangeHandler,
         private Clock $clock,
+        private PaymentJourney $journey,
     ) {}
 
     public function reconcile(ReconcilePaymentCommand $command): PaymentReconciliationResult
@@ -54,8 +58,25 @@ final readonly class ReconcilePaymentUseCase implements ReconcilePayment
 
         $statusBefore = $payment->status->value;
 
+        // ADR-0060: a simulated sandbox payment has no provider to ask —
+        // only the integrator's simulation moves it.
+        if ($payment->providerCode === SandboxPaymentSimulator::PROVIDER_CODE) {
+            return new PaymentReconciliationResult(changed: false, statusBefore: $statusBefore, statusAfter: $statusBefore);
+        }
+
         $gateway = $this->gateways->gatewayFor(ProviderCode::fromString($payment->providerCode));
-        $receipt = $gateway->checkStatus($payment->providerTransactionRef, $payment->projectId);
+        $this->journey->forgetPendingExchanges();
+        $receipt = $gateway->checkStatus($payment->providerTransactionRef, $payment->projectId, $payment->environment);
+        $this->journey->recordProviderExchanges($payment->id, $payment->projectId);
+        $this->journey->record(
+            $payment->id,
+            $payment->projectId,
+            PaymentTimelineEntryType::ReconciliationChecked,
+            $receipt->status === $payment->status
+                ? sprintf('Réconciliation : le provider confirme le statut « %s », rien à changer.', $payment->status->value)
+                : sprintf('Réconciliation : le provider annonce « %s » (Core : « %s »).', $receipt->status->value, $payment->status->value),
+            ['core_status' => $payment->status->value, 'provider_status' => $receipt->status->value, 'provider_message' => $receipt->errorMessage],
+        );
 
         if ($receipt->status === $payment->status) {
             return new PaymentReconciliationResult(
@@ -76,7 +97,7 @@ final readonly class ReconcilePaymentUseCase implements ReconcilePayment
             status: $receipt->status,
             reason: $receipt->errorMessage,
             occurredAt: $occurredAt,
-        ));
+        ), 'reconciliation');
 
         return new PaymentReconciliationResult(
             changed: true,

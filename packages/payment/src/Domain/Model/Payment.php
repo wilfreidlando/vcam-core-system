@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Payment\Domain\Model;
 
 use Core\Payment\PaymentStatus;
+use Core\Support\Environment;
 use DateTimeImmutable;
 use InvalidArgumentException;
 
@@ -70,6 +71,9 @@ final readonly class Payment
          * each candidate actually is, not just that it's stuck).
          */
         public ?DateTimeImmutable $updatedAt = null,
+        // ADR-0060 — the environment of the API key that created it.
+        public Environment $environment = Environment::Live,
+        public ?DateTimeImmutable $createdAt = null,
     ) {
         if (trim($providerTransactionRef) === '') {
             throw new InvalidArgumentException('A Payment must carry a non-blank provider transaction reference.');
@@ -111,7 +115,14 @@ final readonly class Payment
             walletRecipientExternalRef: $this->walletRecipientExternalRef,
             callbackUrl: $this->callbackUrl,
             callbackSecret: $this->callbackSecret,
+            environment: $this->environment,
+            createdAt: $this->createdAt,
         );
+    }
+
+    public function isSandbox(): bool
+    {
+        return ! $this->environment->isLive();
     }
 
     /**

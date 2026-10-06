@@ -24,7 +24,22 @@ final readonly class PaymentCallbackSendOutcome
         public ?int $httpStatus,
         public ?string $error,
         public bool $isPermanentFailure = false,
+        // ADR-0059 — what was actually sent and received, for the
+        // payment's "Parcours" (signature header masked by the sender).
+        /** @var array<string, string> */
+        public array $requestHeaders = [],
+        public ?string $requestBody = null,
+        public ?string $responseBody = null,
+        public ?int $durationMs = null,
     ) {}
+
+    /**
+     * @param array<string, string> $requestHeaders
+     */
+    public function withExchange(array $requestHeaders, string $requestBody, ?string $responseBody, int $durationMs): self
+    {
+        return new self($this->success, $this->httpStatus, $this->error, $this->isPermanentFailure, $requestHeaders, $requestBody, $responseBody, $durationMs);
+    }
 
     public static function success(int $httpStatus): self
     {

@@ -20,10 +20,16 @@ use Core\Support\Integration\Provider\ProviderRegistry;
 use Core\Support\Integration\Provider\TaggedProviderRegistry;
 use Core\Support\Integration\Redaction\PayloadRedactor;
 use Core\Support\Integration\Redaction\SensitiveKeySet;
+use Core\Support\Integration\Security\OutboundUrlGuard;
 use Core\Support\Integration\Signing\HmacSha256RequestSigner;
 use Core\Support\Integration\Signing\RequestSigner;
+use Core\Support\Integration\Telemetry\OtlpHttpSpanExporter;
+use Core\Support\Integration\Transport\GuardedHttpTransport;
 use Core\Support\Integration\Transport\HttpTransport;
 use Core\Support\Integration\Transport\LaravelHttpTransport;
+use Core\Support\Observability\ExchangeJournal;
+use Core\Support\Observability\InMemoryExchangeJournal;
+use Core\Support\Observability\Tracing\Tracer;
 use Core\Support\SystemClock;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory as HttpFactory;
@@ -80,8 +86,43 @@ final class IntegrationServiceProvider extends ServiceProvider
             return new LaravelHttpTransport(
                 $app->make(HttpFactory::class),
                 $app->make(Clock::class),
+                tracer: $app->make(Tracer::class),
             );
         });
+
+        // ADR-0059: one process-wide journal (the singleton ExternalApiCaller
+        // holds it), emptied at the start of every queued job — see boot().
+        $this->app->singleton(ExchangeJournal::class, fn (): ExchangeJournal => new InMemoryExchangeJournal);
+
+        $this->app->singleton(Tracer::class, fn (): Tracer => new Tracer(
+            enabled: is_string(config('observability.tracing.otlp_endpoint')) && config('observability.tracing.otlp_endpoint') !== '',
+        ));
+
+        $this->app->singleton(OtlpHttpSpanExporter::class, function (Application $app): OtlpHttpSpanExporter {
+            $endpoint = config('observability.tracing.otlp_endpoint');
+            $service = config('observability.service_name');
+            $timeout = config('observability.tracing.export_timeout_seconds');
+
+            return new OtlpHttpSpanExporter(
+                // A bare transport (no tracer): exporting spans must not
+                // itself produce spans.
+                transport: new LaravelHttpTransport($app->make(HttpFactory::class), $app->make(Clock::class)),
+                logger: $app->make(LoggerInterface::class),
+                endpoint: is_string($endpoint) ? $endpoint : '',
+                serviceName: is_string($service) && $service !== '' ? $service : 'core-system',
+                timeoutSeconds: is_numeric($timeout) ? (float) $timeout : 1.0,
+            );
+        });
+
+        $this->app->singleton(OutboundUrlGuard::class, fn (): OutboundUrlGuard => new OutboundUrlGuard);
+
+        // Audit 2026-10-03 §2.1 — the transport for Project-chosen URLs.
+        // Modules opt in per sender with a contextual binding.
+        $this->app->bind(GuardedHttpTransport::class, fn (Application $app): GuardedHttpTransport => new GuardedHttpTransport(
+            $app->make(HttpTransport::class),
+            $app->make(OutboundUrlGuard::class),
+            (bool) config('integration.outbound.enforce_at_connect', true),
+        ));
 
         $this->app->singleton(TokenCache::class, fn (): TokenCache => new NullTokenCache);
 
@@ -114,6 +155,7 @@ final class IntegrationServiceProvider extends ServiceProvider
                 logger: $app->make(LoggerInterface::class),
                 authProviders: $authProviders,
                 correlationIds: $app->make(CorrelationIdProvider::class),
+                journal: $app->make(ExchangeJournal::class),
             );
         });
 

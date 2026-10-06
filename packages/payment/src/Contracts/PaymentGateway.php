@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Payment\Contracts;
 
+use Core\Support\Environment;
 use Core\Support\Integration\Provider\ProviderCode;
 use Core\Support\Integration\Provider\ProviderGateway;
 
@@ -46,7 +47,7 @@ interface PaymentGateway extends ProviderGateway
      * Project's own provider application/credentials — mirrors
      * `InitiatePaymentCommand::$projectId`.
      */
-    public function checkStatus(string $transactionRef, string $projectId): PaymentReceipt;
+    public function checkStatus(string $transactionRef, string $projectId, Environment $environment = Environment::Live): PaymentReceipt;
 
     /**
      * The provider code identifying this gateway. Inherited from

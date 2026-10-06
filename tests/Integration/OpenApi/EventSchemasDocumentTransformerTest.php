@@ -44,7 +44,7 @@ it('publishes WebhookEvent schema with the documented envelope shape', function 
     // Description is set on the inner Type (not the Schema wrapper — the
     // wrapper's `description` is dropped at serialization per
     // Schema::toArray()).
-    Assert::assertStringContainsString('Envelope POSTed', $innerType->description);
+    Assert::assertStringContainsString('Body POSTed to every endpoint', $innerType->description);
 
     $props = $innerType->properties;
     Assert::assertArrayHasKey('id', $props);
@@ -82,7 +82,8 @@ it('publishes WebhookEventType schema with the closed enum of emitted types', fu
     /** @var Schema $schema */
     Assert::assertSame([
         'payment.status_changed',
-        'notification.status_changed',
+        'notification.delivered',
+        'notification.read',
         'notification.failed',
         'wallet.credited',
         'wallet.debited',
@@ -97,26 +98,23 @@ it('publishes PaymentCallbackEvent schema with the documented callback body shap
     $innerType = $schema->type;
     Assert::assertInstanceOf(ObjectType::class, $innerType);
 
+    // ADR-0061: byte-for-byte the webhook envelope.
     $props = $innerType->properties;
-    Assert::assertArrayHasKey('event', $props);
-    Assert::assertArrayHasKey('payment_id', $props);
-    Assert::assertArrayHasKey('status', $props);
-    Assert::assertArrayHasKey('amount', $props);
-    Assert::assertArrayHasKey('currency', $props);
-    Assert::assertArrayHasKey('error_message', $props);
+    Assert::assertSame(['id', 'type', 'data'], array_keys($props));
+    Assert::assertSame(['id', 'type', 'data'], $innerType->required);
+
+    /** @var ObjectType $data */
+    $data = $props['data'];
+    Assert::assertSame(Core\Payment\Contracts\Events\PaymentStatusNotification::FIELDS, array_keys($data->properties));
 
     // `status` must be the closed set of canonical payment statuses
     /** @var Type $statusType */
-    $statusType = $props['status'];
+    $statusType = $data->properties['status'];
     Assert::assertSame([
         'pending', 'processing', 'succeeded', 'failed', 'expired', 'refunded', 'canceled',
     ], $statusType->enum);
 
-    Assert::assertSame([
-        'event', 'payment_id', 'status', 'amount', 'currency', 'error_message',
-    ], $innerType->required);
-
     $example = $innerType->example;
     Assert::assertIsArray($example);
-    Assert::assertSame('payment.status_changed', $example['event']);
+    Assert::assertSame('payment.status_changed', $example['type']);
 });

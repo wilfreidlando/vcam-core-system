@@ -1,9 +1,15 @@
 # Guide d'intégration — commandes `curl` vérifiées
 
-Chaque commande de ce document a été **exécutée pour de vrai** le 2026-09-24 contre
-une instance du Core branchée sur une vraie application MyCoolPay et un vrai WAHA
-(WhatsApp) — pas contre des simulations. Les réponses montrées sont les réponses
-réelles obtenues (identifiants et secrets remplacés par des exemples).
+Les commandes de ce document ont été **exécutées pour de vrai** contre une instance
+du Core branchée sur une vraie application MyCoolPay et un vrai WAHA (WhatsApp), puis
+mises à jour le 2026-10-03 pour le contrat actuel (réponses minimales, `is_final`,
+clés par environnement, simulateur sandbox) ; les réponses de cette mise à jour sont
+celles de la suite de tests d'intégration. Identifiants et secrets remplacés par des
+exemples.
+
+**Commencez en sandbox** (§2.0) : aucun argent réel, et vous pilotez vous-même
+l'issue de chaque paiement. Pour recevoir les événements (webhooks, `callback_url`)
+et vérifier leur signature, lisez **[webhooks.md](webhooks.md)**.
 
 Les charges utiles sont les mêmes que les exemples de la documentation interactive
 (`/docs/api`, bouton « Try it out »), à deux nuances près, signalées : le numéro de
@@ -18,16 +24,23 @@ export PHONE="+2376XXXXXXXX"                               # un numéro qui vous
 export SESSION="ma-boutique"                               # nom de la session WhatsApp fourni par l'administrateur (§5)
 ```
 
-- **Clé API** : à créer dans la console (`/admin/projects/<id>/api-keys/create`), une
-  clé `pk_sandbox_…` (sandbox) ou `pk_live_…` (production). Elle est affichée **une seule
-  fois**. Elle porte tous les scopes.
+- **Clés API** : un projet a **exactement deux clés**, une `pk_sandbox_…` et une
+  `pk_live_…`, créées dans la console (`/admin/projects/<id>/api-keys/create`) et
+  affichées **une seule fois**. Régénérer une clé remplace l'ancienne immédiatement ;
+  révoquer la supprime. Chaque clé ne voit que les données de son environnement : un
+  paiement créé en sandbox est introuvable (`404`) avec la clé live, et inversement.
 - **En-têtes communs** : `Authorization: Bearer $API_KEY`, `Accept: application/json`,
   et `Content-Type: application/json` pour les requêtes avec corps.
 - **Erreurs** : format RFC 7807 (`application/problem+json`) avec `type`, `title`,
   `status`, `detail`, `correlation_id` — citez le `correlation_id` au support.
-- **`Idempotency-Key`** : **obligatoire** sur les 3 routes de paiement. Une UUID par
-  intention de paiement ; rejouer la même clé renvoie la réponse d'origine sans
-  débiter une seconde fois.
+- **`Idempotency-Key`** : **obligatoire** sur toutes les routes qui touchent de
+  l'argent (création de paiement, simulation sandbox). Une valeur par intention de
+  paiement — par exemple l'identifiant de votre commande ; rejouer la même clé renvoie
+  la réponse d'origine sans débiter une seconde fois. Elle vous revient sous le nom
+  `reference` dans les événements.
+- **`Correlation-Id`** (optionnel) : envoyez votre propre identifiant de requête ; il
+  est repris dans la réponse, les erreurs et les journaux du Core, ce qui permet au
+  support de retrouver votre appel de bout en bout.
 - **Montants** : entier, dans la plus petite unité de la devise. `XAF` n'a pas de
   sous-unité : `100` = 100 XAF. `USD`/`EUR` : `100` = 1,00.
 
@@ -40,15 +53,66 @@ curl -s "$BASE_URL/v1/whoami" \
 ```
 
 ```json
-{"project_id":"01a0d4a4-11d0-732b-b413-db21199feb62","organization_id":"01a0d4a4-03c7-7279-b962-6345365ee47d","environment":"sandbox","scopes":["payments:read","payments:write","webhooks:read","webhooks:write","notifications:read","notifications:write","notification_channel_sessions:read","notification_channel_sessions:write","wallets:read"]}
+{"project_id":"01a101a1-7a96-712d-b63a-e3bbc27ae721","organization_id":"01a101a1-7a88-7241-b0aa-99f174f09b01","environment":"sandbox","scopes":["*"]}
 ```
+
+`environment` dit dans quel environnement vous travaillez avec cette clé.
 
 Clé invalide ou révoquée → `401`.
 
 ## 2. Paiements
 
-Le Project doit avoir une application MyCoolPay enregistrée (console →
+### 2.0 Sandbox : tester sans argent réel
+
+Avec une clé `pk_sandbox_…`, si aucune application provider sandbox n'est enregistrée
+pour le projet, le paiement est confié au **simulateur intégré** du Core : aucun appel
+au fournisseur, aucun argent, aucune écriture comptable. Vous décidez de l'issue :
+
+```bash
+curl -s -X POST "$BASE_URL/v1/sandbox/payments/01a101a1-7b14-70de-874c-0e4586b565d0/simulate" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  --data '{"status":"failed","reason":"Insufficient balance"}'
+```
+
+```json
+{"id":"01a101a1-7b14-70de-874c-0e4586b565d0","status":"failed"}
+```
+
+- `status` : `succeeded`, `failed`, `expired` ou `canceled` — tous finaux.
+- Le changement de statut déclenche **exactement** ce qui se passerait en live :
+  événement `payment.status_changed` vers vos endpoints sandbox (ou votre
+  `callback_url`), crédit du wallet indiqué le cas échéant.
+- Un paiement déjà final ne peut plus être simulé : `409 payment-not-simulable`.
+- Avec une clé live : `403`. Un paiement live ne peut jamais être simulé.
+- Un `paylink` sandbox renvoie une `payment_url` vers une page de paiement simulée
+  du Core, où l'on clique « Payer » ou « Refuser » comme le ferait le client.
+
+Pour tester contre le **vrai bac à sable du fournisseur**, enregistrez une application
+provider sandbox dans la console : le Core l'utilise alors à la place du simulateur.
+
+### En live
+
+Le Project doit avoir une application MyCoolPay **live** enregistrée (console →
 Project → *Applications provider*), sinon la création échoue en `422`.
+
+### Ce que renvoie une création de paiement
+
+Les trois routes de création renvoient la même forme, réduite au nécessaire :
+
+| Champ | Présent | Description |
+| --- | --- | --- |
+| `id` | toujours | Identifiant du paiement. |
+| `status` | toujours | Statut courant (voir [webhooks.md §3.1](webhooks.md#31-statuts-dun-paiement)). |
+| `is_final` | toujours | `false` : attendez l'événement ; `true` : l'issue est acquise. |
+| `amount`, `currency`, `channel` | toujours | Rappel de ce qui est facturé. |
+| `created_at` | toujours | RFC 3339. |
+| `payment_url` | `paylink` | Page où rediriger le client. |
+| `action_hint` | si le client doit agir | Ex. code USSD à composer. |
+| `failure_reason` | échec immédiat | Raison de l'échec. |
+| `callback_secret` | si `callback_url` fourni | Secret de signature des callbacks, **affiché une seule fois**. |
 
 ### 2.1 Paiement direct (USSD) — `POST /v1/payments/payin`
 
@@ -76,18 +140,18 @@ curl -s -X POST "$BASE_URL/v1/payments/payin" \
 `201` :
 
 ```json
-{"id":"01a0d4aa-f70f-72e8-a1d0-34e726d0c551","channel":"mtn_momo","status":"pending","amount":100,"currency":"XAF","requires_action":true,"action_hint":"#150*50#","payment_url":null,"idempotency_key":"bc520fa7-4312-4148-8350-7d220fdcd122","callback_url":null}
+{"id":"01a0d4aa-f70f-72e8-a1d0-34e726d0c551","status":"pending","is_final":false,"amount":100,"currency":"XAF","channel":"mtn_momo","created_at":"2026-10-03T11:58:42+00:00","action_hint":"#150*50#","callback_secret":"pcbsec_XXXXXXXX"}
 ```
 
 À savoir :
 - **Comptez ~15 à 20 secondes de latence** : MyCoolPay interroge l'opérateur avant de
   répondre. Réglez le timeout de votre client HTTP à 60 s au moins.
-- `requires_action: true` + `action_hint` : le code USSD à composer si la fenêtre de
-  validation ne s'ouvre pas sur le téléphone du client.
+- `action_hint` : le code USSD à composer si la fenêtre de validation ne s'ouvre pas
+  sur le téléphone du client. Absent quand le client n'a rien à faire.
 - `customer_lang` : **uniquement `fr` ou `en`** (autre valeur → `422`).
 - Si `callback_url` est fourni, la réponse contient aussi `callback_secret`
   (`pcbsec_…`), **affiché une seule fois** : stockez-le, il sert à vérifier la
-  signature HMAC des notifications reçues.
+  signature HMAC des notifications reçues ([webhooks.md §4](webhooks.md#4-vérifier-la-signature)).
 - Le solde du payeur insuffisant ressort en `502 provider-error` (le message précis du
   fournisseur est journalisé côté Core, pas renvoyé).
 
@@ -119,7 +183,7 @@ curl -s -X POST "$BASE_URL/v1/payments/paylink" \
 `201` (réponse réelle, en moins d'une seconde) :
 
 ```json
-{"id":"01a0d4ab-3f86-7212-9c6b-5dfa4a057ed0","channel":"mtn_momo","status":"pending","amount":100,"currency":"XAF","requires_action":false,"action_hint":null,"payment_url":"https://my-coolpay.com/payment/checkout/d67e68be-ffaa-4094-8861-213eff012842","idempotency_key":"4d57e63a-44eb-4417-8d75-a9ff7507b13f","callback_url":"https://example.com/webhooks/core","callback_secret":"pcbsec_XXXXXXXX"}
+{"id":"01a0d4ab-3f86-7212-9c6b-5dfa4a057ed0","status":"pending","is_final":false,"amount":100,"currency":"XAF","channel":"mtn_momo","created_at":"2026-10-03T11:58:42+00:00","payment_url":"https://my-coolpay.com/payment/checkout/d67e68be-ffaa-4094-8861-213eff012842","callback_secret":"pcbsec_XXXXXXXX"}
 ```
 
 Redirigez le client vers `payment_url`. `wallet_recipient_external_ref` : le wallet
@@ -149,12 +213,22 @@ curl -s "$BASE_URL/v1/payments/01a0d4aa-f70f-72e8-a1d0-34e726d0c551" \
 `200` :
 
 ```json
-{"id":"01a0d4aa-f70f-72e8-a1d0-34e726d0c551","channel":"mtn_momo","status":"pending","amount":100,"currency":"XAF","requires_action":true,"action_hint":"#150*50#","payment_url":null,"error_message":null,"idempotency_key":"bc520fa7-4312-4148-8350-7d220fdcd122","callback_url":null}
+{"id":"01a0d4aa-f70f-72e8-a1d0-34e726d0c551","status":"pending","is_final":false,"amount":100,"currency":"XAF","channel":"mtn_momo","created_at":"2026-10-03T11:58:42+00:00","updated_at":"2026-10-03T11:58:42+00:00","action_hint":"#150*50#"}
 ```
 
-Statuts : `pending`, `processing`, puis un état final (`succeeded`, `failed`, `expired`, `canceled`, `refunded`). Lit l'état
-du Core (mis à jour par le webhook du fournisseur) — pas d'appel direct au fournisseur.
-Paiement inconnu ou d'un autre Project → `404 payment-not-found`.
+Une fois final :
+
+```json
+{"id":"01a0d4aa-f70f-72e8-a1d0-34e726d0c551","status":"failed","is_final":true,"amount":100,"currency":"XAF","channel":"mtn_momo","created_at":"2026-10-03T11:58:42+00:00","updated_at":"2026-10-03T12:00:10+00:00","failure_reason":"Insufficient balance"}
+```
+
+Statuts intermédiaires : `pending`, `processing`. Statuts finaux : `succeeded`,
+`failed`, `expired`, `canceled`, `refunded` — détail et conduite à tenir dans
+[webhooks.md §3.1](webhooks.md#31-statuts-dun-paiement). **Testez `is_final`**, pas
+une liste de statuts. Lit l'état du Core (mis à jour par le webhook du fournisseur) —
+pas d'appel direct au fournisseur ; ne l'interrogez pas en boucle, attendez
+l'événement. Paiement inconnu, d'un autre Project ou d'un autre environnement →
+`404 payment-not-found`.
 
 ### 2.5 Erreurs de paiement vérifiées
 
@@ -164,7 +238,8 @@ Paiement inconnu ou d'un autre Project → `404 payment-not-found`.
 | Rejeu de la même clé et du même corps | `201`, **même `id`**, aucun second débit |
 | Devise inconnue (`"currency":"ZZZ"`) | `422 unsupported-currency` |
 | `customer_lang` autre que `fr`/`en` | `422 validation-failed` (`errors.customer_lang`) |
-| Application MyCoolPay non enregistrée | `422` |
+| Application MyCoolPay non enregistrée (live) | `422` |
+| Simulation d'un paiement déjà final | `409 payment-not-simulable` |
 | Erreur du fournisseur (solde insuffisant, etc.) | `502 provider-error` |
 
 ## 3. Wallet — `GET /v1/wallets/{walletId}/balance`
@@ -185,6 +260,10 @@ Wallet inconnu ou d'un autre Project → `404 wallet-not-found`.
 
 ## 4. Webhooks sortants
 
+Réception, signature, nouvelles tentatives et catalogue des événements :
+**[webhooks.md](webhooks.md)**. Un endpoint appartient à l'environnement de la clé qui
+l'enregistre.
+
 ### 4.1 Enregistrer — `POST /v1/webhook-endpoints`
 
 ```bash
@@ -201,8 +280,8 @@ curl -s -X POST "$BASE_URL/v1/webhook-endpoints" \
 {"id":"01a0d4ab-94f0-72ca-ab5e-497285832ca0","url":"https://example.com/webhooks/core","events":["payment.status_changed"],"secret":"whsec_XXXXXXXX"}
 ```
 
-Événements acceptés : `*`, `payment.status_changed`, `notification.status_changed`,
-`notification.failed`, `wallet.credited`, `wallet.debited`.
+Événements acceptés : `*`, `payment.status_changed`, `notification.delivered`,
+`notification.read`, `notification.failed`, `wallet.credited`, `wallet.debited`.
 L'URL doit être publique et **résoudre en DNS** : `localhost`, IP privées ou
 `169.254.169.254` sont refusées (`422`, `errors.url`), comme un hôte inexistant.
 
@@ -214,7 +293,21 @@ curl -s "$BASE_URL/v1/webhook-endpoints" \
 ```
 
 ```json
-{"data":[{"id":"01a0d4ab-94f0-72ca-ab5e-497285832ca0","url":"https://example.com/webhooks/core","events":["payment.status_changed"],"active":true}]}
+{"data":[{"id":"01a0d4ab-94f0-72ca-ab5e-497285832ca0","url":"https://example.com/webhooks/core","events":["payment.status_changed"],"active":true,"environment":"sandbox"}]}
+```
+
+### 4.2 bis Tester — `POST /v1/webhook-endpoints/{id}/test`
+
+Envoie tout de suite un événement `webhook.test` signé et renvoie la réponse de votre
+serveur — de quoi valider votre vérification de signature avant le premier paiement :
+
+```bash
+curl -s -X POST "$BASE_URL/v1/webhook-endpoints/01a0d4ab-94f0-72ca-ab5e-497285832ca0/test" \
+  -H "Authorization: Bearer $API_KEY" -H "Accept: application/json"
+```
+
+```json
+{"delivered":true,"event_id":"01a101a1-7b6c-7069-b65d-31d61b74b5a8","response_status":200,"response_body":"ok","error":null,"duration_ms":16}
 ```
 
 ### 4.3 Désactiver — `DELETE /v1/webhook-endpoints/{id}`
@@ -386,12 +479,14 @@ notification de liaison sur le numéro fourni : n'utilisez que le vôtre.
 | `GET /v1/payments/{id}` | oui | 200 / 404 |
 | `GET /v1/wallets/{id}/balance` | oui (wallet crédité en interne) | 200 / 404 |
 | `POST/GET/DELETE /v1/webhook-endpoints` | oui | 201 / 200 / 204 |
+| `POST /v1/webhook-endpoints/{id}/test` | tests d'intégration | 200 |
+| `POST /v1/sandbox/payments/{id}/simulate` | tests d'intégration | 200 / 409 / 403 |
 | `POST /v1/notifications/text` | oui (WAHA) | 201 `sent` |
 | `POST /v1/notifications/image` | oui (WAHA) | 201 `sent` |
 | `POST /v1/notifications/file` | oui (WAHA) | 201 `sent` |
 | `GET /v1/notifications/{id}` | oui | 200 |
 | `GET …/qr`, `GET …/screenshot`, `POST …/pairing-code` | oui (WAHA) | 200 / 422 si non enregistrée |
 
-Non couvert en réel : le passage d'un paiement à `succeeded` (nécessite que le client
-valide sur son téléphone et que MyCoolPay puisse joindre le Core par webhook) et donc le
-crédit automatique du wallet qui en découle.
+Le passage d'un paiement à un statut final, l'événement qui en découle et le crédit du
+wallet indiqué sont couverts de bout en bout en sandbox (simulateur) par la suite de
+tests ; en live, ils dépendent de la validation par le client sur son téléphone.

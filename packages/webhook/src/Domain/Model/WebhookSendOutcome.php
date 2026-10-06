@@ -31,7 +31,20 @@ final readonly class WebhookSendOutcome
         // just that it failed.
         public ?string $responseBody = null,
         public bool $isPermanentFailure = false,
+        // ADR-0059 — what was actually sent (signature masked) and how long it took.
+        /** @var array<string, string> */
+        public array $requestHeaders = [],
+        public string $requestBody = '',
+        public ?int $durationMs = null,
     ) {}
+
+    /**
+     * @param array<string, string> $requestHeaders
+     */
+    public function withRequest(array $requestHeaders, string $requestBody, ?int $durationMs): self
+    {
+        return new self($this->success, $this->httpStatus, $this->error, $this->responseBody, $this->isPermanentFailure, $requestHeaders, $requestBody, $durationMs);
+    }
 
     public static function success(int $httpStatus, ?string $responseBody): self
     {

@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace Core\Payment\Presentation\Http\Controllers;
 
+use Core\Payment\Application\Service\PaymentJourney;
 use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\PaymentStatusMapper;
+use Core\Payment\Domain\Model\PaymentTimelineEntryType;
 use Core\Payment\Domain\Port\PaymentCallbackAuthenticator;
+use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Support\Clock;
+use Core\Support\Integration\Redaction\PayloadRedactor;
 use DateTimeZone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -87,6 +91,9 @@ final class MyCoolPayWebhookController
         private ProviderApplicationRepository $applications,
         private PaymentCallbackAuthenticator $authenticator,
         private LoggerInterface $logger,
+        private PaymentRepository $payments,
+        private PaymentJourney $journey,
+        private PayloadRedactor $redactor,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -98,7 +105,10 @@ final class MyCoolPayWebhookController
         /** @var array<string, mixed> $body */
         $body = $request->json()->all();
 
-        if (! $this->isAuthentic($request, $body)) {
+        $rejection = $this->rejectionReason($request, $body);
+        if ($rejection !== null) {
+            $this->recordCallback($request, $body, PaymentTimelineEntryType::ProviderCallbackRejected, sprintf('Callback MyCoolPay rejeté (%s) — réponse 403', $rejection), ['rejection' => $rejection, 'response_status' => 403]);
+
             // Not a business-logic filter — this is the actual trust
             // boundary. A 403 here (unlike the 200s below) is a
             // deliberate, visible signal: MyCoolPay doesn't retry
@@ -117,10 +127,14 @@ final class MyCoolPayWebhookController
             // a warning. Reply 200 OK anyway: MyCoolPay considers any 2xx
             // a successful delivery; bouncing 4xx would make them retry
             // forever for a payload they will keep sending.
+            $this->recordCallback($request, $body, PaymentTimelineEntryType::ProviderCallbackReceived, 'Callback MyCoolPay authentifié mais ignoré (type ou statut non pris en charge) — réponse 200', ['response_status' => 200]);
+
             return new JsonResponse(['status' => 'ignored'], 200);
         }
 
-        $this->statusChangeHandler->handle($event);
+        $this->recordCallback($request, $body, PaymentTimelineEntryType::ProviderCallbackReceived, sprintf('Callback MyCoolPay authentifié : statut provider « %s » → statut canonique « %s »', self::stringField($body, 'transaction_status'), $event->status->value), ['response_status' => 200, 'canonical_status' => $event->status->value]);
+
+        $this->statusChangeHandler->handle($event, 'provider_callback');
 
         $this->logger->info('my-coolpay.webhook.handled', [
             'provider_code' => $event->providerCode,
@@ -134,14 +148,14 @@ final class MyCoolPayWebhookController
     /**
      * @param array<string, mixed> $body
      */
-    private function isAuthentic(Request $request, array $body): bool
+    private function rejectionReason(Request $request, array $body): ?string
     {
         if (! $this->authenticator->isFromTrustedIp($request->ip())) {
             $this->logger->error('my-coolpay.webhook.untrusted_ip', [
                 'ip' => $request->ip(),
             ]);
 
-            return false;
+            return 'adresse IP source non autorisée';
         }
 
         // The `application` field identifies WHICH Project's MyCoolPay
@@ -157,7 +171,7 @@ final class MyCoolPayWebhookController
         if (! is_string($publicKey) || $publicKey === '') {
             $this->logger->error('my-coolpay.webhook.missing_application');
 
-            return false;
+            return 'champ application absent';
         }
 
         $application = $this->applications->findByProviderAndPublicKey('my-coolpay', $publicKey);
@@ -168,7 +182,7 @@ final class MyCoolPayWebhookController
                 'application_prefix' => substr($publicKey, 0, 8).'...',
             ]);
 
-            return false;
+            return 'application MyCoolPay inconnue';
         }
 
         if (! $this->authenticator->hasValidSignature($body, $application->privateKey)) {
@@ -176,10 +190,38 @@ final class MyCoolPayWebhookController
                 'transaction_ref' => $body['transaction_ref'] ?? null,
             ]);
 
-            return false;
+            return 'signature invalide';
         }
 
-        return true;
+        return null;
+    }
+
+    /**
+     * ADR-0059 — the callback as received, attached to the payment it
+     * names (when the Core knows that transaction), authenticated or not:
+     * a rejected callback on a real payment is exactly what an operator
+     * investigating fraud or a provider misconfiguration needs to see.
+     *
+     * @param array<string, mixed> $body
+     * @param array<string, mixed> $extra
+     */
+    private function recordCallback(Request $request, array $body, PaymentTimelineEntryType $type, string $summary, array $extra): void
+    {
+        $transactionRef = self::stringField($body, 'transaction_ref');
+        if ($transactionRef === '') {
+            return;
+        }
+
+        $payment = $this->payments->findByProviderTransactionRef('my-coolpay', $transactionRef);
+        if ($payment === null) {
+            return;
+        }
+
+        $this->journey->record($payment->id, $payment->projectId, $type, $summary, [
+            'source_ip' => $request->ip(),
+            'body' => $this->redactor->redact($body),
+            ...$extra,
+        ]);
     }
 
     /**

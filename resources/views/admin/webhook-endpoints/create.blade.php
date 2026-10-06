@@ -62,7 +62,7 @@
                     @endphp
                     <li class="py-3 text-base" x-data="{ editing: false }">
                         <div class="flex items-center justify-between gap-2">
-                            <span class="font-mono text-slate-900 truncate">{{ $endpoint->url }}</span>
+                            <span class="flex items-center gap-2 min-w-0"><x-admin.env-badge :env="$endpoint->environment" /><span class="font-mono text-slate-900 truncate">{{ $endpoint->url }}</span></span>
                             <span @class([
                                 'shrink-0 inline-flex rounded-full px-2 py-0.5 text-xs font-mono',
                                 'bg-emerald-100 text-emerald-700' => $endpoint->active,
@@ -170,6 +170,18 @@
                     placeholder="https://exemple.com/webhooks/core"
                     class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm font-mono" />
                 @error('url')
+                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div>
+                <label for="environment" class="block text-base font-medium text-slate-700 mb-1">Environnement</label>
+                <select name="environment" id="environment" class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base bg-white">
+                    <option value="live" @selected(old('environment', 'live') === 'live')>Live — vrais paiements</option>
+                    <option value="sandbox" @selected(old('environment') === 'sandbox')>Sandbox — paiements de test</option>
+                </select>
+                <p class="mt-1 text-sm text-slate-500">L'endpoint ne reçoit que les événements de cet environnement.</p>
+                @error('environment')
                     <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
                 @enderror
             </div>

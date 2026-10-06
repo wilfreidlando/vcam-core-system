@@ -46,7 +46,7 @@ final class FakePaymentGateway implements PaymentGateway
         return $this->nextReceipt;
     }
 
-    public function checkStatus(string $transactionRef, string $projectId): PaymentReceipt
+    public function checkStatus(string $transactionRef, string $projectId, \Core\Support\Environment $environment = \Core\Support\Environment::Live): PaymentReceipt
     {
         if ($this->checkStatusException !== null) {
             throw $this->checkStatusException;

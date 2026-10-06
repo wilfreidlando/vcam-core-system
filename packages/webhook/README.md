@@ -2,7 +2,7 @@
 
 **Bounded context:** `webhook`
 **Responsibility:** Consumer webhook endpoints, HMAC-signed delivery, retry/backoff, DLQ, controlled replay.
-**Delivery lot:** Lot 4 — see [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+**Delivery lot:** Lot 4 — see [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## Internal structure
 

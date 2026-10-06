@@ -4,87 +4,86 @@
 
 @section('content')
 <div class="space-y-6">
+    {{-- ADR-0062 — toutes les données du paiement, sans exception. --}}
+    @php
+        $field = 'text-sm uppercase tracking-wider font-semibold text-slate-500';
+        $fmt = static fn (?string $iso): string => $iso !== null ? \Illuminate\Support\Carbon::parse($iso)->format('d/m/Y H:i:s') : '—';
+    @endphp
     <div class="bg-white border border-slate-200 rounded-lg p-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-base">
-            <div>
-                <p class="text-sm uppercase tracking-wider font-semibold text-slate-500">ID</p>
+        <div class="flex flex-wrap items-center gap-3 mb-5">
+            <x-admin.status-badge :status="$payment->status" :final="$payment->isFinal" />
+            <x-admin.env-badge :env="$payment->environment" />
+            <span class="text-2xl font-semibold text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($payment->amount, $payment->currency)->formattedAmount() }} {{ $payment->currency }}</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-base">
+            <div class="md:col-span-2">
+                <p class="{{ $field }}">ID</p>
                 <p class="font-mono text-slate-700 break-all">{{ $payment->id }}</p>
             </div>
             <div>
-                <p class="text-sm uppercase tracking-wider font-semibold text-slate-500">Projet</p>
+                <p class="{{ $field }}">Projet</p>
                 @if ($project !== null)
-                    <p class="text-slate-900">
-                        <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-indigo-600 hover:text-indigo-800 font-medium">
-                            {{ $project->name }}
-                        </a>
-                    </p>
+                    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-indigo-600 hover:text-indigo-800 font-medium">{{ $project->name }}</a>
                 @else
                     <p class="font-mono text-slate-700 break-all">{{ $projectId }}</p>
                 @endif
             </div>
             <div>
-                <p class="text-sm uppercase tracking-wider font-semibold text-slate-500">Canal</p>
+                <p class="{{ $field }}">Créé le</p>
+                <p class="text-slate-800 tabular-nums">{{ $fmt($payment->createdAt) }}</p>
+            </div>
+            <div>
+                <p class="{{ $field }}">Dernière mise à jour</p>
+                <p class="text-slate-800 tabular-nums">{{ $fmt($payment->updatedAt) }}</p>
+            </div>
+            <div>
+                <p class="{{ $field }}">Canal</p>
                 <p class="font-mono text-slate-700">{{ $payment->channel }}</p>
             </div>
             <div>
-                <p class="text-sm uppercase tracking-wider font-semibold text-slate-500">Référence de l'appelant</p>
-                {{-- The same value the caller sent as Idempotency-Key —
-                     the reference it uses to identify this transaction in
-                     its own system, also echoed as app_transaction_ref in
-                     the payment.status_changed webhook. --}}
+                <p class="{{ $field }}">Provider</p>
+                <p class="font-mono text-slate-700">{{ $payment->providerCode ?? '—' }}</p>
+            </div>
+            <div class="md:col-span-2">
+                <p class="{{ $field }}">Référence provider</p>
+                <p class="font-mono text-slate-700 break-all">{{ $payment->providerTransactionRef ?? '—' }}</p>
+            </div>
+            <div class="md:col-span-3">
+                <p class="{{ $field }}">Référence de l'intégrateur (Idempotency-Key)</p>
                 <p class="font-mono text-slate-700 break-all">{{ $payment->idempotencyKey }}</p>
             </div>
             <div>
-                <p class="text-sm uppercase tracking-wider text-slate-500 font-semibold">Statut</p>
-                <p>
-                    @php $status = $payment->status; @endphp
-                    <span @class([
-                        'inline-flex rounded-md px-2 py-0.5 font-mono text-xs',
-                        'bg-emerald-100 text-emerald-700' => $status === 'succeeded',
-                        'bg-rose-100 text-rose-700' => in_array($status, ['failed', 'expired'], true),
-                        'bg-slate-100 text-slate-700' => in_array($status, ['pending', 'processing'], true),
-                        'bg-amber-100 text-amber-700' => $status === 'refunded',
-                        'bg-purple-100 text-purple-700' => $status === 'canceled',
-                    ])>
-                        {{ $status }}
-                    </span>
-                </p>
-            </div>
-            <div>
-                <p class="text-sm uppercase tracking-wider text-slate-500 font-semibold">Montant</p>
-                {{-- Minor units (G5) → major units, via Money::formattedAmount()
-                     — currency-exponent-correct (0 decimals for XAF, the
-                     currency this Core actually operates in today, not a
-                     hardcoded 2-decimal split). Same pattern as
-                     reconciliation/new.blade.php and admin/payments/index. --}}
-                <p class="font-mono text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($payment->amount, $payment->currency)->formattedAmount() }} {{ $payment->currency }}</p>
-            </div>
-            <div>
-                <p class="text-sm uppercase tracking-wider text-slate-500 font-semibold">Action requise</p>
+                <p class="{{ $field }}">Action requise</p>
                 <p class="text-slate-700">{{ $payment->requiresAction ? 'Oui' : 'Non' }}</p>
             </div>
-            <div>
-                <p class="text-sm uppercase tracking-wider text-slate-500 font-semibold">Indication d'action</p>
+            <div class="md:col-span-2">
+                <p class="{{ $field }}">Indication d'action</p>
                 <p class="text-slate-700">{{ $payment->actionHint ?? '—' }}</p>
             </div>
-            <div class="md:col-span-2">
-                <p class="text-sm uppercase tracking-wider text-slate-500 font-semibold">URL de paiement</p>
+            <div class="md:col-span-3">
+                <p class="{{ $field }}">URL de paiement</p>
                 @if ($payment->paymentUrl !== null)
-                    <a href="{{ $payment->paymentUrl }}" target="_blank" rel="noopener" class="text-indigo-600 hover:text-indigo-800 font-mono text-sm break-all">
-                        {{ $payment->paymentUrl }}
-                    </a>
+                    <a href="{{ $payment->paymentUrl }}" target="_blank" rel="noopener" class="text-indigo-600 hover:text-indigo-800 font-mono text-sm break-all">{{ $payment->paymentUrl }}</a>
                 @else
                     <p class="text-slate-500">—</p>
                 @endif
             </div>
-            <div class="md:col-span-2">
-                <p class="text-sm uppercase tracking-wider text-slate-500 font-semibold">URL de callback</p>
+            <div class="md:col-span-3">
+                <p class="{{ $field }}">URL de retour (navigateur)</p>
+                <p class="font-mono text-slate-700 text-sm break-all">{{ $payment->returnUrl ?? '—' }}</p>
+            </div>
+            <div class="md:col-span-3">
+                <p class="{{ $field }}">URL de callback</p>
                 @if ($payment->callbackUrl !== null)
                     <p class="font-mono text-slate-700 text-sm break-all">{{ $payment->callbackUrl }}</p>
                     <p class="mt-0.5 text-sm text-slate-500">Notification directe à cette URL — pas de relais vers les endpoints webhook du projet pour ce paiement.</p>
                 @else
                     <p class="text-slate-500">— (notifié via les endpoints webhook du projet, le cas échéant)</p>
                 @endif
+            </div>
+            <div class="md:col-span-3">
+                <p class="{{ $field }}">Wallet à créditer</p>
+                <p class="font-mono text-slate-700">{{ $payment->walletRecipientExternalRef ?? '— (encaissement pur, aucun wallet)' }}</p>
             </div>
         </div>
     </div>
@@ -116,6 +115,8 @@
             </form>
         </div>
     @endif
+
+    @include('admin.payments.partials.journey')
 
     <div class="text-right">
         <a href="{{ route('admin.payments.index') }}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">

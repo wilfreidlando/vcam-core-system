@@ -78,10 +78,17 @@ final readonly class HttpWebhookSender implements WebhookSender
             'Content-Type' => 'application/json',
             'X-Event-Id' => $delivery->eventId,
             'X-Event-Type' => $delivery->eventType,
+            // ADR-0059: identifies this delivery (a replay gets a new one);
+            // deduplicate on X-Event-Id, quote X-Delivery-Id to support.
+            'X-Delivery-Id' => $delivery->id,
         ];
 
         $timestamp = $this->clock->now()->getTimestamp();
         $this->signer->sign($policy, $headers, $body, $timestamp);
+
+        $shownHeaders = $headers;
+        $shownHeaders['X-Signature'] = '***REDACTED***';
+        $startedAt = hrtime(true);
 
         try {
             $response = $this->transport->send(
@@ -94,21 +101,30 @@ final readonly class HttpWebhookSender implements WebhookSender
         } catch (ProviderException $e) {
             // No response was ever received — nothing to show beyond the
             // failure message itself.
-            return WebhookSendOutcome::failure($e->httpStatus, $e->getMessage());
+            return WebhookSendOutcome::failure($e->httpStatus, $e->getMessage())
+                ->withRequest($shownHeaders, $body, self::elapsedMs($startedAt));
         }
+
+        $elapsed = self::elapsedMs($startedAt);
 
         $responseBody = mb_strlen($response->rawBody) > self::MAX_RESPONSE_BODY_LENGTH
             ? mb_substr($response->rawBody, 0, self::MAX_RESPONSE_BODY_LENGTH).'… (truncated)'
             : $response->rawBody;
 
         if ($response->status >= 200 && $response->status < 300) {
-            return WebhookSendOutcome::success($response->status, $responseBody);
+            return WebhookSendOutcome::success($response->status, $responseBody)
+                ->withRequest($shownHeaders, $body, $elapsed);
         }
 
         return WebhookSendOutcome::failure(
             $response->status,
             sprintf('Endpoint responded with HTTP %d.', $response->status),
             $responseBody,
-        );
+        )->withRequest($shownHeaders, $body, $elapsed);
+    }
+
+    private static function elapsedMs(int|float $startedAt): int
+    {
+        return (int) round((hrtime(true) - $startedAt) / 1_000_000);
     }
 }

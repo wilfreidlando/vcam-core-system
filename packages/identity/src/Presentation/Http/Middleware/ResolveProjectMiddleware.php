@@ -11,6 +11,7 @@ use Core\Identity\Domain\Exception\InvalidApiKey;
 use Core\Identity\Domain\Exception\ProjectNotActive;
 use Core\Support\Http\ProblemDetails;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Context;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -48,6 +49,13 @@ final class ResolveProjectMiddleware
         }
 
         app()->instance(ProjectContext::class, $context);
+
+        // ADR-0059: every log line of this request (and of the jobs it
+        // causes — Context travels into queued jobs) says which Project
+        // and environment it belongs to.
+        Context::add('project_id', $context->projectId);
+        Context::add('environment', $context->environment->value);
+        Context::add('api_key_prefix', $context->apiKeyPrefix);
 
         return $next($request);
     }

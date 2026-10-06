@@ -16,5 +16,11 @@ use Core\Payment\Domain\Model\PaymentCallbackSendOutcome;
  */
 interface PaymentCallbackSender
 {
-    public function send(Payment $payment): PaymentCallbackSendOutcome;
+    /**
+     * POSTs the `payment.status_changed` event to the payment's `callback_url`,
+     * in the same envelope as the webhook plane: `{id, type, data}`.
+     *
+     * @param array<string, mixed> $data
+     */
+    public function send(Payment $payment, string $eventId, array $data): PaymentCallbackSendOutcome;
 }

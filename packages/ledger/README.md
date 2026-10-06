@@ -2,7 +2,7 @@
 
 **Bounded context:** `ledger`
 **Responsibility:** Immutable double-entry ledger, accounts, materialized balances. The financial core: depends on no other module.
-**Delivery lot:** Lot 2 — see [the delivery plan](../../docs/Plan_Delivery_MVP_Core_System.docx)
+**Delivery lot:** Lot 2 — see [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## Internal structure
 

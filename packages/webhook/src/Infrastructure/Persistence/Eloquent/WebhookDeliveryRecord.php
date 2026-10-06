@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Core\Webhook\Infrastructure\Persistence\Eloquent;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -29,6 +31,7 @@ use Illuminate\Database\Eloquent\Model;
 final class WebhookDeliveryRecord extends Model
 {
     use HasUuids;
+    use MassPrunable;
 
     protected $table = 'webhook_deliveries';
 
@@ -46,4 +49,22 @@ final class WebhookDeliveryRecord extends Model
         'last_attempt_at' => 'immutable_datetime',
         'delivered_at' => 'immutable_datetime',
     ];
+
+    /**
+     * Audit 2026-10-03 §4.6 — terminal deliveries (payload + receiver
+     * response) are kept `webhook.retention_days`, then deleted by the
+     * scheduled `model:prune`. `pending` rows are never pruned.
+     *
+     * @return Builder<self>
+     */
+    public function prunable(): Builder
+    {
+        $configured = config('webhook.retention_days', 90);
+        $days = is_numeric($configured) ? (int) $configured : 90;
+
+        // @phpstan-ignore staticMethod.dynamicCall (Eloquent builder forwarding — see EloquentWalletBalanceRepository)
+        return self::query()
+            ->whereIn('status', ['delivered', 'dead', 'canceled'])
+            ->where('updated_at', '<', now()->subDays($days));
+    }
 }

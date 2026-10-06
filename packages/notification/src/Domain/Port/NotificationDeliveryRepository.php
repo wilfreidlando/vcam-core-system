@@ -22,5 +22,13 @@ interface NotificationDeliveryRepository
         ?string $providerMessageId,
         NotificationStatus $canonicalStatus,
         int $attempt,
+        ?string $error = null,
     ): void;
+
+    /**
+     * ADR-0062 — every provider attempt of a notification, oldest first.
+     *
+     * @return list<array{provider_code: string, provider_message_id: string|null, status: string, attempt: int, error: string|null, created_at: string}>
+     */
+    public function forNotification(string $notificationId): array;
 }

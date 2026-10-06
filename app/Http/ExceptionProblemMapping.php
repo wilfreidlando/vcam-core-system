@@ -19,6 +19,7 @@ use Core\Notification\Contracts\NoProviderForNotificationChannelException;
 use Core\Notification\Domain\Exception\NotificationNotFound;
 use Core\Payment\Contracts\NoProviderForChannelException;
 use Core\Payment\Domain\Exception\PaymentNotFound;
+use Core\Payment\Domain\Exception\PaymentNotSimulable;
 use Core\Payment\Domain\Exception\ProviderApplicationNotFound;
 use Core\Payment\Domain\Exception\UnsupportedCurrency;
 use Core\Support\Http\ProblemDetails;
@@ -30,6 +31,7 @@ use Core\Support\Integration\Exception\ProviderTransientError;
 use Core\Wallet\Domain\Exception\WalletNotFound;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotDead;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
+use Core\Webhook\Domain\Exception\WebhookEndpointInactive;
 use Core\Webhook\Domain\Exception\WebhookEndpointNotFound;
 use Illuminate\Http\JsonResponse;
 use Throwable;
@@ -62,6 +64,7 @@ final class ExceptionProblemMapping
     private const MAP = [
         WalletNotFound::class => ['type' => 'wallet-not-found', 'title' => 'Wallet not found', 'status' => 404],
         PaymentNotFound::class => ['type' => 'payment-not-found', 'title' => 'Payment not found', 'status' => 404],
+        PaymentNotSimulable::class => ['type' => 'payment-not-simulable', 'title' => 'This payment cannot be simulated', 'status' => 409],
         NoProviderForChannelException::class => ['type' => 'no-provider-for-channel', 'title' => 'No provider is configured for this channel', 'status' => 422],
         ProviderApplicationNotFound::class => ['type' => 'no-provider-application', 'title' => 'No provider application is registered for this project', 'status' => 422],
         NoProviderForNotificationChannelException::class => ['type' => 'no-provider-for-notification-channel', 'title' => 'No provider is configured for this notification channel', 'status' => 422],
@@ -69,6 +72,7 @@ final class ExceptionProblemMapping
         WebhookEndpointNotFound::class => ['type' => 'webhook-endpoint-not-found', 'title' => 'Webhook endpoint not found', 'status' => 404],
         WebhookDeliveryNotFound::class => ['type' => 'webhook-delivery-not-found', 'title' => 'Webhook delivery not found', 'status' => 404],
         WebhookDeliveryNotDead::class => ['type' => 'webhook-delivery-not-dead', 'title' => 'Only a dead webhook delivery can be replayed', 'status' => 409],
+        WebhookEndpointInactive::class => ['type' => 'webhook-endpoint-inactive', 'title' => 'The webhook endpoint is deactivated', 'status' => 409],
         NotificationNotFound::class => ['type' => 'notification-not-found', 'title' => 'Notification not found', 'status' => 404],
         MissingRecipientPhoneNumber::class => ['type' => 'missing-recipient-phone-number', 'title' => 'The recipient phone number is missing', 'status' => 422],
         ChannelDoesNotSupportSessions::class => ['type' => 'channel-does-not-support-sessions', 'title' => 'This channel has no linked-device session to manage', 'status' => 422],

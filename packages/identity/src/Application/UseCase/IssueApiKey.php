@@ -9,6 +9,7 @@ use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Contracts\IssueApiKey as IssueApiKeyPort;
 use Core\Identity\Contracts\IssueApiKeyCommand;
 use Core\Identity\Contracts\IssuedApiKeyView;
+use Core\Identity\Domain\Exception\ApiKeyAlreadyExistsForEnvironment;
 use Core\Identity\Domain\Exception\ProjectNotActive;
 use Core\Identity\Domain\Exception\ProjectNotFound;
 use Core\Identity\Domain\Model\ApiKey;
@@ -18,6 +19,7 @@ use Core\Identity\Domain\Port\ApiKeySecretGenerator;
 use Core\Identity\Domain\Port\ProjectRepository;
 use Core\Support\Clock;
 use Core\Support\Identifier;
+use Core\Support\UnitOfWork;
 
 /**
  * Reachable from both the CLI (`identity:issue-api-key`) and the admin
@@ -36,6 +38,7 @@ final readonly class IssueApiKey implements IssueApiKeyPort
         private Identifier $identifier,
         private AuditLogger $audit,
         private Clock $clock,
+        private UnitOfWork $unitOfWork,
     ) {}
 
     public function issue(IssueApiKeyCommand $command, string $actor, ?string $correlationId): IssuedApiKeyView
@@ -50,6 +53,14 @@ final readonly class IssueApiKey implements IssueApiKeyPort
         $generated = $this->secrets->generate($command->environment);
         $now = $this->clock->now();
 
+        // ADR-0060: one key per (project, environment). Regenerating
+        // deletes the previous key in the same transaction as the insert —
+        // there is never a moment with zero or two valid keys.
+        $existing = $this->apiKeys->findByProjectAndEnvironment($project->id, $command->environment);
+        if ($existing !== null && ! $command->replaceExisting) {
+            throw ApiKeyAlreadyExistsForEnvironment::for($project->id, $command->environment->value, $existing->prefix);
+        }
+
         $apiKey = ApiKey::issue(
             id: $this->identifier->generate(),
             projectId: $project->id,
@@ -60,11 +71,27 @@ final readonly class IssueApiKey implements IssueApiKeyPort
             issuedAt: $now,
         );
 
-        $this->apiKeys->save($apiKey);
+        $this->unitOfWork->transactional(function () use ($existing, $apiKey, $actor, $correlationId, $now): void {
+            if ($existing !== null) {
+                $this->apiKeys->delete($existing->id);
+                $this->audit->record(new AuditEntry(
+                    actor: $actor,
+                    action: 'api_key.replaced',
+                    resource: 'api_key:'.$existing->id,
+                    before: ['project_id' => $existing->projectId, 'environment' => $existing->environment->value, 'prefix' => $existing->prefix],
+                    after: ['replaced_by' => $apiKey->prefix],
+                    context: [],
+                    correlationId: $correlationId,
+                    occurredAt: $now,
+                ));
+            }
+
+            $this->apiKeys->save($apiKey);
+        });
 
         $this->audit->record(new AuditEntry(
             actor: $actor,
-            action: 'api_key.issued',
+            action: $existing === null ? 'api_key.issued' : 'api_key.regenerated',
             resource: 'api_key:'.$apiKey->id,
             before: null,
             // Never the secret or its hash — only what identifies the credential.

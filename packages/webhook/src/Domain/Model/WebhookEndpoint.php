@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Webhook\Domain\Model;
 
+use Core\Support\Environment;
 use InvalidArgumentException;
 
 /**
@@ -24,6 +25,8 @@ final readonly class WebhookEndpoint
         public string $secret,
         public array $subscribedEventTypes,
         public bool $active,
+        // ADR-0060 — only events of this environment are delivered here.
+        public Environment $environment = Environment::Live,
     ) {
         $scheme = parse_url($url, PHP_URL_SCHEME);
         if (! in_array($scheme, ['http', 'https'], true)) {
@@ -47,12 +50,12 @@ final readonly class WebhookEndpoint
 
     public function deactivated(): self
     {
-        return new self($this->id, $this->projectId, $this->url, $this->secret, $this->subscribedEventTypes, false);
+        return new self($this->id, $this->projectId, $this->url, $this->secret, $this->subscribedEventTypes, false, $this->environment);
     }
 
     public function activated(): self
     {
-        return new self($this->id, $this->projectId, $this->url, $this->secret, $this->subscribedEventTypes, true);
+        return new self($this->id, $this->projectId, $this->url, $this->secret, $this->subscribedEventTypes, true, $this->environment);
     }
 
     /**
@@ -60,6 +63,6 @@ final readonly class WebhookEndpoint
      */
     public function withUrlAndEvents(string $url, array $subscribedEventTypes): self
     {
-        return new self($this->id, $this->projectId, $url, $this->secret, $subscribedEventTypes, $this->active);
+        return new self($this->id, $this->projectId, $url, $this->secret, $subscribedEventTypes, $this->active, $this->environment);
     }
 }

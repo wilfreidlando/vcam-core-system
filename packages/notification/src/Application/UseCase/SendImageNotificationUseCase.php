@@ -31,6 +31,7 @@ final readonly class SendImageNotificationUseCase implements SendImageNotificati
             ],
             contentType: 'image',
             idempotencyKey: $command->idempotencyKey,
+            environment: $command->environment,
         );
     }
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Core\Payment\Presentation\Listeners;
 
 use Core\Events\Contracts\OutboxEventPublished;
-use Core\Payment\Contracts\Events\PaymentStatusChanged;
+use Core\Payment\Contracts\Events\PaymentStatusNotification;
 use Core\Payment\Presentation\Jobs\DeliverPaymentCallbackJob;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
@@ -27,8 +27,10 @@ final readonly class DeliverPaymentCallbackListener implements ShouldQueue
             return;
         }
 
-        $event = PaymentStatusChanged::fromPayload($published->event->payload);
+        $notification = PaymentStatusNotification::fromPayload($published->event->payload);
 
-        DeliverPaymentCallbackJob::dispatch($event->providerCode, $event->transactionRef);
+        // ADR-0061: the callback carries the exact event the webhook plane
+        // would — same id (receiver-side deduplication), same `data`.
+        DeliverPaymentCallbackJob::dispatch($notification->paymentId, $published->event->id, $published->event->payload);
     }
 }

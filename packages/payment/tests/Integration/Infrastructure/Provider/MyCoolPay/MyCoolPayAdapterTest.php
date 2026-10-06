@@ -8,11 +8,11 @@ use Core\Payment\Contracts\InitiatePaymentCommand;
 use Core\Payment\Contracts\PaymentAction;
 use Core\Payment\Domain\Exception\ProviderApplicationNotFound;
 use Core\Payment\Domain\Model\ProviderApplication;
-use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayAdapter;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayStatusMapper;
 use Core\Payment\PaymentFlow;
 use Core\Payment\PaymentStatus;
+use Core\Payment\Tests\Unit\Fakes\InMemoryProviderApplicationRepository;
 use Core\Support\Clock;
 use Core\Support\Integration\Auth\ApiKeyAuthProvider;
 use Core\Support\Integration\Auth\BasicAuthProvider;
@@ -30,7 +30,6 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
-use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -380,45 +379,7 @@ final class MyCoolPayAdapterTest extends TestCase
             caller: $caller,
             config: $config,
             statusMapper: new MyCoolPayStatusMapper($config->code),
-            applications: new class($applications) implements ProviderApplicationRepository
-            {
-                /**
-                 * @param list<ProviderApplication> $applications
-                 */
-                public function __construct(private array $applications) {}
-
-                public function save(ProviderApplication $application): void
-                {
-                    throw new RuntimeException('Not needed by this fake.');
-                }
-
-                public function findByProjectAndProvider(string $projectId, string $providerCode): ?ProviderApplication
-                {
-                    foreach ($this->applications as $application) {
-                        if ($application->projectId === $projectId && $application->providerCode === $providerCode) {
-                            return $application;
-                        }
-                    }
-
-                    return null;
-                }
-
-                public function findByProviderAndPublicKey(string $providerCode, string $publicKey): ?ProviderApplication
-                {
-                    foreach ($this->applications as $application) {
-                        if ($application->providerCode === $providerCode && $application->publicKey === $publicKey) {
-                            return $application;
-                        }
-                    }
-
-                    return null;
-                }
-
-                public function findAllByProject(string $projectId): array
-                {
-                    throw new RuntimeException('Not needed by this fake.');
-                }
-            },
+            applications: new InMemoryProviderApplicationRepository($applications),
         );
     }
 }

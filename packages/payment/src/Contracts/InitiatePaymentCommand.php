@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Payment\Contracts;
 
 use Core\Payment\PaymentFlow;
+use Core\Support\Environment;
 
 /**
  * Command handed to a payment provider to start a payment.
@@ -52,5 +53,7 @@ final readonly class InitiatePaymentCommand
         public PaymentFlow $flow = PaymentFlow::Payin,
         public ?PaymentChannel $channel = null,
         public ?string $returnUrl = null,
+        // ADR-0060 — selects the project's application for this environment.
+        public Environment $environment = Environment::Live,
     ) {}
 }

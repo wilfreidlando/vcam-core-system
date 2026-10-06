@@ -213,14 +213,20 @@ final class AppServiceProvider extends ServiceProvider
      */
     private function configureRateLimiting(): void
     {
-        RateLimiter::for('api', function (Request $request): Limit {
+        RateLimiter::for('api', function (Request $request): array {
             $bearer = $request->bearerToken();
 
-            $key = $bearer !== null
-                ? 'key:'.substr(hash('sha256', $bearer), 0, 32)
-                : 'ip:'.$request->ip();
+            // Audit 2026-10-03 §2.6: keyed on the bearer alone, a client
+            // sending a fresh random bearer per request got a fresh bucket
+            // every time. A per-IP ceiling applies on top, so unauthenticated
+            // or invalid-key traffic is bounded too.
+            $limits = [Limit::perMinute(600)->by('ip:'.$request->ip())];
 
-            return Limit::perMinute(300)->by($key);
+            if ($bearer !== null) {
+                $limits[] = Limit::perMinute(300)->by('key:'.substr(hash('sha256', $bearer), 0, 32));
+            }
+
+            return $limits;
         });
 
         // Stricter than the generic 'api' limiter above: the operator

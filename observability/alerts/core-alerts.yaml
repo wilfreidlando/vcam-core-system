@@ -1,0 +1,121 @@
+# Alertes PROPRES AU CORE, livrées par le projet (guide 19 de vcam-infra-deploy, ADR-0068) : `deploy.sh obs-sync` les publie dans Grafana,
+# la plateforme n'est pas modifiée. Règles à suivre : seulement apiVersion et groups (jamais de points de contact ni de politique de
+# notification, qui sont ceux de la plateforme) ; `folder` = le nom du projet ; uid uniques sur la plateforme.
+# Les alertes ne sont relues qu'au redémarrage de Grafana.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: core-system
+    folder: core-system
+    interval: 1m
+    rules:
+      - uid: core-down
+        title: Core injoignable
+        condition: C
+        for: 2m
+        noDataState: Alerting
+        execErrState: Alerting
+        annotations:
+          summary: Prometheus n'arrive plus à scraper /metrics (app arrêtée ou base indisponible).
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange: { from: 300, to: 0 }
+            model: { refId: A, expr: 'max(core_up{deployment="prod"})', instant: true }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: A, conditions: [{ evaluator: { type: lt, params: [1] } }] }
+
+      - uid: core-outbox-lag
+        title: Relais outbox bloqué
+        condition: C
+        for: 5m
+        # Pas de donnée = rien à signaler (aucune requête en erreur, aucun événement) : ce n'est pas une panne.
+        # La panne de l'application est couverte par « Core injoignable » (noDataState: Alerting).
+        noDataState: OK
+        annotations:
+          summary: Un événement attend depuis plus de 5 minutes — aucun webhook ni callback ne part. Vérifier le conteneur scheduler (events:relay).
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange: { from: 600, to: 0 }
+            model: { refId: A, expr: 'max(core_outbox_oldest_unpublished_age_seconds{deployment="prod"})', instant: true }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: A, conditions: [{ evaluator: { type: gt, params: [300] } }] }
+
+      - uid: core-webhook-dlq
+        title: Nouvelles livraisons webhook en DLQ
+        condition: C
+        for: 0m
+        # Pas de donnée = rien à signaler (aucune requête en erreur, aucun événement) : ce n'est pas une panne.
+        # La panne de l'application est couverte par « Core injoignable » (noDataState: Alerting).
+        noDataState: OK
+        annotations:
+          summary: Des livraisons webhook ont épuisé leurs tentatives ; à rejouer depuis la console (Webhooks → DLQ) une fois l'endpoint corrigé.
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange: { from: 900, to: 0 }
+            model: { refId: A, expr: 'sum(delta(core_webhook_deliveries{deployment="prod",status="dead"}[15m]))', instant: true }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: A, conditions: [{ evaluator: { type: gt, params: [0] } }] }
+
+      - uid: core-5xx-rate
+        title: Taux d'erreurs 5xx élevé
+        condition: C
+        for: 5m
+        # Pas de donnée = rien à signaler (aucune requête en erreur, aucun événement) : ce n'est pas une panne.
+        # La panne de l'application est couverte par « Core injoignable » (noDataState: Alerting).
+        noDataState: OK
+        annotations:
+          summary: Plus de 5 % des requêtes répondent 5xx sur 5 minutes.
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange: { from: 600, to: 0 }
+            model: { refId: A, expr: 'sum(rate(core_http_requests_total{deployment="prod",status=~"5.."}[5m])) / clamp_min(sum(rate(core_http_requests_total{deployment="prod"}[5m])), 1e-9)', instant: true }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: A, conditions: [{ evaluator: { type: gt, params: [0.05] } }] }
+
+      - uid: core-provider-callback-rejected
+        title: Callbacks provider rejetés
+        condition: C
+        for: 0m
+        # Pas de donnée = rien à signaler (aucune requête en erreur, aucun événement) : ce n'est pas une panne.
+        # La panne de l'application est couverte par « Core injoignable » (noDataState: Alerting).
+        noDataState: OK
+        annotations:
+          summary: Des callbacks MyCoolPay/WAHA ont été rejetés (IP, signature ou secret invalide) — tentative de fraude ou configuration provider à revoir.
+        data:
+          - refId: A
+            datasourceUid: loki
+            relativeTimeRange: { from: 900, to: 0 }
+            model:
+              refId: A
+              queryType: instant
+              expr: 'sum(count_over_time({app="core-system", deployment="prod", service="app"} |~ "my-coolpay\\.webhook\\.(invalid_signature|untrusted_ip|unknown_application)|whatsapp-waha\\.webhook\\.invalid_secret" [15m]))'
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: A, conditions: [{ evaluator: { type: gt, params: [0] } }] }
+
+      - uid: core-queue-backlog
+        title: File Horizon en retard
+        condition: C
+        for: 10m
+        # Pas de donnée = rien à signaler (aucune requête en erreur, aucun événement) : ce n'est pas une panne.
+        # La panne de l'application est couverte par « Core injoignable » (noDataState: Alerting).
+        noDataState: OK
+        annotations:
+          summary: Plus de 500 jobs en attente sur une file pendant 10 minutes — vérifier le conteneur horizon.
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange: { from: 600, to: 0 }
+            model: { refId: A, expr: 'max(core_queue_size{deployment="prod"})', instant: true }
+          - refId: C
+            datasourceUid: __expr__
+            model: { refId: C, type: threshold, expression: A, conditions: [{ evaluator: { type: gt, params: [500] } }] }

@@ -3,7 +3,7 @@
     "info": {
         "title": "Core System API",
         "version": "v1",
-        "description": "Enterprise Core System \u2014 the cross-cutting capabilities (identity, ledger, wallet, payment, notification, webhook) shared across every product. Authenticate with `Authorization: Bearer pk_<env>_<id>.<secret>` \u2014 see `GET /v1/whoami`. \n\n## Reading this document \n\n- Every request body attribute has a description and a realistic example. `required` is marked. - Every operation carries an `x-required-scopes` field listing the API key scopes the caller must hold. - The wildcard scope `*` covers every concrete scope \u2014 a key issued with `--scope=\"*\"` is the whole Core for this tenant and passes every scope check. - Every monetary POST under `/v1/payments/*` requires an `Idempotency-Key` header (cached response on replay, `409` on conflict). \n\n## Outbound events (Core \u2192 caller) \n\nThe Core emits events on two planes \u2014 register `POST /v1/webhook-endpoints` to subscribe, or supply `callback_url` on `POST /v1/payments` for a per-payment delivery: \n\n- `WebhookEvent` \u2014 envelope `{id, type, data}` POSTed to subscribed endpoints, signed HMAC-SHA256 (headers `X-Signature`, `X-Timestamp`, `X-Event-Id`, `X-Event-Type`). - `WebhookEventType` \u2014 the closed enum of event types the Core emits (`payment.status_changed`, `notification.status_changed`, `notification.failed`, `wallet.credited`, `wallet.debited`). - `PaymentCallbackEvent` \u2014 the body POSTed to a per-payment `callback_url`. Same signature scheme, per-payment secret returned once in the initiation response. \n\n## Errors \n\nEvery error response is `application/problem+json` (RFC 7807) with `{type, title, status, detail, correlation_id}`. 422 from a `FormRequest` adds an `errors: {field: [msg]}` map. Quote `correlation_id` when contacting support."
+        "description": "Enterprise Core System \u2014 the cross-cutting capabilities (identity, ledger, wallet, payment, notification, webhook) shared across every product. Authenticate with `Authorization: Bearer pk_<env>_<id>.<secret>` \u2014 see `GET /v1/whoami`. \n\n## Reading this document \n\n- Every request body attribute has a description and a realistic example. `required` is marked. - Every operation carries an `x-required-scopes` field listing the API key scopes the caller must hold. - The wildcard scope `*` covers every concrete scope \u2014 a key issued with `--scope=\"*\"` is the whole Core for this tenant and passes every scope check. - Every monetary POST under `/v1/payments/*` requires an `Idempotency-Key` header (cached response on replay, `409` on conflict). \n\n## Outbound events (Core \u2192 caller) \n\nThe Core emits events on two planes \u2014 register `POST /v1/webhook-endpoints` to subscribe, or supply `callback_url` on `POST /v1/payments` for a per-payment delivery: \n\n- `WebhookEvent` \u2014 envelope `{id, type, data}` POSTed to subscribed endpoints, signed HMAC-SHA256 (headers `X-Signature`, `X-Timestamp`, `X-Event-Id`, `X-Event-Type`). - `WebhookEventType` \u2014 the closed enum of event types the Core emits (`payment.status_changed`, `notification.delivered`, `notification.read`, `notification.failed`, `wallet.credited`, `wallet.debited`). - `PaymentCallbackEvent` \u2014 the body POSTed to a per-payment `callback_url`. Same signature scheme, per-payment secret returned once in the initiation response. \n\n## Errors \n\nEvery error response is `application/problem+json` (RFC 7807) with `{type, title, status, detail, correlation_id}`. 422 from a `FormRequest` adds an `errors: {field: [msg]}` map. Quote `correlation_id` when contacting support."
     },
     "servers": [
         {
@@ -64,7 +64,7 @@
         "/notifications/text": {
             "post": {
                 "operationId": "notifications.send-text",
-                "description": "Requires the `notifications:write` scope. `to_party_ref` is a\ncorrelation reference only \u2014 resolving it to an actual delivery\naddress is a provider adapter concern, not the Core's.\n\nNo `Idempotency-Key` HTTP header: deduplication, when\nthe caller wants it, is supplied through the optional\n`client_reference` body field (see the request schema). Without\nthat field, the Core generates a fresh UUID per request.",
+                "description": "Requires the `notifications:write` scope. The recipient's phone number goes in\n`variables.phone_number`; `to_party_ref` is only a reference of your own (never a\ncontact address).\n\nThe message is sent from the WhatsApp session named in `variables.session`. Sessions are\ncreated and linked by the platform administrator \u2014 ask for one for your project. A name\nthat is not registered for your project (or shared with all projects) is refused with\n`422 channel-session-not-found` and nothing is sent.\n\nThe send is synchronous. The response is `201` **even when the send failed**: always check\n`status` (`sent` or `failed`) and, when `failed`, `error_message` \u2014 for example a session\nwhose phone is not linked yet says so explicitly.\n\nDeduplication, when you want it, is done with the optional `client_reference` body field:\nthe same value on the same project returns the original notification without a second\nsend. Without it, every request is a new send. There is no `Idempotency-Key` header here.",
                 "summary": "Send a text message",
                 "tags": [
                     "Notification"
@@ -153,57 +153,98 @@
                         }
                     },
                     "422": {
-                        "description": "The request payload is invalid",
+                        "description": "WhatsApp session not found\n\nThe request payload is invalid",
                         "content": {
                             "application/problem+json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "description": "A URI identifying this specific error condition.",
-                                            "examples": [
-                                                "https://errors.core-system.internal/validation-failed"
-                                            ]
-                                        },
-                                        "title": {
-                                            "type": "string",
-                                            "description": "A short, human-readable summary of the error condition.",
-                                            "examples": [
-                                                "The request payload is invalid"
-                                            ]
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
-                                            "const": 422
-                                        },
-                                        "detail": {
-                                            "type": "string",
-                                            "description": "A human-readable explanation specific to this occurrence of the error.",
-                                            "examples": [
-                                                "One or more fields failed validation."
-                                            ]
-                                        },
-                                        "correlation_id": {
-                                            "type": "string",
-                                            "description": "Quote this when contacting support about this specific failure."
-                                        },
-                                        "errors": {
+                                    "anyOf": [
+                                        {
                                             "type": "object",
-                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
-                                            "additionalProperties": {
-                                                "type": "array",
-                                                "items": {
-                                                    "type": "string"
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/channel-session-not-found"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "WhatsApp session not found"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
                                                 }
-                                            }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
                                         }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
                                     ]
                                 }
                             }
@@ -218,7 +259,7 @@
         "/notifications/image": {
             "post": {
                 "operationId": "notifications.send-image",
-                "description": "Requires the `notifications:write` scope. No `Idempotency-Key`\nHTTP header \u2014 supply `client_reference` in the body\nif you want your own retry loop to be safe.",
+                "description": "Requires the `notifications:write` scope. The recipient's phone number goes in\n`variables.phone_number`; `to_party_ref` is only a reference of your own (never a\ncontact address).\n\nThe message is sent from the WhatsApp session named in `variables.session`. Sessions are\ncreated and linked by the platform administrator \u2014 ask for one for your project. A name\nthat is not registered for your project (or shared with all projects) is refused with\n`422 channel-session-not-found` and nothing is sent.\n\nThe send is synchronous. The response is `201` **even when the send failed**: always check\n`status` (`sent` or `failed`) and, when `failed`, `error_message` \u2014 for example a session\nwhose phone is not linked yet says so explicitly.\n\nDeduplication, when you want it, is done with the optional `client_reference` body field:\nthe same value on the same project returns the original notification without a second\nsend. Without it, every request is a new send. There is no `Idempotency-Key` header here.",
                 "summary": "Send an image message",
                 "tags": [
                     "Notification"
@@ -307,57 +348,98 @@
                         }
                     },
                     "422": {
-                        "description": "The request payload is invalid",
+                        "description": "WhatsApp session not found\n\nThe request payload is invalid",
                         "content": {
                             "application/problem+json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "description": "A URI identifying this specific error condition.",
-                                            "examples": [
-                                                "https://errors.core-system.internal/validation-failed"
-                                            ]
-                                        },
-                                        "title": {
-                                            "type": "string",
-                                            "description": "A short, human-readable summary of the error condition.",
-                                            "examples": [
-                                                "The request payload is invalid"
-                                            ]
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
-                                            "const": 422
-                                        },
-                                        "detail": {
-                                            "type": "string",
-                                            "description": "A human-readable explanation specific to this occurrence of the error.",
-                                            "examples": [
-                                                "One or more fields failed validation."
-                                            ]
-                                        },
-                                        "correlation_id": {
-                                            "type": "string",
-                                            "description": "Quote this when contacting support about this specific failure."
-                                        },
-                                        "errors": {
+                                    "anyOf": [
+                                        {
                                             "type": "object",
-                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
-                                            "additionalProperties": {
-                                                "type": "array",
-                                                "items": {
-                                                    "type": "string"
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/channel-session-not-found"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "WhatsApp session not found"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
                                                 }
-                                            }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
                                         }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
                                     ]
                                 }
                             }
@@ -372,7 +454,7 @@
         "/notifications/file": {
             "post": {
                 "operationId": "notifications.send-file",
-                "description": "Requires the `notifications:write` scope. No `Idempotency-Key`\nHTTP header \u2014 supply `client_reference` in the body\nif you want your own retry loop to be safe.",
+                "description": "Requires the `notifications:write` scope. The recipient's phone number goes in\n`variables.phone_number`; `to_party_ref` is only a reference of your own (never a\ncontact address).\n\nThe message is sent from the WhatsApp session named in `variables.session`. Sessions are\ncreated and linked by the platform administrator \u2014 ask for one for your project. A name\nthat is not registered for your project (or shared with all projects) is refused with\n`422 channel-session-not-found` and nothing is sent.\n\nThe send is synchronous. The response is `201` **even when the send failed**: always check\n`status` (`sent` or `failed`) and, when `failed`, `error_message` \u2014 for example a session\nwhose phone is not linked yet says so explicitly.\n\nDeduplication, when you want it, is done with the optional `client_reference` body field:\nthe same value on the same project returns the original notification without a second\nsend. Without it, every request is a new send. There is no `Idempotency-Key` header here.",
                 "summary": "Send a file/document message",
                 "tags": [
                     "Notification"
@@ -461,57 +543,98 @@
                         }
                     },
                     "422": {
-                        "description": "The request payload is invalid",
+                        "description": "WhatsApp session not found\n\nThe request payload is invalid",
                         "content": {
                             "application/problem+json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "description": "A URI identifying this specific error condition.",
-                                            "examples": [
-                                                "https://errors.core-system.internal/validation-failed"
-                                            ]
-                                        },
-                                        "title": {
-                                            "type": "string",
-                                            "description": "A short, human-readable summary of the error condition.",
-                                            "examples": [
-                                                "The request payload is invalid"
-                                            ]
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
-                                            "const": 422
-                                        },
-                                        "detail": {
-                                            "type": "string",
-                                            "description": "A human-readable explanation specific to this occurrence of the error.",
-                                            "examples": [
-                                                "One or more fields failed validation."
-                                            ]
-                                        },
-                                        "correlation_id": {
-                                            "type": "string",
-                                            "description": "Quote this when contacting support about this specific failure."
-                                        },
-                                        "errors": {
+                                    "anyOf": [
+                                        {
                                             "type": "object",
-                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
-                                            "additionalProperties": {
-                                                "type": "array",
-                                                "items": {
-                                                    "type": "string"
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/channel-session-not-found"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "WhatsApp session not found"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
                                                 }
-                                            }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
                                         }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
                                     ]
                                 }
                             }
@@ -667,7 +790,7 @@
         "/notification-channel-sessions/{channel}/{sessionRef}/qr": {
             "get": {
                 "operationId": "notification-channel-sessions.qr",
-                "description": "Requires the `notification_channel_sessions:read` scope. Lazily\nstarts the session on the resolved provider if it isn't already\nrunning.",
+                "description": "Requires the `notification_channel_sessions:read` scope. Only for a session already\ncreated for your project by the platform administrator (a session that does not exist for\nyour project \u2014 including a shared platform session \u2014 is refused with\n`422 channel-session-not-found`; this call never creates one). Scan the returned image with\nWhatsApp \u203a Linked devices. Once the phone is linked the QR code is no longer available.",
                 "summary": "Get a scannable QR code for linking a phone to this channel session",
                 "tags": [
                     "Notification",
@@ -750,44 +873,85 @@
                         }
                     },
                     "422": {
-                        "description": "This channel has no linked-device session to manage",
+                        "description": "WhatsApp session not found\n\nThis channel has no linked-device session to manage",
                         "content": {
                             "application/problem+json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "description": "A URI identifying this specific error condition.",
-                                            "examples": [
-                                                "https://errors.core-system.internal/channel-does-not-support-sessions"
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/channel-session-not-found"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "WhatsApp session not found"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
                                             ]
                                         },
-                                        "title": {
-                                            "type": "string",
-                                            "description": "A short, human-readable summary of the error condition.",
-                                            "examples": [
-                                                "This channel has no linked-device session to manage"
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/channel-does-not-support-sessions"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "This channel has no linked-device session to manage"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
                                             ]
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
-                                            "const": 422
-                                        },
-                                        "detail": {
-                                            "type": "string",
-                                            "description": "A human-readable explanation specific to this occurrence of the error."
-                                        },
-                                        "correlation_id": {
-                                            "type": "string",
-                                            "description": "Quote this when contacting support about this specific failure."
                                         }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
                                     ]
                                 }
                             }
@@ -890,7 +1054,7 @@
         "/notification-channel-sessions/{channel}/{sessionRef}/screenshot": {
             "get": {
                 "operationId": "notification-channel-sessions.screenshot",
-                "description": "Requires the `notification_channel_sessions:read` scope. Lazily\nstarts the session on the resolved provider if it isn't already\nrunning.",
+                "description": "Requires the `notification_channel_sessions:read` scope. Only for a session already\ncreated for your project by the platform administrator (otherwise\n`422 channel-session-not-found`; this call never creates one). Useful to check whether the\nsession is linked to a phone.",
                 "summary": "Get a live screenshot of the linked-device session's current screen",
                 "tags": [
                     "Notification",
@@ -973,44 +1137,85 @@
                         }
                     },
                     "422": {
-                        "description": "This channel has no linked-device session to manage",
+                        "description": "WhatsApp session not found\n\nThis channel has no linked-device session to manage",
                         "content": {
                             "application/problem+json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "description": "A URI identifying this specific error condition.",
-                                            "examples": [
-                                                "https://errors.core-system.internal/channel-does-not-support-sessions"
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/channel-session-not-found"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "WhatsApp session not found"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
                                             ]
                                         },
-                                        "title": {
-                                            "type": "string",
-                                            "description": "A short, human-readable summary of the error condition.",
-                                            "examples": [
-                                                "This channel has no linked-device session to manage"
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/channel-does-not-support-sessions"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "This channel has no linked-device session to manage"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
                                             ]
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
-                                            "const": 422
-                                        },
-                                        "detail": {
-                                            "type": "string",
-                                            "description": "A human-readable explanation specific to this occurrence of the error."
-                                        },
-                                        "correlation_id": {
-                                            "type": "string",
-                                            "description": "Quote this when contacting support about this specific failure."
                                         }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
                                     ]
                                 }
                             }
@@ -1113,8 +1318,8 @@
         "/notification-channel-sessions/{channel}/{sessionRef}/pairing-code": {
             "post": {
                 "operationId": "notification-channel-sessions.pairing-code",
-                "description": "Requires the `notification_channel_sessions:write` scope. Lazily\nstarts the session on the resolved provider if it isn't already\nrunning.",
-                "summary": "Request a phone-number pairing code for linking a phone to this\nchannel session, as an alternative to scanning a QR code",
+                "description": "Requires the `notification_channel_sessions:write` scope. Only for a session already\ncreated for your project by the platform administrator (otherwise\n`422 channel-session-not-found`; this call never creates one). The code is entered in\nWhatsApp \u203a Linked devices \u203a Link with phone number, and WhatsApp notifies the given number\n\u2014 only use a number you own.",
+                "summary": "Request a phone-number pairing code for linking a phone to this",
                 "tags": [
                     "Notification",
                     "Waha"
@@ -1202,11 +1407,48 @@
                         }
                     },
                     "422": {
-                        "description": "This channel has no linked-device session to manage\n\nThe request payload is invalid",
+                        "description": "WhatsApp session not found\n\nThis channel has no linked-device session to manage\n\nThe request payload is invalid",
                         "content": {
                             "application/problem+json": {
                                 "schema": {
                                     "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/channel-session-not-found"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "WhatsApp session not found"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
                                         {
                                             "type": "object",
                                             "properties": {
@@ -1440,7 +1682,7 @@
                                                 {}
                                             ]
                                         },
-                                        "channel": {
+                                        "status": {
                                             "anyOf": [
                                                 {
                                                     "type": "string"
@@ -1448,10 +1690,10 @@
                                                 {}
                                             ]
                                         },
-                                        "status": {
+                                        "is_final": {
                                             "anyOf": [
                                                 {
-                                                    "type": "string"
+                                                    "type": "boolean"
                                                 },
                                                 {}
                                             ]
@@ -1472,46 +1714,15 @@
                                                 {}
                                             ]
                                         },
-                                        "requires_action": {
+                                        "channel": {
                                             "anyOf": [
                                                 {
-                                                    "type": "boolean"
+                                                    "type": "string"
                                                 },
                                                 {}
                                             ]
                                         },
-                                        "action_hint": {
-                                            "anyOf": [
-                                                {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "payment_url": {
-                                            "anyOf": [
-                                                {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "idempotency_key": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string",
-                                                    "description": "The same value the caller sent as its Idempotency-Key\nheader \u2014 handed back so a caller can confirm which of its\nown transactions this response is for without a separate\nside-lookup."
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "callback_url": {
+                                        "created_at": {
                                             "anyOf": [
                                                 {
                                                     "type": [
@@ -1525,15 +1736,12 @@
                                     },
                                     "required": [
                                         "id",
-                                        "channel",
                                         "status",
+                                        "is_final",
                                         "amount",
                                         "currency",
-                                        "requires_action",
-                                        "action_hint",
-                                        "payment_url",
-                                        "idempotency_key",
-                                        "callback_url"
+                                        "channel",
+                                        "created_at"
                                     ],
                                     "additionalProperties": {}
                                 }
@@ -1945,7 +2153,7 @@
                                                 {}
                                             ]
                                         },
-                                        "channel": {
+                                        "status": {
                                             "anyOf": [
                                                 {
                                                     "type": "string"
@@ -1953,10 +2161,10 @@
                                                 {}
                                             ]
                                         },
-                                        "status": {
+                                        "is_final": {
                                             "anyOf": [
                                                 {
-                                                    "type": "string"
+                                                    "type": "boolean"
                                                 },
                                                 {}
                                             ]
@@ -1977,46 +2185,15 @@
                                                 {}
                                             ]
                                         },
-                                        "requires_action": {
+                                        "channel": {
                                             "anyOf": [
                                                 {
-                                                    "type": "boolean"
+                                                    "type": "string"
                                                 },
                                                 {}
                                             ]
                                         },
-                                        "action_hint": {
-                                            "anyOf": [
-                                                {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "payment_url": {
-                                            "anyOf": [
-                                                {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "idempotency_key": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string",
-                                                    "description": "The same value the caller sent as its Idempotency-Key\nheader \u2014 handed back so a caller can confirm which of its\nown transactions this response is for without a separate\nside-lookup."
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "callback_url": {
+                                        "created_at": {
                                             "anyOf": [
                                                 {
                                                     "type": [
@@ -2030,15 +2207,12 @@
                                     },
                                     "required": [
                                         "id",
-                                        "channel",
                                         "status",
+                                        "is_final",
                                         "amount",
                                         "currency",
-                                        "requires_action",
-                                        "action_hint",
-                                        "payment_url",
-                                        "idempotency_key",
-                                        "callback_url"
+                                        "channel",
+                                        "created_at"
                                     ],
                                     "additionalProperties": {}
                                 }
@@ -2406,7 +2580,7 @@
         "/payments/payin": {
             "post": {
                 "operationId": "payments.start.payin",
-                "description": "The request names only a `channel` (e.g. `mtn_momo`, `card`), never a\nprovider \u2014 the Core resolves which provider actually\nhandles it via the Project's routing configuration.\nRequires the `payments:write` scope and an `Idempotency-Key` header.\nThere is no browser redirect for this flow \u2014 supply\n`callback_url` to be notified once the payment settles. Crediting a\nwallet on success is never implicit \u2014 it only happens if\n`wallet_recipient_external_ref` is given.",
+                "description": "The request names only a `channel` (e.g. `mtn_momo`, `card`), never a provider \u2014 the\nCore resolves which provider handles it for your project. Requires the `payments:write`\nscope and an `Idempotency-Key` header.\n\n**Expect 15 to 20 seconds of latency**: the provider answers only once the customer's\noperator has been queried. Set your HTTP client timeout to at least 60 seconds, and reuse\nthe same `Idempotency-Key` if you must retry.\n\nThe customer receives a validation prompt on their phone. When `requires_action` is `true`,\n`action_hint` is the USSD code to dial if the prompt does not open. There is no browser\nredirect for this flow \u2014 supply `callback_url` to be notified once the payment settles.\nCrediting a wallet on success is never implicit \u2014 it only happens if\n`wallet_recipient_external_ref` is given.",
                 "summary": "Start a payment via a direct, app-driven charge",
                 "tags": [
                     "Payment"
@@ -2450,7 +2624,7 @@
                                                 {}
                                             ]
                                         },
-                                        "channel": {
+                                        "status": {
                                             "anyOf": [
                                                 {
                                                     "type": "string"
@@ -2458,10 +2632,10 @@
                                                 {}
                                             ]
                                         },
-                                        "status": {
+                                        "is_final": {
                                             "anyOf": [
                                                 {
-                                                    "type": "string"
+                                                    "type": "boolean"
                                                 },
                                                 {}
                                             ]
@@ -2482,46 +2656,15 @@
                                                 {}
                                             ]
                                         },
-                                        "requires_action": {
+                                        "channel": {
                                             "anyOf": [
                                                 {
-                                                    "type": "boolean"
+                                                    "type": "string"
                                                 },
                                                 {}
                                             ]
                                         },
-                                        "action_hint": {
-                                            "anyOf": [
-                                                {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "payment_url": {
-                                            "anyOf": [
-                                                {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "idempotency_key": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string",
-                                                    "description": "The same value the caller sent as its Idempotency-Key\nheader \u2014 handed back so a caller can confirm which of its\nown transactions this response is for without a separate\nside-lookup."
-                                                },
-                                                {}
-                                            ]
-                                        },
-                                        "callback_url": {
+                                        "created_at": {
                                             "anyOf": [
                                                 {
                                                     "type": [
@@ -2535,15 +2678,12 @@
                                     },
                                     "required": [
                                         "id",
-                                        "channel",
                                         "status",
+                                        "is_final",
                                         "amount",
                                         "currency",
-                                        "requires_action",
-                                        "action_hint",
-                                        "payment_url",
-                                        "idempotency_key",
-                                        "callback_url"
+                                        "channel",
+                                        "created_at"
                                     ],
                                     "additionalProperties": {}
                                 }
@@ -2908,6 +3048,260 @@
                 ]
             }
         },
+        "/sandbox/payments/{paymentId}/simulate": {
+            "post": {
+                "operationId": "sandbox.payments.simulate",
+                "description": "Sandbox keys only. Moves a payment created with a sandbox key (and\nprocessed by the built-in simulator, i.e. no sandbox provider\napplication registered) to the outcome you choose \u2014 exactly as a real\nprovider callback would: same status change, same `payment.status_changed`\nwebhook or `callback_url` call. Use it to test your whole integration,\nwebhooks included, without real money. Requires `payments:write`.",
+                "summary": "Simulate the outcome of a sandbox payment",
+                "tags": [
+                    "Payment"
+                ],
+                "parameters": [
+                    {
+                        "name": "paymentId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. Mandatory on every route that moves money.",
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 255
+                        },
+                        "example": "01HMZ9XK3P-9XK3P-9XK3P"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SimulateSandboxPaymentRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Idempotency-Key header is required",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-required"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key header is required"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 400
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "This route mutates state and must be called with an Idempotency-Key header."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Idempotency-Key was reused",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-conflict"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key was reused"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 409
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "Either a concurrent request with this Idempotency-Key is still in flight, or the key was reused with a different request body."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "payments:write"
+                ]
+            }
+        },
         "/payments/{paymentId}": {
             "get": {
                 "operationId": "payments.status",
@@ -2935,65 +3329,87 @@
                                     "type": "object",
                                     "properties": {
                                         "id": {
-                                            "type": "string"
-                                        },
-                                        "channel": {
-                                            "type": "string"
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {}
+                                            ]
                                         },
                                         "status": {
-                                            "type": "string"
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {}
+                                            ]
+                                        },
+                                        "is_final": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "boolean"
+                                                },
+                                                {}
+                                            ]
                                         },
                                         "amount": {
-                                            "type": "integer"
+                                            "anyOf": [
+                                                {
+                                                    "type": "integer"
+                                                },
+                                                {}
+                                            ]
                                         },
                                         "currency": {
-                                            "type": "string"
-                                        },
-                                        "requires_action": {
-                                            "type": "boolean"
-                                        },
-                                        "action_hint": {
-                                            "type": [
-                                                "string",
-                                                "null"
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {}
                                             ]
                                         },
-                                        "payment_url": {
-                                            "type": [
-                                                "string",
-                                                "null"
+                                        "channel": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string"
+                                                },
+                                                {}
                                             ]
                                         },
-                                        "error_message": {
-                                            "type": [
-                                                "string",
-                                                "null"
+                                        "created_at": {
+                                            "anyOf": [
+                                                {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                {}
                                             ]
                                         },
-                                        "idempotency_key": {
-                                            "type": "string",
-                                            "description": "Review finding, user-directed: this is the documented\nfallback truth source when a webhook is missed \u2014 it must\nhand back the same caller-supplied context the webhook\nalready does (its own Idempotency-Key, and the callback_url\nit registered), or polling here loses information the\nwebhook has."
-                                        },
-                                        "callback_url": {
-                                            "type": [
-                                                "string",
-                                                "null"
+                                        "updated_at": {
+                                            "anyOf": [
+                                                {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                {}
                                             ]
                                         }
                                     },
                                     "required": [
                                         "id",
-                                        "channel",
                                         "status",
+                                        "is_final",
                                         "amount",
                                         "currency",
-                                        "requires_action",
-                                        "action_hint",
-                                        "payment_url",
-                                        "error_message",
-                                        "idempotency_key",
-                                        "callback_url"
-                                    ]
+                                        "channel",
+                                        "created_at",
+                                        "updated_at"
+                                    ],
+                                    "additionalProperties": {}
                                 }
                             }
                         }
@@ -3550,6 +3966,125 @@
                     "webhooks:write"
                 ]
             }
+        },
+        "/webhook-endpoints/{endpointId}/test": {
+            "post": {
+                "operationId": "webhook-endpoints.test",
+                "description": "Sends one signed `webhook.test` event to the endpoint, right now, with\nthe same envelope, headers and signature as a real event \u2014 use it to\ncheck that your receiver is reachable and verifies the signature.\nNever retried, never counted as a delivery. Requires the\n`webhooks:write` scope.\n\n`delivered` is true when your endpoint answered 2xx; otherwise\n`response_status` / `error` say why.",
+                "summary": "Send a test event to a webhook endpoint",
+                "tags": [
+                    "Webhook"
+                ],
+                "parameters": [
+                    {
+                        "name": "endpointId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "delivered": {
+                                            "type": "boolean"
+                                        },
+                                        "event_id": {
+                                            "type": "string"
+                                        },
+                                        "response_status": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "response_body": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "error": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "duration_ms": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "delivered",
+                                        "event_id",
+                                        "response_status",
+                                        "response_body",
+                                        "error",
+                                        "duration_ms"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Webhook endpoint not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/webhook-endpoint-not-found"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Webhook endpoint not found"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error."
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "webhooks:write"
+                ]
+            }
         }
     },
     "components": {
@@ -3563,70 +4098,128 @@
         "schemas": {
             "PaymentCallbackEvent": {
                 "type": "object",
-                "description": "Body POSTed to the `callback_url` of a payment when it reaches a terminal state. Signed with HMAC-SHA256 (same algorithm as the webhook plane, but the secret is per-payment \u2014 returned once in the initiation response). Headers: `X-Signature`, `X-Timestamp`.",
+                "description": "Body POSTed to a payment's `callback_url` at every status change \u2014 byte-for-byte the webhook envelope (ADR-0061). Signed with the per-payment `callback_secret` returned once at creation: `X-Signature` = hex HMAC-SHA256 of `X-Timestamp + \".\" + raw body`. Headers `X-Event-Id`, `X-Event-Type` too.",
                 "examples": [
                     {
-                        "event": "payment.status_changed",
-                        "payment_id": "01HMZ9XK3P-PAYMENT-001",
-                        "status": "succeeded",
-                        "amount": 50000,
-                        "currency": "XAF",
-                        "error_message": null
+                        "id": "01a1c3b2-7d2e-7f10-8a9b-0c1d2e3f4a5b",
+                        "type": "payment.status_changed",
+                        "data": {
+                            "payment_id": "01a1c3b2-6f1e-7a2b-9c4d-5e6f7a8b9c0d",
+                            "reference": "order-2026-0042",
+                            "status": "succeeded",
+                            "is_final": true,
+                            "amount": 5000,
+                            "currency": "XAF",
+                            "failure_reason": null,
+                            "occurred_at": "2026-10-03T10:15:00Z"
+                        }
                     }
                 ],
                 "properties": {
-                    "event": {
+                    "id": {
+                        "type": "string",
+                        "description": "Unique event id \u2014 the same as the webhook plane would use. Deduplicate on it.",
+                        "examples": [
+                            "01a1c3b2-7d2e-7f10-8a9b-0c1d2e3f4a5b"
+                        ]
+                    },
+                    "type": {
                         "type": "string",
                         "description": "Always `payment.status_changed` on this plane.",
                         "examples": [
                             "payment.status_changed"
                         ]
                     },
-                    "payment_id": {
-                        "type": "string",
-                        "examples": [
-                            "01HMZ9XK3P-PAYMENT-001"
+                    "data": {
+                        "type": "object",
+                        "description": "`data` of a `payment.status_changed` event.",
+                        "properties": {
+                            "payment_id": {
+                                "type": "string",
+                                "description": "The payment id returned when you created it.",
+                                "examples": [
+                                    "01a1c3b2-6f1e-7a2b-9c4d-5e6f7a8b9c0d"
+                                ]
+                            },
+                            "reference": {
+                                "type": "string",
+                                "description": "Your own reference: the `Idempotency-Key` you sent when creating the payment.",
+                                "examples": [
+                                    "order-2026-0042"
+                                ]
+                            },
+                            "status": {
+                                "type": "string",
+                                "description": "Canonical payment status. Intermediate: `pending`, `processing`. Final: `succeeded`, `failed`, `expired`, `canceled`, `refunded`.",
+                                "enum": [
+                                    "pending",
+                                    "processing",
+                                    "succeeded",
+                                    "failed",
+                                    "expired",
+                                    "refunded",
+                                    "canceled"
+                                ],
+                                "examples": [
+                                    "succeeded"
+                                ]
+                            },
+                            "is_final": {
+                                "type": "boolean",
+                                "description": "`true` once the outcome is settled: deliver the order on `succeeded`, offer a new attempt otherwise. `false` = keep waiting.",
+                                "examples": [
+                                    true
+                                ]
+                            },
+                            "amount": {
+                                "type": "integer",
+                                "description": "Minor units (XAF has none: 5000 = 5 000 XAF).",
+                                "examples": [
+                                    5000
+                                ]
+                            },
+                            "currency": {
+                                "type": "string",
+                                "description": "ISO 4217.",
+                                "examples": [
+                                    "XAF"
+                                ]
+                            },
+                            "failure_reason": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "description": "Why the payment did not succeed; `null` on success and on intermediate statuses.",
+                                "examples": [
+                                    null
+                                ]
+                            },
+                            "occurred_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "When the Core recorded this status (UTC). Use it to ignore an older notification arriving after a newer one.",
+                                "examples": [
+                                    "2026-10-03T10:15:00Z"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "payment_id",
+                            "reference",
+                            "status",
+                            "is_final",
+                            "amount",
+                            "currency",
+                            "failure_reason",
+                            "occurred_at"
                         ]
-                    },
-                    "status": {
-                        "type": "string",
-                        "description": "Canonical payment status. Mirrors the value returned by `GET /v1/payments/{payment_id}`.",
-                        "enum": [
-                            "pending",
-                            "processing",
-                            "succeeded",
-                            "failed",
-                            "expired",
-                            "refunded",
-                            "canceled"
-                        ]
-                    },
-                    "amount": {
-                        "type": "integer",
-                        "description": "Minor units.",
-                        "examples": [
-                            50000
-                        ]
-                    },
-                    "currency": {
-                        "type": "string",
-                        "description": "ISO 4217.",
-                        "examples": [
-                            "XAF"
-                        ]
-                    },
-                    "error_message": {
-                        "type": "string",
-                        "description": "null when the payment succeeded."
                     }
                 },
                 "required": [
-                    "event",
-                    "payment_id",
-                    "status",
-                    "amount",
-                    "currency",
-                    "error_message"
+                    "id",
+                    "type",
+                    "data"
                 ],
                 "title": "PaymentCallbackEvent"
             },
@@ -3665,7 +4258,8 @@
                             "enum": [
                                 "*",
                                 "payment.status_changed",
-                                "notification.status_changed",
+                                "notification.delivered",
+                                "notification.read",
                                 "notification.failed",
                                 "wallet.credited",
                                 "wallet.debited"
@@ -3724,9 +4318,9 @@
                     "media_url": {
                         "type": "string",
                         "format": "uri",
-                        "description": "Publicly reachable HTTP(S) URL of the file. The\nprovider fetches it server-side and re-hosts it.\nMust be reachable from the provider's outbound\nnetwork (no private IPs, no localhost) \u2014 same\nconstraint as `POST /v1/webhook-endpoints`.",
+                        "description": "Publicly reachable HTTP(S) URL of the file. The\nprovider fetches it server-side and re-hosts it.\nMust be reachable from the provider's outbound\nnetwork (no private IPs, no localhost) \u2014 same\nconstraint as `POST /v1/webhook-endpoints`.\nThe provider downloads it itself, so it must be directly\ndownloadable without authentication or hotlink protection \u2014\notherwise the send ends `failed`.",
                         "examples": [
-                            "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+                            "https://www.orimi.com/pdf-test.pdf"
                         ],
                         "maxLength": 2048
                     },
@@ -3776,7 +4370,7 @@
                             },
                             "session": {
                                 "type": "string",
-                                "description": "When `channel = \"whatsapp\"`: the name of YOUR linked WhatsApp\nsession \u2014 the message is sent from the number linked to it.\nCreate and link it first with\n`GET /v1/notification-channel-sessions/whatsapp/{sessionRef}/qr`\n(or `POST .../pairing-code`); `session` is that same\n`sessionRef`. Letters, digits, `-` and `_`, up to 64\ncharacters. There is no shared default session: without it\nthe request is rejected with a 422.",
+                                "description": "When `channel = \"whatsapp\"`: the name of the WhatsApp\nsession to send from \u2014 the number linked to it is the one\nthe message comes from. Sessions are created and linked by\nthe platform administrator (never by the client): ask for one\nto be created for your project and use the name you were\ngiven. A name that is not registered for your project (or\nshared with all projects) is refused with a 422 and nothing\nis sent. Letters, digits, `-` and `_`, up to 64 characters.",
                                 "pattern": "^[A-Za-z0-9_-]+$",
                                 "examples": [
                                     "ma-boutique"
@@ -3830,7 +4424,7 @@
                     "media_url": {
                         "type": "string",
                         "format": "uri",
-                        "description": "Publicly reachable HTTP(S) URL of the image. The\nprovider fetches it server-side and re-hosts it, so\nyou do not upload binary. The URL must be reachable\nfrom the provider's outbound network (no private\nIPs, no localhost) \u2014 this is the same constraint as\n`POST /v1/webhook-endpoints`.",
+                        "description": "Publicly reachable HTTP(S) URL of the image. The\nprovider fetches it server-side and re-hosts it, so\nyou do not upload binary. The URL must be reachable\nfrom the provider's outbound network (no private\nIPs, no localhost) \u2014 this is the same constraint as\n`POST /v1/webhook-endpoints`.\nThe provider downloads it itself, so it must be directly\ndownloadable without authentication or hotlink protection \u2014\notherwise the send ends `failed`.",
                         "examples": [
                             "https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png"
                         ],
@@ -3888,7 +4482,7 @@
                             },
                             "session": {
                                 "type": "string",
-                                "description": "When `channel = \"whatsapp\"`: the name of YOUR linked WhatsApp\nsession \u2014 the message is sent from the number linked to it.\nCreate and link it first with\n`GET /v1/notification-channel-sessions/whatsapp/{sessionRef}/qr`\n(or `POST .../pairing-code`); `session` is that same\n`sessionRef`. Letters, digits, `-` and `_`, up to 64\ncharacters. There is no shared default session: without it\nthe request is rejected with a 422.",
+                                "description": "When `channel = \"whatsapp\"`: the name of the WhatsApp\nsession to send from \u2014 the number linked to it is the one\nthe message comes from. Sessions are created and linked by\nthe platform administrator (never by the client): ask for one\nto be created for your project and use the name you were\ngiven. A name that is not registered for your project (or\nshared with all projects) is refused with a 422 and nothing\nis sent. Letters, digits, `-` and `_`, up to 64 characters.",
                                 "pattern": "^[A-Za-z0-9_-]+$",
                                 "examples": [
                                     "ma-boutique"
@@ -3946,7 +4540,7 @@
                     },
                     "variables": {
                         "type": "object",
-                        "description": "Free-form map of channel-specific values. The keys\nrequired depend on the channel: - `whatsapp`: REQUIRED keys `phone_number` (the recipient's\n  international phone number, E.164, e.g. `+2376XXXXXXXX` \u2014\n  the example is a placeholder, use a number you own) and\n  `session` (the name of YOUR linked WhatsApp session, see\n  below). A request missing either is rejected with a 422.\n\nAny other key in this map is forwarded untouched.",
+                        "description": "Free-form map of channel-specific values. The keys\nrequired depend on the channel: - `whatsapp`: REQUIRED keys `phone_number` (the recipient's\n  international phone number, E.164, e.g. `+2376XXXXXXXX` \u2014\n  the example is a placeholder, use a number you own) and\n  `session` (the WhatsApp session to send from, see\n  below). A request missing either is rejected with a 422.\n\nAny other key in this map is forwarded untouched.",
                         "examples": [
                             {
                                 "phone_number": "+2376XXXXXXXX",
@@ -3964,7 +4558,7 @@
                             },
                             "session": {
                                 "type": "string",
-                                "description": "When `channel = \"whatsapp\"`: the name of YOUR linked WhatsApp\nsession \u2014 the message is sent from the number linked to it.\nCreate and link it first with\n`GET /v1/notification-channel-sessions/whatsapp/{sessionRef}/qr`\n(or `POST .../pairing-code`); `session` is that same\n`sessionRef`. Letters, digits, `-` and `_`, up to 64\ncharacters. There is no shared default session: without it\nthe request is rejected with a 422.",
+                                "description": "When `channel = \"whatsapp\"`: the name of the WhatsApp\nsession to send from \u2014 the number linked to it is the one\nthe message comes from. Sessions are created and linked by\nthe platform administrator (never by the client): ask for one\nto be created for your project and use the name you were\ngiven. A name that is not registered for your project (or\nshared with all projects) is refused with a 422 and nothing\nis sent. Letters, digits, `-` and `_`, up to 64 characters.",
                                 "pattern": "^[A-Za-z0-9_-]+$",
                                 "examples": [
                                     "ma-boutique"
@@ -3991,6 +4585,40 @@
                     "text"
                 ],
                 "title": "SendTextNotificationRequest"
+            },
+            "SimulateSandboxPaymentRequest": {
+                "type": "object",
+                "description": "Validates `POST /v1/sandbox/payments/{paymentId}/simulate` (ADR-0060).",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "description": "The outcome to simulate. All four are final: once applied,\nthe payment can no longer change.",
+                        "enum": [
+                            "succeeded",
+                            "failed",
+                            "expired",
+                            "canceled"
+                        ],
+                        "examples": [
+                            "succeeded"
+                        ]
+                    },
+                    "reason": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Optional failure reason, returned as `error_message` on the\npayment and in the notification.",
+                        "examples": [
+                            "Insufficient balance"
+                        ],
+                        "maxLength": 255
+                    }
+                },
+                "required": [
+                    "status"
+                ],
+                "title": "SimulateSandboxPaymentRequest"
             },
             "StartPaymentRequest": {
                 "type": "object",
@@ -4154,44 +4782,45 @@
                     },
                     "active": {
                         "type": "boolean"
+                    },
+                    "environment": {
+                        "type": "string"
                     }
                 },
                 "required": [
                     "id",
                     "url",
                     "events",
-                    "active"
+                    "active",
+                    "environment"
                 ],
                 "title": "WebhookEndpointView"
             },
             "WebhookEvent": {
                 "type": "object",
-                "description": "Envelope POSTed to every endpoint registered via `POST /v1/webhook-endpoints`. Body is `{id, type, data}`. Headers `X-Signature`, `X-Timestamp`, `X-Event-Id`, `X-Event-Type` are always present (HMAC-SHA256 over `timestamp + \".\" + raw_body`). The `_headers` block in the example below is documentation only \u2014 the actual headers are on the HTTP request, not in the body.",
+                "description": "Body POSTed to every endpoint registered via `POST /v1/webhook-endpoints` \u2014 and, identically, to a payment's `callback_url`. Headers: `X-Signature` (hex HMAC-SHA256 of `X-Timestamp + \".\" + raw body`, with your endpoint secret \u2014 or the payment's `callback_secret`), `X-Timestamp` (Unix seconds), `X-Event-Id`, `X-Event-Type`, `X-Delivery-Id`. Answer `2xx` within 10 s; deduplicate on `id`. The example shows `payment.status_changed`.",
                 "examples": [
                     {
-                        "id": "01HMZ9XK3P-9XK3P-9XK3P",
+                        "id": "01a1c3b2-7d2e-7f10-8a9b-0c1d2e3f4a5b",
                         "type": "payment.status_changed",
                         "data": {
-                            "payment_id": "01HMZ9XK3P-PAYMENT-001",
+                            "payment_id": "01a1c3b2-6f1e-7a2b-9c4d-5e6f7a8b9c0d",
+                            "reference": "order-2026-0042",
                             "status": "succeeded",
-                            "amount": 50000,
+                            "is_final": true,
+                            "amount": 5000,
                             "currency": "XAF",
-                            "error_message": null
-                        },
-                        "_headers": {
-                            "X-Signature": "5e7c2d...c0a1 (HMAC-SHA256 of \"1763875200.<raw_body>\" with the endpoint secret)",
-                            "X-Timestamp": "1763875200",
-                            "X-Event-Id": "01HMZ9XK3P-9XK3P-9XK3P",
-                            "X-Event-Type": "payment.status_changed"
+                            "failure_reason": null,
+                            "occurred_at": "2026-10-03T10:15:00Z"
                         }
                     }
                 ],
                 "properties": {
                     "id": {
                         "type": "string",
-                        "description": "Unique event id (UUIDv7). Use this to deduplicate on the receiver side across retries.",
+                        "description": "Unique event id. The same event is delivered again on retry or replay with the same id: deduplicate on it.",
                         "examples": [
-                            "01HMZ9XK3P-9XK3P-9XK3P"
+                            "01a1c3b2-7d2e-7f10-8a9b-0c1d2e3f4a5b"
                         ]
                     },
                     "type": {
@@ -4203,16 +4832,25 @@
                     },
                     "data": {
                         "type": "object",
-                        "description": "`data` payload when `type === \"payment.status_changed\"`. Schema depends on `type` \u2014 see WebhookEventType for the full list.",
+                        "description": "`data` of a `payment.status_changed` event.",
                         "properties": {
                             "payment_id": {
                                 "type": "string",
+                                "description": "The payment id returned when you created it.",
                                 "examples": [
-                                    "01HMZ9XK3P-PAYMENT-001"
+                                    "01a1c3b2-6f1e-7a2b-9c4d-5e6f7a8b9c0d"
+                                ]
+                            },
+                            "reference": {
+                                "type": "string",
+                                "description": "Your own reference: the `Idempotency-Key` you sent when creating the payment.",
+                                "examples": [
+                                    "order-2026-0042"
                                 ]
                             },
                             "status": {
                                 "type": "string",
+                                "description": "Canonical payment status. Intermediate: `pending`, `processing`. Final: `succeeded`, `failed`, `expired`, `canceled`, `refunded`.",
                                 "enum": [
                                     "pending",
                                     "processing",
@@ -4226,25 +4864,56 @@
                                     "succeeded"
                                 ]
                             },
+                            "is_final": {
+                                "type": "boolean",
+                                "description": "`true` once the outcome is settled: deliver the order on `succeeded`, offer a new attempt otherwise. `false` = keep waiting.",
+                                "examples": [
+                                    true
+                                ]
+                            },
                             "amount": {
                                 "type": "integer",
+                                "description": "Minor units (XAF has none: 5000 = 5 000 XAF).",
                                 "examples": [
-                                    50000
+                                    5000
                                 ]
                             },
                             "currency": {
                                 "type": "string",
+                                "description": "ISO 4217.",
                                 "examples": [
                                     "XAF"
                                 ]
                             },
-                            "error_message": {
-                                "type": "string",
+                            "failure_reason": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "description": "Why the payment did not succeed; `null` on success and on intermediate statuses.",
                                 "examples": [
                                     null
                                 ]
+                            },
+                            "occurred_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "When the Core recorded this status (UTC). Use it to ignore an older notification arriving after a newer one.",
+                                "examples": [
+                                    "2026-10-03T10:15:00Z"
+                                ]
                             }
-                        }
+                        },
+                        "required": [
+                            "payment_id",
+                            "reference",
+                            "status",
+                            "is_final",
+                            "amount",
+                            "currency",
+                            "failure_reason",
+                            "occurred_at"
+                        ]
                     }
                 },
                 "required": [
@@ -4259,7 +4928,8 @@
                 "description": "Closed set of `type` values the Core emits via the outbox. `*` (subscriber-only, never produced) is allowed as a wildcard in `POST /v1/webhook-endpoints`. Adding a new event type is a Core release, not a config change.",
                 "enum": [
                     "payment.status_changed",
-                    "notification.status_changed",
+                    "notification.delivered",
+                    "notification.read",
                     "notification.failed",
                     "wallet.credited",
                     "wallet.debited"

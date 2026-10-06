@@ -429,39 +429,74 @@ final class AdminWebFlowTest extends TestCase
             correlationId: null,
         )->project;
 
+        $listingUrl = "/admin/projects/{$project->id}/provider-applications/create";
+
         $first = $this->post("/admin/projects/{$project->id}/provider-applications", [
             'provider' => 'my-coolpay',
+            'environment' => 'live',
             'public_key' => 'pub-key-first',
             'private_key' => 'secret-first',
         ]);
-        $first->assertRedirect(route('admin.projects.show', ['projectId' => $project->id]));
+        $first->assertRedirect($listingUrl);
         $this->get('/admin/audit-log')->assertSee('provider_application.registered');
 
-        // Review finding, user-directed: rotating a key already worked
-        // (re-submitting for the same provider replaces it), but nothing
-        // in the console surfaced that this second call is a rotation,
-        // not a fresh registration — the audit trail now says so.
+        // ADR-0060: editing keeps the stored private key when the field is left empty.
         $second = $this->post("/admin/projects/{$project->id}/provider-applications", [
             'provider' => 'my-coolpay',
+            'environment' => 'live',
             'public_key' => 'pub-key-second',
-            'private_key' => 'secret-second',
+            'private_key' => '',
         ]);
-        $second->assertRedirect(route('admin.projects.show', ['projectId' => $project->id]));
+        $second->assertRedirect($listingUrl);
         $this->get('/admin/audit-log')->assertSee('provider_application.rotated');
 
-        // The "Remplacer" link on the listing preselects the provider via
-        // ?provider=, so the operator lands back on the same dropdown
-        // option rather than having to know to pick it themselves.
-        $listing = $this->get("/admin/projects/{$project->id}/provider-applications/create");
-        $listing->assertOk();
-        $listing->assertSee('Remplacer');
+        $stored = app(\Core\Payment\Domain\Port\ProviderApplicationRepository::class)->findByProjectAndProvider($project->id, 'my-coolpay');
+        self::assertNotNull($stored);
+        self::assertSame('pub-key-second', $stored->publicKey);
+        self::assertSame('secret-first', $stored->privateKey);
 
-        $preselected = $this->get("/admin/projects/{$project->id}/provider-applications/create?provider=my-coolpay");
-        $preselected->assertOk();
-        // Default `$escape = true` escapes this needle the same way
-        // Blade escaped the actual apostrophe — avoids hardcoding which
-        // HTML entity that becomes.
-        $preselected->assertSee("Remplacer l'application « my-coolpay »");
+        // A separate sandbox application can coexist with the live one.
+        $this->post("/admin/projects/{$project->id}/provider-applications", [
+            'provider' => 'my-coolpay',
+            'environment' => 'sandbox',
+            'public_key' => 'pub-key-sandbox',
+            'private_key' => 'secret-sandbox',
+        ])->assertRedirect($listingUrl);
+
+        $listing = $this->get($listingUrl);
+        $listing->assertOk()->assertSee('LIVE')->assertSee('SANDBOX')->assertSee('Modifier');
+
+        // The edit page is reachable from the listing.
+        $this->get("/admin/projects/{$project->id}/provider-applications/{$stored->id}/edit")
+            ->assertOk()
+            ->assertSee("Modifier l'application my-coolpay (LIVE)");
+    }
+
+    #[Test]
+    public function reusing_a_public_key_of_another_project_gives_a_clear_message_not_a_sql_error(): void
+    {
+        // The reported bug: editing an application answered with the raw
+        // PostgreSQL "duplicate key" message.
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Dup Org'), actor: 'service:test', correlationId: null);
+        $owner = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Projet Propriétaire'), actor: 'service:test', correlationId: null)->project;
+        $other = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Autre Projet'), actor: 'service:test', correlationId: null)->project;
+
+        $this->post("/admin/projects/{$owner->id}/provider-applications", [
+            'provider' => 'my-coolpay', 'environment' => 'live', 'public_key' => 'shared-pub', 'private_key' => 's1',
+        ])->assertRedirect();
+
+        $this->from("/admin/projects/{$other->id}/provider-applications/create")
+            ->post("/admin/projects/{$other->id}/provider-applications", [
+                'provider' => 'my-coolpay', 'environment' => 'live', 'public_key' => 'shared-pub', 'private_key' => 's2',
+            ])
+            ->assertRedirect("/admin/projects/{$other->id}/provider-applications/create")
+            ->assertSessionHasErrors(['public_key' => 'Cette clé publique est déjà utilisée par le projet « Projet Propriétaire » (live). Une application my-coolpay ne peut servir qu\'un seul projet et un seul environnement : c\'est elle qui permet au Core d\'attribuer chaque callback au bon projet. Créez une application distincte chez le provider, ou modifiez celle du projet « Projet Propriétaire ».']);
+
+        $page = $this->get("/admin/projects/{$other->id}/provider-applications/create");
+        $page->assertDontSee('duplicate key')->assertDontSee('SQLSTATE');
     }
 
     #[Test]
@@ -738,6 +773,216 @@ final class AdminWebFlowTest extends TestCase
             $this->getJson('/v1/admin/operators', ['Authorization' => "Bearer {$bearer}"])
                 ->assertOk();
         }
+    }
+
+    #[Test]
+    public function a_project_has_exactly_one_live_and_one_sandbox_key_that_can_be_regenerated_and_revoked(): void
+    {
+        // ADR-0060.
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Keys Org'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Keys Project'), actor: 'service:test', correlationId: null)->project;
+        $keys = static fn (): array => app(\Core\Identity\Contracts\ListApiKeys::class)->list(new \Core\Identity\Contracts\ListApiKeysCommand($project->id));
+
+        // Auto-provisioned at creation: one of each.
+        self::assertCount(2, $keys());
+        $this->get("/admin/projects/{$project->id}/api-keys/create")->assertOk()->assertSee('Clé Live')->assertSee('Clé Sandbox')->assertSee('Régénérer');
+
+        // Generating a second live key is refused with a clear message.
+        $this->post("/admin/projects/{$project->id}/api-keys", ['environment' => 'live', 'mode' => 'generate'])
+            ->assertSessionHasErrors('environment');
+        self::assertCount(2, $keys());
+
+        // Regenerating replaces it: still exactly two keys, a new live prefix.
+        $oldLive = collect($keys())->first(fn ($k) => $k->environment->value === 'live');
+        $this->post("/admin/projects/{$project->id}/api-keys", ['environment' => 'live', 'mode' => 'regenerate'])->assertRedirect();
+        $afterRegenerate = $keys();
+        self::assertCount(2, $afterRegenerate);
+        $newLive = collect($afterRegenerate)->first(fn ($k) => $k->environment->value === 'live');
+        self::assertNotNull($oldLive);
+        self::assertNotNull($newLive);
+        self::assertNotSame($oldLive->prefix, $newLive->prefix);
+
+        // Revoking deletes; the environment can then be generated again.
+        $this->post("/admin/projects/{$project->id}/api-keys/{$newLive->id}/revoke")->assertRedirect();
+        self::assertCount(1, $keys());
+        $this->post("/admin/projects/{$project->id}/api-keys", ['environment' => 'live', 'mode' => 'generate'])->assertRedirect();
+        self::assertCount(2, $keys());
+    }
+
+    #[Test]
+    public function the_payment_page_shows_its_journey(): void
+    {
+        // ADR-0059 — the "Parcours" section lists every recorded step.
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Journey Org'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Journey Project'), actor: 'service:test', correlationId: null)->project;
+
+        $paymentId = (string) Str::uuid();
+        app(PaymentRepository::class)->create(new Payment(
+            id: $paymentId,
+            projectId: $project->id,
+            channel: 'mtn_momo',
+            providerCode: 'my-coolpay',
+            idempotencyKey: (string) Str::uuid(),
+            providerTransactionRef: (string) Str::uuid(),
+            amount: 500,
+            currency: 'XAF',
+            status: PaymentStatus::Succeeded,
+            requiresAction: false,
+            actionHint: null,
+            paymentUrl: null,
+            errorMessage: null,
+            returnUrl: null,
+            walletRecipientExternalRef: null,
+        ));
+
+        $journey = app(\Core\Payment\Application\Service\PaymentJourney::class);
+        $journey->record($paymentId, $project->id, \Core\Payment\Domain\Model\PaymentTimelineEntryType::ApiRequestReceived, 'Requête POST /v1/payments/payin reçue de l\'intégrateur', ['body' => ['amount' => 500]]);
+        $journey->record($paymentId, $project->id, \Core\Payment\Domain\Model\PaymentTimelineEntryType::StatusChanged, 'Statut pending → succeeded (callback du provider) — statut final', ['to' => 'succeeded', 'is_final' => true]);
+
+        $this->get("/admin/payments/{$paymentId}?project_id={$project->id}")
+            ->assertOk()
+            ->assertSee('Parcours')
+            ->assertSee('Requête reçue')
+            ->assertSee('Statut pending → succeeded (callback du provider) — statut final');
+    }
+
+    #[Test]
+    public function a_projects_notifications_are_listed_and_their_detail_shows_content_variables_and_attempts(): void
+    {
+        // ADR-0062 — everything the Core knows about a notification.
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Notif Org'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Notif Project'), actor: 'service:test', correlationId: null)->project;
+
+        $notificationId = (string) Str::uuid();
+        app(\Core\Notification\Domain\Port\NotificationRepository::class)->create(new \Core\Notification\Domain\Model\Notification(
+            id: $notificationId,
+            projectId: $project->id,
+            channel: 'whatsapp',
+            toPartyRef: 'customer-42',
+            contentType: 'text',
+            idempotencyKey: 'order-42-confirmation',
+            status: \Core\Notification\NotificationStatus::Failed,
+            providerCode: null,
+            providerMessageId: null,
+            errorMessage: 'Session not linked',
+            environment: \Core\Support\Environment::Sandbox,
+            content: ['text' => 'Votre commande est confirmée'],
+            variables: ['phone_number' => '237690000000', 'session' => 'shop'],
+        ));
+        app(\Core\Notification\Domain\Port\NotificationDeliveryRepository::class)->record(
+            $notificationId, 'waha', null, \Core\Notification\NotificationStatus::Failed, 1, 'Session not linked',
+        );
+
+        $this->get("/admin/projects/{$project->id}/notifications?environment=sandbox")
+            ->assertOk()
+            ->assertSee(substr($notificationId, 0, 8))
+            ->assertSee('customer-42');
+
+        $this->get("/admin/projects/{$project->id}/notifications?environment=live")
+            ->assertOk()
+            ->assertDontSee(substr($notificationId, 0, 8));
+
+        $this->get("/admin/projects/{$project->id}/notifications/{$notificationId}")
+            ->assertOk()
+            ->assertSee('Votre commande est confirmée')
+            ->assertSee('237690000000')
+            ->assertSee('order-42-confirmation')
+            ->assertSee('waha')
+            ->assertSee('Session not linked')
+            ->assertSee('final');
+
+        // Scoped to the Project in the URL.
+        $other = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Other'), actor: 'service:test', correlationId: null)->project;
+        $this->get("/admin/projects/{$other->id}/notifications/{$notificationId}")->assertNotFound();
+    }
+
+    #[Test]
+    public function notification_content_older_than_the_retention_period_is_redacted(): void
+    {
+        // ADR-0062 / D5 — content and phone number kept 90 days only.
+        $repository = app(\Core\Notification\Domain\Port\NotificationRepository::class);
+        $old = (string) Str::uuid();
+        $recent = (string) Str::uuid();
+        foreach ([$old, $recent] as $id) {
+            $repository->create(new \Core\Notification\Domain\Model\Notification(
+                id: $id, projectId: (string) Str::uuid(), channel: 'whatsapp', toPartyRef: 'c', contentType: 'text',
+                idempotencyKey: $id, status: \Core\Notification\NotificationStatus::Sent, providerCode: 'waha',
+                providerMessageId: null, errorMessage: null,
+                content: ['text' => 'hello'], variables: ['phone_number' => '237690000000'],
+            ));
+        }
+        \Illuminate\Support\Facades\DB::table('notifications')->where('id', $old)->update(['created_at' => now()->subDays(91)]);
+
+        self::assertSame(0, \Illuminate\Support\Facades\Artisan::call('notification:redact-expired'));
+
+        $redacted = $repository->find($old);
+        $kept = $repository->find($recent);
+        self::assertNotNull($redacted);
+        self::assertNotNull($kept);
+        self::assertSame([], $redacted->variables);
+        self::assertSame([], $redacted->content);
+        self::assertSame(['phone_number' => '237690000000'], $kept->variables);
+    }
+
+    #[Test]
+    public function a_webhook_endpoint_registered_for_sandbox_from_the_console_is_a_sandbox_endpoint(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Env Org'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Env Project'), actor: 'service:test', correlationId: null)->project;
+
+        $this->post("/admin/projects/{$project->id}/webhook-endpoints", [
+            'url' => 'https://example.com/webhooks/sandbox',
+            'environment' => 'sandbox',
+            'all' => '1',
+        ])->assertRedirect();
+
+        $endpoints = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id));
+        self::assertCount(1, $endpoints);
+        self::assertSame('sandbox', $endpoints[0]->environment);
+    }
+
+    #[Test]
+    public function a_webhook_delivery_has_its_own_detail_page(): void
+    {
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $projectId = (string) Str::uuid();
+        $endpoint = app(RegisterWebhookEndpoint::class)->register(
+            new RegisterWebhookEndpointCommand($projectId, 'https://example.com/hook-detail', ['*']),
+        );
+        $delivery = new WebhookDelivery(
+            id: (string) Str::uuid(),
+            endpointId: $endpoint->id,
+            projectId: $projectId,
+            eventId: (string) Str::uuid(),
+            eventType: 'payment.status_changed',
+            payload: ['status' => 'failed'],
+            status: WebhookDeliveryStatus::Pending,
+            attempts: 0,
+            nextRetryAt: null,
+            lastAttemptAt: null,
+            lastError: null,
+            deliveredAt: null,
+        );
+        app(WebhookDeliveryRepository::class)->create($delivery);
+
+        $this->get("/admin/webhook-deliveries/{$delivery->id}")
+            ->assertOk()
+            ->assertSee($delivery->id)
+            ->assertSee('https://example.com/hook-detail')
+            ->assertSee('payment.status_changed');
+
+        $this->get('/admin/webhook-deliveries/'.Str::uuid())->assertRedirect(route('admin.webhook-deliveries.dead.web'));
     }
 
     /**

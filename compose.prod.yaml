@@ -1,37 +1,78 @@
-# Production deployment (ADR-0053) — separate from compose.yaml (local dev)
-# rather than an override layer: the two share almost nothing (FrankenPHP vs
+# Production AND staging deployment (ADR-0053, ADR-0064) — separate from
+# compose.yaml (local dev): the two share almost nothing (FrankenPHP vs
 # `serve`, no published DB/Redis ports, the nginx-proxy sidecar, no bind
-# mounts of the working tree) and diverging that much through overrides
-# would be harder to read than two plain files.
+# mounts of the working tree).
 #
-# Usage on the VPS:
-#   docker compose -f compose.prod.yaml build
-#   docker compose -f compose.prod.yaml up -d
-#   docker compose -f compose.prod.yaml exec app php artisan migrate --force
+# One file, two stacks on the same VPS. Everything that must differ between
+# them comes from the env file given to Compose — names, host name, image
+# tag, resource limits — with defaults equal to the original production
+# values, so an existing production stack keeps its container names, network
+# and volumes unchanged:
 #
-# Own project name so it never collides with a dev stack on the same host.
+#   production : deploy/promote-production.sh   (project core-system-prod,    env file .env)
+#   staging    : deploy/deploy-staging.sh       (project core-system-staging, env file .env.staging)
+#
+# Never run `docker compose -f compose.prod.yaml …` by hand for staging
+# without `-p core-system-staging --env-file .env.staging`: the defaults
+# below are production's. The deploy/ scripts always pass both.
 name: core-system-prod
+
+# Log rotation per container, whatever the daemon default (VPS standard,
+# vcam-infra-deploy, cloned on the server in /app/vps-platform).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+# One image for app, horizon and scheduler, built once per commit and tagged
+# with its SHA (deploy/deploy-staging.sh). Production runs the exact image
+# staging validated — never a rebuild. `latest` is only what a manual
+# `make prod-build` produces.
+x-core-image: &core-image
+  image: ${CORE_IMAGE:-core-system}:${IMAGE_TAG:-latest}
+  build:
+    context: .
+    target: production
+  env_file:
+    - ${CORE_ENV_FILE:-.env}
+  restart: unless-stopped
+  logging: *logging
+  depends_on:
+    postgres:
+      condition: service_healthy
+    valkey:
+      condition: service_healthy
+  networks:
+    - default
+    # Shared VPS observability (vcam-infra-deploy/observability): Alloy tails these
+    # containers' logs, scrapes app's /metrics and receives OTLP traces here.
+    # Postgres and Valkey are never attached to it.
+    - observability
+
+x-observability-labels: &observability-labels
+  observability.enable: "true"
+  observability.app: core-system
+  observability.deployment: ${DEPLOYMENT:-prod}
 
 services:
   app:
-    build:
-      context: .
-      target: production
-    container_name: core-system-app
-    restart: unless-stopped
-    env_file:
-      - .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      valkey:
-        condition: service_healthy
+    <<: *core-image
+    container_name: ${STACK_PREFIX:-core-system}-app
+    labels:
+      <<: *observability-labels
+      observability.metrics.port: "8000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/up"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "${APP_CPUS:-1.0}"
+          memory: ${APP_MEMORY:-1G}
 
   # Thin reverse-proxy sidecar, one per project (matches this VPS's existing
   # convention) — bridges the shared external nginx-proxy network to this
@@ -40,16 +81,22 @@ services:
   # VIRTUAL_HOST/LETSENCRYPT_HOST discovery and the reverse-proxy hop.
   webserver:
     image: nginx:alpine
-    container_name: core-system-webserver
+    container_name: ${STACK_PREFIX:-core-system}-webserver
     restart: unless-stopped
+    logging: *logging
     tty: true
     environment:
-      VIRTUAL_HOST: ${VIRTUAL_HOST}
+      # Only this container declares itself to nginx-proxy. The env files use
+      # CORE_PUBLIC_HOST, not VIRTUAL_HOST, because app/horizon/scheduler/backup
+      # load them whole (env_file) and must never claim the name too.
+      # VIRTUAL_HOST is still read as a fallback for an older .env.
+      VIRTUAL_HOST: ${CORE_PUBLIC_HOST:-${VIRTUAL_HOST}}
       VIRTUAL_PORT: 80
-      LETSENCRYPT_HOST: ${VIRTUAL_HOST}
+      LETSENCRYPT_HOST: ${CORE_PUBLIC_HOST:-${VIRTUAL_HOST}}
       LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+      TRUSTED_PROXY_TOKEN: ${TRUSTED_PROXY_TOKEN:-}
     volumes:
-      - ./docker/nginx/prod:/etc/nginx/conf.d/:ro
+      - ./docker/nginx/prod:/etc/nginx/templates:ro
     depends_on:
       app:
         condition: service_healthy
@@ -62,46 +109,45 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
 
   horizon:
-    build:
-      context: .
-      target: production
-    container_name: core-system-horizon
-    restart: unless-stopped
+    <<: *core-image
+    container_name: ${STACK_PREFIX:-core-system}-horizon
     command: php artisan horizon
+    labels:
+      <<: *observability-labels
     healthcheck:
       disable: true
-    env_file:
-      - .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      valkey:
-        condition: service_healthy
-    
+    deploy:
+      resources:
+        limits:
+          cpus: "${HORIZON_CPUS:-1.0}"
+          memory: ${HORIZON_MEMORY:-768M}
 
   scheduler:
-    build:
-      context: .
-      target: production
-    container_name: core-system-scheduler
-    restart: unless-stopped
+    <<: *core-image
+    container_name: ${STACK_PREFIX:-core-system}-scheduler
     command: php artisan schedule:work
+    labels:
+      <<: *observability-labels
     healthcheck:
       disable: true
-    env_file:
-      - .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      valkey:
-        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "${SCHEDULER_CPUS:-0.5}"
+          memory: ${SCHEDULER_MEMORY:-512M}
 
   postgres:
     image: postgres:18-alpine
-    container_name: core-system-postgres
+    container_name: ${STACK_PREFIX:-core-system}-postgres
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_DB: ${DB_DATABASE}
       POSTGRES_USER: ${DB_USERNAME}
@@ -110,15 +156,21 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${DB_USERNAME} -d ${DB_DATABASE}"]
       interval: 5s
       timeout: 5s
       retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "${POSTGRES_CPUS:-1.0}"
+          memory: ${POSTGRES_MEMORY:-1G}
 
   valkey:
     image: valkey/valkey:8.1-alpine
-    container_name: core-system-valkey
+    container_name: ${STACK_PREFIX:-core-system}-valkey
     restart: unless-stopped
+    logging: *logging
     command: valkey-server --appendonly yes
     volumes:
       - valkey-data:/data
@@ -127,10 +179,59 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: ${VALKEY_MEMORY:-256M}
+
+  # VPS standard backup agent (vcam-infra-deploy/images/db-backup): nightly encrypted
+  # pg_dump, copied to S3-compatible storage (MEGA S4…) and then DELETED from the server: backups
+  # live on S3 only (ADR-0067). No S3 configured = the agent refuses; BACKUP_DISABLED=1 declares an
+  # environment deliberately not backed up (staging). deploy.sh takes no backup of its own: the
+  # nightly one is the safety net, and `deploy.sh backup` takes one by hand before a risky migration.
+  # Built from the platform clone (PLATFORM_DIR, default /app/vps-platform).
+  backup:
+    build:
+      context: ${PLATFORM_DIR:-/app/vps-platform}/images/db-backup
+    image: vps/db-backup:1
+    container_name: ${STACK_PREFIX:-core-system}-backup
+    restart: unless-stopped
+    logging: *logging
+    env_file:
+      - ${CORE_ENV_FILE:-.env}
+    environment:
+      BACKUP_ENGINE: postgres
+      BACKUP_NAME: ${STACK_PREFIX:-core-system}
+      PGHOST: postgres
+      PGDATABASE: ${DB_DATABASE}
+      PGUSER: ${DB_USERNAME}
+      PGPASSWORD: ${DB_PASSWORD}
+    volumes:
+      - backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Backup logs in Grafana (« uploaded to s3://… » each night, or its absence: alert after 36 h).
+    labels:
+      <<: *observability-labels
+    # « healthy » = an upload to S3 succeeded less than 36 h ago (marker /backups/.last-upload).
+    healthcheck:
+      test: [ "CMD-SHELL", "find /backups -maxdepth 1 -name .last-upload -mmin -2160 | grep -q ." ]
+      interval: 1h
+      timeout: 10s
+      retries: 1
+      start_period: 30h
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
 
 volumes:
   postgres-data:
   valkey-data:
+  backups:
 
 networks:
   # Project-local — app, horizon, scheduler, postgres and valkey never touch
@@ -140,7 +241,12 @@ networks:
   # could reach this Core's database directly, bypassing application auth
   # entirely — not an acceptable trade for a financial system.
   default:
-    name: core-system-internal
+    name: ${STACK_PREFIX:-core-system}-internal
+  # Overridable only so the platform tests can run an isolated copy next to the
+  # real thing; on the VPS the defaults are the shared networks.
   nginx-proxy:
-    name: nginx-proxy
+    name: ${NGINX_PROXY_NETWORK:-nginx-proxy}
+    external: true
+  observability:
+    name: ${OBS_NETWORK:-observability}
     external: true
