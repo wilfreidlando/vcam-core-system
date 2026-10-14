@@ -18,5 +18,11 @@ final readonly class CreditWalletCommand
         public string $currency,
         public ?string $externalRef,
         public string $idempotencyKey,
+        // ADR-0065 — the environment of the operation that credits: a
+        // sandbox payment credits a sandbox wallet, never a live one.
+        public string $environment = 'live',
+        // The product's own reference for the party, echoed in the
+        // `wallet.credited` event when known.
+        public ?string $partyExternalRef = null,
     ) {}
 }

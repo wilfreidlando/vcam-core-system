@@ -27,6 +27,7 @@ final class EloquentWalletRepository implements WalletRepository
                     'party_id' => $wallet->partyId,
                     'currency' => $wallet->currency,
                     'status' => $wallet->status,
+                    'environment' => $wallet->environment,
                 ]);
             });
         } catch (UniqueConstraintViolationException) {
@@ -49,6 +50,17 @@ final class EloquentWalletRepository implements WalletRepository
             ->first();
 
         return $record === null ? null : $this->toDomain($record);
+    }
+
+    public function findByParty(string $partyId): array
+    {
+        $wallets = [];
+        foreach (WalletRecord::query()->where('party_id', $partyId)->get() as $record) {
+            $wallets[] = $this->toDomain($record);
+        }
+        usort($wallets, static fn (Wallet $a, Wallet $b): int => strcmp($a->currency, $b->currency));
+
+        return $wallets;
     }
 
     public function findByProject(string $projectId, int $page, int $perPage, ?string $search = null): array
@@ -91,6 +103,6 @@ final class EloquentWalletRepository implements WalletRepository
 
     private function toDomain(WalletRecord $record): Wallet
     {
-        return new Wallet($record->id, $record->project_id, $record->party_id, $record->currency, $record->status);
+        return new Wallet($record->id, $record->project_id, $record->party_id, $record->currency, $record->status, $record->environment);
     }
 }

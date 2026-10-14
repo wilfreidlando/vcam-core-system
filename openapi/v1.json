@@ -3633,6 +3633,1030 @@
                 ]
             }
         },
+        "/wallets/{walletId}/transactions": {
+            "get": {
+                "operationId": "wallet.transactions",
+                "description": "Every credit and debit of the wallet, newest first, read from the ledger. `type` is\n`payment` (a confirmed payment credited it \u2014 see `payment_id`), `transfer`,\n`withdrawal` or `debit`; `reference`, `description` and `metadata` are those you sent\nwith the transfer or withdrawal. Requires the `wallets:read` scope.",
+                "summary": "List a wallet's movements",
+                "tags": [
+                    "Wallet"
+                ],
+                "parameters": [
+                    {
+                        "name": "walletId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The page to return, from 1.",
+                        "schema": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 1
+                        },
+                        "example": 1
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Movements per page, from 1 to 100.",
+                        "schema": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "example": 25
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {}
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "total": {
+                                                    "type": "integer"
+                                                },
+                                                "page": {
+                                                    "type": "integer"
+                                                },
+                                                "per_page": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "required": [
+                                                "total",
+                                                "page",
+                                                "per_page"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Wallet not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/wallet-not-found"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Wallet not found"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error."
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "wallets:read"
+                ]
+            }
+        },
+        "/wallets/transfers": {
+            "post": {
+                "operationId": "wallet.transfers",
+                "description": "Moves value between wallets of your project, in the environment of your key, as one\natomic operation of 1 to 20 legs: every leg lands, or none does. A transfer never\ncreates value \u2014 the only way value enters a wallet is a confirmed payment with\n`wallet_recipient_external_ref`. Parties are named by your own references; a\ndestination's wallet is created on its first credit, a source must already hold\nenough available funds. Requires the `wallets:write` scope and an `Idempotency-Key`\nheader: replaying the same key returns the original transfer and moves nothing.\n\nEach wallet whose balance changed emits `wallet.credited` or `wallet.debited`.",
+                "summary": "Transfer funds between wallets",
+                "tags": [
+                    "Wallet"
+                ],
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. Mandatory on every route that moves money.",
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 255
+                        },
+                        "example": "01HMZ9XK3P-9XK3P-9XK3P"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TransferFundsRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "type": {
+                                            "type": "string"
+                                        },
+                                        "reference": {
+                                            "type": "string"
+                                        },
+                                        "currency": {
+                                            "type": "string"
+                                        },
+                                        "total_minor": {
+                                            "type": "integer"
+                                        },
+                                        "description": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "metadata": {
+                                            "type": "string"
+                                        },
+                                        "legs": {
+                                            "type": "array",
+                                            "items": {}
+                                        },
+                                        "external_reference": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "created_at": {
+                                            "type": "string"
+                                        },
+                                        "wallets": {
+                                            "type": "array",
+                                            "items": {}
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "type",
+                                        "reference",
+                                        "currency",
+                                        "total_minor",
+                                        "description",
+                                        "metadata",
+                                        "legs",
+                                        "external_reference",
+                                        "created_at",
+                                        "wallets"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The wallet operation is invalid\n\nThe request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/validation-failed"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "The request payload is invalid"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/invalid-wallet-operation"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The wallet operation is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Idempotency-Key was reused",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-conflict"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key was reused"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 409
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "Either a concurrent request with this Idempotency-Key is still in flight, or the key was reused with a different request body."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Idempotency-Key header is required",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-required"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key header is required"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 400
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "This route mutates state and must be called with an Idempotency-Key header."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "wallets:write"
+                ]
+            }
+        },
+        "/wallets/withdrawals": {
+            "post": {
+                "operationId": "wallet.withdrawals",
+                "description": "Records that value left your custody: a payout you made outside the Core (a mobile money\ntransfer, a bank wire), whose proof goes in `external_reference`. The party's wallet is\ndebited; no value is created. Requires the `wallets:write` scope and an `Idempotency-Key`\nheader. Emits `wallet.debited`.",
+                "summary": "Record a withdrawal",
+                "tags": [
+                    "Wallet"
+                ],
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. Mandatory on every route that moves money.",
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 255
+                        },
+                        "example": "01HMZ9XK3P-9XK3P-9XK3P"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RecordWithdrawalRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "type": {
+                                            "type": "string"
+                                        },
+                                        "reference": {
+                                            "type": "string"
+                                        },
+                                        "currency": {
+                                            "type": "string"
+                                        },
+                                        "total_minor": {
+                                            "type": "integer"
+                                        },
+                                        "description": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "metadata": {
+                                            "type": "string"
+                                        },
+                                        "legs": {
+                                            "type": "array",
+                                            "items": {}
+                                        },
+                                        "external_reference": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "created_at": {
+                                            "type": "string"
+                                        },
+                                        "wallets": {
+                                            "type": "array",
+                                            "items": {}
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "type",
+                                        "reference",
+                                        "currency",
+                                        "total_minor",
+                                        "description",
+                                        "metadata",
+                                        "legs",
+                                        "external_reference",
+                                        "created_at",
+                                        "wallets"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The wallet operation is invalid\n\nThe request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/validation-failed"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "The request payload is invalid"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/invalid-wallet-operation"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The wallet operation is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Idempotency-Key was reused",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-conflict"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key was reused"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 409
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "Either a concurrent request with this Idempotency-Key is still in flight, or the key was reused with a different request body."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Idempotency-Key header is required",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-required"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key header is required"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 400
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "This route mutates state and must be called with an Idempotency-Key header."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "wallets:write"
+                ]
+            }
+        },
+        "/parties/{externalRef}/wallets": {
+            "get": {
+                "operationId": "wallet.party-wallets",
+                "description": "The wallets of the party you name by your own reference (URL-encoded), one per\ncurrency, with their balance \u2014 in the environment of your key. A party that never\nreceived anything has none: the list is empty, and reading never creates the party.\nRequires the `wallets:read` scope.",
+                "summary": "List a party's wallets",
+                "tags": [
+                    "Wallet"
+                ],
+                "parameters": [
+                    {
+                        "name": "externalRef",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {}
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "wallets:read"
+                ]
+            }
+        },
         "/webhook-endpoints": {
             "post": {
                 "operationId": "webhook-endpoints.register",
@@ -4232,6 +5256,80 @@
                 ],
                 "title": "PaymentFlow"
             },
+            "RecordWithdrawalRequest": {
+                "type": "object",
+                "description": "Validates `POST /v1/wallets/withdrawals` (ADR-0065).",
+                "properties": {
+                    "party": {
+                        "type": "string",
+                        "description": "Your own reference of the party whose wallet is debited.",
+                        "examples": [
+                            "merchant:01J9Z3K7Q5"
+                        ],
+                        "maxLength": 191
+                    },
+                    "amount": {
+                        "type": "integer",
+                        "description": "The amount that left, an integer in the currency's smallest\nunit.",
+                        "examples": [
+                            120000
+                        ],
+                        "minimum": 1
+                    },
+                    "currency": {
+                        "type": "string",
+                        "description": "The ISO 4217 code of the amount.",
+                        "examples": [
+                            "XAF"
+                        ],
+                        "minLength": 3,
+                        "maxLength": 3
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "A label returned in the wallet's history.",
+                        "examples": [
+                            "Withdrawal to MTN Mobile Money"
+                        ],
+                        "maxLength": 255
+                    },
+                    "external_reference": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The proof of the payout you made outside the Core (the mobile\nmoney transaction id, a bank wire reference\u2026).",
+                        "examples": [
+                            "MP241014.1532.C12345"
+                        ],
+                        "maxLength": 255
+                    },
+                    "metadata": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "description": "Any JSON object of yours (4 KB at most once encoded), opaque to\nthe Core.",
+                        "examples": [
+                            {
+                                "request": "WD-2026-0042"
+                            }
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "party",
+                    "amount",
+                    "currency"
+                ],
+                "title": "RecordWithdrawalRequest"
+            },
             "RegisterWebhookEndpointRequest": {
                 "type": "object",
                 "description": "Validates `POST /v1/webhook-endpoints`. The `webhooks:write` scope\nis enforced in the controller against the calling Project.",
@@ -4764,6 +5862,104 @@
                     "reason"
                 ],
                 "title": "StartPaymentRequest"
+            },
+            "TransferFundsRequest": {
+                "type": "object",
+                "description": "Validates `POST /v1/wallets/transfers` (ADR-0065). The `wallets:write`\nscope is enforced in the controller; `Idempotency-Key` by the route's\n`idempotency` middleware (G7).",
+                "properties": {
+                    "currency": {
+                        "type": "string",
+                        "description": "The ISO 4217 code of every leg's amount. One transfer moves a\nsingle currency.",
+                        "examples": [
+                            "XAF"
+                        ],
+                        "minLength": 3,
+                        "maxLength": 3
+                    },
+                    "legs": {
+                        "type": "array",
+                        "description": "Between 1 and 20 movements, applied together in one ledger\ntransaction: every leg lands, or none does.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "from": {
+                                    "type": "string",
+                                    "description": "Your own reference of the party whose wallet is debited. It\nmust already hold a wallet in `currency` with enough\navailable funds.",
+                                    "examples": [
+                                        "escrow"
+                                    ],
+                                    "maxLength": 191
+                                },
+                                "to": {
+                                    "type": "string",
+                                    "description": "Your own reference of the party whose wallet is credited. Its\nwallet is created on first credit.",
+                                    "examples": [
+                                        "merchant:01J9Z3K7Q5"
+                                    ],
+                                    "maxLength": 191
+                                },
+                                "amount": {
+                                    "type": "integer",
+                                    "description": "The amount moved by this leg, an integer in the currency's\nsmallest unit (`XAF` has none: `45000` is 45,000 XAF).",
+                                    "examples": [
+                                        45000
+                                    ],
+                                    "minimum": 1
+                                },
+                                "to_party_type": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "description": "The type given to the destination party if it does not exist\nyet (lowercase, underscores). Ignored for an existing party.",
+                                    "pattern": "^[a-z][a-z0-9_]*$",
+                                    "examples": [
+                                        "merchant"
+                                    ],
+                                    "maxLength": 64
+                                }
+                            },
+                            "required": [
+                                "from",
+                                "to",
+                                "amount"
+                            ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 20
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "A label for this transfer, returned in each wallet's history.",
+                        "examples": [
+                            "Settlement of booking ETR-7K3Q9"
+                        ],
+                        "maxLength": 255
+                    },
+                    "metadata": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "description": "Any JSON object of yours (4 KB at most once encoded), opaque to\nthe Core and returned in each wallet's history.",
+                        "examples": [
+                            {
+                                "order": "ETR-7K3Q9"
+                            }
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "currency",
+                    "legs"
+                ],
+                "title": "TransferFundsRequest"
             },
             "WebhookEndpointView": {
                 "type": "object",

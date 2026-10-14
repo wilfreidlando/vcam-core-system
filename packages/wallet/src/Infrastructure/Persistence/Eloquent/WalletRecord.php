@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $party_id
  * @property string $currency
  * @property string $status
+ * @property string $environment
  */
 final class WalletRecord extends Model
 {
@@ -22,5 +23,5 @@ final class WalletRecord extends Model
 
     protected $table = 'wallets';
 
-    protected $fillable = ['id', 'project_id', 'party_id', 'currency', 'status'];
+    protected $fillable = ['id', 'project_id', 'party_id', 'currency', 'status', 'environment'];
 }

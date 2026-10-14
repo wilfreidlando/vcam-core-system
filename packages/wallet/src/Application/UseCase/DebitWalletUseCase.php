@@ -22,6 +22,7 @@ use Core\Wallet\Contracts\WalletBalanceView;
 use Core\Wallet\Domain\Exception\InsufficientFunds;
 use Core\Wallet\Domain\Exception\WalletNotFound;
 use Core\Wallet\Domain\Exception\WalletProjectMismatch;
+use Core\Wallet\Domain\Model\SystemAccount;
 use Core\Wallet\Domain\Model\WalletBalance;
 use Core\Wallet\Domain\Port\WalletBalanceRepository;
 use Core\Wallet\Domain\Port\WalletRepository;
@@ -34,10 +35,6 @@ use Core\Wallet\Domain\Port\WalletRepository;
  */
 final readonly class DebitWalletUseCase implements DebitWallet
 {
-    private const CLEARING_ACCOUNT_KIND = 'clearing';
-
-    private const WALLET_ACCOUNT_KIND = 'wallet';
-
     public function __construct(
         private UnitOfWork $unitOfWork,
         private WalletRepository $wallets,
@@ -57,6 +54,10 @@ final readonly class DebitWalletUseCase implements DebitWallet
 
             if ($wallet->projectId !== $command->projectId) {
                 throw WalletProjectMismatch::forWallet($wallet->id, $command->projectId);
+            }
+
+            if ($wallet->environment !== $command->environment) {
+                throw WalletNotFound::withId($command->walletId);
             }
 
             // The lock is taken before checking funds, and before posting to
@@ -84,15 +85,15 @@ final readonly class DebitWalletUseCase implements DebitWallet
 
             $walletAccount = $this->accountResolver->resolveOrCreate(new ResolveOrCreateAccountCommand(
                 $wallet->projectId,
-                self::WALLET_ACCOUNT_KIND,
+                SystemAccount::WALLET,
                 $wallet->id,
                 $wallet->currency,
             ));
 
             $clearingAccount = $this->accountResolver->resolveOrCreate(new ResolveOrCreateAccountCommand(
                 $wallet->projectId,
-                self::CLEARING_ACCOUNT_KIND,
-                '',
+                SystemAccount::CLEARING,
+                SystemAccount::reference($wallet->environment),
                 $wallet->currency,
             ));
 
@@ -131,6 +132,7 @@ final readonly class DebitWalletUseCase implements DebitWallet
                 ],
                 null,
                 $this->clock->now(),
+                environment: $wallet->environment,
             ));
 
             return $this->toView($newBalance);

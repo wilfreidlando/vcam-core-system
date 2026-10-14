@@ -383,6 +383,8 @@ final class DocumentedApiExamplesTest extends TestCase
 
     private function creditWalletExternalRef(string $projectId, string $externalRef): string
     {
+        // ADR-0065: the documented examples run with a sandbox key, which
+        // only reaches sandbox wallets.
         $view = app(CreditWallet::class)->credit(new CreditWalletCommand(
             $projectId,
             (string) Str::uuid(),
@@ -390,6 +392,7 @@ final class DocumentedApiExamplesTest extends TestCase
             'XAF',
             $externalRef,
             (string) Str::uuid(),
+            'sandbox',
         ));
 
         return $view->walletId;

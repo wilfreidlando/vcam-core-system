@@ -116,19 +116,12 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
             );
 
             if ($updated->shouldCreditWallet()) {
-                if ($updated->isSandbox()) {
-                    // ADR-0060: sandbox never moves real money — the
-                    // instruction is acknowledged, the ledger untouched.
-                    $this->journey->record(
-                        $payment->id,
-                        $payment->projectId,
-                        PaymentTimelineEntryType::WalletCredited,
-                        sprintf('SANDBOX — crédit de %d %s du wallet « %s » simulé (aucune écriture ledger)', $updated->amount, $updated->currency, (string) $updated->walletRecipientExternalRef),
-                        ['simulated' => true, 'wallet_recipient_external_ref' => $updated->walletRecipientExternalRef, 'amount' => $updated->amount, 'currency' => $updated->currency],
-                    );
-                } else {
-                    $this->creditWalletFor($updated);
-                }
+                // ADR-0065 (replacing ADR-0060's "sandbox never touches the
+                // ledger"): a sandbox payment credits the SANDBOX wallet of
+                // the recipient — real postings, in accounts isolated from
+                // live, so an integrator can test a whole wallet journey
+                // without real money.
+                $this->creditWalletFor($updated);
             }
 
             $eventId = $this->identifier->generate();
@@ -196,6 +189,8 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
             $payment->projectId,
             $externalRef,
             'payment_recipient',
+            [],
+            $payment->environment->value,
         ));
 
         $balance = $this->creditWallet->credit(new CreditWalletCommand(
@@ -208,13 +203,15 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
             // naturally unique and never reused, so it doubles as the
             // ledger-level idempotency key (ADR-0033 §2).
             $payment->id,
+            $payment->environment->value,
+            $externalRef,
         ));
 
         $this->journey->record(
             $payment->id,
             $payment->projectId,
             PaymentTimelineEntryType::WalletCredited,
-            sprintf('Wallet de « %s » crédité de %d %s', $externalRef, $payment->amount, $payment->currency),
+            sprintf('%sWallet de « %s » crédité de %d %s', $payment->isSandbox() ? 'SANDBOX — ' : '', $externalRef, $payment->amount, $payment->currency),
             [
                 'wallet_recipient_external_ref' => $externalRef,
                 'party_id' => $party->id,

@@ -22,10 +22,11 @@ final readonly class GetWalletBalanceUseCase implements GetWalletBalance
     {
         $wallet = $this->wallets->find($command->walletId);
 
-        if ($wallet === null || $wallet->projectId !== $command->requestingProjectId) {
-            // Same exception for "does not exist" and "belongs to another
-            // project": distinguishing them would let a caller enumerate
-            // wallet ids that exist outside its own project.
+        if ($wallet === null || ! $wallet->belongsTo($command->requestingProjectId, $command->environment)) {
+            // Same exception for "does not exist", "belongs to another
+            // project" and "belongs to the other environment" (ADR-0065):
+            // distinguishing them would let a caller enumerate wallet ids
+            // that exist outside its own reach.
             throw WalletNotFound::withId($command->walletId);
         }
 

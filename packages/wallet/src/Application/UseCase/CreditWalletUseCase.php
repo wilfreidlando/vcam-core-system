@@ -21,6 +21,7 @@ use Core\Wallet\Contracts\CreditWalletCommand;
 use Core\Wallet\Contracts\WalletBalanceView;
 use Core\Wallet\Domain\Exception\WalletAlreadyExists;
 use Core\Wallet\Domain\Exception\WalletProjectMismatch;
+use Core\Wallet\Domain\Model\SystemAccount;
 use Core\Wallet\Domain\Model\Wallet;
 use Core\Wallet\Domain\Model\WalletBalance;
 use Core\Wallet\Domain\Port\WalletBalanceRepository;
@@ -40,10 +41,6 @@ use LogicException;
  */
 final readonly class CreditWalletUseCase implements CreditWallet
 {
-    private const CLEARING_ACCOUNT_KIND = 'clearing';
-
-    private const WALLET_ACCOUNT_KIND = 'wallet';
-
     public function __construct(
         private UnitOfWork $unitOfWork,
         private WalletRepository $wallets,
@@ -58,19 +55,19 @@ final readonly class CreditWalletUseCase implements CreditWallet
     public function credit(CreditWalletCommand $command): WalletBalanceView
     {
         return $this->unitOfWork->transactional(function () use ($command): WalletBalanceView {
-            $wallet = $this->resolveOrCreateWallet($command->projectId, $command->partyId, $command->currency);
+            $wallet = $this->resolveOrCreateWallet($command->projectId, $command->partyId, $command->currency, $command->environment);
 
             $walletAccount = $this->accountResolver->resolveOrCreate(new ResolveOrCreateAccountCommand(
                 $command->projectId,
-                self::WALLET_ACCOUNT_KIND,
+                SystemAccount::WALLET,
                 $wallet->id,
                 $command->currency,
             ));
 
             $clearingAccount = $this->accountResolver->resolveOrCreate(new ResolveOrCreateAccountCommand(
                 $command->projectId,
-                self::CLEARING_ACCOUNT_KIND,
-                '',
+                SystemAccount::CLEARING,
+                SystemAccount::reference($command->environment),
                 $command->currency,
             ));
 
@@ -106,33 +103,37 @@ final readonly class CreditWalletUseCase implements CreditWallet
                 $this->identifier->generate(),
                 $command->projectId,
                 'wallet.credited',
-                [
+                array_filter([
                     'wallet_id' => $wallet->id,
                     'party_id' => $command->partyId,
+                    'party_external_ref' => $command->partyExternalRef,
                     'amount_minor' => $command->amountMinor,
                     'currency' => $command->currency,
-                ],
+                    'operation_type' => 'payment',
+                    'payment_id' => $command->externalRef,
+                ], static fn (mixed $value): bool => $value !== null),
                 null,
                 $this->clock->now(),
+                environment: $command->environment,
             ));
 
             return $this->toView($newBalance);
         });
     }
 
-    private function resolveOrCreateWallet(string $projectId, string $partyId, string $currency): Wallet
+    private function resolveOrCreateWallet(string $projectId, string $partyId, string $currency, string $environment): Wallet
     {
         $existing = $this->wallets->findByPartyAndCurrency($partyId, $currency);
 
         if ($existing !== null) {
-            if ($existing->projectId !== $projectId) {
+            if (! $existing->belongsTo($projectId, $environment)) {
                 throw WalletProjectMismatch::forWallet($existing->id, $projectId);
             }
 
             return $existing;
         }
 
-        $wallet = new Wallet($this->identifier->generate(), $projectId, $partyId, $currency, 'active');
+        $wallet = new Wallet($this->identifier->generate(), $projectId, $partyId, $currency, 'active', $environment);
 
         try {
             $this->wallets->save($wallet);

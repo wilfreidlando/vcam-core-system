@@ -305,7 +305,16 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   historique (`AuditLogger`).
 - Ledger/Wallet/Parties sont livrés (Lot 2) : ledger double-entrée avec
   contraintes PostgreSQL réelles (triggers de solde et d'immutabilité),
-  wallets crédit/débit (aucun endpoint HTTP de mutation — ADR-0033 §1),
+  wallets crédit/débit. **Depuis ADR-0065** (remplace ADR-0033 §1) : routes
+  publiques `POST /v1/wallets/transfers` (multi-jambes, atomique, somme nulle),
+  `POST /v1/wallets/withdrawals` (sortie enregistrée), `GET
+  /v1/parties/{ref}/wallets`, `GET /v1/wallets/{id}/transactions` — scope
+  `wallets:write`/`wallets:read` ; **jamais de crédit libre** (la valeur
+  n'entre que par un paiement confirmé avec `wallet_recipient_external_ref`) ;
+  parties et wallets **isolés par environnement** (colonne `environment`,
+  comptes `clearing`/`withdrawal` séparés par référence), et un paiement
+  sandbox crédite réellement le wallet sandbox (remplace le « aucun mouvement
+  ledger en sandbox » d'ADR-0060). Historique de départ (Lot 2, pour mémoire) :
   parties à création paresseuse. Voir `packages/ledger/README.md`,
   `packages/wallet/README.md`, `packages/parties/README.md` — et
   [ADR-0033](docs/adr/0033-conception-lot-2-money-core.md). Depuis

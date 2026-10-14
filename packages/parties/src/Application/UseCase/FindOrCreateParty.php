@@ -28,7 +28,7 @@ final readonly class FindOrCreateParty implements PartyFinder
 
     public function findOrCreate(FindOrCreatePartyCommand $command): PartyRef
     {
-        $existing = $this->parties->findByExternalRef($command->projectId, $command->externalRef);
+        $existing = $this->parties->findByExternalRef($command->projectId, $command->externalRef, $command->environment);
 
         if ($existing !== null) {
             return $this->toRef($existing);
@@ -40,13 +40,14 @@ final readonly class FindOrCreateParty implements PartyFinder
             $command->externalRef,
             $command->type,
             $command->metadata,
+            $command->environment,
         );
 
         try {
             $this->parties->save($party);
         } catch (PartyAlreadyExists) {
             // Lost a race: another concurrent call created it first.
-            $winner = $this->parties->findByExternalRef($command->projectId, $command->externalRef)
+            $winner = $this->parties->findByExternalRef($command->projectId, $command->externalRef, $command->environment)
                 ?? throw new LogicException('Party creation conflicted but no party was found afterwards.');
 
             return $this->toRef($winner);
@@ -57,6 +58,6 @@ final readonly class FindOrCreateParty implements PartyFinder
 
     private function toRef(Party $party): PartyRef
     {
-        return new PartyRef($party->id, $party->projectId, $party->externalRef, $party->type(), $party->kycStatus());
+        return new PartyRef($party->id, $party->projectId, $party->externalRef, $party->type(), $party->kycStatus(), $party->environment);
     }
 }

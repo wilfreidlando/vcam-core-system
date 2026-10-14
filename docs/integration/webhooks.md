@@ -106,12 +106,25 @@ final. Fiez-vous à `is_final` plutôt qu'à une liste de statuts codée en dur.
 
 ### `wallet.credited`, `wallet.debited`
 
+Un événement par wallet dont le solde change : un transfert de plusieurs jambes
+en émet un par wallet touché, avec le mouvement net de ce wallet. Les champs
+facultatifs ne sont présents que s'ils sont connus.
+
 | Champ | Description |
 | --- | --- |
 | `wallet_id` | Identifiant du wallet. |
-| `party_id` | Tiers propriétaire du wallet. |
+| `party_id` | Identifiant interne du tiers propriétaire du wallet. |
+| `party_external_ref` | Votre référence du tiers (facultatif). |
 | `amount_minor` | Montant crédité ou débité, en plus petite unité. |
 | `currency` | Code ISO 4217. |
+| `operation_type` | `payment`, `transfer` ou `withdrawal`. |
+| `payment_id` | Le paiement qui a crédité le wallet (`payment`). |
+| `operation_id` | L'opération (`transfer`, `withdrawal`). |
+| `reference` | Votre `Idempotency-Key` de l'opération (`transfer`, `withdrawal`). |
+| `description` | Votre libellé de l'opération, s'il a été fourni. |
+
+Ces événements ne partent que vers les endpoints de l'environnement du wallet
+(sandbox ou live).
 
 ### `webhook.test`
 

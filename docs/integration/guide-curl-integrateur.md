@@ -242,10 +242,115 @@ l'événement. Paiement inconnu, d'un autre Project ou d'un autre environnement 
 | Simulation d'un paiement déjà final | `409 payment-not-simulable` |
 | Erreur du fournisseur (solde insuffisant, etc.) | `502 provider-error` |
 
-## 3. Wallet — `GET /v1/wallets/{walletId}/balance`
+## 3. Wallets
 
-Un wallet n'existe qu'après un premier crédit (paiement réussi avec
-`wallet_recipient_external_ref`). `walletId` est l'identifiant du wallet.
+Les commandes de cette section sont exécutées par la suite de tests
+(`tests/Integration/WalletOperationsHttpFlowTest.php`) contre une vraie base
+PostgreSQL ; elles fonctionnent à l'identique en sandbox et en live
+([ADR-0065](../adr/0065-operations-wallet-exposees-et-isolees-par-environnement.md)).
+
+**À savoir avant tout :**
+
+- Une **partie** est désignée par **votre** référence (`external_ref`) : un
+  identifiant de votre produit (`client:42`, `merchant:01J9…`, `escrow`…), jamais
+  une donnée personnelle.
+- Chaque partie a un wallet par devise, créé à son premier crédit.
+- **Sandbox et live sont isolés** : la même référence désigne deux parties
+  distinctes, et une clé n'atteint que les wallets de son environnement. En
+  sandbox, un paiement simulé crédite réellement le wallet sandbox demandé :
+  vous testez tout le parcours sans argent réel.
+- **La valeur n'entre dans un wallet que par un paiement confirmé** avec
+  `wallet_recipient_external_ref` (§2.2). Un transfert ne crée pas de valeur, il
+  la déplace ; un retrait enregistre qu'elle est sortie.
+- Mutations : scope `wallets:write` et `Idempotency-Key` obligatoires.
+  Lectures : scope `wallets:read`.
+
+### 3.1 Wallets d'une partie — `GET /v1/parties/{externalRef}/wallets`
+
+```bash
+curl -s "$BASE_URL/v1/parties/escrow/wallets" \
+  -H "Authorization: Bearer $API_KEY" -H "Accept: application/json"
+```
+
+```json
+{"data":[{"wallet_id":"01a13a50-895d-729e-a7f5-40e1278ab52a","party":"escrow","currency":"XAF","available_minor":50000,"held_minor":0,"status":"active"}]}
+```
+
+Une partie inconnue renvoie `{"data":[]}` : la lecture ne crée jamais la partie.
+Encodez la référence dans l'URL si elle contient `/` ou des espaces.
+
+### 3.2 Transférer — `POST /v1/wallets/transfers`
+
+De 1 à 20 **jambes** appliquées ensemble, dans une seule transaction : toutes
+passent, ou aucune. Typiquement, la répartition d'une vente entre le marchand et
+votre commission :
+
+```bash
+curl -s -X POST "$BASE_URL/v1/wallets/transfers" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  --data '{
+    "currency": "XAF",
+    "description": "Settlement of booking ETR-7K3Q9",
+    "metadata": {"order": "ETR-7K3Q9"},
+    "legs": [
+      {"from": "escrow", "to": "merchant:01J9", "amount": 45000, "to_party_type": "merchant"},
+      {"from": "escrow", "to": "platform", "amount": 5000}
+    ]
+  }'
+```
+
+`201` :
+
+```json
+{"id":"01a13a50-8c47-7209-839e-7d17d80ff652","type":"transfer","reference":"6d3cd3af-47b9-4a7d-9f26-5a4f285574b4","currency":"XAF","total_minor":50000,"description":"Settlement of booking ETR-7K3Q9","metadata":{"order":"ETR-7K3Q9"},"legs":[{"from":"escrow","to":"merchant:01J9","amount_minor":45000},{"from":"escrow","to":"platform","amount_minor":5000}],"external_reference":null,"created_at":"2026-10-14T12:08:39+00:00","wallets":[{"wallet_id":"…","party":"escrow","currency":"XAF","available_minor":0,"held_minor":0,"status":"active"},{"wallet_id":"…","party":"merchant:01J9","currency":"XAF","available_minor":45000,"held_minor":0,"status":"active"},{"wallet_id":"…","party":"platform","currency":"XAF","available_minor":5000,"held_minor":0,"status":"active"}]}
+```
+
+- `from` doit déjà détenir un wallet avec assez de fonds disponibles ; le wallet
+  de `to` est créé à son premier crédit (`to_party_type` ne sert qu'à cette
+  création).
+- `reference` est votre `Idempotency-Key` : rejouer la même clé renvoie le même
+  transfert, sans rien déplacer une seconde fois.
+- `metadata` (objet JSON de 4 Ko au plus) et `description` vous reviennent dans
+  l'historique.
+- Chaque wallet dont le solde change émet `wallet.credited` ou `wallet.debited`.
+
+### 3.3 Enregistrer un retrait — `POST /v1/wallets/withdrawals`
+
+Enregistre qu'une valeur est **sortie** : un versement que vous avez fait hors du
+Core (transfert Mobile Money, virement), dont la preuve va dans
+`external_reference`. Le wallet est débité.
+
+```bash
+curl -s -X POST "$BASE_URL/v1/wallets/withdrawals" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  --data '{"party":"merchant:01J9","amount":20000,"currency":"XAF","description":"Withdrawal to MTN Mobile Money","external_reference":"MP241014.1532.C12345"}'
+```
+
+`201` : même forme qu'un transfert, `type` = `withdrawal`, une jambe dont `to` est
+`null`, et le solde restant dans `wallets`.
+
+### 3.4 Historique d'un wallet — `GET /v1/wallets/{walletId}/transactions`
+
+```bash
+curl -s "$BASE_URL/v1/wallets/01a13a50-895d-729e-a7f5-40e1278ab52a/transactions?page=1&per_page=25" \
+  -H "Authorization: Bearer $API_KEY" -H "Accept: application/json"
+```
+
+```json
+{"data":[{"id":42,"occurred_at":"2026-10-14T12:08:39+00:00","direction":"debit","amount_minor":20000,"currency":"XAF","type":"withdrawal","operation_id":"…","payment_id":null,"reference":"…","description":"Withdrawal to MTN Mobile Money","metadata":{}},{"id":41,"occurred_at":"2026-10-14T12:08:38+00:00","direction":"credit","amount_minor":45000,"currency":"XAF","type":"transfer","operation_id":"…","payment_id":null,"reference":"6d3cd3af-…","description":"Settlement of booking ETR-7K3Q9","metadata":{"order":"ETR-7K3Q9"}}],"meta":{"total":2,"page":1,"per_page":25}}
+```
+
+Du plus récent au plus ancien, une ligne par mouvement (un transfert de deux
+jambes depuis le même wallet donne deux lignes). `type` : `payment` (avec
+`payment_id`), `transfer`, `withdrawal` ou `debit`. `per_page` va de 1 à 100.
+
+### 3.5 Solde d'un wallet — `GET /v1/wallets/{walletId}/balance`
 
 ```bash
 curl -s "$BASE_URL/v1/wallets/01a0d4ae-bb83-73d9-8e22-d9cd9b5e18d8/balance" \
@@ -256,7 +361,15 @@ curl -s "$BASE_URL/v1/wallets/01a0d4ae-bb83-73d9-8e22-d9cd9b5e18d8/balance" \
 {"wallet_id":"01a0d4ae-bb83-73d9-8e22-d9cd9b5e18d8","currency":"XAF","available_minor":100,"held_minor":0}
 ```
 
-Wallet inconnu ou d'un autre Project → `404 wallet-not-found`.
+### 3.6 Erreurs de wallet vérifiées
+
+| Cas | Réponse |
+| --- | --- |
+| Pas d'en-tête `Idempotency-Key` sur une mutation | `400 idempotency-key-required` |
+| Clé sans le scope `wallets:write` | `403 forbidden` |
+| Source sans wallet ou sans fonds suffisants | `409 insufficient-funds`, **rien n'a bougé** |
+| Une partie se paie elle-même, devise non prise en charge | `422` |
+| Wallet inconnu, d'un autre projet ou de l'autre environnement | `404 wallet-not-found` |
 
 ## 4. Webhooks sortants
 
@@ -478,6 +591,10 @@ notification de liaison sur le numéro fourni : n'utilisez que le vôtre.
 | `POST /v1/payments` | oui (MyCoolPay) | 201 |
 | `GET /v1/payments/{id}` | oui | 200 / 404 |
 | `GET /v1/wallets/{id}/balance` | oui (wallet crédité en interne) | 200 / 404 |
+| `GET /v1/parties/{ref}/wallets` | tests d'intégration | 200 |
+| `POST /v1/wallets/transfers` | tests d'intégration (dont concurrence réelle) | 201 / 400 / 403 / 409 / 422 |
+| `POST /v1/wallets/withdrawals` | tests d'intégration | 201 / 409 |
+| `GET /v1/wallets/{id}/transactions` | tests d'intégration | 200 / 404 |
 | `POST/GET/DELETE /v1/webhook-endpoints` | oui | 201 / 200 / 204 |
 | `POST /v1/webhook-endpoints/{id}/test` | tests d'intégration | 200 |
 | `POST /v1/sandbox/payments/{id}/simulate` | tests d'intégration | 200 / 409 / 403 |
