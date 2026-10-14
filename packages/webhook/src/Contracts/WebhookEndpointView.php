@@ -14,6 +14,5 @@ final readonly class WebhookEndpointView
         public string $url,
         public array $events,
         public bool $active,
-        public string $environment = 'live',
     ) {}
 }

@@ -78,7 +78,6 @@ abstract class AbstractStartPaymentController
             returnUrl: $data['return_url'] ?? null,
             walletRecipientExternalRef: $data['wallet_recipient_external_ref'] ?? null,
             callbackUrl: $data['callback_url'] ?? null,
-            environment: $project->environment,
         ));
 
         // ADR-0061 — the strict minimum to continue the flow: what to show

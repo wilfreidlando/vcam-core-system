@@ -26,8 +26,7 @@ final readonly class GetNotificationStatusUseCase implements GetNotificationStat
         $notification = $this->notifications->find($command->notificationId);
 
         if ($notification === null
-            || $notification->projectId !== $command->requestingProjectId
-            || ($command->requestingEnvironment !== null && $notification->environment !== $command->requestingEnvironment)) {
+            || $notification->projectId !== $command->requestingProjectId) {
             throw NotificationNotFound::withId($command->notificationId);
         }
 

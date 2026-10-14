@@ -29,7 +29,6 @@ final class EloquentPartyRepository implements PartyRepository
                     'type' => $party->type(),
                     'kyc_status' => $party->kycStatus(),
                     'metadata' => $party->metadata(),
-                    'environment' => $party->environment,
                 ]);
             });
         } catch (UniqueConstraintViolationException) {
@@ -44,11 +43,10 @@ final class EloquentPartyRepository implements PartyRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findByExternalRef(string $projectId, string $externalRef, string $environment = 'live'): ?Party
+    public function findByExternalRef(string $projectId, string $externalRef): ?Party
     {
         $record = PartyRecord::query()
             ->where('project_id', $projectId)
-            ->where('environment', $environment)
             ->where('external_ref', $externalRef)
             ->first();
 
@@ -64,7 +62,6 @@ final class EloquentPartyRepository implements PartyRepository
             $record->type,
             $record->kyc_status,
             $record->metadata,
-            $record->environment,
         );
     }
 }

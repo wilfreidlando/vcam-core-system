@@ -74,7 +74,7 @@ final readonly class OperationViews
                 if ($ref === null) {
                     continue;
                 }
-                $party = $this->parties->find($operation->projectId, $operation->environment, $ref);
+                $party = $this->parties->find($operation->projectId, $ref);
                 $wallet = $party === null ? null : $this->wallets->findByPartyAndCurrency($party->id, $operation->currency);
                 if ($wallet !== null) {
                     $touched[$wallet->id] = ['wallet' => $wallet, 'ref' => $ref];

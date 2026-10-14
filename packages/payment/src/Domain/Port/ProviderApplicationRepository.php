@@ -6,20 +6,19 @@ namespace Core\Payment\Domain\Port;
 
 use Core\Payment\Domain\Exception\ProviderApplicationPublicKeyAlreadyUsed;
 use Core\Payment\Domain\Model\ProviderApplication;
-use Core\Support\Environment;
 
 interface ProviderApplicationRepository
 {
     /**
      * Creates, or replaces the keys of, the application of
-     * (project, provider, environment).
+     * (project, provider).
      *
      * @throws ProviderApplicationPublicKeyAlreadyUsed when the public key
-     *                                                 already routes another (project, environment)
+     *                                                 already routes another project
      */
     public function save(ProviderApplication $application): void;
 
-    public function findByProjectAndProvider(string $projectId, string $providerCode, Environment $environment = Environment::Live): ?ProviderApplication;
+    public function findByProjectAndProvider(string $projectId, string $providerCode): ?ProviderApplication;
 
     public function findByProviderAndPublicKey(string $providerCode, string $publicKey): ?ProviderApplication;
 

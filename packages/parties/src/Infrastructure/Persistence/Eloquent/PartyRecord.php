@@ -14,7 +14,6 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $type
  * @property string $kyc_status
  * @property array<string, mixed> $metadata
- * @property string $environment
  */
 final class PartyRecord extends Model
 {
@@ -22,7 +21,7 @@ final class PartyRecord extends Model
 
     protected $table = 'parties';
 
-    protected $fillable = ['id', 'project_id', 'external_ref', 'type', 'kyc_status', 'metadata', 'environment'];
+    protected $fillable = ['id', 'project_id', 'external_ref', 'type', 'kyc_status', 'metadata'];
 
     protected $casts = [
         'metadata' => 'array',

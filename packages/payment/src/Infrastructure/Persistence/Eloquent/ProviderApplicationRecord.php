@@ -15,7 +15,6 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $private_key_encrypted
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
- * @property string $environment
  * @property string|null $label
  */
 final class ProviderApplicationRecord extends Model
@@ -24,5 +23,5 @@ final class ProviderApplicationRecord extends Model
 
     protected $table = 'payment_provider_applications';
 
-    protected $fillable = ['id', 'project_id', 'provider_code', 'environment', 'label', 'public_key', 'private_key_encrypted'];
+    protected $fillable = ['id', 'project_id', 'provider_code', 'label', 'public_key', 'private_key_encrypted'];
 }

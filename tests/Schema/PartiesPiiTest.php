@@ -50,8 +50,6 @@ final class PartiesPiiTest extends TestCase
         'type',
         'kyc_status',
         'metadata',
-        // ADR-0065 — `live` or `sandbox`: isolation, not a personal datum.
-        'environment',
         'created_at',
         'updated_at',
     ];

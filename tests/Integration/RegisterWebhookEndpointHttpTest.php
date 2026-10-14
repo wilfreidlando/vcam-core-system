@@ -10,7 +10,6 @@ use Core\Identity\Contracts\CreateProject;
 use Core\Identity\Contracts\CreateProjectCommand;
 use Core\Identity\Contracts\IssueApiKey;
 use Core\Identity\Contracts\IssueApiKeyCommand;
-use Core\Support\Environment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -123,7 +122,7 @@ final class RegisterWebhookEndpointHttpTest extends TestCase
         )->project;
 
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, Environment::Sandbox, [$scope], replaceExisting: true),
+            new IssueApiKeyCommand($project->id, [$scope], replaceExisting: true),
             actor: 'service:test',
             correlationId: null,
         );

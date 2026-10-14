@@ -12,7 +12,6 @@ use Core\Identity\Contracts\IssueApiKey;
 use Core\Identity\Contracts\IssueApiKeyCommand;
 use Core\Identity\Contracts\RevokeApiKey;
 use Core\Identity\Contracts\RevokeApiKeyCommand;
-use Core\Support\Environment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
@@ -37,7 +36,8 @@ final class IdentityHttpFlowTest extends TestCase
             ->getJson('/v1/whoami', ['Authorization' => "Bearer {$token}"])
             ->assertOk()
             ->assertHeader('Correlation-Id', 'test-correlation-1')
-            ->assertJson(['environment' => 'sandbox', 'scopes' => ['payments:write']]);
+            ->assertJson(['scopes' => ['payments:write']])
+            ->assertJsonMissingPath('environment');
     }
 
     #[Test]
@@ -52,7 +52,7 @@ final class IdentityHttpFlowTest extends TestCase
     #[Test]
     public function it_rejects_an_unknown_key(): void
     {
-        $this->getJson('/v1/whoami', ['Authorization' => 'Bearer pk_sandbox_unknown0.whatever'])
+        $this->getJson('/v1/whoami', ['Authorization' => 'Bearer pk_unknown0.whatever'])
             ->assertStatus(401);
     }
 
@@ -80,7 +80,7 @@ final class IdentityHttpFlowTest extends TestCase
             correlationId: null,
         )->project;
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, Environment::Sandbox, [], replaceExisting: true),
+            new IssueApiKeyCommand($project->id, [], replaceExisting: true),
             actor: 'service:test',
             correlationId: null,
         );
@@ -103,14 +103,14 @@ final class IdentityHttpFlowTest extends TestCase
 
         $rows = DB::table('audit_log')->orderBy('id')->get();
 
-        // organization.created, project.created, api_key.issued (sandbox,
-        // auto-provisioned), api_key.issued (live, auto-provisioned),
-        // then the explicit-scope test key `issueTestApiKey` REGENERATES the
-        // sandbox one (ADR-0060 — one key per environment): the old key's
-        // deletion (api_key.replaced) and the new one (api_key.regenerated).
-        self::assertCount(6, $rows);
+        // organization.created, project.created, api_key.issued
+        // (auto-provisioned), then the explicit-scope test key
+        // `issueTestApiKey` REGENERATES it (ADR-0066 — one key per
+        // project): the old key's deletion (api_key.replaced) and the new
+        // one (api_key.regenerated).
+        self::assertCount(5, $rows);
         self::assertSame(
-            ['organization.created', 'project.created', 'api_key.issued', 'api_key.issued', 'api_key.replaced', 'api_key.regenerated'],
+            ['organization.created', 'project.created', 'api_key.issued', 'api_key.replaced', 'api_key.regenerated'],
             $rows->pluck('action')->all(),
         );
 
@@ -137,7 +137,7 @@ final class IdentityHttpFlowTest extends TestCase
         )->project;
 
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, Environment::Sandbox, [$scope], replaceExisting: true),
+            new IssueApiKeyCommand($project->id, [$scope], replaceExisting: true),
             actor: 'service:test',
             correlationId: null,
         );

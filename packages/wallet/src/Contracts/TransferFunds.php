@@ -9,7 +9,7 @@ use RuntimeException;
 interface TransferFunds
 {
     /**
-     * Idempotent on `(projectId, environment, idempotencyKey)`: a replay
+     * Idempotent on `(projectId, idempotencyKey)`: a replay
      * returns the original operation and moves nothing.
      *
      * @throws RuntimeException a source lacks funds, or the legs break a rule

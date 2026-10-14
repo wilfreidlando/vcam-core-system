@@ -75,7 +75,7 @@ interface PaymentRepository
      *
      * @return array{items: list<Payment>, total: int}
      */
-    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage, ?\Core\Support\Environment $environment = null): array;
+    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage): array;
 
     /**
      * A pure count of the same candidate set `findStuckSince()` would

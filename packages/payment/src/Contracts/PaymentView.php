@@ -67,7 +67,6 @@ final readonly class PaymentView
         public bool $isFinal = false,
         // Read-model detail for the operator console (ADR-0045/0061) —
         // never all exposed on the public API.
-        public string $environment = 'live',
         public ?string $providerCode = null,
         public ?string $providerTransactionRef = null,
         public ?string $returnUrl = null,

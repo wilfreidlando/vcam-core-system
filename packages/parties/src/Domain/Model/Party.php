@@ -24,9 +24,6 @@ final class Party
         private string $type,
         private string $kycStatus,
         private array $metadata,
-        // ADR-0065 — `live` or `sandbox`: the same external_ref names one
-        // party per environment, never shared across the two.
-        public readonly string $environment = 'live',
     ) {
         if (trim($externalRef) === '') {
             throw new InvalidArgumentException('A party external_ref cannot be blank.');
@@ -40,9 +37,9 @@ final class Party
     /**
      * @param array<string, mixed> $metadata
      */
-    public static function create(string $id, string $projectId, string $externalRef, string $type, array $metadata = [], string $environment = 'live'): self
+    public static function create(string $id, string $projectId, string $externalRef, string $type, array $metadata = []): self
     {
-        return new self($id, $projectId, $externalRef, $type, 'none', $metadata, $environment);
+        return new self($id, $projectId, $externalRef, $type, 'none', $metadata);
     }
 
     public function type(): string

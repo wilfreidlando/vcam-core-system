@@ -5,11 +5,8 @@ declare(strict_types=1);
 namespace Core\Wallet\Domain\Model;
 
 /**
- * The project-level ledger accounts a wallet movement balances against
- * (ADR-0065). Each is split by environment through its `reference`: `''`
- * in live — unchanged from Lot 2, so existing live postings keep their
- * account — and `sandbox` in sandbox, so a sandbox movement never lands in
- * a live account.
+ * The ledger account kinds a wallet movement balances against (ADR-0065).
+ * `clearing` and `withdrawal` are project-level accounts (reference `''`).
  *
  * - `clearing`: counterparty of value entering a wallet (a confirmed
  *   payment) and of an internal debit.
@@ -24,8 +21,5 @@ final class SystemAccount
 
     public const WALLET = 'wallet';
 
-    public static function reference(string $environment): string
-    {
-        return $environment === 'sandbox' ? 'sandbox' : '';
-    }
+    public const PROJECT_LEVEL = '';
 }

@@ -7,7 +7,7 @@ namespace Core\Wallet\Contracts;
 /**
  * Records that value left the Core's custody (ADR-0065): a payout made
  * outside the Core — a mobile-money transfer, a bank wire — whose proof
- * is `externalReference`. The wallet is debited against the environment's
+ * is `externalReference`. The wallet is debited against the project's
  * `withdrawal` account; no value is created.
  */
 final readonly class RecordWithdrawalCommand
@@ -17,7 +17,6 @@ final readonly class RecordWithdrawalCommand
      */
     public function __construct(
         public string $projectId,
-        public string $environment,
         public string $idempotencyKey,
         public string $party,
         public int $amountMinor,

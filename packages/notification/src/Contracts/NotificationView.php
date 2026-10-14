@@ -25,7 +25,6 @@ final readonly class NotificationView
         public string $status,
         public string $contentType,
         public ?string $errorMessage,
-        public string $environment = 'live',
         public ?string $toPartyRef = null,
         public ?string $providerCode = null,
         public ?string $createdAt = null,

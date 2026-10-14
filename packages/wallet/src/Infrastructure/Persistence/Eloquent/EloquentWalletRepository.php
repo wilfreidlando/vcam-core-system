@@ -27,7 +27,6 @@ final class EloquentWalletRepository implements WalletRepository
                     'party_id' => $wallet->partyId,
                     'currency' => $wallet->currency,
                     'status' => $wallet->status,
-                    'environment' => $wallet->environment,
                 ]);
             });
         } catch (UniqueConstraintViolationException) {
@@ -103,6 +102,6 @@ final class EloquentWalletRepository implements WalletRepository
 
     private function toDomain(WalletRecord $record): Wallet
     {
-        return new Wallet($record->id, $record->project_id, $record->party_id, $record->currency, $record->status, $record->environment);
+        return new Wallet($record->id, $record->project_id, $record->party_id, $record->currency, $record->status);
     }
 }

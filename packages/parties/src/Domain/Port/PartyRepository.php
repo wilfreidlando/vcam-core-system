@@ -12,8 +12,5 @@ interface PartyRepository
 
     public function find(string $id): ?Party;
 
-    /**
-     * ADR-0065 — an external_ref is unique per (project, environment).
-     */
-    public function findByExternalRef(string $projectId, string $externalRef, string $environment = 'live'): ?Party;
+    public function findByExternalRef(string $projectId, string $externalRef): ?Party;
 }

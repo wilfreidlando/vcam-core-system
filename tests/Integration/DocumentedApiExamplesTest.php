@@ -13,7 +13,6 @@ use Core\Identity\Contracts\IssueApiKey;
 use Core\Identity\Contracts\IssueApiKeyCommand;
 use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
-use Core\Support\Environment;
 use Core\Wallet\Contracts\CreditWallet;
 use Core\Wallet\Contracts\CreditWalletCommand;
 use DateTimeImmutable;
@@ -48,7 +47,7 @@ final class DocumentedApiExamplesTest extends TestCase
 
         $this->getJson('/v1/whoami', ['Authorization' => "Bearer {$token}"])
             ->assertOk()
-            ->assertJsonStructure(['project_id', 'organization_id', 'environment', 'scopes']);
+            ->assertJsonStructure(['project_id', 'organization_id', 'scopes']);
     }
 
     #[Test]
@@ -352,7 +351,7 @@ final class DocumentedApiExamplesTest extends TestCase
         )->project;
 
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, Environment::Sandbox, ApiKeyScopes::ALL, replaceExisting: true),
+            new IssueApiKeyCommand($project->id, ApiKeyScopes::ALL, replaceExisting: true),
             actor: 'service:test',
             correlationId: null,
         );
@@ -383,8 +382,6 @@ final class DocumentedApiExamplesTest extends TestCase
 
     private function creditWalletExternalRef(string $projectId, string $externalRef): string
     {
-        // ADR-0065: the documented examples run with a sandbox key, which
-        // only reaches sandbox wallets.
         $view = app(CreditWallet::class)->credit(new CreditWalletCommand(
             $projectId,
             (string) Str::uuid(),
@@ -392,7 +389,6 @@ final class DocumentedApiExamplesTest extends TestCase
             'XAF',
             $externalRef,
             (string) Str::uuid(),
-            'sandbox',
         ));
 
         return $view->walletId;

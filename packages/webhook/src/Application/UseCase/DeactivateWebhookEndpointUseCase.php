@@ -23,8 +23,7 @@ final readonly class DeactivateWebhookEndpointUseCase implements DeactivateWebho
         // exception — the anti-enumeration convention this codebase
         // already applies to Payment and Wallet reads.
         if ($endpoint === null
-            || $endpoint->projectId !== $command->projectId
-            || ($command->environment !== null && $endpoint->environment !== $command->environment)) {
+            || $endpoint->projectId !== $command->projectId) {
             throw WebhookEndpointNotFound::withId($command->endpointId);
         }
 

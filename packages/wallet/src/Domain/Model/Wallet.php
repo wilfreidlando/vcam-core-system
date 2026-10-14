@@ -17,13 +17,11 @@ final readonly class Wallet
         public string $partyId,
         public string $currency,
         public string $status,
-        // ADR-0065 — `live` or `sandbox`, the environment of its party.
-        public string $environment = 'live',
     ) {}
 
-    public function belongsTo(string $projectId, string $environment): bool
+    public function belongsTo(string $projectId): bool
     {
-        return $this->projectId === $projectId && $this->environment === $environment;
+        return $this->projectId === $projectId;
     }
 
     public function isActive(): bool

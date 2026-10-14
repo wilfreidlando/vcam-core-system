@@ -55,7 +55,7 @@ final readonly class CreditWalletUseCase implements CreditWallet
     public function credit(CreditWalletCommand $command): WalletBalanceView
     {
         return $this->unitOfWork->transactional(function () use ($command): WalletBalanceView {
-            $wallet = $this->resolveOrCreateWallet($command->projectId, $command->partyId, $command->currency, $command->environment);
+            $wallet = $this->resolveOrCreateWallet($command->projectId, $command->partyId, $command->currency);
 
             $walletAccount = $this->accountResolver->resolveOrCreate(new ResolveOrCreateAccountCommand(
                 $command->projectId,
@@ -67,7 +67,7 @@ final readonly class CreditWalletUseCase implements CreditWallet
             $clearingAccount = $this->accountResolver->resolveOrCreate(new ResolveOrCreateAccountCommand(
                 $command->projectId,
                 SystemAccount::CLEARING,
-                SystemAccount::reference($command->environment),
+                SystemAccount::PROJECT_LEVEL,
                 $command->currency,
             ));
 
@@ -114,26 +114,25 @@ final readonly class CreditWalletUseCase implements CreditWallet
                 ], static fn (mixed $value): bool => $value !== null),
                 null,
                 $this->clock->now(),
-                environment: $command->environment,
             ));
 
             return $this->toView($newBalance);
         });
     }
 
-    private function resolveOrCreateWallet(string $projectId, string $partyId, string $currency, string $environment): Wallet
+    private function resolveOrCreateWallet(string $projectId, string $partyId, string $currency): Wallet
     {
         $existing = $this->wallets->findByPartyAndCurrency($partyId, $currency);
 
         if ($existing !== null) {
-            if (! $existing->belongsTo($projectId, $environment)) {
+            if (! $existing->belongsTo($projectId)) {
                 throw WalletProjectMismatch::forWallet($existing->id, $projectId);
             }
 
             return $existing;
         }
 
-        $wallet = new Wallet($this->identifier->generate(), $projectId, $partyId, $currency, 'active', $environment);
+        $wallet = new Wallet($this->identifier->generate(), $projectId, $partyId, $currency, 'active');
 
         try {
             $this->wallets->save($wallet);

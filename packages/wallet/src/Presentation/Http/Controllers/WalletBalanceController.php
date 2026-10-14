@@ -41,7 +41,7 @@ final class WalletBalanceController
             return ProblemDetails::forbidden('The wallets:read scope is required.');
         }
 
-        $balance = $this->getBalance->get(new GetWalletBalanceCommand($walletId, $project->projectId, $project->environment->value));
+        $balance = $this->getBalance->get(new GetWalletBalanceCommand($walletId, $project->projectId));
 
         return new JsonResponse([
             'wallet_id' => $balance->walletId,

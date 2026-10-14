@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
-    <title>Paiement sandbox</title>
+    <title>Paiement simulé</title>
     <style>
         body { font-family: system-ui, sans-serif; background: #f8fafc; color: #0f172a; margin: 0; padding: 24px 16px; }
         .card { max-width: 420px; margin: 0 auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; }
@@ -18,7 +18,7 @@
 </head>
 <body>
 <div class="card">
-    <span class="badge">SANDBOX — aucun argent réel</span>
+    <span class="badge">SIMULATEUR — aucun argent réel</span>
     @if ($payment !== null)
         <p class="amount">{{ \Core\Support\Money\Money::ofMinor($payment->amount, $payment->currency)->formattedAmount() }} {{ $payment->currency }}</p>
         <p class="muted">Paiement {{ $payment->id }}</p>

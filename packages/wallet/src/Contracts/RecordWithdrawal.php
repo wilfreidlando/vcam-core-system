@@ -9,7 +9,7 @@ use RuntimeException;
 interface RecordWithdrawal
 {
     /**
-     * Idempotent on `(projectId, environment, idempotencyKey)`.
+     * Idempotent on `(projectId, idempotencyKey)`.
      *
      * @throws RuntimeException the party lacks funds (concrete type in the Domain layer, G3c)
      */

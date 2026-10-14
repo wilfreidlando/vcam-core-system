@@ -17,7 +17,6 @@ final readonly class NotificationDetailView
     public function __construct(
         public string $id,
         public string $projectId,
-        public string $environment,
         public string $channel,
         public string $contentType,
         public string $toPartyRef,

@@ -27,7 +27,7 @@ final class TransferFundsController
     /**
      * Transfer funds between wallets.
      *
-     * Moves value between wallets of your project, in the environment of your key, as one
+     * Moves value between wallets of your project, as one
      * atomic operation of 1 to 20 legs: every leg lands, or none does. A transfer never
      * creates value — the only way value enters a wallet is a confirmed payment with
      * `wallet_recipient_external_ref`. Parties are named by your own references; a
@@ -55,7 +55,6 @@ final class TransferFundsController
 
         $operation = $this->transfer->transfer(new TransferFundsCommand(
             $project->projectId,
-            $project->environment->value,
             (string) $request->header('Idempotency-Key'),
             strtoupper($data['currency']),
             array_map(static fn (array $leg): TransferLeg => new TransferLeg(

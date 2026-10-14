@@ -43,9 +43,7 @@ Any other cross-module dependency fails CI.
 - Every monetary mutation is idempotent and every state change that others care about is
   published through the transactional outbox, inside the same transaction.
 
-## Environments (ADR-0065)
+## Lookup without creation (ADR-0065)
 
-A party belongs to one environment (`live` or `sandbox`): the same `external_ref`
-names two distinct parties, unique per `(project_id, environment, external_ref)`.
-`PartyFinder` creates lazily in the caller's environment; `PartyLookup` finds without
-ever creating — for reads and for the source of a transfer.
+`PartyFinder` creates lazily; `PartyLookup` finds a party by its `external_ref`
+without ever creating it — for reads and for the source of a transfer.

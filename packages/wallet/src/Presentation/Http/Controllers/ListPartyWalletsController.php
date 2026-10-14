@@ -22,7 +22,7 @@ final class ListPartyWalletsController
      * List a party's wallets.
      *
      * The wallets of the party you name by your own reference (URL-encoded), one per
-     * currency, with their balance — in the environment of your key. A party that never
+     * currency, with their balance. A party that never
      * received anything has none: the list is empty, and reading never creates the party.
      * Requires the `wallets:read` scope.
      */
@@ -34,7 +34,6 @@ final class ListPartyWalletsController
 
         $wallets = $this->wallets->list(new ListPartyWalletsCommand(
             $project->projectId,
-            $project->environment->value,
             // The router already decoded the path segment.
             $externalRef,
         ));

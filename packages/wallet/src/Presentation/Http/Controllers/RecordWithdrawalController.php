@@ -47,7 +47,6 @@ final class RecordWithdrawalController
 
         $operation = $this->withdrawal->record(new RecordWithdrawalCommand(
             $project->projectId,
-            $project->environment->value,
             (string) $request->header('Idempotency-Key'),
             $data['party'],
             $data['amount'],

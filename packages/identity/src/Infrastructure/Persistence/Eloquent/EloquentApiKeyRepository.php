@@ -6,7 +6,6 @@ namespace Core\Identity\Infrastructure\Persistence\Eloquent;
 
 use Core\Identity\Domain\Model\ApiKey;
 use Core\Identity\Domain\Port\ApiKeyRepository;
-use Core\Support\Environment;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -18,7 +17,6 @@ final class EloquentApiKeyRepository implements ApiKeyRepository
             ['id' => $apiKey->id],
             [
                 'project_id' => $apiKey->projectId,
-                'environment' => $apiKey->environment,
                 'prefix' => $apiKey->prefix,
                 'key_hash' => $apiKey->keyHash(),
                 'scopes' => $apiKey->scopes(),
@@ -63,11 +61,10 @@ final class EloquentApiKeyRepository implements ApiKeyRepository
         return $items;
     }
 
-    public function findByProjectAndEnvironment(string $projectId, Environment $environment): ?ApiKey
+    public function findOneByProject(string $projectId): ?ApiKey
     {
         $record = ApiKeyRecord::query()
             ->where('project_id', $projectId)
-            ->where('environment', $environment->value)
             ->first();
 
         return $record === null ? null : $this->toDomain($record);
@@ -91,7 +88,6 @@ final class EloquentApiKeyRepository implements ApiKeyRepository
         return new ApiKey(
             $record->id,
             $record->project_id,
-            $record->environment,
             $record->prefix,
             $record->key_hash,
             $record->scopes,

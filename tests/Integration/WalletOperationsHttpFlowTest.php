@@ -11,7 +11,6 @@ use Core\Identity\Contracts\CreateProject;
 use Core\Identity\Contracts\CreateProjectCommand;
 use Core\Identity\Contracts\IssueApiKey;
 use Core\Identity\Contracts\IssueApiKeyCommand;
-use Core\Support\Environment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -20,11 +19,12 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * ADR-0065, end to end over HTTP against real PostgreSQL: a sandbox payment
- * credits an escrow wallet, a multi-leg transfer settles it between a
- * merchant and the platform, a withdrawal records a payout, and every
- * movement shows in the wallets' history — with idempotent replays,
- * insufficient funds rejected atomically, and sandbox/live isolation.
+ * ADR-0065, end to end over HTTP against real PostgreSQL: a simulated
+ * payment (ADR-0066 simulator, as on staging) credits an escrow wallet, a
+ * multi-leg transfer settles it between a merchant and the platform, a
+ * withdrawal records a payout, and every movement shows in the wallets'
+ * history — with idempotent replays, insufficient funds rejected
+ * atomically, and project isolation.
  */
 final class WalletOperationsHttpFlowTest extends TestCase
 {
@@ -34,9 +34,9 @@ final class WalletOperationsHttpFlowTest extends TestCase
     public function a_payment_credit_is_settled_by_transfer_then_withdrawn_and_shows_in_history(): void
     {
         Http::preventStrayRequests();
-        [$token] = $this->authenticatedProject(Environment::Sandbox);
+        [$token] = $this->authenticatedProject();
 
-        $this->creditBySandboxPayment($token, 'escrow', 50_000);
+        $this->creditBySimulatedPayment($token, 'escrow', 50_000);
 
         $this->getJson('/v1/parties/escrow/wallets', $this->auth($token))
             ->assertOk()
@@ -126,8 +126,8 @@ final class WalletOperationsHttpFlowTest extends TestCase
     public function an_insufficient_source_moves_nothing_at_all(): void
     {
         Http::preventStrayRequests();
-        [$token] = $this->authenticatedProject(Environment::Sandbox);
-        $this->creditBySandboxPayment($token, 'escrow', 10_000);
+        [$token] = $this->authenticatedProject();
+        $this->creditBySimulatedPayment($token, 'escrow', 10_000);
 
         $this->postJson('/v1/wallets/transfers', [
             'currency' => 'XAF',
@@ -147,19 +147,19 @@ final class WalletOperationsHttpFlowTest extends TestCase
     #[Test]
     public function a_mutation_requires_an_idempotency_key_and_the_write_scope(): void
     {
-        [$token] = $this->authenticatedProject(Environment::Sandbox);
+        [$token] = $this->authenticatedProject();
         $body = ['currency' => 'XAF', 'legs' => [['from' => 'a', 'to' => 'b', 'amount' => 1]]];
 
         $this->postJson('/v1/wallets/transfers', $body, $this->auth($token))->assertStatus(400);
 
-        [$readOnly] = $this->authenticatedProject(Environment::Sandbox, ['wallets:read']);
+        [$readOnly] = $this->authenticatedProject(['wallets:read']);
         $this->postJson('/v1/wallets/transfers', $body, $this->auth($readOnly) + ['Idempotency-Key' => (string) Str::uuid()])->assertStatus(403);
     }
 
     #[Test]
     public function a_party_cannot_pay_itself(): void
     {
-        [$token] = $this->authenticatedProject(Environment::Sandbox);
+        [$token] = $this->authenticatedProject();
 
         $this->postJson('/v1/wallets/transfers', [
             'currency' => 'XAF',
@@ -168,45 +168,45 @@ final class WalletOperationsHttpFlowTest extends TestCase
     }
 
     #[Test]
-    public function a_live_key_never_reaches_a_sandbox_wallet(): void
+    public function another_project_never_reaches_a_wallet(): void
     {
         Http::preventStrayRequests();
-        [$sandboxToken, $projectId] = $this->authenticatedProject(Environment::Sandbox);
-        $this->creditBySandboxPayment($sandboxToken, 'escrow', 5_000);
-        $walletId = $this->getJson('/v1/parties/escrow/wallets', $this->auth($sandboxToken))->json('data.0.wallet_id');
+        [$token, $projectId] = $this->authenticatedProject();
+        $this->creditBySimulatedPayment($token, 'escrow', 5_000);
+        $walletId = $this->getJson('/v1/parties/escrow/wallets', $this->auth($token))->json('data.0.wallet_id');
         self::assertIsString($walletId);
 
-        $liveToken = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($projectId, Environment::Live, ApiKeyScopes::ALL, replaceExisting: true),
-            actor: 'service:test',
-            correlationId: null,
-        )->plaintextToken;
+        [$otherToken] = $this->authenticatedProject();
 
-        $this->getJson('/v1/parties/escrow/wallets', $this->auth($liveToken))->assertOk()->assertJsonCount(0, 'data');
-        $this->getJson("/v1/wallets/{$walletId}/balance", $this->auth($liveToken))->assertNotFound();
-        $this->getJson("/v1/wallets/{$walletId}/transactions", $this->auth($liveToken))->assertNotFound();
+        $this->getJson('/v1/parties/escrow/wallets', $this->auth($otherToken))->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson("/v1/wallets/{$walletId}/balance", $this->auth($otherToken))->assertNotFound();
+        $this->getJson("/v1/wallets/{$walletId}/transactions", $this->auth($otherToken))->assertNotFound();
         $this->postJson('/v1/wallets/transfers', [
             'currency' => 'XAF',
             'legs' => [['from' => 'escrow', 'to' => 'merchant', 'amount' => 1_000]],
-        ], $this->auth($liveToken) + ['Idempotency-Key' => (string) Str::uuid()])->assertStatus(409);
+        ], $this->auth($otherToken) + ['Idempotency-Key' => (string) Str::uuid()])->assertStatus(409);
 
-        // The sandbox credit landed in the sandbox clearing account, never the live one.
-        self::assertSame(0, DB::table('ledger_accounts')->where('project_id', $projectId)->where('kind', 'clearing')->where('reference', '')->count());
-        self::assertSame(1, DB::table('ledger_accounts')->where('project_id', $projectId)->where('kind', 'clearing')->where('reference', 'sandbox')->count());
+        self::assertSame(1, DB::table('ledger_accounts')->where('project_id', $projectId)->where('kind', 'clearing')->where('reference', '')->count());
     }
 
-    private function creditBySandboxPayment(string $token, string $recipient, int $amount): void
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['payment.simulator.enabled' => true]);
+    }
+
+    private function creditBySimulatedPayment(string $token, string $recipient, int $amount): void
     {
         $paymentId = $this->postJson('/v1/payments/payin', [
             'channel' => 'mtn_momo',
             'amount' => $amount,
             'currency' => 'XAF',
-            'reason' => 'Sandbox order',
+            'reason' => 'Simulated order',
             'wallet_recipient_external_ref' => $recipient,
         ], $this->auth($token) + ['Idempotency-Key' => (string) Str::uuid()])->assertStatus(201)->json('id');
         self::assertIsString($paymentId);
 
-        $this->postJson("/v1/sandbox/payments/{$paymentId}/simulate", ['status' => 'succeeded'], $this->auth($token) + [
+        $this->postJson("/v1/payments/{$paymentId}/simulate", ['status' => 'succeeded'], $this->auth($token) + [
             'Idempotency-Key' => (string) Str::uuid(),
         ])->assertOk();
     }
@@ -223,12 +223,12 @@ final class WalletOperationsHttpFlowTest extends TestCase
      * @param list<string> $scopes
      * @return array{0: string, 1: string}
      */
-    private function authenticatedProject(Environment $environment, array $scopes = ApiKeyScopes::ALL): array
+    private function authenticatedProject(array $scopes = ApiKeyScopes::ALL): array
     {
         $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Test Org'), actor: 'service:test', correlationId: null);
         $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Test Project'), actor: 'service:test', correlationId: null)->project;
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, $environment, $scopes, replaceExisting: true),
+            new IssueApiKeyCommand($project->id, $scopes, replaceExisting: true),
             actor: 'service:test',
             correlationId: null,
         );

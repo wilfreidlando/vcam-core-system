@@ -8,9 +8,14 @@ use RuntimeException;
 
 final class PaymentNotSimulable extends RuntimeException
 {
-    public static function notSandbox(string $paymentId): self
+    public static function notSimulated(string $paymentId): self
     {
-        return new self(sprintf('Payment %s is not a simulated sandbox payment: only sandbox payments processed by the built-in simulator can be simulated.', $paymentId));
+        return new self(sprintf('Payment %s was not processed by the built-in simulator: only a simulated payment can be simulated.', $paymentId));
+    }
+
+    public static function simulatorDisabled(): self
+    {
+        return new self('The payment simulator is not enabled on this deployment.');
     }
 
     public static function alreadyFinal(string $paymentId, string $status): self

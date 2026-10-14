@@ -9,14 +9,12 @@ use Core\Identity\Domain\Model\ApiKey;
 use Core\Identity\Tests\Unit\Fakes\FixedClock;
 use Core\Identity\Tests\Unit\Fakes\InMemoryApiKeyRepository;
 use Core\Identity\Tests\Unit\Fakes\RecordingAuditLogger;
-use Core\Support\Environment;
 
 function keyToRevoke(): ApiKey
 {
     return ApiKey::issue(
         id: 'key-1',
         projectId: 'project-1',
-        environment: Environment::Live,
         prefix: 'pk_live_abcd1234',
         secretHash: ApiKey::hash('secret'),
         scopes: [],

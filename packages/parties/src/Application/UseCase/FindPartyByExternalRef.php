@@ -14,12 +14,12 @@ final readonly class FindPartyByExternalRef implements PartyLookup
         private PartyRepository $parties,
     ) {}
 
-    public function find(string $projectId, string $environment, string $externalRef): ?PartyRef
+    public function find(string $projectId, string $externalRef): ?PartyRef
     {
-        $party = $this->parties->findByExternalRef($projectId, $externalRef, $environment);
+        $party = $this->parties->findByExternalRef($projectId, $externalRef);
 
         return $party === null
             ? null
-            : new PartyRef($party->id, $party->projectId, $party->externalRef, $party->type(), $party->kycStatus(), $party->environment);
+            : new PartyRef($party->id, $party->projectId, $party->externalRef, $party->type(), $party->kycStatus());
     }
 }

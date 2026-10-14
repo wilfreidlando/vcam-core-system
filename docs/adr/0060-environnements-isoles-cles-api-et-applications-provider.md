@@ -1,6 +1,6 @@
 # ADR-0060 — Sandbox et live isolés, une clé API par environnement, applications provider par environnement
 
-- **Statut** : Accepté — §3 (dernier point : aucun mouvement ledger en sandbox) remplacé par [ADR-0065](0065-operations-wallet-exposees-et-isolees-par-environnement.md)
+- **Statut** : Remplacé par [ADR-0066](0066-un-seul-environnement-staging-pour-les-tests.md) (un seul environnement ; le simulateur devient un outil du staging)
 - **Date** : 2026-10-03
 - **Décideurs** : utilisateur (plan d'implémentation, phase 4 ; décisions D2 et D4)
 - **Dérives concernées** : D3 données · D5 contrat · D6 intégrité financière

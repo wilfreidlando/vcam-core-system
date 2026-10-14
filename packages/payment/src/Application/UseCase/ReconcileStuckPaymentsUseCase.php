@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Core\Payment\Application\UseCase;
 
-use Core\Payment\Application\Port\SandboxPaymentSimulator;
 use Core\Payment\Application\Service\PaymentJourney;
 use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
@@ -68,8 +67,8 @@ final readonly class ReconcileStuckPaymentsUseCase implements ReconcileStuckPaym
         $errors = 0;
 
         foreach ($stuck as $payment) {
-            // ADR-0060: simulated sandbox payments have no provider to ask.
-            if ($payment->providerCode === SandboxPaymentSimulator::PROVIDER_CODE) {
+            // ADR-0066: simulated payments have no provider to ask.
+            if ($payment->isSimulated()) {
                 continue;
             }
 
@@ -109,7 +108,7 @@ final readonly class ReconcileStuckPaymentsUseCase implements ReconcileStuckPaym
     {
         $gateway = $this->gateways->gatewayFor(ProviderCode::fromString($payment->providerCode));
         $this->journey->forgetPendingExchanges();
-        $receipt = $gateway->checkStatus($payment->providerTransactionRef, $payment->projectId, $payment->environment);
+        $receipt = $gateway->checkStatus($payment->providerTransactionRef, $payment->projectId);
         $this->journey->recordProviderExchanges($payment->id, $payment->projectId);
         $this->journey->record(
             $payment->id,

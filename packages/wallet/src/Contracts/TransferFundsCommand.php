@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Core\Wallet\Contracts;
 
 /**
- * Moves value between wallets of one project and one environment, in a
+ * Moves value between wallets of one project, in a
  * single ledger transaction: every leg lands, or none does (ADR-0065).
  */
 final readonly class TransferFundsCommand
@@ -16,7 +16,6 @@ final readonly class TransferFundsCommand
      */
     public function __construct(
         public string $projectId,
-        public string $environment,
         public string $idempotencyKey,
         public string $currency,
         public array $legs,

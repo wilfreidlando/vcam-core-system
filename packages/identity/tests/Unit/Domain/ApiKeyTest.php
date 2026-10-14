@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Core\Identity\Domain\Model\ApiKey;
-use Core\Support\Environment;
 
 /**
  * @param list<string> $scopes
@@ -13,8 +12,7 @@ function issuedApiKey(string $secret = 'correct-secret', array $scopes = ['payme
     return ApiKey::issue(
         id: 'key-1',
         projectId: 'project-1',
-        environment: Environment::Sandbox,
-        prefix: 'pk_sandbox_abcd1234',
+        prefix: 'pk_abcd1234',
         secretHash: ApiKey::hash($secret),
         scopes: $scopes,
         issuedAt: new DateTimeImmutable('2026-09-15T10:00:00Z'),

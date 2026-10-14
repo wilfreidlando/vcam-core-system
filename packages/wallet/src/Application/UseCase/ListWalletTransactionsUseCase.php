@@ -39,7 +39,7 @@ final readonly class ListWalletTransactionsUseCase implements ListWalletTransact
     public function list(ListWalletTransactionsCommand $command): WalletTransactionPage
     {
         $wallet = $this->wallets->find($command->walletId);
-        if ($wallet === null || ! $wallet->belongsTo($command->projectId, $command->environment)) {
+        if ($wallet === null || ! $wallet->belongsTo($command->projectId)) {
             throw WalletNotFound::withId($command->walletId);
         }
 

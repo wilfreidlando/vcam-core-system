@@ -12,7 +12,7 @@
     <div class="bg-white border border-slate-200 rounded-lg p-6">
         <div class="flex flex-wrap items-center gap-3 mb-5">
             <x-admin.status-badge :status="$payment->status" :final="$payment->isFinal" />
-            <x-admin.env-badge :env="$payment->environment" />
+            
             <span class="text-2xl font-semibold text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($payment->amount, $payment->currency)->formattedAmount() }} {{ $payment->currency }}</span>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-base">

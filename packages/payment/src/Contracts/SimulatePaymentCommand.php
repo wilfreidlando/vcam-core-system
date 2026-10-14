@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Payment\Contracts;
 
-final readonly class SimulateSandboxPaymentCommand
+final readonly class SimulatePaymentCommand
 {
     /**
      * @param string $status `succeeded`, `failed`, `expired` or `canceled`

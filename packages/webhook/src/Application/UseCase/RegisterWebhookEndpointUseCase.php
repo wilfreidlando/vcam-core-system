@@ -31,7 +31,6 @@ final readonly class RegisterWebhookEndpointUseCase implements RegisterWebhookEn
             secret: $secret,
             subscribedEventTypes: $command->events,
             active: true,
-            environment: $command->environment,
         );
 
         $this->endpoints->create($endpoint);

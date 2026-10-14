@@ -9,7 +9,7 @@ use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Contracts\IssueApiKey as IssueApiKeyPort;
 use Core\Identity\Contracts\IssueApiKeyCommand;
 use Core\Identity\Contracts\IssuedApiKeyView;
-use Core\Identity\Domain\Exception\ApiKeyAlreadyExistsForEnvironment;
+use Core\Identity\Domain\Exception\ApiKeyAlreadyExists;
 use Core\Identity\Domain\Exception\ProjectNotActive;
 use Core\Identity\Domain\Exception\ProjectNotFound;
 use Core\Identity\Domain\Model\ApiKey;
@@ -50,21 +50,20 @@ final readonly class IssueApiKey implements IssueApiKeyPort
             throw ProjectNotActive::withId($project->id);
         }
 
-        $generated = $this->secrets->generate($command->environment);
+        $generated = $this->secrets->generate();
         $now = $this->clock->now();
 
-        // ADR-0060: one key per (project, environment). Regenerating
-        // deletes the previous key in the same transaction as the insert —
-        // there is never a moment with zero or two valid keys.
-        $existing = $this->apiKeys->findByProjectAndEnvironment($project->id, $command->environment);
+        // ADR-0066: one key per project. Regenerating deletes the previous
+        // key in the same transaction as the insert — there is never a
+        // moment with zero or two valid keys.
+        $existing = $this->apiKeys->findOneByProject($project->id);
         if ($existing !== null && ! $command->replaceExisting) {
-            throw ApiKeyAlreadyExistsForEnvironment::for($project->id, $command->environment->value, $existing->prefix);
+            throw ApiKeyAlreadyExists::for($project->id, $existing->prefix);
         }
 
         $apiKey = ApiKey::issue(
             id: $this->identifier->generate(),
             projectId: $project->id,
-            environment: $command->environment,
             prefix: $generated->prefix,
             secretHash: ApiKey::hash($generated->secret),
             scopes: $command->scopes,
@@ -78,7 +77,7 @@ final readonly class IssueApiKey implements IssueApiKeyPort
                     actor: $actor,
                     action: 'api_key.replaced',
                     resource: 'api_key:'.$existing->id,
-                    before: ['project_id' => $existing->projectId, 'environment' => $existing->environment->value, 'prefix' => $existing->prefix],
+                    before: ['project_id' => $existing->projectId, 'prefix' => $existing->prefix],
                     after: ['replaced_by' => $apiKey->prefix],
                     context: [],
                     correlationId: $correlationId,
@@ -95,7 +94,7 @@ final readonly class IssueApiKey implements IssueApiKeyPort
             resource: 'api_key:'.$apiKey->id,
             before: null,
             // Never the secret or its hash — only what identifies the credential.
-            after: ['project_id' => $project->id, 'environment' => $command->environment->value, 'prefix' => $apiKey->prefix, 'scopes' => $command->scopes],
+            after: ['project_id' => $project->id, 'prefix' => $apiKey->prefix, 'scopes' => $command->scopes],
             context: [],
             correlationId: $correlationId,
             occurredAt: $now,

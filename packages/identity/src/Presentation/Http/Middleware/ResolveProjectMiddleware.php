@@ -52,9 +52,8 @@ final class ResolveProjectMiddleware
 
         // ADR-0059: every log line of this request (and of the jobs it
         // causes — Context travels into queued jobs) says which Project
-        // and environment it belongs to.
+        // it belongs to.
         Context::add('project_id', $context->projectId);
-        Context::add('environment', $context->environment->value);
         Context::add('api_key_prefix', $context->apiKeyPrefix);
 
         return $next($request);

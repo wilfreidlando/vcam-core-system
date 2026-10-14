@@ -39,10 +39,10 @@ final class InMemoryPartyRepository implements PartyRepository
         return $this->parties[$id] ?? null;
     }
 
-    public function findByExternalRef(string $projectId, string $externalRef, string $environment = 'live'): ?Party
+    public function findByExternalRef(string $projectId, string $externalRef): ?Party
     {
         foreach ($this->parties as $party) {
-            if ($party->projectId === $projectId && $party->externalRef === $externalRef && $party->environment === $environment) {
+            if ($party->projectId === $projectId && $party->externalRef === $externalRef) {
                 return $party;
             }
         }

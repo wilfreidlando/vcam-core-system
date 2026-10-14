@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Core\Identity\Contracts;
 
-use Core\Support\Environment;
-
 final readonly class IssueApiKeyCommand
 {
     /**
@@ -13,9 +11,8 @@ final readonly class IssueApiKeyCommand
      */
     public function __construct(
         public string $projectId,
-        public Environment $environment,
         public array $scopes,
-        // ADR-0060: true = regenerate (atomically delete the environment's
+        // ADR-0066: true = regenerate (atomically delete the project's
         // existing key, then issue the new one); false = refuse if one exists.
         public bool $replaceExisting = false,
     ) {}

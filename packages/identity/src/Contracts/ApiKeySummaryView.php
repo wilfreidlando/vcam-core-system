@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Core\Identity\Contracts;
 
-use Core\Support\Environment;
 use DateTimeImmutable;
 
 /**
@@ -22,7 +21,6 @@ final readonly class ApiKeySummaryView
     public function __construct(
         public string $id,
         public string $projectId,
-        public Environment $environment,
         public string $prefix,
         public array $scopes,
         public bool $revoked,

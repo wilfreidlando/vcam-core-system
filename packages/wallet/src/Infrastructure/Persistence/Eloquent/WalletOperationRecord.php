@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * @property string $id
  * @property string $project_id
- * @property string $environment
  * @property string $type
  * @property string $idempotency_key
  * @property string $currency
@@ -32,7 +31,7 @@ final class WalletOperationRecord extends Model
     protected $table = 'wallet_operations';
 
     protected $fillable = [
-        'id', 'project_id', 'environment', 'type', 'idempotency_key', 'currency', 'total_minor',
+        'id', 'project_id', 'type', 'idempotency_key', 'currency', 'total_minor',
         'description', 'metadata', 'legs', 'external_reference', 'ledger_transaction_id', 'created_at',
     ];
 

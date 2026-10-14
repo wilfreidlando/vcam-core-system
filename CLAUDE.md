@@ -310,11 +310,12 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   `POST /v1/wallets/withdrawals` (sortie enregistrée), `GET
   /v1/parties/{ref}/wallets`, `GET /v1/wallets/{id}/transactions` — scope
   `wallets:write`/`wallets:read` ; **jamais de crédit libre** (la valeur
-  n'entre que par un paiement confirmé avec `wallet_recipient_external_ref`) ;
-  parties et wallets **isolés par environnement** (colonne `environment`,
-  comptes `clearing`/`withdrawal` séparés par référence), et un paiement
-  sandbox crédite réellement le wallet sandbox (remplace le « aucun mouvement
-  ledger en sandbox » d'ADR-0060). Historique de départ (Lot 2, pour mémoire) :
+  n'entre que par un paiement confirmé avec `wallet_recipient_external_ref`).
+  **Un seul environnement** (ADR-0066, remplace ADR-0060) : plus de
+  sandbox/live ni de `Core\Support\Environment`, une clé par projet ; les
+  tests se font sur le déploiement de staging, où `PAYMENT_SIMULATOR_ENABLED`
+  active le simulateur de paiement (`POST /v1/payments/{id}/simulate`,
+  jamais en production). Historique de départ (Lot 2, pour mémoire) :
   parties à création paresseuse. Voir `packages/ledger/README.md`,
   `packages/wallet/README.md`, `packages/parties/README.md` — et
   [ADR-0033](docs/adr/0033-conception-lot-2-money-core.md). Depuis

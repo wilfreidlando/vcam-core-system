@@ -197,7 +197,6 @@ final class ProviderWiringTest extends TestCase
         $this->app->singleton(
             'providers.config_loader',
             fn () => fn (): array => [
-                'environment' => 'test',
                 'payment' => [
                     'my_coolpay' => [
                         'code' => 'my-coolpay',

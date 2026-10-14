@@ -18,7 +18,7 @@ use LogicException;
 
 /**
  * Resolves the wallets an operation touches by the product's own party
- * references (ADR-0065), always inside one project and one environment:
+ * references (ADR-0065), always inside one project:
  *
  * - a **source** must already hold a wallet in the currency — a party that
  *   never received anything has nothing to spend, never a lazily created
@@ -43,41 +43,40 @@ final readonly class WalletProvisioner
     /**
      * @throws InsufficientFunds the party has no wallet in this currency
      */
-    public function source(string $projectId, string $environment, string $externalRef, string $currency): Wallet
+    public function source(string $projectId, string $externalRef, string $currency): Wallet
     {
-        $party = $this->parties->find($projectId, $environment, $externalRef)
+        $party = $this->parties->find($projectId, $externalRef)
             ?? throw InsufficientFunds::forParty($externalRef, $currency);
 
         $wallet = $this->wallets->findByPartyAndCurrency($party->id, $currency)
             ?? throw InsufficientFunds::forParty($externalRef, $currency);
 
-        if (! $wallet->belongsTo($projectId, $environment)) {
+        if (! $wallet->belongsTo($projectId)) {
             throw WalletProjectMismatch::forWallet($wallet->id, $projectId);
         }
 
         return $wallet;
     }
 
-    public function destination(string $projectId, string $environment, string $externalRef, string $currency, ?string $partyType): Wallet
+    public function destination(string $projectId, string $externalRef, string $currency, ?string $partyType): Wallet
     {
         $party = $this->partyFinder->findOrCreate(new FindOrCreatePartyCommand(
             $projectId,
             $externalRef,
             $partyType ?? self::DEFAULT_PARTY_TYPE,
             [],
-            $environment,
         ));
 
         $existing = $this->wallets->findByPartyAndCurrency($party->id, $currency);
         if ($existing !== null) {
-            if (! $existing->belongsTo($projectId, $environment)) {
+            if (! $existing->belongsTo($projectId)) {
                 throw WalletProjectMismatch::forWallet($existing->id, $projectId);
             }
 
             return $existing;
         }
 
-        $wallet = new Wallet($this->identifier->generate(), $projectId, $party->id, $currency, 'active', $environment);
+        $wallet = new Wallet($this->identifier->generate(), $projectId, $party->id, $currency, 'active');
 
         try {
             $this->wallets->save($wallet);

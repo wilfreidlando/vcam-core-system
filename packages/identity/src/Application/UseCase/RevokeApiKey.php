@@ -35,7 +35,7 @@ final readonly class RevokeApiKey implements RevokeApiKeyPort
             actor: $actor,
             action: 'api_key.revoked',
             resource: 'api_key:'.$apiKey->id,
-            before: ['project_id' => $apiKey->projectId, 'environment' => $apiKey->environment->value, 'prefix' => $apiKey->prefix],
+            before: ['project_id' => $apiKey->projectId, 'prefix' => $apiKey->prefix],
             after: null,
             context: [],
             correlationId: $correlationId,

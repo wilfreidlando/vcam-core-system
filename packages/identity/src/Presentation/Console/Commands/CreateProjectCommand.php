@@ -40,9 +40,8 @@ final class CreateProjectCommand extends ConsoleCommand
         }
 
         $this->info("Project created: {$provisioned->project->id}");
-        $this->warn('The two lines below are shown once — copy them now, they cannot be retrieved again:');
-        $this->line("  sandbox: {$provisioned->sandboxApiKey->plaintextToken}");
-        $this->line("  live:    {$provisioned->liveApiKey->plaintextToken}");
+        $this->warn('The API key below is shown once — copy it now, it cannot be retrieved again:');
+        $this->line("  {$provisioned->apiKey->plaintextToken}");
 
         return self::SUCCESS;
     }

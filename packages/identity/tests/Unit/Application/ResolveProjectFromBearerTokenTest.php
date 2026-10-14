@@ -10,7 +10,6 @@ use Core\Identity\Domain\Model\Project;
 use Core\Identity\Tests\Unit\Fakes\FixedClock;
 use Core\Identity\Tests\Unit\Fakes\InMemoryApiKeyRepository;
 use Core\Identity\Tests\Unit\Fakes\InMemoryProjectRepository;
-use Core\Support\Environment;
 
 /**
  * @return array{0: ResolveProjectFromBearerToken, 1: InMemoryApiKeyRepository}
@@ -25,7 +24,6 @@ function seededApiKeyResolver(string $projectStatus = 'active'): array
     $apiKeys->save(ApiKey::issue(
         id: 'key-1',
         projectId: 'project-1',
-        environment: Environment::Live,
         prefix: 'pk_live_abcd1234',
         secretHash: ApiKey::hash('correct-secret'),
         scopes: ['payments:write'],
@@ -42,7 +40,6 @@ it('resolves the project context for a valid token', function (): void {
 
     expect($context->projectId)->toBe('project-1')
         ->and($context->organizationId)->toBe('org-1')
-        ->and($context->environment)->toBe(Environment::Live)
         ->and($context->scopes)->toBe(['payments:write']);
 });
 

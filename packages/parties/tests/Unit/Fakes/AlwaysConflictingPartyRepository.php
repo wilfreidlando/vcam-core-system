@@ -26,7 +26,7 @@ final class AlwaysConflictingPartyRepository implements PartyRepository
         return null;
     }
 
-    public function findByExternalRef(string $projectId, string $externalRef, string $environment = 'live'): ?Party
+    public function findByExternalRef(string $projectId, string $externalRef): ?Party
     {
         return null;
     }

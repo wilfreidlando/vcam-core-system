@@ -33,7 +33,6 @@ final class TransferFundsForConcurrencyTestingCommand extends ConsoleCommand
 
         $transfer->transfer(new TransferFundsCommand(
             $projectId,
-            'live',
             (string) Str::uuid(),
             'XAF',
             [new TransferLeg($from, $to, (int) $this->argument('amount'))],

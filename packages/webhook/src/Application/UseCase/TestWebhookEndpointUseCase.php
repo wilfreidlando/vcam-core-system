@@ -38,8 +38,7 @@ final readonly class TestWebhookEndpointUseCase implements TestWebhookEndpoint
     {
         $endpoint = $this->endpoints->find($command->endpointId);
         if ($endpoint === null
-            || $endpoint->projectId !== $command->projectId
-            || ($command->environment !== null && $endpoint->environment !== $command->environment)) {
+            || $endpoint->projectId !== $command->projectId) {
             throw WebhookEndpointNotFound::withId($command->endpointId);
         }
 
@@ -52,7 +51,6 @@ final readonly class TestWebhookEndpointUseCase implements TestWebhookEndpoint
             eventType: self::EVENT_TYPE,
             payload: [
                 'endpoint_id' => $endpoint->id,
-                'environment' => $endpoint->environment->value,
                 'message' => 'Test event sent on request. Verify the signature, then answer 2xx.',
                 'occurred_at' => $this->clock->now()->format(DateTimeInterface::RFC3339),
             ],

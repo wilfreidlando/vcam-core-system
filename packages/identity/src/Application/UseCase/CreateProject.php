@@ -18,7 +18,6 @@ use Core\Identity\Domain\Model\Project;
 use Core\Identity\Domain\Port\OrganizationRepository;
 use Core\Identity\Domain\Port\ProjectRepository;
 use Core\Support\Clock;
-use Core\Support\Environment;
 use Core\Support\Identifier;
 
 /**
@@ -30,9 +29,9 @@ use Core\Support\Identifier;
  * Review finding, user-directed: a Project with no credential is not
  * actually usable by the business app it's meant for — self-service used
  * to stop at the Project row and leave issuing a key as a separate manual
- * step (with an operator hand-typing scopes). Creation now provisions one
- * sandbox and one live key in the same call, both full-access
- * (`ApiKeyScopes::ALL` — see its docblock), both one-shot plaintext values
+ * step (with an operator hand-typing scopes). Creation now provisions the
+ * project's single key (ADR-0066) in the same call, full-access
+ * (`ApiKeyScopes::ALL` — see its docblock), a one-shot plaintext value
  * the caller must capture immediately.
  */
 final readonly class CreateProject implements CreateProjectPort
@@ -66,14 +65,8 @@ final readonly class CreateProject implements CreateProjectPort
             occurredAt: $this->clock->now(),
         ));
 
-        $sandboxApiKey = $this->issueApiKey->issue(
-            new IssueApiKeyCommand($project->id, Environment::Sandbox, ApiKeyScopes::ALL),
-            actor: $actor,
-            correlationId: $correlationId,
-        );
-
-        $liveApiKey = $this->issueApiKey->issue(
-            new IssueApiKeyCommand($project->id, Environment::Live, ApiKeyScopes::ALL),
+        $apiKey = $this->issueApiKey->issue(
+            new IssueApiKeyCommand($project->id, ApiKeyScopes::ALL),
             actor: $actor,
             correlationId: $correlationId,
         );
@@ -85,8 +78,7 @@ final readonly class CreateProject implements CreateProjectPort
                 name: $project->name(),
                 status: $project->status(),
             ),
-            sandboxApiKey: $sandboxApiKey,
-            liveApiKey: $liveApiKey,
+            apiKey: $apiKey,
         );
     }
 }

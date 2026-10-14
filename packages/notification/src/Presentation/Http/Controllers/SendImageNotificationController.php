@@ -78,7 +78,6 @@ final class SendImageNotificationController
             mimetype: $data['mimetype'] ?? null,
             variables: $data['variables'] ?? [],
             idempotencyKey: $idempotencyKey,
-            environment: $project->environment,
         ));
 
         return new JsonResponse([

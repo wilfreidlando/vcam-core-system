@@ -8,7 +8,6 @@ use Core\Notification\Domain\Exception\NotificationAlreadyExists;
 use Core\Notification\Domain\Model\Notification;
 use Core\Notification\Domain\Port\NotificationRepository;
 use Core\Notification\NotificationStatus;
-use Core\Support\Environment;
 use DateTimeImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -60,7 +59,7 @@ final class EloquentNotificationRepository implements NotificationRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage, ?Environment $environment = null): array
+    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage): array
     {
         // `orderBy`/`skip`/`take`/`count` are forwarded by Eloquent\Builder
         // to the underlying query builder rather than declared on it
@@ -71,10 +70,6 @@ final class EloquentNotificationRepository implements NotificationRepository
 
         if ($status !== null) {
             $base->where('status', $status->value);
-        }
-
-        if ($environment !== null) {
-            $base->where('environment', $environment->value);
         }
 
         $total = (clone $base)->count();
@@ -126,7 +121,6 @@ final class EloquentNotificationRepository implements NotificationRepository
             'provider_code' => $notification->providerCode,
             'provider_message_id' => $notification->providerMessageId,
             'error_message' => $notification->errorMessage,
-            'environment' => $notification->environment->value,
             'content' => $notification->content,
             'variables' => $notification->variables,
         ];
@@ -145,7 +139,6 @@ final class EloquentNotificationRepository implements NotificationRepository
             providerCode: $record->provider_code,
             providerMessageId: $record->provider_message_id,
             errorMessage: $record->error_message,
-            environment: Environment::from($record->environment),
             content: $record->content ?? [],
             variables: $record->variables ?? [],
             createdAt: DateTimeImmutable::createFromInterface($record->created_at),

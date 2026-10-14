@@ -3,7 +3,7 @@
 @section('title', 'Clés API')
 @section('subtitle', $project->name)
 
-{{-- ADR-0060 — exactement une clé live et une clé sandbox par projet.
+{{-- ADR-0066 — exactement une clé par projet.
      Générer (s'il n'y en a pas), Régénérer (remplace atomiquement : l'ancienne
      est rejetée dès que la nouvelle existe), Révoquer (supprime). --}}
 @section('content')
@@ -25,7 +25,7 @@
 
     @if (! empty($created))
         <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3">
-            <p class="text-base font-semibold text-emerald-800">Nouvelle clé {{ $created['environment'] ?? '' }} : {{ $created['prefix'] }}</p>
+            <p class="text-base font-semibold text-emerald-800">Nouvelle clé : {{ $created['prefix'] }}</p>
             <p class="mt-1 text-base text-emerald-700">
                 Affichée uniquement maintenant, jamais stockée ni journalisée en clair — copiez-la avant de quitter cette page :
             </p>
@@ -33,32 +33,21 @@
         </div>
     @endif
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        @foreach (['live' => 'Live', 'sandbox' => 'Sandbox'] as $env => $label)
-            @php $key = $keysByEnvironment[$env] ?? null; @endphp
+    <div class="grid grid-cols-1 gap-6">
+            @php $key = $currentKey; $label = 'API'; @endphp
             <div class="bg-white border border-slate-200 rounded-lg p-6 flex flex-col" x-data="{ confirm: null }">
                 <div class="flex items-center justify-between mb-3">
-                    <h2 class="text-lg font-semibold text-slate-900">Clé {{ $label }}</h2>
-                    <span @class([
-                        'inline-flex rounded-md px-2 py-0.5 text-xs font-semibold',
-                        'bg-rose-100 text-rose-700' => $env === 'live',
-                        'bg-amber-100 text-amber-800' => $env === 'sandbox',
-                    ])>{{ strtoupper($env) }}</span>
+                    <h2 class="text-lg font-semibold text-slate-900">Clé API du projet</h2>
                 </div>
 
                 <p class="text-sm text-slate-600 mb-4">
-                    @if ($env === 'live')
-                        Paiements réels, argent réel. À ne jamais partager hors de vos serveurs.
-                    @else
-                        Tests d'intégration : paiements simulés, aucun mouvement d'argent réel.
-                    @endif
+                    Une seule clé par projet. À ne jamais partager hors de vos serveurs : sur ce déploiement, elle engage de vrais paiements.
                 </p>
 
                 @if ($key === null)
                     <p class="text-base text-slate-500 mb-4">Aucune clé {{ $label }} pour ce projet.</p>
                     <form method="POST" action="{{ route('admin.projects.api-keys.store', ['projectId' => $project->id]) }}" class="mt-auto">
                         @csrf
-                        <input type="hidden" name="environment" value="{{ $env }}">
                         <input type="hidden" name="mode" value="generate">
                         <button type="submit" class="w-full rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-base font-medium text-white shadow-sm">
                             Générer la clé {{ $label }}
@@ -82,8 +71,7 @@
                             <template x-if="confirm === 'regenerate'">
                                 <form method="POST" action="{{ route('admin.projects.api-keys.store', ['projectId' => $project->id]) }}">
                                     @csrf
-                                    <input type="hidden" name="environment" value="{{ $env }}">
-                                    <input type="hidden" name="mode" value="regenerate">
+                                                <input type="hidden" name="mode" value="regenerate">
                                     <p class="font-semibold text-slate-900 mb-2">Régénérer la clé {{ $label }} ?</p>
                                     <p class="text-sm text-slate-600 mb-4">{{ $key->prefix }} sera remplacée immédiatement : toute application qui l'utilise encore sera rejetée. La nouvelle clé s'affichera une seule fois.</p>
                                     <div class="flex justify-end gap-2">
@@ -107,7 +95,6 @@
                     </div>
                 @endif
             </div>
-        @endforeach
     </div>
 
     <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="block text-center text-base text-slate-500 hover:text-slate-700">

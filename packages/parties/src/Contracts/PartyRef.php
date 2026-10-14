@@ -16,6 +16,5 @@ final readonly class PartyRef
         public string $externalRef,
         public string $type,
         public string $kycStatus,
-        public string $environment = 'live',
     ) {}
 }

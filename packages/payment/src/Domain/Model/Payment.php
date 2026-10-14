@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Core\Payment\Domain\Model;
 
 use Core\Payment\PaymentStatus;
-use Core\Support\Environment;
 use DateTimeImmutable;
 use InvalidArgumentException;
 
@@ -27,6 +26,8 @@ use InvalidArgumentException;
  */
 final readonly class Payment
 {
+    public const SIMULATOR_PROVIDER_CODE = 'simulator';
+
     public function __construct(
         public string $id,
         public string $projectId,
@@ -71,8 +72,6 @@ final readonly class Payment
          * each candidate actually is, not just that it's stuck).
          */
         public ?DateTimeImmutable $updatedAt = null,
-        // ADR-0060 — the environment of the API key that created it.
-        public Environment $environment = Environment::Live,
         public ?DateTimeImmutable $createdAt = null,
     ) {
         if (trim($providerTransactionRef) === '') {
@@ -115,14 +114,17 @@ final readonly class Payment
             walletRecipientExternalRef: $this->walletRecipientExternalRef,
             callbackUrl: $this->callbackUrl,
             callbackSecret: $this->callbackSecret,
-            environment: $this->environment,
             createdAt: $this->createdAt,
         );
     }
 
-    public function isSandbox(): bool
+    /**
+     * ADR-0066 — processed by the built-in simulator (a staging testing
+     * tool): no provider to reconcile with, settled only by a simulation.
+     */
+    public function isSimulated(): bool
     {
-        return ! $this->environment->isLive();
+        return $this->providerCode === self::SIMULATOR_PROVIDER_CODE;
     }
 
     /**

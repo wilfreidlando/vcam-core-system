@@ -22,7 +22,6 @@ final readonly class ListApiKeys implements ListApiKeysPort
             static fn (ApiKey $apiKey): ApiKeySummaryView => new ApiKeySummaryView(
                 id: $apiKey->id,
                 projectId: $apiKey->projectId,
-                environment: $apiKey->environment,
                 prefix: $apiKey->prefix,
                 scopes: $apiKey->scopes(),
                 revoked: $apiKey->isRevoked(),

@@ -14,7 +14,6 @@ use Core\Identity\Contracts\ListApiKeysCommand;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Identity\Contracts\RevokeApiKey;
 use Core\Identity\Contracts\RevokeApiKeyCommand;
-use Core\Support\Environment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -37,7 +36,7 @@ use Symfony\Component\HttpFoundation\Response;
  * CLI and the console.
  *
  * Second review finding, user-directed: project creation now
- * auto-provisions a sandbox and a live key already (`CreateProject`), so
+ * auto-provisions the project's single key already (ADR-0066), so
  * this form only exists for rotation (a lost or compromised key needs a
  * replacement) — an operator manually reaching for it never needs to type
  * scopes either, same reasoning as the auto-provisioned ones
@@ -69,7 +68,7 @@ final class ApiKeysController
         return response()->view('admin.api-keys.create', [
             'title' => 'Clés API · '.$project->name,
             'project' => $project,
-            'keysByEnvironment' => $this->keysByEnvironment($projectId),
+            'currentKey' => $this->currentKey($projectId),
             'created' => session('admin.api-keys.created'),
         ]);
     }
@@ -82,10 +81,9 @@ final class ApiKeysController
 
         Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
 
-        /** @var array{environment: string, mode?: string|null} $data */
+        /** @var array{mode?: string|null} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
-            'environment' => ['required', 'string', 'in:sandbox,live'],
             'mode' => ['nullable', 'string', 'in:generate,regenerate'],
         ]);
 
@@ -93,12 +91,12 @@ final class ApiKeysController
 
         try {
             $issued = $this->issueApiKey->issue(
-                new IssueApiKeyCommand($projectId, Environment::from($data['environment']), ApiKeyScopes::ALL, replaceExisting: $regenerate),
+                new IssueApiKeyCommand($projectId, ApiKeyScopes::ALL, replaceExisting: $regenerate),
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
             );
         } catch (RuntimeException $e) {
-            return back()->withInput()->withErrors(['environment' => $e->getMessage()]);
+            return back()->withInput()->withErrors(['mode' => $e->getMessage()]);
         }
 
         // The plaintext key is shown exactly once, on this redirect —
@@ -111,7 +109,6 @@ final class ApiKeysController
         // for operator/organization/project actions).
         // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
         session()->flash('admin.api-keys.created', [
-            'environment' => $data['environment'],
             'prefix' => $issued->prefix,
             'plaintextToken' => $issued->plaintextToken,
         ]);
@@ -145,19 +142,16 @@ final class ApiKeysController
     }
 
     /**
-     * ADR-0060 — at most one key per environment.
-     *
-     * @return array<string, \Core\Identity\Contracts\ApiKeySummaryView>
+     * ADR-0066 — at most one key per project.
      */
-    private function keysByEnvironment(string $projectId): array
+    private function currentKey(string $projectId): ?\Core\Identity\Contracts\ApiKeySummaryView
     {
-        $byEnvironment = [];
         foreach ($this->listApiKeys->list(new ListApiKeysCommand($projectId)) as $key) {
             if (! $key->revoked) {
-                $byEnvironment[$key->environment->value] ??= $key;
+                return $key;
             }
         }
 
-        return $byEnvironment;
+        return null;
     }
 }

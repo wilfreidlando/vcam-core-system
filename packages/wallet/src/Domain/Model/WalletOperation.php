@@ -25,7 +25,6 @@ final readonly class WalletOperation
     public function __construct(
         public string $id,
         public string $projectId,
-        public string $environment,
         public string $type,
         public string $idempotencyKey,
         public string $currency,

@@ -9,7 +9,7 @@ use RuntimeException;
 interface ListWalletTransactions
 {
     /**
-     * @throws RuntimeException the wallet does not exist, or belongs to another project or environment
+     * @throws RuntimeException the wallet does not exist, or belongs to another project
      */
     public function list(ListWalletTransactionsCommand $command): WalletTransactionPage;
 }

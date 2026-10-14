@@ -116,11 +116,6 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
             );
 
             if ($updated->shouldCreditWallet()) {
-                // ADR-0065 (replacing ADR-0060's "sandbox never touches the
-                // ledger"): a sandbox payment credits the SANDBOX wallet of
-                // the recipient — real postings, in accounts isolated from
-                // live, so an integrator can test a whole wallet journey
-                // without real money.
                 $this->creditWalletFor($updated);
             }
 
@@ -150,7 +145,6 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
                 // endpoint registered for the Project. See
                 // `DomainEvent::$skipWebhookEndpointFanOut`'s docblock.
                 skipWebhookEndpointFanOut: $updated->callbackUrl !== null,
-                environment: $updated->environment->value,
             ));
 
             $this->journey->record(
@@ -175,7 +169,7 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
         return match ($source) {
             'provider_callback' => 'callback du provider',
             'reconciliation' => 'réconciliation',
-            'sandbox_simulation' => 'simulation sandbox',
+            'simulation' => 'simulation',
             default => $source,
         };
     }
@@ -189,8 +183,6 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
             $payment->projectId,
             $externalRef,
             'payment_recipient',
-            [],
-            $payment->environment->value,
         ));
 
         $balance = $this->creditWallet->credit(new CreditWalletCommand(
@@ -203,7 +195,6 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
             // naturally unique and never reused, so it doubles as the
             // ledger-level idempotency key (ADR-0033 §2).
             $payment->id,
-            $payment->environment->value,
             $externalRef,
         ));
 
@@ -211,7 +202,7 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
             $payment->id,
             $payment->projectId,
             PaymentTimelineEntryType::WalletCredited,
-            sprintf('%sWallet de « %s » crédité de %d %s', $payment->isSandbox() ? 'SANDBOX — ' : '', $externalRef, $payment->amount, $payment->currency),
+            sprintf('Wallet de « %s » crédité de %d %s', $externalRef, $payment->amount, $payment->currency),
             [
                 'wallet_recipient_external_ref' => $externalRef,
                 'party_id' => $party->id,

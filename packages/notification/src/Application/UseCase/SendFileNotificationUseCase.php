@@ -31,7 +31,6 @@ final readonly class SendFileNotificationUseCase implements SendFileNotification
             ],
             contentType: 'file',
             idempotencyKey: $command->idempotencyKey,
-            environment: $command->environment,
         );
     }
 }

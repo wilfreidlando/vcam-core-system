@@ -10,7 +10,7 @@ fonctionner, le build échouerait.
 
 | | Endpoint webhook | `callback_url` d'un paiement |
 | --- | --- | --- |
-| Déclaration | `POST /v1/webhook-endpoints` (une fois par projet et environnement) | champ `callback_url` à la création du paiement |
+| Déclaration | `POST /v1/webhook-endpoints` (une fois par projet) | champ `callback_url` à la création du paiement |
 | Événements | ceux auxquels l'endpoint est abonné (§3) | `payment.status_changed` de **ce** paiement seulement |
 | Secret de signature | `secret` (`whsec_…`) renvoyé **une seule fois** à l'enregistrement | `callback_secret` (`pcbsec_…`) renvoyé **une seule fois** à la création du paiement |
 | Corps | enveloppe `{id, type, data}` | **la même** enveloppe, octet pour octet |
@@ -21,10 +21,8 @@ Un paiement créé **avec** `callback_url` est notifié à cette URL ; il n'est 
 relayé en plus vers vos endpoints webhook. Sans `callback_url`, ses changements de
 statut partent vers vos endpoints abonnés à `payment.status_changed`.
 
-Chaque endpoint appartient à **un environnement** : celui de la clé API qui l'a
-enregistré. Un endpoint enregistré avec une clé `sandbox` ne reçoit que les
-événements sandbox, et inversement. Utilisez deux URL distinctes (ou distinguez-les
-par le champ `environment` de vos propres données) si vous recevez les deux.
+Le staging et la production du Core sont deux déploiements distincts : un endpoint
+enregistré sur le staging ne reçoit que les événements du staging.
 
 ## 2. Ce que le Core envoie
 
@@ -123,8 +121,6 @@ facultatifs ne sont présents que s'ils sont connus.
 | `reference` | Votre `Idempotency-Key` de l'opération (`transfer`, `withdrawal`). |
 | `description` | Votre libellé de l'opération, s'il a été fourni. |
 
-Ces événements ne partent que vers les endpoints de l'environnement du wallet
-(sandbox ou live).
 
 ### `webhook.test`
 

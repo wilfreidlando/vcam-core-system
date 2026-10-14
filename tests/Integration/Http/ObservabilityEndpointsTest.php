@@ -74,7 +74,7 @@ final class ObservabilityEndpointsTest extends TestCase
         $this->app->instance(LoggerInterface::class, $logger);
 
         $this->postJson('/v1/webhook-endpoints', ['url' => 'https://example.com/x', 'secret' => 'do-not-log'], [
-            'Authorization' => 'Bearer pk_sandbox_invalid.secretpart',
+            'Authorization' => 'Bearer pk_invalid.secretpart',
             'Correlation-Id' => 'corr-log-test',
         ]);
 

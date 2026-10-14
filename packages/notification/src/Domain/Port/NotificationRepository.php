@@ -30,7 +30,7 @@ interface NotificationRepository
      *
      * @return array{items: list<Notification>, total: int}
      */
-    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage, ?\Core\Support\Environment $environment = null): array;
+    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage): array;
 
     /**
      * ADR-0062 / decision D5 — empties the content and variables (recipient

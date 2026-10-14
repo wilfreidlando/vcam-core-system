@@ -19,7 +19,7 @@
         "/whoami": {
             "get": {
                 "operationId": "identity.whoami",
-                "description": "Resolves the bearer API key and returns which Project it belongs to,\nin which environment (sandbox/live), and which scopes it carries. The\nfirst call an integrating product should make to confirm its\ncredentials.",
+                "description": "Resolves the bearer API key and returns which Project it belongs to\nand which scopes it carries. The\nfirst call an integrating product should make to confirm its\ncredentials.",
                 "summary": "Identify the calling Project",
                 "tags": [
                     "Identity"
@@ -38,9 +38,6 @@
                                         "organization_id": {
                                             "type": "string"
                                         },
-                                        "environment": {
-                                            "type": "string"
-                                        },
                                         "scopes": {
                                             "type": "array",
                                             "items": {
@@ -51,7 +48,6 @@
                                     "required": [
                                         "project_id",
                                         "organization_id",
-                                        "environment",
                                         "scopes"
                                     ]
                                 }
@@ -3048,11 +3044,11 @@
                 ]
             }
         },
-        "/sandbox/payments/{paymentId}/simulate": {
+        "/payments/{paymentId}/simulate": {
             "post": {
-                "operationId": "sandbox.payments.simulate",
-                "description": "Sandbox keys only. Moves a payment created with a sandbox key (and\nprocessed by the built-in simulator, i.e. no sandbox provider\napplication registered) to the outcome you choose \u2014 exactly as a real\nprovider callback would: same status change, same `payment.status_changed`\nwebhook or `callback_url` call. Use it to test your whole integration,\nwebhooks included, without real money. Requires `payments:write`.",
-                "summary": "Simulate the outcome of a sandbox payment",
+                "operationId": "payments.simulate",
+                "description": "Only on a deployment where the payment simulator is enabled (the staging\ndeployment, never production). Moves a payment processed by the built-in\nsimulator \u2014 i.e. created while your project had no application registered at\nthe provider \u2014 to the outcome you choose, exactly as a real provider callback\nwould: same status change, same wallet credit, same `payment.status_changed`\nwebhook or `callback_url` call. Use it to test your whole integration without\nreal money. Requires `payments:write` and an `Idempotency-Key` header.",
+                "summary": "Simulate the outcome of a payment",
                 "tags": [
                     "Payment"
                 ],
@@ -3082,7 +3078,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/SimulateSandboxPaymentRequest"
+                                "$ref": "#/components/schemas/SimulatePaymentRequest"
                             }
                         }
                     }
@@ -3134,6 +3130,97 @@
                                         },
                                         "correlation_id": {
                                             "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Payment not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/payment-not-found"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Payment not found"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error."
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Idempotency-Key was reused",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-conflict"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key was reused"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 409
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "Either a concurrent request with this Idempotency-Key is still in flight, or the key was reused with a different request body."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
                                         }
                                     },
                                     "required": [
@@ -3233,53 +3320,6 @@
                                             "description": "A human-readable explanation specific to this occurrence of the error.",
                                             "examples": [
                                                 "This route mutates state and must be called with an Idempotency-Key header."
-                                            ]
-                                        },
-                                        "correlation_id": {
-                                            "type": "string",
-                                            "description": "Quote this when contacting support about this specific failure."
-                                        }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "Idempotency-Key was reused",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "description": "A URI identifying this specific error condition.",
-                                            "examples": [
-                                                "https://errors.core-system.internal/idempotency-key-conflict"
-                                            ]
-                                        },
-                                        "title": {
-                                            "type": "string",
-                                            "description": "A short, human-readable summary of the error condition.",
-                                            "examples": [
-                                                "Idempotency-Key was reused"
-                                            ]
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
-                                            "const": 409
-                                        },
-                                        "detail": {
-                                            "type": "string",
-                                            "description": "A human-readable explanation specific to this occurrence of the error.",
-                                            "examples": [
-                                                "Either a concurrent request with this Idempotency-Key is still in flight, or the key was reused with a different request body."
                                             ]
                                         },
                                         "correlation_id": {
@@ -3863,7 +3903,7 @@
         "/wallets/transfers": {
             "post": {
                 "operationId": "wallet.transfers",
-                "description": "Moves value between wallets of your project, in the environment of your key, as one\natomic operation of 1 to 20 legs: every leg lands, or none does. A transfer never\ncreates value \u2014 the only way value enters a wallet is a confirmed payment with\n`wallet_recipient_external_ref`. Parties are named by your own references; a\ndestination's wallet is created on its first credit, a source must already hold\nenough available funds. Requires the `wallets:write` scope and an `Idempotency-Key`\nheader: replaying the same key returns the original transfer and moves nothing.\n\nEach wallet whose balance changed emits `wallet.credited` or `wallet.debited`.",
+                "description": "Moves value between wallets of your project, as one\natomic operation of 1 to 20 legs: every leg lands, or none does. A transfer never\ncreates value \u2014 the only way value enters a wallet is a confirmed payment with\n`wallet_recipient_external_ref`. Parties are named by your own references; a\ndestination's wallet is created on its first credit, a source must already hold\nenough available funds. Requires the `wallets:write` scope and an `Idempotency-Key`\nheader: replaying the same key returns the original transfer and moves nothing.\n\nEach wallet whose balance changed emits `wallet.credited` or `wallet.debited`.",
                 "summary": "Transfer funds between wallets",
                 "tags": [
                     "Wallet"
@@ -4581,7 +4621,7 @@
         "/parties/{externalRef}/wallets": {
             "get": {
                 "operationId": "wallet.party-wallets",
-                "description": "The wallets of the party you name by your own reference (URL-encoded), one per\ncurrency, with their balance \u2014 in the environment of your key. A party that never\nreceived anything has none: the list is empty, and reading never creates the party.\nRequires the `wallets:read` scope.",
+                "description": "The wallets of the party you name by your own reference (URL-encoded), one per\ncurrency, with their balance. A party that never\nreceived anything has none: the list is empty, and reading never creates the party.\nRequires the `wallets:read` scope.",
                 "summary": "List a party's wallets",
                 "tags": [
                     "Wallet"
@@ -5684,9 +5724,9 @@
                 ],
                 "title": "SendTextNotificationRequest"
             },
-            "SimulateSandboxPaymentRequest": {
+            "SimulatePaymentRequest": {
                 "type": "object",
-                "description": "Validates `POST /v1/sandbox/payments/{paymentId}/simulate` (ADR-0060).",
+                "description": "Validates `POST /v1/payments/{paymentId}/simulate` (ADR-0066).",
                 "properties": {
                     "status": {
                         "type": "string",
@@ -5716,7 +5756,7 @@
                 "required": [
                     "status"
                 ],
-                "title": "SimulateSandboxPaymentRequest"
+                "title": "SimulatePaymentRequest"
             },
             "StartPaymentRequest": {
                 "type": "object",
@@ -5978,17 +6018,13 @@
                     },
                     "active": {
                         "type": "boolean"
-                    },
-                    "environment": {
-                        "type": "string"
                     }
                 },
                 "required": [
                     "id",
                     "url",
                     "events",
-                    "active",
-                    "environment"
+                    "active"
                 ],
                 "title": "WebhookEndpointView"
             },

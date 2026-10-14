@@ -16,7 +16,6 @@ use Core\Payment\Contracts\ProviderApplicationView;
 use Core\Payment\Contracts\RegisterProviderApplication;
 use Core\Payment\Contracts\RegisterProviderApplicationCommand;
 use Core\Support\Clock;
-use Core\Support\Environment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -24,8 +23,8 @@ use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * ADR-0060 — a project's credentials at each payment provider, one
- * application per (provider, environment): list, create, edit (replace the
+ * A project's credentials at each payment provider, one application per
+ * provider (ADR-0066): list, create, edit (replace the
  * public and/or private key — an empty private key keeps the stored one),
  * delete. Every rejection is an operator-readable message, never a raw SQL
  * error ("duplicate key"). `payment` cannot depend on `audit`, so this
@@ -86,19 +85,16 @@ final class ProviderApplicationsController
     {
         $this->authorizedProject($projectId, $operator);
 
-        /** @var array{provider: string, environment: string, label?: string|null, public_key: string, private_key?: string|null} $data */
+        /** @var array{provider: string, label?: string|null, public_key: string, private_key?: string|null} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
             // Re-validated server-side against the adapter-backed list — a
             // made-up provider code can never be persisted.
             'provider' => ['required', 'string', 'in:'.implode(',', $this->availableProviders())],
-            'environment' => ['required', 'string', 'in:live,sandbox'],
             'label' => ['nullable', 'string', 'max:120'],
             'public_key' => ['required', 'string', 'max:1024'],
             'private_key' => ['nullable', 'string', 'max:1024'],
         ]);
-
-        $environment = Environment::from($data['environment']);
 
         try {
             $rotated = $this->registerProviderApplication->register(new RegisterProviderApplicationCommand(
@@ -106,7 +102,6 @@ final class ProviderApplicationsController
                 $data['provider'],
                 $data['public_key'],
                 $data['private_key'] ?? null,
-                $environment,
                 $data['label'] ?? null,
             ));
         } catch (RuntimeException $e) {
@@ -116,12 +111,11 @@ final class ProviderApplicationsController
         $this->audit->record(new AuditEntry(
             actor: 'operator:'.$operator->operatorId,
             action: $rotated ? 'provider_application.rotated' : 'provider_application.registered',
-            resource: 'provider_application:'.$projectId.':'.$data['provider'].':'.$environment->value,
+            resource: 'provider_application:'.$projectId.':'.$data['provider'],
             before: null,
             after: [
                 'project_id' => $projectId,
                 'provider_code' => $data['provider'],
-                'environment' => $environment->value,
                 'public_key' => $data['public_key'],
                 'private_key_changed' => ($data['private_key'] ?? '') !== '',
             ],
@@ -132,8 +126,8 @@ final class ProviderApplicationsController
 
         return redirect()->route('admin.projects.provider-applications.create', ['projectId' => $projectId])
             ->with('status', $rotated
-                ? "Application « {$data['provider']} » ({$environment->value}) mise à jour."
-                : "Application « {$data['provider']} » ({$environment->value}) enregistrée.");
+                ? "Application « {$data['provider']} » mise à jour."
+                : "Application « {$data['provider']} » enregistrée.");
     }
 
     public function destroy(string $projectId, string $applicationId, OperatorContext $operator): RedirectResponse

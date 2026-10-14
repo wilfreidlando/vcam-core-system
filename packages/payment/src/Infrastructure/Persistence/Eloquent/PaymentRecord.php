@@ -27,7 +27,6 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $callback_secret_encrypted
  * @property \Illuminate\Support\Carbon $updated_at
  * @property \Illuminate\Support\Carbon $created_at
- * @property string $environment
  */
 final class PaymentRecord extends Model
 {
@@ -53,7 +52,6 @@ final class PaymentRecord extends Model
         'wallet_recipient_external_ref',
         'callback_url',
         'callback_secret_encrypted',
-        'environment',
     ];
 
     protected $casts = [

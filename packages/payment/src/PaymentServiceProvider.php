@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Core\Payment;
 
 use Core\Events\Contracts\OutboxEventPublished;
-use Core\Payment\Application\Port\SandboxPaymentSimulator;
+use Core\Payment\Application\Port\PaymentSimulator;
 use Core\Payment\Application\Service\PaymentJourney;
 use Core\Payment\Application\UseCase\CountStuckPaymentsUseCase;
 use Core\Payment\Application\UseCase\GetPaymentStatusUseCase;
@@ -18,7 +18,7 @@ use Core\Payment\Application\UseCase\PaymentActivitySummaryUseCase;
 use Core\Payment\Application\UseCase\ReconcilePaymentUseCase;
 use Core\Payment\Application\UseCase\ReconcileStuckPaymentsUseCase;
 use Core\Payment\Application\UseCase\RegisterProviderApplication as RegisterProviderApplicationUseCase;
-use Core\Payment\Application\UseCase\SimulateSandboxPaymentUseCase;
+use Core\Payment\Application\UseCase\SimulatePaymentUseCase;
 use Core\Payment\Application\UseCase\StartPaymentUseCase;
 use Core\Payment\Contracts\CountStuckPayments;
 use Core\Payment\Contracts\GetPaymentStatus;
@@ -35,7 +35,7 @@ use Core\Payment\Contracts\PaymentStatusMapper;
 use Core\Payment\Contracts\ReconcilePayment;
 use Core\Payment\Contracts\ReconcileStuckPayments;
 use Core\Payment\Contracts\RegisterProviderApplication;
-use Core\Payment\Contracts\SimulateSandboxPayment;
+use Core\Payment\Contracts\SimulatePayment;
 use Core\Payment\Contracts\StartPayment;
 use Core\Payment\Domain\Port\PaymentCallbackAuthenticator;
 use Core\Payment\Domain\Port\PaymentCallbackSecretGenerator;
@@ -52,7 +52,7 @@ use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayAdapter;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayCallbackAuthenticator;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayStatusMapper;
 use Core\Payment\Infrastructure\Provider\PaymentGatewayRegistryImpl;
-use Core\Payment\Infrastructure\Provider\Sandbox\InternalSandboxPaymentSimulator;
+use Core\Payment\Infrastructure\Provider\Simulator\InternalPaymentSimulator;
 use Core\Payment\Infrastructure\Routing\ConfigPaymentProviderRouter;
 use Core\Payment\Infrastructure\Security\RandomPaymentCallbackSecretGenerator;
 use Core\Payment\Presentation\Console\Commands\RegisterProviderApplicationCommand;
@@ -88,7 +88,7 @@ final class PaymentServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadRoutesFrom(__DIR__.'/../routes/webhooks.php');
-        $this->loadRoutesFrom(__DIR__.'/../routes/sandbox.php');
+        $this->loadRoutesFrom(__DIR__.'/../routes/simulator.php');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'payment');
         Route::middleware('api')->group(__DIR__.'/../routes/api.php');
 
@@ -185,8 +185,8 @@ final class PaymentServiceProvider extends ServiceProvider
         $this->app->bind(ListPayments::class, ListPaymentsUseCase::class);
         $this->app->bind(PaymentStats::class, EloquentPaymentStats::class);
         $this->app->bind(PaymentTimeline::class, EloquentPaymentTimeline::class);
-        $this->app->bind(SandboxPaymentSimulator::class, InternalSandboxPaymentSimulator::class);
-        $this->app->bind(SimulateSandboxPayment::class, SimulateSandboxPaymentUseCase::class);
+        $this->app->bind(PaymentSimulator::class, InternalPaymentSimulator::class);
+        $this->app->bind(SimulatePayment::class, SimulatePaymentUseCase::class);
         $this->app->bind(GetPaymentTimeline::class, GetPaymentTimelineUseCase::class);
         $this->app->bind(RegisterProviderApplication::class, RegisterProviderApplicationUseCase::class);
         $this->app->bind(ListProviderApplications::class, ListProviderApplicationsUseCase::class);

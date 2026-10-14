@@ -11,7 +11,6 @@ use Core\Notification\Contracts\NotificationView;
 use Core\Notification\Domain\Model\Notification;
 use Core\Notification\Domain\Port\NotificationRepository;
 use Core\Notification\NotificationStatus;
-use Core\Support\Environment;
 use DateTimeInterface;
 
 final readonly class ListNotificationsUseCase implements ListNotifications
@@ -24,7 +23,7 @@ final readonly class ListNotificationsUseCase implements ListNotifications
     {
         $status = $command->status !== null ? NotificationStatus::tryFrom($command->status) : null;
 
-        $result = $this->notifications->findByProject($command->projectId, $status, $command->page, $command->perPage, $command->environment !== null ? Environment::tryFrom($command->environment) : null);
+        $result = $this->notifications->findByProject($command->projectId, $status, $command->page, $command->perPage);
 
         $items = array_map(
             static fn (Notification $notification): NotificationView => new NotificationView(
@@ -33,7 +32,6 @@ final readonly class ListNotificationsUseCase implements ListNotifications
                 status: $notification->status->value,
                 contentType: $notification->contentType,
                 errorMessage: $notification->errorMessage,
-                environment: $notification->environment->value,
                 toPartyRef: $notification->toPartyRef,
                 providerCode: $notification->providerCode,
                 createdAt: $notification->createdAt?->format(DateTimeInterface::RFC3339),

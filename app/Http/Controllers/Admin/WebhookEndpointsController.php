@@ -10,7 +10,6 @@ use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\GetProjectCommand;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Support\Clock;
-use Core\Support\Environment;
 use Core\Support\Integration\Security\SafeOutboundUrlRule;
 use Core\Webhook\Contracts\ActivateWebhookEndpoint;
 use Core\Webhook\Contracts\ActivateWebhookEndpointCommand;
@@ -119,11 +118,9 @@ final class WebhookEndpointsController
 
         Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
 
-        /** @var array{url: string, environment?: string, categories?: list<string>, all?: string} $data */
+        /** @var array{url: string, categories?: list<string>, all?: string} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
-            // ADR-0060 — an endpoint receives the events of ONE environment.
-            'environment' => ['nullable', 'in:live,sandbox'],
             // `SafeOutboundUrlRule` — security review finding: this form
             // accepted any http(s) URL, including internal/private
             // targets (SSRF), unlike the JSON API's equivalent
@@ -146,7 +143,6 @@ final class WebhookEndpointsController
             projectId: $projectId,
             url: $data['url'],
             events: $events,
-            environment: Environment::from($data['environment'] ?? 'live'),
         ));
 
         $this->audit->record(new AuditEntry(
@@ -154,7 +150,7 @@ final class WebhookEndpointsController
             action: 'webhook_endpoint.registered',
             resource: 'webhook_endpoint:'.$view->id,
             before: null,
-            after: ['project_id' => $projectId, 'url' => $view->url, 'events' => $view->events, 'environment' => $data['environment'] ?? 'live'],
+            after: ['project_id' => $projectId, 'url' => $view->url, 'events' => $view->events],
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),

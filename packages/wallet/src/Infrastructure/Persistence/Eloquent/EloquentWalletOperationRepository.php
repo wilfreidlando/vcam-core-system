@@ -21,7 +21,6 @@ final class EloquentWalletOperationRepository implements WalletOperationReposito
                 WalletOperationRecord::query()->create([
                     'id' => $operation->id,
                     'project_id' => $operation->projectId,
-                    'environment' => $operation->environment,
                     'type' => $operation->type,
                     'idempotency_key' => $operation->idempotencyKey,
                     'currency' => $operation->currency,
@@ -39,11 +38,10 @@ final class EloquentWalletOperationRepository implements WalletOperationReposito
         }
     }
 
-    public function findByIdempotencyKey(string $projectId, string $environment, string $idempotencyKey): ?WalletOperation
+    public function findByIdempotencyKey(string $projectId, string $idempotencyKey): ?WalletOperation
     {
         $record = WalletOperationRecord::query()
             ->where('project_id', $projectId)
-            ->where('environment', $environment)
             ->where('idempotency_key', $idempotencyKey)
             ->first();
 
@@ -69,7 +67,6 @@ final class EloquentWalletOperationRepository implements WalletOperationReposito
         return new WalletOperation(
             $record->id,
             $record->project_id,
-            $record->environment,
             $record->type,
             $record->idempotency_key,
             $record->currency,

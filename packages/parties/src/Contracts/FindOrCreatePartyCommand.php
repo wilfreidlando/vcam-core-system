@@ -19,7 +19,5 @@ final readonly class FindOrCreatePartyCommand
         public string $externalRef,
         public string $type,
         public array $metadata = [],
-        // ADR-0065 — `live` or `sandbox`, the environment of the calling key.
-        public string $environment = 'live',
     ) {}
 }

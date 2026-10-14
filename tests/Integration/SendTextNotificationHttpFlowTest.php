@@ -10,7 +10,6 @@ use Core\Identity\Contracts\CreateProject;
 use Core\Identity\Contracts\CreateProjectCommand;
 use Core\Identity\Contracts\IssueApiKey;
 use Core\Identity\Contracts\IssueApiKeyCommand;
-use Core\Support\Environment;
 use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -199,7 +198,7 @@ final class SendTextNotificationHttpFlowTest extends TestCase
         )->project;
 
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, Environment::Sandbox, [$scope], replaceExisting: true),
+            new IssueApiKeyCommand($project->id, [$scope], replaceExisting: true),
             actor: 'service:test',
             correlationId: null,
         );

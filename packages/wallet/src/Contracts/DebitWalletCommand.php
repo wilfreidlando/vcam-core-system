@@ -22,7 +22,5 @@ final readonly class DebitWalletCommand
         public int $amountMinor,
         public ?string $externalRef,
         public string $idempotencyKey,
-        // ADR-0065 — a wallet of another environment is "not found".
-        public string $environment = 'live',
     ) {}
 }

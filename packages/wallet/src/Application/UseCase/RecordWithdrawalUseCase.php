@@ -34,7 +34,7 @@ use LogicException;
 /**
  * ADR-0065 — records that value left the Core's custody: a payout made
  * outside the Core (mobile money, bank wire), whose proof the caller keeps
- * in `externalReference`. Debits the wallet against the environment's
+ * in `externalReference`. Debits the wallet against the project's
  * `withdrawal` account — value leaves, none is created. Same lock-then-
  * replay-check discipline as `TransferFundsUseCase`.
  */
@@ -69,15 +69,15 @@ final readonly class RecordWithdrawalUseCase implements RecordWithdrawal
         }
 
         return $this->unitOfWork->transactional(function () use ($command): WalletOperationView {
-            $existing = $this->operations->findByIdempotencyKey($command->projectId, $command->environment, $command->idempotencyKey);
+            $existing = $this->operations->findByIdempotencyKey($command->projectId, $command->idempotencyKey);
             if ($existing !== null) {
                 return $this->views->ofReplay($existing);
             }
 
-            $wallet = $this->provisioner->source($command->projectId, $command->environment, $command->party, $command->currency);
+            $wallet = $this->provisioner->source($command->projectId, $command->party, $command->currency);
             $balance = $this->balances->lockForUpdate($wallet->id);
 
-            $ledgerKey = 'wallet_withdrawal:'.$command->environment.':'.$command->idempotencyKey;
+            $ledgerKey = 'wallet_withdrawal:'.$command->idempotencyKey;
             if ($this->ledgerPoster->hasBeenPosted($command->projectId, $ledgerKey)) {
                 return $this->replayAfterRace($command);
             }
@@ -96,7 +96,7 @@ final readonly class RecordWithdrawalUseCase implements RecordWithdrawal
             $withdrawalAccount = $this->accountResolver->resolveOrCreate(new ResolveOrCreateAccountCommand(
                 $command->projectId,
                 SystemAccount::WITHDRAWAL,
-                SystemAccount::reference($command->environment),
+                SystemAccount::PROJECT_LEVEL,
                 $command->currency,
             ));
 
@@ -121,7 +121,6 @@ final readonly class RecordWithdrawalUseCase implements RecordWithdrawal
             $operation = new WalletOperation(
                 $operationId,
                 $command->projectId,
-                $command->environment,
                 WalletOperation::WITHDRAWAL,
                 $command->idempotencyKey,
                 $command->currency,
@@ -152,7 +151,6 @@ final readonly class RecordWithdrawalUseCase implements RecordWithdrawal
                 ], static fn (mixed $value): bool => $value !== null),
                 null,
                 $this->clock->now(),
-                environment: $command->environment,
             ));
 
             return $this->views->of($operation, [$wallet->id => ['wallet' => $wallet, 'ref' => $command->party]], [$wallet->id => $after]);
@@ -161,7 +159,7 @@ final readonly class RecordWithdrawalUseCase implements RecordWithdrawal
 
     private function replayAfterRace(RecordWithdrawalCommand $command): WalletOperationView
     {
-        $winner = $this->operations->findByIdempotencyKey($command->projectId, $command->environment, $command->idempotencyKey)
+        $winner = $this->operations->findByIdempotencyKey($command->projectId, $command->idempotencyKey)
             ?? throw new LogicException('The ledger holds this withdrawal but its operation record is missing.');
 
         return $this->views->ofReplay($winner);

@@ -14,7 +14,7 @@
     <div class="bg-white border border-slate-200 rounded-lg p-6">
         <div class="flex flex-wrap items-center gap-3 mb-5">
             <x-admin.status-badge :status="$notification->status" :final="$notification->isFinal" />
-            <x-admin.env-badge :env="$notification->environment" />
+            
             <span class="text-lg font-semibold text-slate-900">{{ $notification->channel }} · {{ $notification->contentType }}</span>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-base">

@@ -31,9 +31,8 @@ final readonly class ListWebhookEndpointsUseCase implements ListWebhookEndpoints
                 url: $endpoint->url,
                 events: $endpoint->subscribedEventTypes,
                 active: $endpoint->active,
-                environment: $endpoint->environment->value,
             ),
-            $this->endpoints->findAllForProject($command->projectId, $command->environment),
+            $this->endpoints->findAllForProject($command->projectId),
         );
     }
 }

@@ -99,13 +99,12 @@ final class InMemoryPaymentRepository implements PaymentRepository
         return array_slice($stuck, 0, $limit);
     }
 
-    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage, ?\Core\Support\Environment $environment = null): array
+    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage): array
     {
         $matching = array_values(array_filter(
             $this->payments,
             static fn (Payment $payment): bool => ($projectId === null || $payment->projectId === $projectId)
-                && ($status === null || $payment->status === $status)
-                && ($environment === null || $payment->environment === $environment),
+                && ($status === null || $payment->status === $status),
         ));
 
         $total = count($matching);

@@ -12,5 +12,5 @@ namespace Core\Parties\Contracts;
  */
 interface PartyLookup
 {
-    public function find(string $projectId, string $environment, string $externalRef): ?PartyRef;
+    public function find(string $projectId, string $externalRef): ?PartyRef;
 }

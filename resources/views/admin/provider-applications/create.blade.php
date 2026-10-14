@@ -3,7 +3,7 @@
 @section('title', 'Applications provider')
 @section('subtitle', $project->name)
 
-{{-- ADR-0060 — une application par (provider, environnement). La clé privée
+{{-- ADR-0066 — une application par provider. La clé privée
      n'est jamais réaffichée ; la laisser vide lors d'une modification garde
      celle déjà enregistrée. --}}
 @section('content')
@@ -24,9 +24,9 @@
     <div class="bg-white border border-slate-200 rounded-lg p-6">
         <h2 class="text-lg font-semibold text-slate-900 mb-1">Applications enregistrées</h2>
         <p class="text-sm text-slate-600 mb-4">
-            Une application = les identifiants marchands de ce projet chez un provider, pour un environnement.
-            Sans application <span class="font-semibold">sandbox</span>, les paiements sandbox passent par le simulateur
-            intégré (aucun appel au provider, aucun argent réel).
+            Une application = les identifiants marchands de ce projet chez un provider.
+            Sur un déploiement où le simulateur de paiement est activé (staging), un projet sans application
+            passe par le simulateur intégré (aucun appel au provider, aucun argent réel).
         </p>
 
         @if (count($applications) === 0)
@@ -37,7 +37,6 @@
                     <thead>
                         <tr class="text-left text-xs uppercase tracking-wider text-slate-500">
                             <th class="py-2 pr-4">Provider</th>
-                            <th class="py-2 pr-4">Environnement</th>
                             <th class="py-2 pr-4">Libellé</th>
                             <th class="py-2 pr-4">Clé publique</th>
                             <th class="py-2 pr-4">Mise à jour</th>
@@ -48,13 +47,6 @@
                         @foreach ($applications as $application)
                             <tr x-data="{ confirmDelete: false }">
                                 <td class="py-2.5 pr-4 font-mono">{{ $application->providerCode }}</td>
-                                <td class="py-2.5 pr-4">
-                                    <span @class([
-                                        'inline-flex rounded-md px-2 py-0.5 text-xs font-semibold',
-                                        'bg-rose-100 text-rose-700' => $application->environment === 'live',
-                                        'bg-amber-100 text-amber-800' => $application->environment === 'sandbox',
-                                    ])>{{ strtoupper($application->environment) }}</span>
-                                </td>
                                 <td class="py-2.5 pr-4 text-slate-700">{{ $application->label ?? '—' }}</td>
                                 <td class="py-2.5 pr-4 font-mono text-slate-700" title="{{ $application->publicKey }}">{{ $application->maskedPublicKey }}</td>
                                 <td class="py-2.5 pr-4 text-slate-500">{{ $application->updatedAt !== null ? \Illuminate\Support\Carbon::parse($application->updatedAt)->format('d/m/Y H:i') : '—' }}</td>
@@ -67,8 +59,8 @@
                                           class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50" @click.self="confirmDelete = false">
                                         @csrf
                                         <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4 text-left whitespace-normal" @click.stop>
-                                            <p class="font-semibold text-slate-900 mb-2">Supprimer l'application {{ $application->providerCode }} ({{ $application->environment }}) ?</p>
-                                            <p class="text-sm text-slate-600 mb-4">Les paiements {{ $application->environment }} de ce projet ne pourront plus passer par ce provider tant qu'une autre application n'est pas enregistrée.</p>
+                                            <p class="font-semibold text-slate-900 mb-2">Supprimer l'application {{ $application->providerCode }} ?</p>
+                                            <p class="text-sm text-slate-600 mb-4">Les paiements de ce projet ne pourront plus passer par ce provider tant qu'une autre application n'est pas enregistrée.</p>
                                             <div class="flex justify-end gap-2">
                                                 <button type="button" @click="confirmDelete = false" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Annuler</button>
                                                 <button type="submit" class="rounded-md bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-sm font-medium text-white">Supprimer</button>
@@ -86,7 +78,7 @@
 
     <div id="form" class="bg-white border border-slate-200 rounded-lg p-6 max-w-xl">
         <h2 class="text-lg font-semibold text-slate-900 mb-3">
-            {{ $editing !== null ? "Modifier l'application {$editing->providerCode} (".strtoupper($editing->environment).')' : 'Nouvelle application' }}
+            {{ $editing !== null ? "Modifier l'application {$editing->providerCode}" : 'Nouvelle application' }}
         </h2>
 
         @if (count($availableProviders) === 0)
@@ -97,9 +89,8 @@
 
                 @if ($editing !== null)
                     <input type="hidden" name="provider" value="{{ $editing->providerCode }}">
-                    <input type="hidden" name="environment" value="{{ $editing->environment }}">
                 @else
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 gap-4">
                         <div>
                             <label for="provider" class="block text-sm font-medium text-slate-700 mb-1">Provider</label>
                             <select name="provider" id="provider" required class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base bg-white font-mono">
@@ -108,15 +99,8 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div>
-                            <label for="environment" class="block text-sm font-medium text-slate-700 mb-1">Environnement</label>
-                            <select name="environment" id="environment" required class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base bg-white">
-                                <option value="live" @selected(old('environment', 'live') === 'live')>Live</option>
-                                <option value="sandbox" @selected(old('environment') === 'sandbox')>Sandbox</option>
-                            </select>
-                        </div>
                     </div>
-                    <p class="text-xs text-slate-500">Si l'application existe déjà pour ce provider et cet environnement, ses clés sont remplacées.</p>
+                    <p class="text-xs text-slate-500">Si l'application existe déjà pour ce provider, ses clés sont remplacées.</p>
                 @endif
 
                 <div>

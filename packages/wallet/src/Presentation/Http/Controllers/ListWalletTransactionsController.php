@@ -28,7 +28,7 @@ final class ListWalletTransactionsController
      * `withdrawal` or `debit`; `reference`, `description` and `metadata` are those you sent
      * with the transfer or withdrawal. Requires the `wallets:read` scope.
      *
-     * @throws WalletNotFound the wallet doesn't exist, or belongs to another project or environment (404)
+     * @throws WalletNotFound the wallet doesn't exist, or belongs to another project (404)
      */
     public function __invoke(string $walletId, ListWalletTransactionsRequest $request, ProjectContext $project): JsonResponse|Response
     {
@@ -38,7 +38,6 @@ final class ListWalletTransactionsController
 
         $page = $this->transactions->list(new ListWalletTransactionsCommand(
             $project->projectId,
-            $project->environment->value,
             $walletId,
             max(1, $request->integer('page', 1)),
             min(100, max(1, $request->integer('per_page', 25))),

@@ -56,10 +56,6 @@ final readonly class DebitWalletUseCase implements DebitWallet
                 throw WalletProjectMismatch::forWallet($wallet->id, $command->projectId);
             }
 
-            if ($wallet->environment !== $command->environment) {
-                throw WalletNotFound::withId($command->walletId);
-            }
-
             // The lock is taken before checking funds, and before posting to
             // the ledger: two concurrent debits must serialise here, or both
             // could read "sufficient funds" against the same stale balance
@@ -93,7 +89,7 @@ final readonly class DebitWalletUseCase implements DebitWallet
             $clearingAccount = $this->accountResolver->resolveOrCreate(new ResolveOrCreateAccountCommand(
                 $wallet->projectId,
                 SystemAccount::CLEARING,
-                SystemAccount::reference($wallet->environment),
+                SystemAccount::PROJECT_LEVEL,
                 $wallet->currency,
             ));
 
@@ -132,7 +128,6 @@ final readonly class DebitWalletUseCase implements DebitWallet
                 ],
                 null,
                 $this->clock->now(),
-                environment: $wallet->environment,
             ));
 
             return $this->toView($newBalance);

@@ -10,11 +10,11 @@ use Core\Wallet\Domain\Model\WalletOperation;
 interface WalletOperationRepository
 {
     /**
-     * @throws WalletOperationAlreadyExists the (project, environment, idempotency key) is taken
+     * @throws WalletOperationAlreadyExists the (project, idempotency key) is taken
      */
     public function save(WalletOperation $operation): void;
 
-    public function findByIdempotencyKey(string $projectId, string $environment, string $idempotencyKey): ?WalletOperation;
+    public function findByIdempotencyKey(string $projectId, string $idempotencyKey): ?WalletOperation;
 
     /**
      * Bulk read for a transactions page: one query, keyed by operation id.

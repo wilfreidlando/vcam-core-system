@@ -25,14 +25,14 @@ final readonly class ListPartyWalletsUseCase implements ListPartyWallets
 
     public function list(ListPartyWalletsCommand $command): array
     {
-        $party = $this->parties->find($command->projectId, $command->environment, $command->partyExternalRef);
+        $party = $this->parties->find($command->projectId, $command->partyExternalRef);
         if ($party === null) {
             return [];
         }
 
         $wallets = array_values(array_filter(
             $this->wallets->findByParty($party->id),
-            static fn ($wallet): bool => $wallet->belongsTo($command->projectId, $command->environment),
+            static fn ($wallet): bool => $wallet->belongsTo($command->projectId),
         ));
         $balances = $this->balances->findMany(array_map(static fn ($wallet): string => $wallet->id, $wallets));
 

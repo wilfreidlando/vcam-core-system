@@ -59,9 +59,10 @@ Any other cross-module dependency fails CI.
 - **No free credit.** Value enters a wallet only through a confirmed payment carrying
   `wallet_recipient_external_ref` (ADR-0037). Transfers move value, withdrawals record
   that it left; neither creates any.
-- **Environment isolation.** Parties and wallets carry `environment` (`live` or
-  `sandbox`); every read and mutation checks it. The `clearing` and `withdrawal`
-  accounts are split by reference (`''` live, `sandbox`), see `SystemAccount`.
+- **Project isolation.** Every read and mutation checks the wallet belongs to the
+  calling project. The `clearing` and `withdrawal` accounts are project-level (see
+  `SystemAccount`). The Core has one environment (ADR-0066): testing happens on the
+  staging deployment.
 - **Locking.** A transfer locks every balance it touches in ascending wallet-id order
   (no deadlock between crossing transfers), then re-checks idempotency before posting —
   proven by `tests/Integration/TransferConcurrencyTest.php`.

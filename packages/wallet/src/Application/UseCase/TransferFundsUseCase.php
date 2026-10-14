@@ -33,8 +33,8 @@ use Core\Wallet\Domain\Port\WalletOperationRepository;
 use LogicException;
 
 /**
- * ADR-0065 — moves value between wallets of one project and one
- * environment, as ONE ledger transaction: every leg lands, or none does.
+ * ADR-0065 — moves value between wallets of one project, as ONE ledger
+ * transaction: every leg lands, or none does.
  * Zero-sum by construction (each leg debits one wallet account and credits
  * another), so no value is ever created — the concern ADR-0033 §1 raised
  * against a public credit endpoint does not apply.
@@ -77,7 +77,7 @@ final readonly class TransferFundsUseCase implements TransferFunds
         $this->validate($command);
 
         return $this->unitOfWork->transactional(function () use ($command): WalletOperationView {
-            $existing = $this->operations->findByIdempotencyKey($command->projectId, $command->environment, $command->idempotencyKey);
+            $existing = $this->operations->findByIdempotencyKey($command->projectId, $command->idempotencyKey);
             if ($existing !== null) {
                 return $this->views->ofReplay($existing);
             }
@@ -89,11 +89,11 @@ final readonly class TransferFundsUseCase implements TransferFunds
             /** @var array<string, array{wallet: Wallet, ref: string}> $touched */
             $touched = [];
             foreach ($command->legs as $leg) {
-                $byRef[$leg->from] ??= $this->provisioner->source($command->projectId, $command->environment, $leg->from, $command->currency);
+                $byRef[$leg->from] ??= $this->provisioner->source($command->projectId, $leg->from, $command->currency);
                 $touched[$byRef[$leg->from]->id] = ['wallet' => $byRef[$leg->from], 'ref' => $leg->from];
             }
             foreach ($command->legs as $leg) {
-                $byRef[$leg->to] ??= $this->provisioner->destination($command->projectId, $command->environment, $leg->to, $command->currency, $leg->toPartyType);
+                $byRef[$leg->to] ??= $this->provisioner->destination($command->projectId, $leg->to, $command->currency, $leg->toPartyType);
                 $touched[$byRef[$leg->to]->id] = ['wallet' => $byRef[$leg->to], 'ref' => $leg->to];
             }
             $walletIds = array_keys($touched);
@@ -105,7 +105,7 @@ final readonly class TransferFundsUseCase implements TransferFunds
                 $locked[$walletId] = $this->balances->lockForUpdate($walletId);
             }
 
-            $ledgerKey = self::ledgerKey($command->environment, $command->idempotencyKey);
+            $ledgerKey = self::ledgerKey($command->idempotencyKey);
             if ($this->ledgerPoster->hasBeenPosted($command->projectId, $ledgerKey)) {
                 return $this->replayAfterRace($command);
             }
@@ -172,7 +172,6 @@ final readonly class TransferFundsUseCase implements TransferFunds
             $operation = new WalletOperation(
                 $operationId,
                 $command->projectId,
-                $command->environment,
                 WalletOperation::TRANSFER,
                 $command->idempotencyKey,
                 $command->currency,
@@ -207,7 +206,6 @@ final readonly class TransferFundsUseCase implements TransferFunds
                     ], static fn (mixed $value): bool => $value !== null),
                     null,
                     $this->clock->now(),
-                    environment: $command->environment,
                 ));
             }
 
@@ -215,14 +213,14 @@ final readonly class TransferFundsUseCase implements TransferFunds
         });
     }
 
-    public static function ledgerKey(string $environment, string $idempotencyKey): string
+    public static function ledgerKey(string $idempotencyKey): string
     {
-        return 'wallet_transfer:'.$environment.':'.$idempotencyKey;
+        return 'wallet_transfer:'.$idempotencyKey;
     }
 
     private function replayAfterRace(TransferFundsCommand $command): WalletOperationView
     {
-        $winner = $this->operations->findByIdempotencyKey($command->projectId, $command->environment, $command->idempotencyKey)
+        $winner = $this->operations->findByIdempotencyKey($command->projectId, $command->idempotencyKey)
             ?? throw new LogicException('The ledger holds this transfer but its operation record is missing.');
 
         return $this->views->ofReplay($winner);

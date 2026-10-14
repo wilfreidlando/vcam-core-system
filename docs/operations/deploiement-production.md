@@ -70,7 +70,7 @@ Points d'attention en le remplissant :
 | `APP_URL` | `https://<ton-domaine>` |
 | `DB_PASSWORD` | Générée ci-dessus |
 | `SESSION_SECURE_COOKIE` | `true` |
-| `CORE_ENVIRONMENT` | `sandbox` tant que tu testes ; `live` seulement quand tu es prêt à faire circuler du vrai argent (spec technique §14) |
+| `PAYMENT_SIMULATOR_ENABLED` | `false` en production, **toujours** ; `true` seulement sur le staging, pour tester sans argent réel (ADR-0066) |
 | `CORE_PUBLIC_HOST` | Le domaine, sans schéma (ex. `core-system.visibilitycam.com`). Anciennement `VIRTUAL_HOST`, renommé pour que seul le sidecar web se déclare à nginx-proxy (ADR-0064) |
 | `LETSENCRYPT_EMAIL` | L'adresse qui recevra les alertes d'expiration de certificat |
 | `MTN_MOMO_*` / `ORANGE_MONEY_*` | Laisser vide tant que ces adaptateurs ne sont pas construits (hors périmètre actuel — voir `CLAUDE.md`) ; MyCoolPay ne passe pas par ces variables, voir [§9](#9-enregistrer-une-application-provider-mycoolpay) |
@@ -186,17 +186,13 @@ docker compose -f compose.prod.yaml exec app php artisan identity:create-organiz
 docker compose -f compose.prod.yaml exec app php artisan identity:create-project <organization-id> "Nom du projet"
 # → note le Project id affiché
 
-docker compose -f compose.prod.yaml exec app php artisan identity:issue-api-key <project-id> live \
-    --scope=payments:read --scope=payments:write \
-    --scope=webhooks:read --scope=webhooks:write \
-    --scope=notifications:read --scope=notifications:write \
-    --scope=notification_channel_sessions:read --scope=notification_channel_sessions:write \
-    --scope=wallets:read
+docker compose -f compose.prod.yaml exec app php artisan identity:issue-api-key <project-id> \
+    --scope='*'
 ```
 
-`environment` est `sandbox` ou `live` — une clé sandbox ne touche jamais de
-vrai argent (spec technique §14). La clé est affichée en clair une seule
-fois, comme le mot de passe opérateur.
+Un projet a une seule clé (ADR-0066) ; `--replace` la régénère. Pour tester
+sans argent réel, utilisez le déploiement de staging. La clé est affichée en
+clair une seule fois, comme le mot de passe opérateur.
 
 ## 9. Enregistrer une application provider (MyCoolPay)
 
@@ -261,7 +257,7 @@ Deux checkouts sur le serveur (plateforme, `README.md` § 4) : `/app/core-system
 cd /app/core-system/staging && make staging-deploy            # REF=origin/ma-branche pour une autre branche
 
 # Recette sur https://core-system-staging.visibilitycam.com
-#   (MyCoolPay en sandbox, session WhatsApp de test — jamais les clés de production)
+#   (simulateur de paiement activé, session WhatsApp de test — jamais les clés de production)
 
 # Production — manuelle, la même image :
 cd /app/core-system/prod && make prod-promote                 # demande de taper « oui »

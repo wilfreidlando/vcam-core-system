@@ -31,7 +31,6 @@ final class PaymentViews
             callbackUrl: $payment->callbackUrl,
             callbackSecret: $includeCallbackSecret ? $payment->callbackSecret : null,
             isFinal: $payment->status->isFinal(),
-            environment: $payment->environment->value,
             providerCode: $payment->providerCode,
             providerTransactionRef: $payment->providerTransactionRef,
             returnUrl: $payment->returnUrl,
