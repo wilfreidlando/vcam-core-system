@@ -54,7 +54,6 @@ final readonly class ResolveProjectFromBearerToken
         return new ProjectContext(
             projectId: $project->id,
             organizationId: $project->organizationId,
-            environment: $apiKey->environment,
             scopes: $apiKey->scopes(),
             apiKeyPrefix: $apiKey->prefix,
         );

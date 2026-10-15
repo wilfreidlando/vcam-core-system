@@ -8,9 +8,9 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Validates `POST /v1/sandbox/payments/{paymentId}/simulate` (ADR-0060).
+ * Validates `POST /v1/payments/{paymentId}/simulate` (ADR-0066).
  */
-final class SimulateSandboxPaymentRequest extends FormRequest
+final class SimulatePaymentRequest extends FormRequest
 {
     public function authorize(): bool
     {

@@ -25,7 +25,7 @@ not here):
 | `GET /v1/admin/projects/{id}/wallets` | `wallets:read` | `Core\Wallet\Contracts\ListWallets` |
 | `GET /v1/admin/projects/{id}/notifications` | `notifications:read` | `Core\Notification\Contracts\ListNotifications` |
 
-Plus `admin:reconcile-stuck-payments`, scheduled every 5 minutes
+Plus `admin:reconcile-stuck-payments`, scheduled every minute (ADR-0067)
 (`bootstrap/app.php`) as the primary reconciliation trigger.
 
 The two mutating endpoints (webhook replay, reconciliation trigger) record

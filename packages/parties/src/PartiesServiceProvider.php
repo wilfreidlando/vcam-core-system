@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Core\Parties;
 
 use Core\Parties\Application\UseCase\FindOrCreateParty;
+use Core\Parties\Application\UseCase\FindPartyByExternalRef;
 use Core\Parties\Contracts\PartyFinder;
+use Core\Parties\Contracts\PartyLookup;
 use Core\Parties\Domain\Port\PartyRepository;
 use Core\Parties\Infrastructure\Persistence\Eloquent\EloquentPartyRepository;
 use Illuminate\Support\ServiceProvider;
@@ -21,6 +23,7 @@ final class PartiesServiceProvider extends ServiceProvider
     {
         $this->app->bind(PartyRepository::class, EloquentPartyRepository::class);
         $this->app->bind(PartyFinder::class, FindOrCreateParty::class);
+        $this->app->bind(PartyLookup::class, FindPartyByExternalRef::class);
     }
 
     public function boot(): void

@@ -33,7 +33,7 @@ final class GetNotificationStatusController
             return ProblemDetails::forbidden('The notifications:read scope is required.');
         }
 
-        $view = $this->getNotificationStatus->get(new GetNotificationStatusCommand($notificationId, $project->projectId, $project->environment));
+        $view = $this->getNotificationStatus->get(new GetNotificationStatusCommand($notificationId, $project->projectId));
 
         return new JsonResponse([
             'id' => $view->id,

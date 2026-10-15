@@ -6,16 +6,16 @@ use Core\Identity\Domain\Exception\InvalidApiKey;
 use Core\Identity\Domain\Model\ApiKeyToken;
 
 it('composes and re-parses to the same value', function (): void {
-    $token = ApiKeyToken::compose('pk_sandbox_abcd1234', 'the-secret-part');
+    $token = ApiKeyToken::compose('pk_abcd1234', 'the-secret-part');
 
-    expect(ApiKeyToken::parse($token->value())->prefix)->toBe('pk_sandbox_abcd1234')
+    expect(ApiKeyToken::parse($token->value())->prefix)->toBe('pk_abcd1234')
         ->and(ApiKeyToken::parse($token->value())->secret)->toBe('the-secret-part');
 });
 
 it('splits on the first separator, so a secret may itself contain dots', function (): void {
-    $token = ApiKeyToken::parse('pk_sandbox_abcd1234.part.with.dots');
+    $token = ApiKeyToken::parse('pk_abcd1234.part.with.dots');
 
-    expect($token->prefix)->toBe('pk_sandbox_abcd1234')
+    expect($token->prefix)->toBe('pk_abcd1234')
         ->and($token->secret)->toBe('part.with.dots');
 });
 

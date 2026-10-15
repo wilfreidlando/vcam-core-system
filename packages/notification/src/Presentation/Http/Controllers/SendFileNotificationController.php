@@ -78,7 +78,6 @@ final class SendFileNotificationController
             caption: $data['caption'] ?? null,
             variables: $data['variables'] ?? [],
             idempotencyKey: $idempotencyKey,
-            environment: $project->environment,
         ));
 
         return new JsonResponse([

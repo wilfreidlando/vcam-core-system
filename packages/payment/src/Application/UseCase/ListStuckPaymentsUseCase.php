@@ -17,13 +17,14 @@ final readonly class ListStuckPaymentsUseCase implements ListStuckPayments
         private PaymentRepository $payments,
         private Clock $clock,
         private int $stuckAfterMinutes,
+        private int $maxAgeHours = 24,
     ) {}
 
     public function list(ListStuckPaymentsCommand $command): array
     {
         $threshold = $this->clock->now()->modify(sprintf('-%d minutes', $this->stuckAfterMinutes));
 
-        $stuck = $this->payments->findStuckSince($threshold, $command->limit);
+        $stuck = $this->payments->findStuckSince($threshold, $command->limit, $this->clock->now()->modify(sprintf('-%d hours', $this->maxAgeHours)));
 
         return array_map(
             static fn (Payment $payment): StuckPaymentView => new StuckPaymentView(

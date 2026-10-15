@@ -28,7 +28,10 @@ use Core\Support\Integration\Exception\ProviderAuthError;
 use Core\Support\Integration\Exception\ProviderDisabledException;
 use Core\Support\Integration\Exception\ProviderPermanentError;
 use Core\Support\Integration\Exception\ProviderTransientError;
+use Core\Wallet\Domain\Exception\InsufficientFunds;
+use Core\Wallet\Domain\Exception\InvalidWalletOperation;
 use Core\Wallet\Domain\Exception\WalletNotFound;
+use Core\Wallet\Domain\Exception\WalletProjectMismatch;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotDead;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
 use Core\Webhook\Domain\Exception\WebhookEndpointInactive;
@@ -63,6 +66,10 @@ final class ExceptionProblemMapping
      */
     private const MAP = [
         WalletNotFound::class => ['type' => 'wallet-not-found', 'title' => 'Wallet not found', 'status' => 404],
+        // ADR-0065 — same answer as not found: never reveal a wallet outside the caller's reach.
+        WalletProjectMismatch::class => ['type' => 'wallet-not-found', 'title' => 'Wallet not found', 'status' => 404],
+        InsufficientFunds::class => ['type' => 'insufficient-funds', 'title' => 'Insufficient funds', 'status' => 409],
+        InvalidWalletOperation::class => ['type' => 'invalid-wallet-operation', 'title' => 'The wallet operation is invalid', 'status' => 422],
         PaymentNotFound::class => ['type' => 'payment-not-found', 'title' => 'Payment not found', 'status' => 404],
         PaymentNotSimulable::class => ['type' => 'payment-not-simulable', 'title' => 'This payment cannot be simulated', 'status' => 409],
         NoProviderForChannelException::class => ['type' => 'no-provider-for-channel', 'title' => 'No provider is configured for this channel', 'status' => 422],

@@ -25,7 +25,6 @@ final readonly class SendTextNotificationUseCase implements SendTextNotification
             body: ['type' => 'text', 'text' => $command->text],
             contentType: 'text',
             idempotencyKey: $command->idempotencyKey,
-            environment: $command->environment,
         );
     }
 }

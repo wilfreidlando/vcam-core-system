@@ -103,7 +103,6 @@ final readonly class HandleNotificationStatusChangedUseCase implements Notificat
                 ],
                 null,
                 $this->clock->now(),
-                environment: $updated->environment->value,
             ));
         });
     }

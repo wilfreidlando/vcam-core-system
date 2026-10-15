@@ -6,7 +6,6 @@ namespace Core\Identity\Infrastructure\Security;
 
 use Core\Identity\Domain\Model\GeneratedApiKeySecret;
 use Core\Identity\Domain\Port\ApiKeySecretGenerator;
-use Core\Support\Environment;
 
 /**
  * `random_bytes()` — a CSPRNG, not `rand()`/`mt_rand()`. A predictable secret
@@ -18,9 +17,11 @@ final class RandomApiKeySecretGenerator implements ApiKeySecretGenerator
 
     private const SECRET_ENTROPY_BYTES = 32; // -> 256 bits
 
-    public function generate(Environment $environment): GeneratedApiKeySecret
+    public function generate(): GeneratedApiKeySecret
     {
-        $prefix = 'pk_'.$environment->value.'_'.$this->randomBase62(self::PREFIX_ENTROPY_BYTES);
+        // ADR-0066: no environment in the prefix any more. Keys issued
+        // before (`pk_live_…`) keep working — the prefix is only a lookup key.
+        $prefix = 'pk_'.$this->randomBase62(self::PREFIX_ENTROPY_BYTES);
         $secret = $this->randomBase64Url(self::SECRET_ENTROPY_BYTES);
 
         return new GeneratedApiKeySecret($prefix, $secret);

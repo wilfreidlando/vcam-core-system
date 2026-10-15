@@ -18,5 +18,8 @@ final readonly class CreditWalletCommand
         public string $currency,
         public ?string $externalRef,
         public string $idempotencyKey,
+        // The product's own reference for the party, echoed in the
+        // `wallet.credited` event when known.
+        public ?string $partyExternalRef = null,
     ) {}
 }

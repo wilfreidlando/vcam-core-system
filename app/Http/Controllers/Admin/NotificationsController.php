@@ -17,7 +17,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * ADR-0062 — a Project's notifications in the console: list (filterable by
- * status and environment) and a detail page carrying everything the Core
+ * status) and a detail page carrying everything the Core
  * knows about one notification — the content sent, its variables (the
  * recipient's phone number included, visible to authorized operators per
  * D5), and every provider attempt of the fallback cascade.
@@ -52,17 +52,12 @@ final class NotificationsController
         if (! in_array($status, self::STATUSES, true)) {
             $status = '';
         }
-        $environment = (string) $request->query('environment', '');
-        if (! in_array($environment, ['live', 'sandbox'], true)) {
-            $environment = '';
-        }
 
         $result = $this->listNotifications->list(new ListNotificationsCommand(
             projectId: $projectId,
             status: $status === '' ? null : $status,
             page: $page,
             perPage: $perPage,
-            environment: $environment === '' ? null : $environment,
         ));
 
         return response()->view('admin.notifications.index', [
@@ -72,7 +67,7 @@ final class NotificationsController
             'total' => $result->total,
             'page' => $page,
             'perPage' => $perPage,
-            'filters' => ['status' => $status, 'environment' => $environment],
+            'filters' => ['status' => $status],
             'statuses' => self::STATUSES,
         ]);
     }

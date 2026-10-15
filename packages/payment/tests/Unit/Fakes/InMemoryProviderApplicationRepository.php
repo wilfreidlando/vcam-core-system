@@ -7,7 +7,6 @@ namespace Core\Payment\Tests\Unit\Fakes;
 use Core\Payment\Domain\Exception\ProviderApplicationPublicKeyAlreadyUsed;
 use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
-use Core\Support\Environment;
 
 final class InMemoryProviderApplicationRepository implements ProviderApplicationRepository
 {
@@ -27,11 +26,11 @@ final class InMemoryProviderApplicationRepository implements ProviderApplication
     public function save(ProviderApplication $application): void
     {
         $owner = $this->findByProviderAndPublicKey($application->providerCode, $application->publicKey);
-        if ($owner !== null && ($owner->projectId !== $application->projectId || $owner->environment !== $application->environment)) {
-            throw new ProviderApplicationPublicKeyAlreadyUsed($owner->projectId, $owner->environment->value);
+        if ($owner !== null && $owner->projectId !== $application->projectId) {
+            throw new ProviderApplicationPublicKeyAlreadyUsed($owner->projectId);
         }
 
-        $key = self::key($application->projectId, $application->providerCode, $application->environment);
+        $key = self::key($application->projectId, $application->providerCode);
         $id = $application->id ?? ($this->applications[$key]->id ?? 'app-'.(count($this->applications) + 1));
 
         $this->applications[$key] = new ProviderApplication(
@@ -39,15 +38,14 @@ final class InMemoryProviderApplicationRepository implements ProviderApplication
             providerCode: $application->providerCode,
             publicKey: $application->publicKey,
             privateKey: $application->privateKey,
-            environment: $application->environment,
             id: $id,
             label: $application->label,
         );
     }
 
-    public function findByProjectAndProvider(string $projectId, string $providerCode, Environment $environment = Environment::Live): ?ProviderApplication
+    public function findByProjectAndProvider(string $projectId, string $providerCode): ?ProviderApplication
     {
-        return $this->applications[self::key($projectId, $providerCode, $environment)] ?? null;
+        return $this->applications[self::key($projectId, $providerCode)] ?? null;
     }
 
     public function findByProviderAndPublicKey(string $providerCode, string $publicKey): ?ProviderApplication
@@ -93,8 +91,8 @@ final class InMemoryProviderApplicationRepository implements ProviderApplication
         return $applications;
     }
 
-    private static function key(string $projectId, string $providerCode, Environment $environment): string
+    private static function key(string $projectId, string $providerCode): string
     {
-        return $providerCode.':'.$projectId.':'.$environment->value;
+        return $providerCode.':'.$projectId;
     }
 }

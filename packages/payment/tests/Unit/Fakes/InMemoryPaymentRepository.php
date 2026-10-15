@@ -19,6 +19,9 @@ final class InMemoryPaymentRepository implements PaymentRepository
      */
     public ?Payment $concurrentWinner = null;
 
+    /** @var array<string, DateTimeImmutable> `reconciled_at` per payment id (ADR-0067) */
+    public array $reconciledAt = [];
+
     /** @var array<string, Payment> */
     private array $payments = [];
 
@@ -83,29 +86,29 @@ final class InMemoryPaymentRepository implements PaymentRepository
     }
 
     /**
-     * The Domain `Payment` carries no timestamp (unlike the Eloquent
-     * record), so this fake ignores `$threshold` and simply returns every
-     * non-terminal payment in insertion order, up to `$limit` — enough for
-     * `ReconcileStuckPaymentsUseCase`'s unit tests, which control "stuck"
-     * entirely via which payments they add.
+     * The Domain `Payment` carries no creation timestamp (unlike the
+     * Eloquent record), so this fake ignores `$createdAfter` and treats
+     * every payment as last changed before `$threshold`. It does honour
+     * `reconciled_at` (ADR-0067): a payment checked at or after
+     * `$threshold` is not a candidate, and never-checked payments come
+     * first (insertion order), then the least recently checked.
      */
-    public function findStuckSince(DateTimeImmutable $threshold, int $limit): array
+    public function findStuckSince(DateTimeImmutable $threshold, int $limit, DateTimeImmutable $createdAfter): array
     {
-        $stuck = array_values(array_filter(
-            $this->payments,
-            static fn (Payment $payment): bool => in_array($payment->status, [PaymentStatus::Pending, PaymentStatus::Processing], true),
-        ));
-
-        return array_slice($stuck, 0, $limit);
+        return array_slice($this->stuckCandidates($threshold), 0, $limit);
     }
 
-    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage, ?\Core\Support\Environment $environment = null): array
+    public function markReconciliationChecked(string $paymentId, DateTimeImmutable $checkedAt): void
+    {
+        $this->reconciledAt[$paymentId] = $checkedAt;
+    }
+
+    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage): array
     {
         $matching = array_values(array_filter(
             $this->payments,
             static fn (Payment $payment): bool => ($projectId === null || $payment->projectId === $projectId)
-                && ($status === null || $payment->status === $status)
-                && ($environment === null || $payment->environment === $environment),
+                && ($status === null || $payment->status === $status),
         ));
 
         $total = count($matching);
@@ -115,16 +118,11 @@ final class InMemoryPaymentRepository implements PaymentRepository
     }
 
     /**
-     * Same reasoning as findStuckSince(): no timestamp on the Domain
-     * model, so this fake ignores `$threshold` and counts every
-     * non-terminal payment.
+     * Same candidate set as findStuckSince().
      */
-    public function countStuckSince(DateTimeImmutable $threshold): int
+    public function countStuckSince(DateTimeImmutable $threshold, DateTimeImmutable $createdAfter): int
     {
-        return count(array_filter(
-            $this->payments,
-            static fn (Payment $payment): bool => in_array($payment->status, [PaymentStatus::Pending, PaymentStatus::Processing], true),
-        ));
+        return count($this->stuckCandidates($threshold));
     }
 
     /**
@@ -139,5 +137,19 @@ final class InMemoryPaymentRepository implements PaymentRepository
         ));
 
         return ['total' => $total, 'succeeded' => $succeeded];
+    }
+
+    /** @return list<Payment> */
+    private function stuckCandidates(DateTimeImmutable $threshold): array
+    {
+        $stuck = array_values(array_filter(
+            $this->payments,
+            fn (Payment $payment): bool => in_array($payment->status, [PaymentStatus::Pending, PaymentStatus::Processing], true)
+                && (! isset($this->reconciledAt[$payment->id]) || $this->reconciledAt[$payment->id] < $threshold),
+        ));
+        $ordre = array_flip(array_keys($this->payments));
+        usort($stuck, fn (Payment $a, Payment $b): int => [$this->reconciledAt[$a->id] ?? null, $ordre[$a->id]] <=> [$this->reconciledAt[$b->id] ?? null, $ordre[$b->id]]);
+
+        return $stuck;
     }
 }

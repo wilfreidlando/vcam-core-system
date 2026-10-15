@@ -57,7 +57,6 @@ final readonly class OutboxRelay implements RelayOutboxEvents
                 correlationId: $row->correlation_id,
                 occurredAt: $row->created_at,
                 skipWebhookEndpointFanOut: $row->skip_webhook_endpoint_fan_out,
-                environment: $row->environment,
             );
 
             // ADR-0059: the relay runs in the scheduler, outside the request

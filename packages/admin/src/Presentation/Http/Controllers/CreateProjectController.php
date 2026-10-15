@@ -58,15 +58,9 @@ final class CreateProjectController
             'organization_id' => $provisioned->project->organizationId,
             'name' => $provisioned->project->name,
             'status' => $provisioned->project->status,
-            'api_keys' => [
-                'sandbox' => [
-                    'prefix' => $provisioned->sandboxApiKey->prefix,
-                    'plaintext_token' => $provisioned->sandboxApiKey->plaintextToken,
-                ],
-                'live' => [
-                    'prefix' => $provisioned->liveApiKey->prefix,
-                    'plaintext_token' => $provisioned->liveApiKey->plaintextToken,
-                ],
+            'api_key' => [
+                'prefix' => $provisioned->apiKey->prefix,
+                'plaintext_token' => $provisioned->apiKey->plaintextToken,
             ],
         ], 201);
     }

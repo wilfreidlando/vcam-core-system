@@ -118,7 +118,7 @@ final class ProjectsController
         return response()->view('admin.projects.show', [
             'title' => 'Projet '.substr($project->id, 0, 8).'…',
             'project' => $project,
-            'createdApiKeys' => session('admin.projects.created_api_keys'),
+            'createdApiKey' => session('admin.projects.created_api_key'),
         ]);
     }
 
@@ -166,10 +166,7 @@ final class ProjectsController
         // One-shot display on the project page — same pattern as a
         // standalone key/webhook-secret issuance, never retrievable again.
         // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
-        session()->flash('admin.projects.created_api_keys', [
-            'sandbox' => $provisioned->sandboxApiKey->plaintextToken,
-            'live' => $provisioned->liveApiKey->plaintextToken,
-        ]);
+        session()->flash('admin.projects.created_api_key', $provisioned->apiKey->plaintextToken);
 
         return redirect()->route('admin.projects.show', ['projectId' => $provisioned->project->id])
             ->with('status', 'Projet créé : '.$provisioned->project->name);

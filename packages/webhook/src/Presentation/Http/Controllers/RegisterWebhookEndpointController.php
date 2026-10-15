@@ -44,7 +44,6 @@ final class RegisterWebhookEndpointController
             projectId: $project->projectId,
             url: $data['url'],
             events: $data['events'],
-            environment: $project->environment,
         ));
 
         return new JsonResponse([

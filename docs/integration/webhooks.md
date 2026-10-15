@@ -10,7 +10,7 @@ fonctionner, le build échouerait.
 
 | | Endpoint webhook | `callback_url` d'un paiement |
 | --- | --- | --- |
-| Déclaration | `POST /v1/webhook-endpoints` (une fois par projet et environnement) | champ `callback_url` à la création du paiement |
+| Déclaration | `POST /v1/webhook-endpoints` (une fois par projet) | champ `callback_url` à la création du paiement |
 | Événements | ceux auxquels l'endpoint est abonné (§3) | `payment.status_changed` de **ce** paiement seulement |
 | Secret de signature | `secret` (`whsec_…`) renvoyé **une seule fois** à l'enregistrement | `callback_secret` (`pcbsec_…`) renvoyé **une seule fois** à la création du paiement |
 | Corps | enveloppe `{id, type, data}` | **la même** enveloppe, octet pour octet |
@@ -21,10 +21,8 @@ Un paiement créé **avec** `callback_url` est notifié à cette URL ; il n'est 
 relayé en plus vers vos endpoints webhook. Sans `callback_url`, ses changements de
 statut partent vers vos endpoints abonnés à `payment.status_changed`.
 
-Chaque endpoint appartient à **un environnement** : celui de la clé API qui l'a
-enregistré. Un endpoint enregistré avec une clé `sandbox` ne reçoit que les
-événements sandbox, et inversement. Utilisez deux URL distinctes (ou distinguez-les
-par le champ `environment` de vos propres données) si vous recevez les deux.
+Le staging et la production du Core sont deux déploiements distincts : un endpoint
+enregistré sur le staging ne reçoit que les événements du staging.
 
 ## 2. Ce que le Core envoie
 
@@ -106,12 +104,23 @@ final. Fiez-vous à `is_final` plutôt qu'à une liste de statuts codée en dur.
 
 ### `wallet.credited`, `wallet.debited`
 
+Un événement par wallet dont le solde change : un transfert de plusieurs jambes
+en émet un par wallet touché, avec le mouvement net de ce wallet. Les champs
+facultatifs ne sont présents que s'ils sont connus.
+
 | Champ | Description |
 | --- | --- |
 | `wallet_id` | Identifiant du wallet. |
-| `party_id` | Tiers propriétaire du wallet. |
+| `party_id` | Identifiant interne du tiers propriétaire du wallet. |
+| `party_external_ref` | Votre référence du tiers (facultatif). |
 | `amount_minor` | Montant crédité ou débité, en plus petite unité. |
 | `currency` | Code ISO 4217. |
+| `operation_type` | `payment`, `transfer` ou `withdrawal`. |
+| `payment_id` | Le paiement qui a crédité le wallet (`payment`). |
+| `operation_id` | L'opération (`transfer`, `withdrawal`). |
+| `reference` | Votre `Idempotency-Key` de l'opération (`transfer`, `withdrawal`). |
+| `description` | Votre libellé de l'opération, s'il a été fourni. |
+
 
 ### `webhook.test`
 

@@ -73,6 +73,26 @@ final class ResolveOperatorSession
         return $next($request);
     }
 
+    /**
+     * The operator signed in to this browser session, or null — for
+     * callers that must answer yes/no rather than redirect, such as the
+     * Horizon dashboard gate (ADR-0067). Same token, same use case as
+     * `handle()`.
+     */
+    public function currentOperator(): ?OperatorContext
+    {
+        $token = Session::get(self::SESSION_KEY);
+        if (! is_string($token) || $token === '') {
+            return null;
+        }
+
+        try {
+            return ($this->resolve)($token);
+        } catch (InvalidOperatorCredentials|OperatorRevoked) {
+            return null;
+        }
+    }
+
     private function redirectToLogin(string $error): RedirectResponse
     {
         return redirect()->route('admin.login.show')->withErrors(['email' => $error]);

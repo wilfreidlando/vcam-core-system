@@ -33,8 +33,6 @@ return [
     |
     */
 
-    'environment' => env('PROVIDER_ENV', 'sandbox'),
-
     /*
     |--------------------------------------------------------------------------
     | My-CoolPay (DHI) — Cameroonian payment aggregator
@@ -53,7 +51,6 @@ return [
         'my_coolpay' => [
             'code' => 'my-coolpay',
             'adapter' => Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayAdapter::class,
-            'environment' => env('MYCOOLPAY_ENV', 'sandbox'),
             'base_url' => env('MYCOOLPAY_BASE_URL', 'https://my-coolpay.com'),
             'enabled' => env('MYCOOLPAY_ENABLED', true),
             'debug' => env('MYCOOLPAY_DEBUG', false),

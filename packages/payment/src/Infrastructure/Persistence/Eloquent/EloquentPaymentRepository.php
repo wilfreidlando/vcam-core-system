@@ -8,7 +8,6 @@ use Core\Payment\Domain\Exception\PaymentAlreadyExists;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\PaymentStatus;
-use Core\Support\Environment;
 use DateTimeImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Crypt;
@@ -89,7 +88,7 @@ final class EloquentPaymentRepository implements PaymentRepository
         return $this->toDomain($record);
     }
 
-    public function findStuckSince(DateTimeImmutable $threshold, int $limit): array
+    public function findStuckSince(DateTimeImmutable $threshold, int $limit, DateTimeImmutable $createdAfter): array
     {
         // `whereIn`/`orderBy`/`take` are forwarded by Eloquent\Builder to
         // the underlying query builder rather than declared on it
@@ -97,10 +96,13 @@ final class EloquentPaymentRepository implements PaymentRepository
         // Larastan false positive ("dynamic call to static method") on
         // those forwarded calls, and `PaymentRecord::hydrate()` restores
         // the model casts afterwards.
+        // ADR-0067: "last looked at" = GREATEST(updated_at, reconciled_at)
+        // (GREATEST ignores NULLs) — matches payments_reconciliation_turn_idx.
         $base = PaymentRecord::query()->toBase();
         $base->whereIn('status', [PaymentStatus::Pending->value, PaymentStatus::Processing->value]);
-        $base->where('updated_at', '<', $threshold);
-        $base->orderBy('updated_at');
+        $base->whereRaw('GREATEST(updated_at, reconciled_at) < ?', [$threshold->format(DATE_ATOM)]);
+        $base->where('created_at', '>=', $createdAfter);
+        $base->orderByRaw('GREATEST(updated_at, reconciled_at)');
         $base->take($limit);
 
         $rows = $base->get()->map(static fn (object $row): array => (array) $row)->all();
@@ -115,7 +117,7 @@ final class EloquentPaymentRepository implements PaymentRepository
         return $payments;
     }
 
-    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage, ?Environment $environment = null): array
+    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage): array
     {
         // See findStuckSince() above for why this goes through toBase()/hydrate().
         $query = PaymentRecord::query();
@@ -126,10 +128,6 @@ final class EloquentPaymentRepository implements PaymentRepository
 
         if ($status !== null) {
             $base->where('status', $status->value);
-        }
-
-        if ($environment !== null) {
-            $base->where('environment', $environment->value);
         }
 
         $total = (clone $base)->count();
@@ -154,13 +152,21 @@ final class EloquentPaymentRepository implements PaymentRepository
         return ['items' => $payments, 'total' => $total];
     }
 
-    public function countStuckSince(DateTimeImmutable $threshold): int
+    public function countStuckSince(DateTimeImmutable $threshold, DateTimeImmutable $createdAfter): int
     {
         // See findStuckSince() above for why whereIn()/count() go through toBase().
-        $base = PaymentRecord::query()->where('updated_at', '<', $threshold)->toBase();
+        $base = PaymentRecord::query()->where('created_at', '>=', $createdAfter)->toBase();
         $base->whereIn('status', [PaymentStatus::Pending->value, PaymentStatus::Processing->value]);
+        $base->whereRaw('GREATEST(updated_at, reconciled_at) < ?', [$threshold->format(DATE_ATOM)]);
 
         return $base->count();
+    }
+
+    public function markReconciliationChecked(string $paymentId, DateTimeImmutable $checkedAt): void
+    {
+        // Query builder, not the model: `updated_at` must keep meaning
+        // "the payment last changed" (ADR-0067).
+        PaymentRecord::query()->whereKey($paymentId)->toBase()->update(['reconciled_at' => $checkedAt]);
     }
 
     public function countRecentByStatus(DateTimeImmutable $since): array
@@ -196,7 +202,6 @@ final class EloquentPaymentRepository implements PaymentRepository
             'wallet_recipient_external_ref' => $payment->walletRecipientExternalRef,
             'callback_url' => $payment->callbackUrl,
             'callback_secret_encrypted' => $payment->callbackSecret === null ? null : Crypt::encryptString($payment->callbackSecret),
-            'environment' => $payment->environment->value,
         ];
     }
 
@@ -229,7 +234,6 @@ final class EloquentPaymentRepository implements PaymentRepository
             // framework-free (G3b), so this is where the conversion has
             // to happen.
             updatedAt: DateTimeImmutable::createFromInterface($record->updated_at),
-            environment: Environment::from($record->environment),
             createdAt: DateTimeImmutable::createFromInterface($record->created_at),
         );
     }

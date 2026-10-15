@@ -43,7 +43,7 @@ final class MyCoolPayCallbackAuthenticator implements PaymentCallbackAuthenticat
     {
         if ($this->trustedIps === []) {
             // Deliberately permissive when no allowlist is configured —
-            // e.g. sandbox/local testing, per `config/providers.php`.
+            // e.g. local testing, per `config/providers.php`.
             // The signature check remains mandatory and is never
             // bypassable this way.
             return true;

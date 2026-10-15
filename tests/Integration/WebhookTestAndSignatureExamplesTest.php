@@ -10,7 +10,6 @@ use Core\Identity\Contracts\CreateProject;
 use Core\Identity\Contracts\CreateProjectCommand;
 use Core\Identity\Contracts\IssueApiKey;
 use Core\Identity\Contracts\IssueApiKeyCommand;
-use Core\Support\Environment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -164,7 +163,7 @@ final class WebhookTestAndSignatureExamplesTest extends TestCase
         $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Project'), actor: 'service:test', correlationId: null)->project;
 
         return [app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, Environment::Sandbox, ['*'], replaceExisting: true),
+            new IssueApiKeyCommand($project->id, ['*'], replaceExisting: true),
             actor: 'service:test',
             correlationId: null,
         )->plaintextToken, $project->id];

@@ -7,7 +7,6 @@ namespace Core\Payment\Infrastructure\Persistence\Eloquent;
 use Core\Payment\Domain\Exception\ProviderApplicationPublicKeyAlreadyUsed;
 use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
-use Core\Support\Environment;
 use DateTimeImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Crypt;
@@ -24,8 +23,8 @@ final class EloquentProviderApplicationRepository implements ProviderApplication
     public function save(ProviderApplication $application): void
     {
         $owner = $this->findByProviderAndPublicKey($application->providerCode, $application->publicKey);
-        if ($owner !== null && ($owner->projectId !== $application->projectId || $owner->environment !== $application->environment)) {
-            throw new ProviderApplicationPublicKeyAlreadyUsed($owner->projectId, $owner->environment->value);
+        if ($owner !== null && $owner->projectId !== $application->projectId) {
+            throw new ProviderApplicationPublicKeyAlreadyUsed($owner->projectId);
         }
 
         try {
@@ -36,7 +35,6 @@ final class EloquentProviderApplicationRepository implements ProviderApplication
                 $existing = ProviderApplicationRecord::query()
                     ->where('project_id', $application->projectId)
                     ->where('provider_code', $application->providerCode)
-                    ->where('environment', $application->environment->value)
                     ->first();
 
                 $attributes = [
@@ -50,7 +48,6 @@ final class EloquentProviderApplicationRepository implements ProviderApplication
                         'id' => $application->id ?? (string) Str::uuid7(),
                         'project_id' => $application->projectId,
                         'provider_code' => $application->providerCode,
-                        'environment' => $application->environment->value,
                         ...$attributes,
                     ]);
 
@@ -62,16 +59,15 @@ final class EloquentProviderApplicationRepository implements ProviderApplication
         } catch (UniqueConstraintViolationException) {
             $owner = $this->findByProviderAndPublicKey($application->providerCode, $application->publicKey);
 
-            throw new ProviderApplicationPublicKeyAlreadyUsed($owner->projectId ?? 'inconnu', $owner?->environment->value ?? 'inconnu');
+            throw new ProviderApplicationPublicKeyAlreadyUsed($owner->projectId ?? 'inconnu');
         }
     }
 
-    public function findByProjectAndProvider(string $projectId, string $providerCode, Environment $environment = Environment::Live): ?ProviderApplication
+    public function findByProjectAndProvider(string $projectId, string $providerCode): ?ProviderApplication
     {
         $record = ProviderApplicationRecord::query()
             ->where('project_id', $projectId)
             ->where('provider_code', $providerCode)
-            ->where('environment', $environment->value)
             ->first();
 
         return $record === null ? null : $this->toDomain($record);
@@ -104,7 +100,6 @@ final class EloquentProviderApplicationRepository implements ProviderApplication
         // `orderBy` goes through `toBase()` — Larastan false positive on
         // forwarded builder calls (see EloquentWalletRepository::findByProject()).
         $base = ProviderApplicationRecord::query()->where('project_id', $projectId)->toBase();
-        $base->orderBy('environment');
         $base->orderBy('provider_code');
 
         $rows = $base->get()->map(static fn (object $row): array => (array) $row)->all();
@@ -125,7 +120,6 @@ final class EloquentProviderApplicationRepository implements ProviderApplication
             providerCode: $record->provider_code,
             publicKey: $record->public_key,
             privateKey: Crypt::decryptString($record->private_key_encrypted),
-            environment: Environment::from($record->environment),
             id: $record->id,
             label: $record->label,
             createdAt: DateTimeImmutable::createFromInterface($record->created_at),

@@ -65,13 +65,12 @@ final class InMemoryNotificationRepository implements NotificationRepository
         return count($this->notifications);
     }
 
-    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage, ?\Core\Support\Environment $environment = null): array
+    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage): array
     {
         $matching = array_values(array_filter(
             $this->notifications,
             static fn (Notification $notification): bool => $notification->projectId === $projectId
-                && ($status === null || $notification->status === $status)
-                && ($environment === null || $notification->environment === $environment),
+                && ($status === null || $notification->status === $status),
         ));
 
         $total = count($matching);

@@ -80,10 +80,6 @@ final class PaymentsController
         $projectId = (string) $request->query('project_id', '');
         $channel = (string) $request->query('channel', '');
         $status = (string) $request->query('status', '');
-        $environment = (string) $request->query('environment', '');
-        if (! in_array($environment, ['', 'live', 'sandbox'], true)) {
-            $environment = '';
-        }
 
         // A malformed (non-UUID) project_id would otherwise reach a
         // `WHERE project_id = ?` against a Postgres `uuid` column and
@@ -106,7 +102,6 @@ final class PaymentsController
             status: $status === '' ? null : $status,
             page: $page,
             perPage: $perPage,
-            environment: $environment === '' ? null : $environment,
         ));
 
         // Filter by channel client-side (contract doesn't carry a channel
@@ -131,7 +126,6 @@ final class PaymentsController
                 'project_id' => $projectId,
                 'channel' => $channel,
                 'status' => $status,
-                'environment' => $environment,
             ],
             'projects' => $projects->items,
             'projectNames' => $projectNames,

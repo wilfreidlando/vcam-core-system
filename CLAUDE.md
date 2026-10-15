@@ -259,7 +259,9 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   /webhook-deliveries/dead` + `POST .../replay` (réutilise
   `ReplayWebhookDelivery` intact), `POST /payment-reconciliation-runs`
   (déclenche `Core\Payment\Contracts\ReconcileStuckPayments`, aussi
-  planifié via `admin:reconcile-stuck-payments` toutes les 5 minutes).
+  planifié via `admin:reconcile-stuck-payments` chaque minute, à tour de
+  rôle — ADR-0067). `/horizon` est ouvert aux opérateurs `PlatformAdmin`
+  connectés à la console (permission `queues:manage`, ADR-0067).
   Deuxième tranche (ADR-0045) : listing générique, un port `List*` par
   module (`Identity\Contracts\ListProjects`, `Payment\Contracts\ListPayments`,
   `Wallet\Contracts\ListWallets`, `Notification\Contracts\ListNotifications`)
@@ -305,7 +307,17 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   historique (`AuditLogger`).
 - Ledger/Wallet/Parties sont livrés (Lot 2) : ledger double-entrée avec
   contraintes PostgreSQL réelles (triggers de solde et d'immutabilité),
-  wallets crédit/débit (aucun endpoint HTTP de mutation — ADR-0033 §1),
+  wallets crédit/débit. **Depuis ADR-0065** (remplace ADR-0033 §1) : routes
+  publiques `POST /v1/wallets/transfers` (multi-jambes, atomique, somme nulle),
+  `POST /v1/wallets/withdrawals` (sortie enregistrée), `GET
+  /v1/parties/{ref}/wallets`, `GET /v1/wallets/{id}/transactions` — scope
+  `wallets:write`/`wallets:read` ; **jamais de crédit libre** (la valeur
+  n'entre que par un paiement confirmé avec `wallet_recipient_external_ref`).
+  **Un seul environnement** (ADR-0066, remplace ADR-0060) : plus de
+  sandbox/live ni de `Core\Support\Environment`, une clé par projet ; les
+  tests se font sur le déploiement de staging, où `PAYMENT_SIMULATOR_ENABLED`
+  active le simulateur de paiement (`POST /v1/payments/{id}/simulate`,
+  jamais en production). Historique de départ (Lot 2, pour mémoire) :
   parties à création paresseuse. Voir `packages/ledger/README.md`,
   `packages/wallet/README.md`, `packages/parties/README.md` — et
   [ADR-0033](docs/adr/0033-conception-lot-2-money-core.md). Depuis

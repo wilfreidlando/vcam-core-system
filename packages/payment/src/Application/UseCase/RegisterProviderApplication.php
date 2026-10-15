@@ -16,7 +16,7 @@ use InvalidArgumentException;
 use RuntimeException;
 
 /**
- * ADR-0060 — create or edit the (project, provider, environment)
+ * ADR-0066 — create or edit the (project, provider)
  * application. Every failure is an operator-readable domain exception —
  * never a raw SQL message (the "duplicate key" bug).
  */
@@ -39,7 +39,7 @@ final readonly class RegisterProviderApplication implements RegisterProviderAppl
             throw new InvalidArgumentException('La clé publique est obligatoire.');
         }
 
-        $existing = $this->applications->findByProjectAndProvider($command->projectId, $command->providerCode, $command->environment);
+        $existing = $this->applications->findByProjectAndProvider($command->projectId, $command->providerCode);
 
         $privateKey = $command->privateKey !== null && trim($command->privateKey) !== ''
             ? trim($command->privateKey)
@@ -50,8 +50,8 @@ final readonly class RegisterProviderApplication implements RegisterProviderAppl
         }
 
         $owner = $this->applications->findByProviderAndPublicKey($command->providerCode, $publicKey);
-        if ($owner !== null && ($owner->projectId !== $command->projectId || $owner->environment !== $command->environment)) {
-            throw new ProviderApplicationPublicKeyAlreadyUsed($owner->projectId, $owner->environment->value, $this->alreadyUsedMessage($owner));
+        if ($owner !== null && $owner->projectId !== $command->projectId) {
+            throw new ProviderApplicationPublicKeyAlreadyUsed($owner->projectId, $this->alreadyUsedMessage($owner));
         }
 
         $this->applications->save(new ProviderApplication(
@@ -59,7 +59,6 @@ final readonly class RegisterProviderApplication implements RegisterProviderAppl
             providerCode: $command->providerCode,
             publicKey: $publicKey,
             privateKey: $privateKey,
-            environment: $command->environment,
             id: $existing?->id,
             label: $command->label ?? $existing?->label,
         ));
@@ -86,11 +85,10 @@ final readonly class RegisterProviderApplication implements RegisterProviderAppl
         }
 
         return sprintf(
-            'Cette clé publique est déjà utilisée par le projet « %s » (%s). Une application %s ne peut servir '
-            .'qu\'un seul projet et un seul environnement : c\'est elle qui permet au Core d\'attribuer chaque '
+            'Cette clé publique est déjà utilisée par le projet « %s ». Une application %s ne peut servir '
+            .'qu\'un seul projet : c\'est elle qui permet au Core d\'attribuer chaque '
             .'callback au bon projet. Créez une application distincte chez le provider, ou modifiez celle du projet « %s ».',
             $projectName,
-            $owner->environment->value,
             $owner->providerCode,
             $projectName,
         );

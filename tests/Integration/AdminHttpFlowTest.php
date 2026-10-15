@@ -373,13 +373,10 @@ final class AdminHttpFlowTest extends TestCase
             'name' => 'Acme Project',
         ]);
         // A Project is unusable without a credential — creation
-        // provisions one full-access API key per environment alongside
-        // it, both one-shot plaintext values.
+        // provisions its single full-access API key alongside it
+        // (ADR-0066), a one-shot plaintext value.
         $projectResponse->assertJsonStructure([
-            'api_keys' => [
-                'sandbox' => ['prefix', 'plaintext_token'],
-                'live' => ['prefix', 'plaintext_token'],
-            ],
+            'api_key' => ['prefix', 'plaintext_token'],
         ]);
     }
 
@@ -536,7 +533,7 @@ final class AdminHttpFlowTest extends TestCase
         $this->getJson('/v1/admin/audit-log?action=provider_application.registered', ['Authorization' => "Bearer {$auditorToken}"])
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('data.0.resource', 'provider_application:'.$project->id.':my-coolpay:live');
+            ->assertJsonPath('data.0.resource', 'provider_application:'.$project->id.':my-coolpay');
     }
 
     #[Test]

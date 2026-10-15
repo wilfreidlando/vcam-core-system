@@ -19,14 +19,6 @@
                 @endforeach
             </select>
         </div>
-        <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Environnement</label>
-            <select name="environment" class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base bg-white">
-                <option value="">(tous)</option>
-                <option value="live" @selected($filters['environment'] === 'live')>Live</option>
-                <option value="sandbox" @selected($filters['environment'] === 'sandbox')>Sandbox</option>
-            </select>
-        </div>
         <div class="flex items-end gap-2 justify-end">
             <a href="{{ route('admin.projects.notifications.index', ['projectId' => $project->id]) }}" class="text-sm text-slate-500 hover:text-slate-700">Réinitialiser</a>
             <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-base font-medium text-white">Filtrer</button>
@@ -35,7 +27,7 @@
 </form>
 
 <x-admin.table
-    :headers="['Créée le', 'ID', 'Env.', 'Canal', 'Type', 'Destinataire', 'Statut', 'Provider', '']"
+    :headers="['Créée le', 'ID', 'Canal', 'Type', 'Destinataire', 'Statut', 'Provider', '']"
     :empty="'Aucune notification ne correspond aux filtres.'">
     <tbody class="divide-y divide-slate-100 bg-white">
     @foreach ($notifications as $notification)
@@ -44,7 +36,6 @@
                 {{ $notification->createdAt !== null ? \Illuminate\Support\Carbon::parse($notification->createdAt)->format('d/m/Y H:i') : '—' }}
             </td>
             <td class="px-4 py-2 text-sm font-mono text-slate-700" title="{{ $notification->id }}">{{ substr($notification->id, 0, 8) }}…</td>
-            <td class="px-4 py-2"><x-admin.env-badge :env="$notification->environment" /></td>
             <td class="px-4 py-2 text-sm font-mono text-slate-700">{{ $notification->channel }}</td>
             <td class="px-4 py-2 text-sm font-mono text-slate-700">{{ $notification->contentType }}</td>
             <td class="px-4 py-2 text-sm font-mono text-slate-700 truncate max-w-[10rem]" title="{{ $notification->toPartyRef }}">{{ $notification->toPartyRef ?? '—' }}</td>

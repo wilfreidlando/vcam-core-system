@@ -13,7 +13,6 @@ use Core\Identity\Contracts\IssueApiKey;
 use Core\Identity\Contracts\IssueApiKeyCommand;
 use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
-use Core\Support\Environment;
 use Core\Wallet\Contracts\CreditWallet;
 use Core\Wallet\Contracts\CreditWalletCommand;
 use DateTimeImmutable;
@@ -48,7 +47,7 @@ final class DocumentedApiExamplesTest extends TestCase
 
         $this->getJson('/v1/whoami', ['Authorization' => "Bearer {$token}"])
             ->assertOk()
-            ->assertJsonStructure(['project_id', 'organization_id', 'environment', 'scopes']);
+            ->assertJsonStructure(['project_id', 'organization_id', 'scopes']);
     }
 
     #[Test]
@@ -352,7 +351,7 @@ final class DocumentedApiExamplesTest extends TestCase
         )->project;
 
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, Environment::Sandbox, ApiKeyScopes::ALL, replaceExisting: true),
+            new IssueApiKeyCommand($project->id, ApiKeyScopes::ALL, replaceExisting: true),
             actor: 'service:test',
             correlationId: null,
         );

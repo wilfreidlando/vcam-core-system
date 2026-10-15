@@ -213,3 +213,62 @@ it('honours limitOverride over the configured batch size', function (): void {
 
     expect($summary->checked)->toBe(2);
 });
+
+it('takes stuck payments in turn, so payments the provider keeps answering pending for never starve newer ones (ADR-0067)', function (): void {
+    $payments = new InMemoryPaymentRepository;
+    $payments->create(stuckPayment('p1'));
+    $payments->create(stuckPayment('p2'));
+    $payments->create(stuckPayment('p3'));
+
+    $gateway = new FakePaymentGateway(ProviderCode::fromString('fake-provider'));
+    $gateway->nextReceipt = new PaymentReceipt('tx', PaymentStatus::Processing);
+    $registry = new FakePaymentGatewayRegistry;
+    $registry->register($gateway);
+
+    $run = fn (string $now) => (new ReconcileStuckPaymentsUseCase(
+        payments: $payments,
+        gateways: $registry,
+        statusChangeHandler: new FakePaymentStatusChangeHandler,
+        clock: new FixedClock(new DateTimeImmutable($now)),
+        logger: new NullLogger,
+        stuckAfterMinutes: 2,
+        batchSize: 2,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
+    ))->reconcile(new ReconcileStuckPaymentsCommand);
+
+    // First run: the two oldest; they are marked as checked even though nothing changed.
+    expect($run('2026-09-15T10:00:00Z')->checked)->toBe(2)
+        ->and(array_keys($payments->reconciledAt))->toBe(['p1', 'p2']);
+
+    // One minute later: p1 and p2 were just checked, so p3 gets its turn.
+    expect($run('2026-09-15T10:01:00Z')->checked)->toBe(1)
+        ->and($payments->reconciledAt['p3']->format('H:i'))->toBe('10:01');
+
+    // Two minutes after their check, p1 and p2 are candidates again.
+    expect($run('2026-09-15T10:02:30Z')->checked)->toBe(2)
+        ->and($payments->reconciledAt['p1']->format('H:i:s'))->toBe('10:02:30');
+});
+
+it('marks a payment as checked even when its provider call fails (ADR-0067)', function (): void {
+    $payments = new InMemoryPaymentRepository;
+    $payments->create(stuckPayment('p1'));
+
+    $gateway = new FakePaymentGateway(ProviderCode::fromString('fake-provider'));
+    $gateway->checkStatusException = new ProviderTransientError('boom', $gateway->providerCode());
+    $registry = new FakePaymentGatewayRegistry;
+    $registry->register($gateway);
+
+    $summary = (new ReconcileStuckPaymentsUseCase(
+        payments: $payments,
+        gateways: $registry,
+        statusChangeHandler: new FakePaymentStatusChangeHandler,
+        clock: new FixedClock,
+        logger: new NullLogger,
+        stuckAfterMinutes: 2,
+        batchSize: 100,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
+    ))->reconcile(new ReconcileStuckPaymentsCommand);
+
+    expect($summary->errors)->toBe(1)
+        ->and($payments->reconciledAt)->toHaveKey('p1');
+});

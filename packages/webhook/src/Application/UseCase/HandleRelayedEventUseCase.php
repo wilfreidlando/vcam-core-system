@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Core\Webhook\Application\UseCase;
 
 use Core\Events\Contracts\DomainEvent;
-use Core\Support\Environment;
 use Core\Support\Identifier;
 use Core\Webhook\Contracts\HandleRelayedEvent;
 use Core\Webhook\Domain\Exception\WebhookDeliveryAlreadyExists;
@@ -33,10 +32,7 @@ final readonly class HandleRelayedEventUseCase implements HandleRelayedEvent
     {
         $deliveryIds = [];
 
-        // ADR-0060: a sandbox event never reaches a live endpoint (and vice versa).
-        $environment = Environment::tryFrom($event->environment ?? 'live') ?? Environment::Live;
-
-        foreach ($this->endpoints->findActiveForProject($event->projectId, $environment) as $endpoint) {
+        foreach ($this->endpoints->findActiveForProject($event->projectId) as $endpoint) {
             if (! $endpoint->subscribesTo($event->type)) {
                 continue;
             }

@@ -49,6 +49,14 @@ final class InMemoryWalletRepository implements WalletRepository
         return null;
     }
 
+    public function findByParty(string $partyId): array
+    {
+        $found = array_values(array_filter($this->wallets, static fn (Wallet $wallet): bool => $wallet->partyId === $partyId));
+        usort($found, static fn (Wallet $a, Wallet $b): int => strcmp($a->currency, $b->currency));
+
+        return $found;
+    }
+
     public function count(): int
     {
         return count($this->wallets);

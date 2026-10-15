@@ -31,9 +31,9 @@ interface ApiKeyRepository
     public function findAllByProject(string $projectId): array;
 
     /**
-     * ADR-0060 — the project's single key for that environment, if any.
+     * ADR-0066 — the project's single key, if any.
      */
-    public function findByProjectAndEnvironment(string $projectId, \Core\Support\Environment $environment): ?ApiKey;
+    public function findOneByProject(string $projectId): ?ApiKey;
 
     /**
      * ADR-0060 — revoking deletes the key; the audit trail keeps the record.

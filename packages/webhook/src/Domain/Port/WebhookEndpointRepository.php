@@ -17,7 +17,7 @@ interface WebhookEndpointRepository
     /**
      * @return list<WebhookEndpoint>
      */
-    public function findActiveForProject(string $projectId, ?\Core\Support\Environment $environment = null): array;
+    public function findActiveForProject(string $projectId): array;
 
     /**
      * Every endpoint registered for a Project, active or not — the admin
@@ -28,5 +28,5 @@ interface WebhookEndpointRepository
      *
      * @return list<WebhookEndpoint>
      */
-    public function findAllForProject(string $projectId, ?\Core\Support\Environment $environment = null): array;
+    public function findAllForProject(string $projectId): array;
 }

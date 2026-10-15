@@ -39,9 +39,5 @@ final readonly class DomainEvent
         public ?string $correlationId,
         public DateTimeImmutable $occurredAt,
         public bool $skipWebhookEndpointFanOut = false,
-        // ADR-0060 — `live` or `sandbox`: consumers (webhook fan-out) only
-        // deliver to targets of the same environment. Null = live (every
-        // publisher written before environments existed).
-        public ?string $environment = null,
     ) {}
 }

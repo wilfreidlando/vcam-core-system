@@ -27,7 +27,6 @@ final readonly class GetNotificationDetailsUseCase implements GetNotificationDet
         return new NotificationDetailView(
             id: $notification->id,
             projectId: $notification->projectId,
-            environment: $notification->environment->value,
             channel: $notification->channel,
             contentType: $notification->contentType,
             toPartyRef: $notification->toPartyRef,

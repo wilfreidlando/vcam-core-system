@@ -19,7 +19,5 @@ final readonly class ListNotificationsCommand
         public ?string $status = null,
         public int $page = 1,
         public int $perPage = 25,
-        // `live` / `sandbox`, raw string (G3c); null = both.
-        public ?string $environment = null,
     ) {}
 }

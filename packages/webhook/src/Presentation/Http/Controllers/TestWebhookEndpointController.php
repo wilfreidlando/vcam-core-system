@@ -32,7 +32,7 @@ final class TestWebhookEndpointController
      *
      * @response array{delivered: bool, event_id: string, response_status: int|null, response_body: string|null, error: string|null, duration_ms: int|null}
      *
-     * @throws WebhookEndpointNotFound the endpoint doesn't exist, or belongs to another project or environment (404)
+     * @throws WebhookEndpointNotFound the endpoint doesn't exist, or belongs to another project (404)
      */
     public function __invoke(string $endpointId, ProjectContext $project): JsonResponse|Response
     {
@@ -43,7 +43,6 @@ final class TestWebhookEndpointController
         $result = $this->testWebhookEndpoint->test(new TestWebhookEndpointCommand(
             projectId: $project->projectId,
             endpointId: $endpointId,
-            environment: $project->environment,
         ));
 
         return new JsonResponse([

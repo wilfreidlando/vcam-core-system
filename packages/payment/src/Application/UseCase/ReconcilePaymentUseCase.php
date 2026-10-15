@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Core\Payment\Application\UseCase;
 
-use Core\Payment\Application\Port\SandboxPaymentSimulator;
 use Core\Payment\Application\Service\PaymentJourney;
 use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
@@ -58,15 +57,17 @@ final readonly class ReconcilePaymentUseCase implements ReconcilePayment
 
         $statusBefore = $payment->status->value;
 
-        // ADR-0060: a simulated sandbox payment has no provider to ask —
-        // only the integrator's simulation moves it.
-        if ($payment->providerCode === SandboxPaymentSimulator::PROVIDER_CODE) {
+        // ADR-0066: a simulated payment has no provider to ask — only the
+        // tester's simulation moves it.
+        if ($payment->isSimulated()) {
             return new PaymentReconciliationResult(changed: false, statusBefore: $statusBefore, statusAfter: $statusBefore);
         }
 
         $gateway = $this->gateways->gatewayFor(ProviderCode::fromString($payment->providerCode));
+        // ADR-0067: an on-demand check also counts as this payment's turn.
+        $this->payments->markReconciliationChecked($payment->id, $this->clock->now());
         $this->journey->forgetPendingExchanges();
-        $receipt = $gateway->checkStatus($payment->providerTransactionRef, $payment->projectId, $payment->environment);
+        $receipt = $gateway->checkStatus($payment->providerTransactionRef, $payment->projectId);
         $this->journey->recordProviderExchanges($payment->id, $payment->projectId);
         $this->journey->record(
             $payment->id,

@@ -39,7 +39,7 @@ final class GetPaymentStatusController
             return ProblemDetails::forbidden('The payments:read scope is required.');
         }
 
-        $view = $this->getPaymentStatus->get(new GetPaymentStatusCommand($paymentId, $project->projectId, $project->environment));
+        $view = $this->getPaymentStatus->get(new GetPaymentStatusCommand($paymentId, $project->projectId));
 
         // ADR-0061 — same shape as the creation response, plus `updated_at`.
         // `is_final` tells the caller whether to keep waiting.

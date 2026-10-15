@@ -11,7 +11,6 @@ Décision de référence : [ADR-0020](../../docs/adr/0020-shared-kernel-support.
 | Primitive | Emplacement | Statut |
 | --------- | ----------- | ------ |
 | `Clock` (port) et `SystemClock` (UTC) | `src/Clock.php`, `src/SystemClock.php` | Livré |
-| `Environment` (sandbox / live) | `src/Environment.php` | Livré |
 | `Identifier` (port) et `Uuid7Identifier` | `src/Identifier.php`, `src/Uuid7Identifier.php` | Livré — Lot 1 |
 | `UnitOfWork` (port uniquement — l'implémentation touche `DB`, donc vit dans `app/Infrastructure/` par G3d) | `src/UnitOfWork.php` | Livré — Lot 2 |
 | Réponses d'erreur RFC 7807 | `src/Http/ProblemDetails.php` | Livré |

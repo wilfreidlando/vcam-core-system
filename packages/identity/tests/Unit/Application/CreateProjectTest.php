@@ -17,7 +17,7 @@ use Core\Identity\Tests\Unit\Fakes\PassthroughUnitOfWork;
 use Core\Identity\Tests\Unit\Fakes\RecordingAuditLogger;
 use Core\Identity\Tests\Unit\Fakes\SequentialIdentifier;
 
-it('creates a project under an existing organization, provisions a sandbox and a live API key, and audits all three', function (): void {
+it('creates a project under an existing organization, provisions its API key, and audits both', function (): void {
     $organizations = new InMemoryOrganizationRepository;
     $organizations->save(Organization::create('org-1', 'Acme Corp'));
 
@@ -33,11 +33,9 @@ it('creates a project under an existing organization, provisions a sandbox and a
 
     expect($projects->find($provisioned->project->id))->not->toBeNull()
         ->and($provisioned->project->organizationId)->toBe('org-1')
-        ->and($provisioned->sandboxApiKey->apiKeyId)->not->toBe($provisioned->liveApiKey->apiKeyId)
-        ->and($apiKeys->find($provisioned->sandboxApiKey->apiKeyId)?->scopes())->toBe(ApiKeyScopes::ALL)
-        ->and($apiKeys->find($provisioned->liveApiKey->apiKeyId)?->scopes())->toBe(ApiKeyScopes::ALL)
+        ->and($apiKeys->find($provisioned->apiKey->apiKeyId)?->scopes())->toBe(ApiKeyScopes::ALL)
         ->and($audit->entries[0]->action)->toBe('project.created')
-        ->and(array_map(fn ($entry) => $entry->action, $audit->entries))->toBe(['project.created', 'api_key.issued', 'api_key.issued']);
+        ->and(array_map(fn ($entry) => $entry->action, $audit->entries))->toBe(['project.created', 'api_key.issued']);
 });
 
 it('refuses to create a project under an unknown organization', function (): void {

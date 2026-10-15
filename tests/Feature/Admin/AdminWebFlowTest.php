@@ -299,12 +299,11 @@ final class AdminWebFlowTest extends TestCase
         // The one-shot keys are flashed to the very next request only.
         $show = $this->get($location);
         $show->assertOk();
-        $show->assertSee('pk_sandbox_');
-        $show->assertSee('pk_live_');
+        $show->assertSee('pk_');
 
         $again = $this->get($location);
         $again->assertOk();
-        $again->assertDontSee('pk_sandbox_');
+        $again->assertDontSee('pk_');
     }
 
     #[Test]
@@ -433,17 +432,15 @@ final class AdminWebFlowTest extends TestCase
 
         $first = $this->post("/admin/projects/{$project->id}/provider-applications", [
             'provider' => 'my-coolpay',
-            'environment' => 'live',
             'public_key' => 'pub-key-first',
             'private_key' => 'secret-first',
         ]);
         $first->assertRedirect($listingUrl);
         $this->get('/admin/audit-log')->assertSee('provider_application.registered');
 
-        // ADR-0060: editing keeps the stored private key when the field is left empty.
+        // Editing keeps the stored private key when the field is left empty.
         $second = $this->post("/admin/projects/{$project->id}/provider-applications", [
             'provider' => 'my-coolpay',
-            'environment' => 'live',
             'public_key' => 'pub-key-second',
             'private_key' => '',
         ]);
@@ -455,21 +452,13 @@ final class AdminWebFlowTest extends TestCase
         self::assertSame('pub-key-second', $stored->publicKey);
         self::assertSame('secret-first', $stored->privateKey);
 
-        // A separate sandbox application can coexist with the live one.
-        $this->post("/admin/projects/{$project->id}/provider-applications", [
-            'provider' => 'my-coolpay',
-            'environment' => 'sandbox',
-            'public_key' => 'pub-key-sandbox',
-            'private_key' => 'secret-sandbox',
-        ])->assertRedirect($listingUrl);
-
         $listing = $this->get($listingUrl);
-        $listing->assertOk()->assertSee('LIVE')->assertSee('SANDBOX')->assertSee('Modifier');
+        $listing->assertOk()->assertSee('pub-key-second')->assertSee('Modifier');
 
         // The edit page is reachable from the listing.
         $this->get("/admin/projects/{$project->id}/provider-applications/{$stored->id}/edit")
             ->assertOk()
-            ->assertSee("Modifier l'application my-coolpay (LIVE)");
+            ->assertSee("Modifier l'application my-coolpay");
     }
 
     #[Test]
@@ -485,15 +474,15 @@ final class AdminWebFlowTest extends TestCase
         $other = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Autre Projet'), actor: 'service:test', correlationId: null)->project;
 
         $this->post("/admin/projects/{$owner->id}/provider-applications", [
-            'provider' => 'my-coolpay', 'environment' => 'live', 'public_key' => 'shared-pub', 'private_key' => 's1',
+            'provider' => 'my-coolpay', 'public_key' => 'shared-pub', 'private_key' => 's1',
         ])->assertRedirect();
 
         $this->from("/admin/projects/{$other->id}/provider-applications/create")
             ->post("/admin/projects/{$other->id}/provider-applications", [
-                'provider' => 'my-coolpay', 'environment' => 'live', 'public_key' => 'shared-pub', 'private_key' => 's2',
+                'provider' => 'my-coolpay', 'public_key' => 'shared-pub', 'private_key' => 's2',
             ])
             ->assertRedirect("/admin/projects/{$other->id}/provider-applications/create")
-            ->assertSessionHasErrors(['public_key' => 'Cette clé publique est déjà utilisée par le projet « Projet Propriétaire » (live). Une application my-coolpay ne peut servir qu\'un seul projet et un seul environnement : c\'est elle qui permet au Core d\'attribuer chaque callback au bon projet. Créez une application distincte chez le provider, ou modifiez celle du projet « Projet Propriétaire ».']);
+            ->assertSessionHasErrors(['public_key' => 'Cette clé publique est déjà utilisée par le projet « Projet Propriétaire ». Une application my-coolpay ne peut servir qu\'un seul projet : c\'est elle qui permet au Core d\'attribuer chaque callback au bon projet. Créez une application distincte chez le provider, ou modifiez celle du projet « Projet Propriétaire ».']);
 
         $page = $this->get("/admin/projects/{$other->id}/provider-applications/create");
         $page->assertDontSee('duplicate key')->assertDontSee('SQLSTATE');
@@ -776,9 +765,9 @@ final class AdminWebFlowTest extends TestCase
     }
 
     #[Test]
-    public function a_project_has_exactly_one_live_and_one_sandbox_key_that_can_be_regenerated_and_revoked(): void
+    public function a_project_has_exactly_one_key_that_can_be_regenerated_and_revoked(): void
     {
-        // ADR-0060.
+        // ADR-0066 — one key per project.
         $this->withoutMiddleware(PreventRequestForgery::class);
         $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
 
@@ -786,30 +775,27 @@ final class AdminWebFlowTest extends TestCase
         $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Keys Project'), actor: 'service:test', correlationId: null)->project;
         $keys = static fn (): array => app(\Core\Identity\Contracts\ListApiKeys::class)->list(new \Core\Identity\Contracts\ListApiKeysCommand($project->id));
 
-        // Auto-provisioned at creation: one of each.
-        self::assertCount(2, $keys());
-        $this->get("/admin/projects/{$project->id}/api-keys/create")->assertOk()->assertSee('Clé Live')->assertSee('Clé Sandbox')->assertSee('Régénérer');
-
-        // Generating a second live key is refused with a clear message.
-        $this->post("/admin/projects/{$project->id}/api-keys", ['environment' => 'live', 'mode' => 'generate'])
-            ->assertSessionHasErrors('environment');
-        self::assertCount(2, $keys());
-
-        // Regenerating replaces it: still exactly two keys, a new live prefix.
-        $oldLive = collect($keys())->first(fn ($k) => $k->environment->value === 'live');
-        $this->post("/admin/projects/{$project->id}/api-keys", ['environment' => 'live', 'mode' => 'regenerate'])->assertRedirect();
-        $afterRegenerate = $keys();
-        self::assertCount(2, $afterRegenerate);
-        $newLive = collect($afterRegenerate)->first(fn ($k) => $k->environment->value === 'live');
-        self::assertNotNull($oldLive);
-        self::assertNotNull($newLive);
-        self::assertNotSame($oldLive->prefix, $newLive->prefix);
-
-        // Revoking deletes; the environment can then be generated again.
-        $this->post("/admin/projects/{$project->id}/api-keys/{$newLive->id}/revoke")->assertRedirect();
+        // Auto-provisioned at creation.
         self::assertCount(1, $keys());
-        $this->post("/admin/projects/{$project->id}/api-keys", ['environment' => 'live', 'mode' => 'generate'])->assertRedirect();
-        self::assertCount(2, $keys());
+        $this->get("/admin/projects/{$project->id}/api-keys/create")->assertOk()->assertSee('Clé API du projet')->assertSee('Régénérer')->assertDontSee('Sandbox');
+
+        // Generating a second key is refused with a clear message.
+        $this->post("/admin/projects/{$project->id}/api-keys", ['mode' => 'generate'])
+            ->assertSessionHasErrors('mode');
+        self::assertCount(1, $keys());
+
+        // Regenerating replaces it: still exactly one key, a new prefix.
+        $old = $keys()[0];
+        $this->post("/admin/projects/{$project->id}/api-keys", ['mode' => 'regenerate'])->assertRedirect();
+        $afterRegenerate = $keys();
+        self::assertCount(1, $afterRegenerate);
+        self::assertNotSame($old->prefix, $afterRegenerate[0]->prefix);
+
+        // Revoking deletes; a key can then be generated again.
+        $this->post("/admin/projects/{$project->id}/api-keys/{$afterRegenerate[0]->id}/revoke")->assertRedirect();
+        self::assertCount(0, $keys());
+        $this->post("/admin/projects/{$project->id}/api-keys", ['mode' => 'generate'])->assertRedirect();
+        self::assertCount(1, $keys());
     }
 
     #[Test]
@@ -872,7 +858,6 @@ final class AdminWebFlowTest extends TestCase
             providerCode: null,
             providerMessageId: null,
             errorMessage: 'Session not linked',
-            environment: \Core\Support\Environment::Sandbox,
             content: ['text' => 'Votre commande est confirmée'],
             variables: ['phone_number' => '237690000000', 'session' => 'shop'],
         ));
@@ -880,14 +865,10 @@ final class AdminWebFlowTest extends TestCase
             $notificationId, 'waha', null, \Core\Notification\NotificationStatus::Failed, 1, 'Session not linked',
         );
 
-        $this->get("/admin/projects/{$project->id}/notifications?environment=sandbox")
+        $this->get("/admin/projects/{$project->id}/notifications")
             ->assertOk()
             ->assertSee(substr($notificationId, 0, 8))
             ->assertSee('customer-42');
-
-        $this->get("/admin/projects/{$project->id}/notifications?environment=live")
-            ->assertOk()
-            ->assertDontSee(substr($notificationId, 0, 8));
 
         $this->get("/admin/projects/{$project->id}/notifications/{$notificationId}")
             ->assertOk()
@@ -932,26 +913,6 @@ final class AdminWebFlowTest extends TestCase
     }
 
     #[Test]
-    public function a_webhook_endpoint_registered_for_sandbox_from_the_console_is_a_sandbox_endpoint(): void
-    {
-        $this->withoutMiddleware(PreventRequestForgery::class);
-        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
-
-        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Env Org'), actor: 'service:test', correlationId: null);
-        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Env Project'), actor: 'service:test', correlationId: null)->project;
-
-        $this->post("/admin/projects/{$project->id}/webhook-endpoints", [
-            'url' => 'https://example.com/webhooks/sandbox',
-            'environment' => 'sandbox',
-            'all' => '1',
-        ])->assertRedirect();
-
-        $endpoints = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id));
-        self::assertCount(1, $endpoints);
-        self::assertSame('sandbox', $endpoints[0]->environment);
-    }
-
-    #[Test]
     public function a_webhook_delivery_has_its_own_detail_page(): void
     {
         $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
@@ -983,6 +944,23 @@ final class AdminWebFlowTest extends TestCase
             ->assertSee('payment.status_changed');
 
         $this->get('/admin/webhook-deliveries/'.Str::uuid())->assertRedirect(route('admin.webhook-deliveries.dead.web'));
+    }
+
+    #[Test]
+    public function horizon_opens_only_to_a_platform_admin_signed_in_to_the_console(): void
+    {
+        // ADR-0067: Horizon can retry and delete jobs — `queues:manage`, PlatformAdmin only.
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        $this->get('/horizon')->assertForbidden();
+
+        $this->loginAndEnrollMfa(OperatorRole::FinanceOperator);
+        $this->get('/admin')->assertDontSee('Files (Horizon)');
+        $this->get('/horizon')->assertForbidden();
+
+        $this->post('/admin/logout');
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+        $this->get('/admin')->assertSee('Files (Horizon)');
+        $this->get('/horizon')->assertOk();
     }
 
     /**

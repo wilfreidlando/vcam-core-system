@@ -93,7 +93,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // ADR-0044: background reconciliation for missed webhooks (spec
         // technique §10). Same overlap protection reasoning as events:relay.
-        $schedule->command('admin:reconcile-stuck-payments')->everyFiveMinutes()->withoutOverlapping();
+        // ADR-0067: every minute — on staging, the provider's callbacks go to
+        // production, so this is the only way a payment gets confirmed.
+        $schedule->command('admin:reconcile-stuck-payments')->everyMinute()->withoutOverlapping();
 
         // Audit 2026-10-03 §4.3: re-dispatch webhook deliveries whose job was lost.
         $schedule->command('webhook:sweep')->everyFiveMinutes()->withoutOverlapping();

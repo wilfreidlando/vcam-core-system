@@ -661,43 +661,19 @@
                                         "status": {
                                             "type": "string"
                                         },
-                                        "api_keys": {
+                                        "api_key": {
                                             "type": "object",
                                             "properties": {
-                                                "sandbox": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "prefix": {
-                                                            "type": "string"
-                                                        },
-                                                        "plaintext_token": {
-                                                            "type": "string"
-                                                        }
-                                                    },
-                                                    "required": [
-                                                        "prefix",
-                                                        "plaintext_token"
-                                                    ]
+                                                "prefix": {
+                                                    "type": "string"
                                                 },
-                                                "live": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "prefix": {
-                                                            "type": "string"
-                                                        },
-                                                        "plaintext_token": {
-                                                            "type": "string"
-                                                        }
-                                                    },
-                                                    "required": [
-                                                        "prefix",
-                                                        "plaintext_token"
-                                                    ]
+                                                "plaintext_token": {
+                                                    "type": "string"
                                                 }
                                             },
                                             "required": [
-                                                "sandbox",
-                                                "live"
+                                                "prefix",
+                                                "plaintext_token"
                                             ]
                                         }
                                     },
@@ -706,7 +682,7 @@
                                         "organization_id",
                                         "name",
                                         "status",
-                                        "api_keys"
+                                        "api_key"
                                     ]
                                 }
                             }
@@ -2117,17 +2093,6 @@
                                     "provider": {
                                         "type": "string"
                                     },
-                                    "environment": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "enum": [
-                                            "live",
-                                            "sandbox",
-                                            null
-                                        ]
-                                    },
                                     "label": {
                                         "type": [
                                             "string",
@@ -2171,9 +2136,6 @@
                                         "provider_code": {
                                             "type": "string"
                                         },
-                                        "environment": {
-                                            "type": "string"
-                                        },
                                         "public_key": {
                                             "type": "string"
                                         }
@@ -2181,7 +2143,6 @@
                                     "required": [
                                         "project_id",
                                         "provider_code",
-                                        "environment",
                                         "public_key"
                                     ]
                                 }

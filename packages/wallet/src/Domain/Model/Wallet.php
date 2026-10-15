@@ -19,6 +19,11 @@ final readonly class Wallet
         public string $status,
     ) {}
 
+    public function belongsTo(string $projectId): bool
+    {
+        return $this->projectId === $projectId;
+    }
+
     public function isActive(): bool
     {
         return $this->status === 'active';

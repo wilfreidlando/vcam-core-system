@@ -9,14 +9,10 @@ namespace Core\Payment\Contracts;
  */
 final readonly class ProviderApplicationView
 {
-    /**
-     * @param string $environment `live` or `sandbox`
-     */
     public function __construct(
         public string $providerCode,
         public string $publicKey,
         public string $id = '',
-        public string $environment = 'live',
         public ?string $label = null,
         public string $maskedPublicKey = '',
         public ?string $createdAt = null,

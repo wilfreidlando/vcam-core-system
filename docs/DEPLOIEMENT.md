@@ -36,7 +36,7 @@ Aucun port n'est publié sur Internet.
 | `DB_PASSWORD` | Mot de passe de la base | oui | `openssl rand -base64 32` |
 | `CORE_PUBLIC_HOST` | Nom public (**jamais `VIRTUAL_HOST`** : tous les conteneurs chargent ce fichier) | oui | le DNS |
 | `TRUSTED_PROXY_TOKEN` | Prouve à l'application que les en-têtes transmis viennent de son nginx | **oui** | `openssl rand -hex 32` |
-| `CORE_ENVIRONMENT` | `sandbox` ou `live` : seul `live` fait circuler de l'argent réel | **oui : le staging est toujours `sandbox`** | fixe |
+| `PAYMENT_SIMULATOR_ENABLED` | Simulateur de paiement (ADR-0066) : un projet sans application provider est servi par le simulateur, et `POST /v1/payments/{id}/simulate` fixe l'issue | **oui : `true` au staging, jamais en production** | fixe |
 | `DEPLOYMENT`, `STACK_PREFIX`, `CORE_ENV_FILE` | Identité de la pile | oui | exemples du dépôt |
 | `MTN_MOMO_*`, `ORANGE_MONEY_*`, `WAHA_*`, `MAIL_*` | Fournisseurs et messagerie | **oui : au staging, des identifiants de test** | les fournisseurs |
 | `IDENTITY_DISABLE_MFA`, `IDENTITY_DISABLE_TOTP_IN_LOCAL` | Double authentification de la console | **désactivée** en production et en staging (décision du 2026-10-05) ; l'exemple dit `false` | à réactiver : voir « Écarts connus » |
@@ -64,7 +64,7 @@ cd /app/core-system/prod    && sudo /app/vps-platform/bin/deploy.sh check prod &
 | --- | --- | --- | --- |
 | 1. Merger sur `develop` | le développeur | merge request | — |
 | 2. Le staging se met à jour | `make staging-deploy` (`REF=origin/<branche>` pour une autre branche) | — | `make deploy-status` |
-| 3. **Recette** | le responsable du Core | connexion à la console du staging, un paiement **sandbox**, une notification de test, un webhook | tout fonctionne, **avec des identifiants de test** |
+| 3. **Recette** | le responsable du Core | connexion à la console du staging, un paiement **simulé**, une notification de test, un webhook | tout fonctionne, **avec des identifiants de test** |
 | 4. Migrations : **les répéter sur une copie de la production** | le responsable du Core | [guide 6, étape 5 bis](https://github.com/wilfreidlando/vcam-infra-deploy/blob/main/guides/06-core-au-standard.md) | comparer les lignes avant et après ; lire toute migration qui **supprime** |
 | 5. Une **sauvegarde à la main** avant une migration risquée | le responsable | `/app/vps-platform/bin/deploy.sh backup prod` | `uploaded to s3://…` |
 | 6. Contrat d'API modifié ? | le responsable | **annoncer aux intégrateurs avant** | — |
@@ -127,7 +127,7 @@ Le détail : [`docs/operations/observabilite.md`](operations/observabilite.md) e
 | Écart | Pourquoi | Risque | Pour le résorber |
 | --- | --- | --- | --- |
 | **Production sans sauvegarde automatique** | Pas de bucket S3 pour l'instant (décision du 2026-10-05) | Une perte de la base ne serait récupérable qu'à partir de la copie manuelle du 2026-10-05. **Un rappel par e-mail est envoyé une fois par jour** (alerte « Une sauvegarde de production n'envoie plus de copie depuis 36 heures »), à partir du premier passage nocturne de l'agent suivant le déploiement de cette alerte | Créer le bucket, renseigner `BACKUP_S3_*`, retirer `BACKUP_DISABLED`, **refaire un exercice de restauration** |
-| **Le staging porte des secrets et des données de production** | Recette avec la copie de la base de production, `APP_KEY` et clés WhatsApp de production, à la demande du responsable | Des envois réels depuis le staging si une file ou une tâche planifiée s'y exécute (l'horizon et le planificateur du staging sont **en marche**) | Après la recette : base de test, nouvelle `APP_KEY`, identifiants de test, `CORE_ENVIRONMENT=sandbox` |
+| **Le staging porte des secrets et des données de production** | Recette avec la copie de la base de production, `APP_KEY` et clés WhatsApp de production, à la demande du responsable | Des envois réels depuis le staging si une file ou une tâche planifiée s'y exécute (l'horizon et le planificateur du staging sont **en marche**) | Après la recette : base de test, nouvelle `APP_KEY`, identifiants de test, `PAYMENT_SIMULATOR_ENABLED=true` |
 | **Double authentification de la console désactivée** | Décision du responsable, production et staging | Un mot de passe volé suffit | Réactiver `IDENTITY_DISABLE_MFA=false` |
 | **`WAHA_WEBHOOK_SECRET` absent** | Jamais renseigné | Les rappels WhatsApp entrants ne sont pas authentifiés | Le générer et le déclarer des deux côtés |
 | **Contrat d'API modifié, intégrateurs non prévenus** | Beaucoup de changements dans `develop` par rapport à l'ancien `main` | Un intégrateur peut casser sans préavis | Annoncer les changements (liste dans les ADR depuis 0051) |

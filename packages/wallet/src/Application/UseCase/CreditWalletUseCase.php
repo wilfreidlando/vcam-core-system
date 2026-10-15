@@ -21,6 +21,7 @@ use Core\Wallet\Contracts\CreditWalletCommand;
 use Core\Wallet\Contracts\WalletBalanceView;
 use Core\Wallet\Domain\Exception\WalletAlreadyExists;
 use Core\Wallet\Domain\Exception\WalletProjectMismatch;
+use Core\Wallet\Domain\Model\SystemAccount;
 use Core\Wallet\Domain\Model\Wallet;
 use Core\Wallet\Domain\Model\WalletBalance;
 use Core\Wallet\Domain\Port\WalletBalanceRepository;
@@ -40,10 +41,6 @@ use LogicException;
  */
 final readonly class CreditWalletUseCase implements CreditWallet
 {
-    private const CLEARING_ACCOUNT_KIND = 'clearing';
-
-    private const WALLET_ACCOUNT_KIND = 'wallet';
-
     public function __construct(
         private UnitOfWork $unitOfWork,
         private WalletRepository $wallets,
@@ -62,15 +59,15 @@ final readonly class CreditWalletUseCase implements CreditWallet
 
             $walletAccount = $this->accountResolver->resolveOrCreate(new ResolveOrCreateAccountCommand(
                 $command->projectId,
-                self::WALLET_ACCOUNT_KIND,
+                SystemAccount::WALLET,
                 $wallet->id,
                 $command->currency,
             ));
 
             $clearingAccount = $this->accountResolver->resolveOrCreate(new ResolveOrCreateAccountCommand(
                 $command->projectId,
-                self::CLEARING_ACCOUNT_KIND,
-                '',
+                SystemAccount::CLEARING,
+                SystemAccount::PROJECT_LEVEL,
                 $command->currency,
             ));
 
@@ -106,12 +103,15 @@ final readonly class CreditWalletUseCase implements CreditWallet
                 $this->identifier->generate(),
                 $command->projectId,
                 'wallet.credited',
-                [
+                array_filter([
                     'wallet_id' => $wallet->id,
                     'party_id' => $command->partyId,
+                    'party_external_ref' => $command->partyExternalRef,
                     'amount_minor' => $command->amountMinor,
                     'currency' => $command->currency,
-                ],
+                    'operation_type' => 'payment',
+                    'payment_id' => $command->externalRef,
+                ], static fn (mixed $value): bool => $value !== null),
                 null,
                 $this->clock->now(),
             ));
@@ -125,7 +125,7 @@ final readonly class CreditWalletUseCase implements CreditWallet
         $existing = $this->wallets->findByPartyAndCurrency($partyId, $currency);
 
         if ($existing !== null) {
-            if ($existing->projectId !== $projectId) {
+            if (! $existing->belongsTo($projectId)) {
                 throw WalletProjectMismatch::forWallet($existing->id, $projectId);
             }
 

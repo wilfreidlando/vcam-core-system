@@ -31,6 +31,7 @@ this one outside `Contracts/`.
 Allowed (via their `Contracts/` only):
 
 - `core/events`
+- `core/identity`
 - `core/ledger`
 - `core/parties`
 
@@ -44,3 +45,27 @@ Any other cross-module dependency fails CI.
   `correlation_id`), never by a database join across contexts.
 - Every monetary mutation is idempotent and every state change that others care about is
   published through the transactional outbox, inside the same transaction.
+
+## Public surface (ADR-0065)
+
+| Route | Scope | Does |
+| ----- | ----- | ---- |
+| `GET /v1/wallets/{walletId}/balance` | `wallets:read` | Balance of one wallet |
+| `GET /v1/wallets/{walletId}/transactions` | `wallets:read` | Its movements, newest first, from the ledger |
+| `GET /v1/parties/{externalRef}/wallets` | `wallets:read` | A party's wallets, by the product's own reference |
+| `POST /v1/wallets/transfers` | `wallets:write` + `Idempotency-Key` | 1 to 20 legs in one zero-sum ledger transaction |
+| `POST /v1/wallets/withdrawals` | `wallets:write` + `Idempotency-Key` | Records value leaving custody (debit against the `withdrawal` account) |
+
+- **No free credit.** Value enters a wallet only through a confirmed payment carrying
+  `wallet_recipient_external_ref` (ADR-0037). Transfers move value, withdrawals record
+  that it left; neither creates any.
+- **Project isolation.** Every read and mutation checks the wallet belongs to the
+  calling project. The `clearing` and `withdrawal` accounts are project-level (see
+  `SystemAccount`). The Core has one environment (ADR-0066): testing happens on the
+  staging deployment.
+- **Locking.** A transfer locks every balance it touches in ascending wallet-id order
+  (no deadlock between crossing transfers), then re-checks idempotency before posting —
+  proven by `tests/Integration/TransferConcurrencyTest.php`.
+- **History.** The ledger is the source of truth; `wallet_operations` keeps only what it
+  does not carry (the caller's key, description, metadata, legs), joined by
+  `ledger_transactions.external_ref`.

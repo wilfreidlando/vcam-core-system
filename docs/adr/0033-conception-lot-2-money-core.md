@@ -1,6 +1,6 @@
 # ADR-0033 — Conception du Lot 2 (Money Core) : surface HTTP, idempotence à deux niveaux, chart of accounts
 
-- **Statut** : Accepté
+- **Statut** : Accepté — §1 remplacé par [ADR-0065](0065-operations-wallet-exposees.md)
 - **Date** : 2026-09-15
 - **Dérives concernées** : D2, D6
 

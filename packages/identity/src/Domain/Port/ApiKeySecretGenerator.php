@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Core\Identity\Domain\Port;
 
 use Core\Identity\Domain\Model\GeneratedApiKeySecret;
-use Core\Support\Environment;
 
 /**
  * A port rather than a call to `random_bytes()` inline in the use case, for
@@ -15,5 +14,5 @@ use Core\Support\Environment;
  */
 interface ApiKeySecretGenerator
 {
-    public function generate(Environment $environment): GeneratedApiKeySecret;
+    public function generate(): GeneratedApiKeySecret;
 }

@@ -29,6 +29,8 @@ final class ApiKeyScopes
         'notification_channel_sessions:read',
         'notification_channel_sessions:write',
         'wallets:read',
+        // ADR-0065 — transfers and recorded withdrawals.
+        'wallets:write',
     ];
 
     /**

@@ -4,22 +4,15 @@
 
 @section('content')
 <div class="space-y-6">
-    @if (! empty($createdApiKeys))
+    @if (! empty($createdApiKey))
         <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 space-y-2">
             <p class="text-base font-semibold text-emerald-800">
-                Projet créé — deux clés API ont été générées, une par environnement.
+                Projet créé — sa clé API a été générée.
             </p>
             <p class="text-base text-emerald-700">
-                Affichées uniquement maintenant, jamais stockées ni journalisées en clair — copiez-les avant de quitter cette page :
+                Affichée uniquement maintenant, jamais stockée ni journalisée en clair — copiez-la avant de quitter cette page :
             </p>
-            <p class="text-sm text-emerald-800">
-                Sandbox :
-                <code class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900 break-all">{{ $createdApiKeys['sandbox'] }}</code>
-            </p>
-            <p class="text-sm text-emerald-800">
-                Live :
-                <code class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900 break-all">{{ $createdApiKeys['live'] }}</code>
-            </p>
+            <code class="block rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-sm text-emerald-900 break-all">{{ $createdApiKey }}</code>
         </div>
     @endif
 

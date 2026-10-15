@@ -150,15 +150,12 @@ Mode opératoire complet :
 
 ## 3. Environnements, configuration et déploiement
 
-Deux axes de configuration, volontairement séparés :
-
 - **`APP_ENV`** (`local`/`testing`/`production`) — le mode Laravel classique
   (debug, cache de config…).
-- **`CORE_ENVIRONMENT`** (`sandbox`/`staging`/`live`) — l'environnement
-  **métier** : sandbox et live ont des identifiants, données et effets
-  totalement isolés (aucun mouvement d'argent réel en sandbox), même si les
-  deux tournent avec `APP_ENV=production`. C'est cet axe qui détermine par
-  exemple quelles clés provider un `Project` peut utiliser.
+- **Un seul environnement métier** ([ADR-0066](../adr/0066-un-seul-environnement-staging-pour-les-tests.md)) :
+  plus de sandbox/live dans les données ni dans les clés. Les intégrations se
+  testent sur le **déploiement de staging**, où `PAYMENT_SIMULATOR_ENABLED=true`
+  active le simulateur de paiement ; la production ne l'active jamais.
 
 Le pipeline CI (`.github/workflows/ci.yml`) construit une seule fois
 l'image `dev` (Buildx, cache GHA) et la réutilise pour chaque gate, en

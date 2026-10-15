@@ -2,14 +2,16 @@
 
 Les commandes de ce document ont été **exécutées pour de vrai** contre une instance
 du Core branchée sur une vraie application MyCoolPay et un vrai WAHA (WhatsApp), puis
-mises à jour le 2026-10-03 pour le contrat actuel (réponses minimales, `is_final`,
-clés par environnement, simulateur sandbox) ; les réponses de cette mise à jour sont
-celles de la suite de tests d'intégration. Identifiants et secrets remplacés par des
-exemples.
+mises à jour pour le contrat actuel (réponses minimales, `is_final`, une seule clé par
+projet, simulateur de paiement du staging) ; les réponses de ces mises à jour sont celles
+de la suite de tests d'intégration. Identifiants et secrets remplacés par des exemples.
 
-**Commencez en sandbox** (§2.0) : aucun argent réel, et vous pilotez vous-même
-l'issue de chaque paiement. Pour recevoir les événements (webhooks, `callback_url`)
-et vérifier leur signature, lisez **[webhooks.md](webhooks.md)**.
+**Le Core n'a qu'un environnement** ([ADR-0066](../adr/0066-un-seul-environnement-staging-pour-les-tests.md)).
+Vos tests se font sur le **déploiement de staging** du Core, avec la clé que son
+administrateur vous y donne ; la production n'est utilisée qu'avec de vrais paiements.
+Sur le staging, le **simulateur de paiement** (§2.0) vous laisse piloter l'issue de chaque
+paiement, sans argent réel. Pour recevoir les événements (webhooks, `callback_url`) et
+vérifier leur signature, lisez **[webhooks.md](webhooks.md)**.
 
 Les charges utiles sont les mêmes que les exemples de la documentation interactive
 (`/docs/api`, bouton « Try it out »), à deux nuances près, signalées : le numéro de
@@ -18,24 +20,23 @@ téléphone (à remplacer par le vôtre) et les URL de médias (qui doivent exis
 ## 0. Préparation
 
 ```bash
-export BASE_URL="https://core-system.visibilitycam.com"   # en local : http://localhost:8000
-export API_KEY="pk_sandbox_XXXXXX.XXXXXXXXXXXXXXXX"        # clé du Project (voir ci-dessous)
+export BASE_URL="https://core-system.visibilitycam.com"   # staging : l'adresse du staging du Core ; en local : http://localhost:8000
+export API_KEY="pk_XXXXXXXX.XXXXXXXXXXXXXXXX"              # clé du Project (voir ci-dessous)
 export PHONE="+2376XXXXXXXX"                               # un numéro qui vous appartient, format E.164
 export SESSION="ma-boutique"                               # nom de la session WhatsApp fourni par l'administrateur (§5)
 ```
 
-- **Clés API** : un projet a **exactement deux clés**, une `pk_sandbox_…` et une
-  `pk_live_…`, créées dans la console (`/admin/projects/<id>/api-keys/create`) et
-  affichées **une seule fois**. Régénérer une clé remplace l'ancienne immédiatement ;
-  révoquer la supprime. Chaque clé ne voit que les données de son environnement : un
-  paiement créé en sandbox est introuvable (`404`) avec la clé live, et inversement.
+- **Clé API** : un projet a **exactement une clé**, créée avec le projet dans la
+  console (`/admin/projects/<id>/api-keys/create`) et affichée **une seule fois**.
+  Régénérer une clé remplace l'ancienne immédiatement ; révoquer la supprime. Le staging
+  et la production sont deux déploiements distincts : chacun a ses projets et ses clés.
 - **En-têtes communs** : `Authorization: Bearer $API_KEY`, `Accept: application/json`,
   et `Content-Type: application/json` pour les requêtes avec corps.
 - **Erreurs** : format RFC 7807 (`application/problem+json`) avec `type`, `title`,
   `status`, `detail`, `correlation_id` — citez le `correlation_id` au support.
 - **`Idempotency-Key`** : **obligatoire** sur toutes les routes qui touchent de
-  l'argent (création de paiement, simulation sandbox). Une valeur par intention de
-  paiement — par exemple l'identifiant de votre commande ; rejouer la même clé renvoie
+  l'argent (création de paiement, simulation, transfert, retrait). Une valeur par
+  intention — par exemple l'identifiant de votre commande ; rejouer la même clé renvoie
   la réponse d'origine sans débiter une seconde fois. Elle vous revient sous le nom
   `reference` dans les événements.
 - **`Correlation-Id`** (optionnel) : envoyez votre propre identifiant de requête ; il
@@ -53,23 +54,21 @@ curl -s "$BASE_URL/v1/whoami" \
 ```
 
 ```json
-{"project_id":"01a101a1-7a96-712d-b63a-e3bbc27ae721","organization_id":"01a101a1-7a88-7241-b0aa-99f174f09b01","environment":"sandbox","scopes":["*"]}
+{"project_id":"01a101a1-7a96-712d-b63a-e3bbc27ae721","organization_id":"01a101a1-7a88-7241-b0aa-99f174f09b01","scopes":["*"]}
 ```
-
-`environment` dit dans quel environnement vous travaillez avec cette clé.
 
 Clé invalide ou révoquée → `401`.
 
 ## 2. Paiements
 
-### 2.0 Sandbox : tester sans argent réel
+### 2.0 Sur le staging : le simulateur de paiement
 
-Avec une clé `pk_sandbox_…`, si aucune application provider sandbox n'est enregistrée
-pour le projet, le paiement est confié au **simulateur intégré** du Core : aucun appel
-au fournisseur, aucun argent, aucune écriture comptable. Vous décidez de l'issue :
+Le simulateur n'existe que sur un déploiement où il est activé (le staging, jamais la
+production). Là, un paiement d'un projet **sans application provider enregistrée** est
+confié au simulateur : aucun appel au fournisseur, aucun argent. Vous décidez de l'issue :
 
 ```bash
-curl -s -X POST "$BASE_URL/v1/sandbox/payments/01a101a1-7b14-70de-874c-0e4586b565d0/simulate" \
+curl -s -X POST "$BASE_URL/v1/payments/01a101a1-7b14-70de-874c-0e4586b565d0/simulate" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
@@ -82,20 +81,20 @@ curl -s -X POST "$BASE_URL/v1/sandbox/payments/01a101a1-7b14-70de-874c-0e4586b56
 ```
 
 - `status` : `succeeded`, `failed`, `expired` ou `canceled` — tous finaux.
-- Le changement de statut déclenche **exactement** ce qui se passerait en live :
-  événement `payment.status_changed` vers vos endpoints sandbox (ou votre
-  `callback_url`), crédit du wallet indiqué le cas échéant.
-- Un paiement déjà final ne peut plus être simulé : `409 payment-not-simulable`.
-- Avec une clé live : `403`. Un paiement live ne peut jamais être simulé.
-- Un `paylink` sandbox renvoie une `payment_url` vers une page de paiement simulée
-  du Core, où l'on clique « Payer » ou « Refuser » comme le ferait le client.
+- Le changement de statut déclenche **exactement** ce que ferait un vrai paiement :
+  crédit du wallet indiqué, événement `payment.status_changed` vers vos endpoints (ou
+  votre `callback_url`).
+- Un paiement déjà final, ou non simulé, ou un déploiement sans simulateur :
+  `409 payment-not-simulable`.
+- Un `paylink` simulé renvoie une `payment_url` vers une page de paiement simulée du
+  Core, où l'on clique « Payer » ou « Refuser » comme le ferait le client.
 
-Pour tester contre le **vrai bac à sable du fournisseur**, enregistrez une application
-provider sandbox dans la console : le Core l'utilise alors à la place du simulateur.
+Pour tester contre le **vrai fournisseur** depuis le staging, enregistrez une application
+provider pour le projet dans la console : le Core l'utilise alors à la place du simulateur.
 
-### En live
+### Application provider
 
-Le Project doit avoir une application MyCoolPay **live** enregistrée (console →
+Hors simulateur, le Project doit avoir une application MyCoolPay enregistrée (console →
 Project → *Applications provider*), sinon la création échoue en `422`.
 
 ### Ce que renvoie une création de paiement
@@ -227,7 +226,7 @@ Statuts intermédiaires : `pending`, `processing`. Statuts finaux : `succeeded`,
 [webhooks.md §3.1](webhooks.md#31-statuts-dun-paiement). **Testez `is_final`**, pas
 une liste de statuts. Lit l'état du Core (mis à jour par le webhook du fournisseur) —
 pas d'appel direct au fournisseur ; ne l'interrogez pas en boucle, attendez
-l'événement. Paiement inconnu, d'un autre Project ou d'un autre environnement →
+l'événement. Paiement inconnu ou d'un autre Project →
 `404 payment-not-found`.
 
 ### 2.5 Erreurs de paiement vérifiées
@@ -238,14 +237,117 @@ l'événement. Paiement inconnu, d'un autre Project ou d'un autre environnement 
 | Rejeu de la même clé et du même corps | `201`, **même `id`**, aucun second débit |
 | Devise inconnue (`"currency":"ZZZ"`) | `422 unsupported-currency` |
 | `customer_lang` autre que `fr`/`en` | `422 validation-failed` (`errors.customer_lang`) |
-| Application MyCoolPay non enregistrée (live) | `422` |
+| Application MyCoolPay non enregistrée (hors simulateur) | `422` |
 | Simulation d'un paiement déjà final | `409 payment-not-simulable` |
 | Erreur du fournisseur (solde insuffisant, etc.) | `502 provider-error` |
 
-## 3. Wallet — `GET /v1/wallets/{walletId}/balance`
+## 3. Wallets
 
-Un wallet n'existe qu'après un premier crédit (paiement réussi avec
-`wallet_recipient_external_ref`). `walletId` est l'identifiant du wallet.
+Les commandes de cette section sont exécutées par la suite de tests
+(`tests/Integration/WalletOperationsHttpFlowTest.php`) contre une vraie base
+PostgreSQL ([ADR-0065](../adr/0065-operations-wallet-exposees.md)).
+
+**À savoir avant tout :**
+
+- Une **partie** est désignée par **votre** référence (`external_ref`) : un
+  identifiant de votre produit (`client:42`, `merchant:01J9…`, `escrow`…), jamais
+  une donnée personnelle.
+- Chaque partie a un wallet par devise, créé à son premier crédit.
+- Une clé n'atteint que les wallets de son projet. Sur le staging, un paiement
+  simulé (§2.0) crédite réellement le wallet demandé : vous testez tout le
+  parcours sans argent réel.
+- **La valeur n'entre dans un wallet que par un paiement confirmé** avec
+  `wallet_recipient_external_ref` (§2.2). Un transfert ne crée pas de valeur, il
+  la déplace ; un retrait enregistre qu'elle est sortie.
+- Mutations : scope `wallets:write` et `Idempotency-Key` obligatoires.
+  Lectures : scope `wallets:read`.
+
+### 3.1 Wallets d'une partie — `GET /v1/parties/{externalRef}/wallets`
+
+```bash
+curl -s "$BASE_URL/v1/parties/escrow/wallets" \
+  -H "Authorization: Bearer $API_KEY" -H "Accept: application/json"
+```
+
+```json
+{"data":[{"wallet_id":"01a13a50-895d-729e-a7f5-40e1278ab52a","party":"escrow","currency":"XAF","available_minor":50000,"held_minor":0,"status":"active"}]}
+```
+
+Une partie inconnue renvoie `{"data":[]}` : la lecture ne crée jamais la partie.
+Encodez la référence dans l'URL si elle contient `/` ou des espaces.
+
+### 3.2 Transférer — `POST /v1/wallets/transfers`
+
+De 1 à 20 **jambes** appliquées ensemble, dans une seule transaction : toutes
+passent, ou aucune. Typiquement, la répartition d'une vente entre le marchand et
+votre commission :
+
+```bash
+curl -s -X POST "$BASE_URL/v1/wallets/transfers" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  --data '{
+    "currency": "XAF",
+    "description": "Settlement of booking ETR-7K3Q9",
+    "metadata": {"order": "ETR-7K3Q9"},
+    "legs": [
+      {"from": "escrow", "to": "merchant:01J9", "amount": 45000, "to_party_type": "merchant"},
+      {"from": "escrow", "to": "platform", "amount": 5000}
+    ]
+  }'
+```
+
+`201` :
+
+```json
+{"id":"01a13a50-8c47-7209-839e-7d17d80ff652","type":"transfer","reference":"6d3cd3af-47b9-4a7d-9f26-5a4f285574b4","currency":"XAF","total_minor":50000,"description":"Settlement of booking ETR-7K3Q9","metadata":{"order":"ETR-7K3Q9"},"legs":[{"from":"escrow","to":"merchant:01J9","amount_minor":45000},{"from":"escrow","to":"platform","amount_minor":5000}],"external_reference":null,"created_at":"2026-10-14T12:08:39+00:00","wallets":[{"wallet_id":"…","party":"escrow","currency":"XAF","available_minor":0,"held_minor":0,"status":"active"},{"wallet_id":"…","party":"merchant:01J9","currency":"XAF","available_minor":45000,"held_minor":0,"status":"active"},{"wallet_id":"…","party":"platform","currency":"XAF","available_minor":5000,"held_minor":0,"status":"active"}]}
+```
+
+- `from` doit déjà détenir un wallet avec assez de fonds disponibles ; le wallet
+  de `to` est créé à son premier crédit (`to_party_type` ne sert qu'à cette
+  création).
+- `reference` est votre `Idempotency-Key` : rejouer la même clé renvoie le même
+  transfert, sans rien déplacer une seconde fois.
+- `metadata` (objet JSON de 4 Ko au plus) et `description` vous reviennent dans
+  l'historique.
+- Chaque wallet dont le solde change émet `wallet.credited` ou `wallet.debited`.
+
+### 3.3 Enregistrer un retrait — `POST /v1/wallets/withdrawals`
+
+Enregistre qu'une valeur est **sortie** : un versement que vous avez fait hors du
+Core (transfert Mobile Money, virement), dont la preuve va dans
+`external_reference`. Le wallet est débité.
+
+```bash
+curl -s -X POST "$BASE_URL/v1/wallets/withdrawals" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  --data '{"party":"merchant:01J9","amount":20000,"currency":"XAF","description":"Withdrawal to MTN Mobile Money","external_reference":"MP241014.1532.C12345"}'
+```
+
+`201` : même forme qu'un transfert, `type` = `withdrawal`, une jambe dont `to` est
+`null`, et le solde restant dans `wallets`.
+
+### 3.4 Historique d'un wallet — `GET /v1/wallets/{walletId}/transactions`
+
+```bash
+curl -s "$BASE_URL/v1/wallets/01a13a50-895d-729e-a7f5-40e1278ab52a/transactions?page=1&per_page=25" \
+  -H "Authorization: Bearer $API_KEY" -H "Accept: application/json"
+```
+
+```json
+{"data":[{"id":42,"occurred_at":"2026-10-14T12:08:39+00:00","direction":"debit","amount_minor":20000,"currency":"XAF","type":"withdrawal","operation_id":"…","payment_id":null,"reference":"…","description":"Withdrawal to MTN Mobile Money","metadata":{}},{"id":41,"occurred_at":"2026-10-14T12:08:38+00:00","direction":"credit","amount_minor":45000,"currency":"XAF","type":"transfer","operation_id":"…","payment_id":null,"reference":"6d3cd3af-…","description":"Settlement of booking ETR-7K3Q9","metadata":{"order":"ETR-7K3Q9"}}],"meta":{"total":2,"page":1,"per_page":25}}
+```
+
+Du plus récent au plus ancien, une ligne par mouvement (un transfert de deux
+jambes depuis le même wallet donne deux lignes). `type` : `payment` (avec
+`payment_id`), `transfer`, `withdrawal` ou `debit`. `per_page` va de 1 à 100.
+
+### 3.5 Solde d'un wallet — `GET /v1/wallets/{walletId}/balance`
 
 ```bash
 curl -s "$BASE_URL/v1/wallets/01a0d4ae-bb83-73d9-8e22-d9cd9b5e18d8/balance" \
@@ -256,13 +358,20 @@ curl -s "$BASE_URL/v1/wallets/01a0d4ae-bb83-73d9-8e22-d9cd9b5e18d8/balance" \
 {"wallet_id":"01a0d4ae-bb83-73d9-8e22-d9cd9b5e18d8","currency":"XAF","available_minor":100,"held_minor":0}
 ```
 
-Wallet inconnu ou d'un autre Project → `404 wallet-not-found`.
+### 3.6 Erreurs de wallet vérifiées
+
+| Cas | Réponse |
+| --- | --- |
+| Pas d'en-tête `Idempotency-Key` sur une mutation | `400 idempotency-key-required` |
+| Clé sans le scope `wallets:write` | `403 forbidden` |
+| Source sans wallet ou sans fonds suffisants | `409 insufficient-funds`, **rien n'a bougé** |
+| Une partie se paie elle-même, devise non prise en charge | `422` |
+| Wallet inconnu ou d'un autre projet | `404 wallet-not-found` |
 
 ## 4. Webhooks sortants
 
 Réception, signature, nouvelles tentatives et catalogue des événements :
-**[webhooks.md](webhooks.md)**. Un endpoint appartient à l'environnement de la clé qui
-l'enregistre.
+**[webhooks.md](webhooks.md)**.
 
 ### 4.1 Enregistrer — `POST /v1/webhook-endpoints`
 
@@ -293,7 +402,7 @@ curl -s "$BASE_URL/v1/webhook-endpoints" \
 ```
 
 ```json
-{"data":[{"id":"01a0d4ab-94f0-72ca-ab5e-497285832ca0","url":"https://example.com/webhooks/core","events":["payment.status_changed"],"active":true,"environment":"sandbox"}]}
+{"data":[{"id":"01a0d4ab-94f0-72ca-ab5e-497285832ca0","url":"https://example.com/webhooks/core","events":["payment.status_changed"],"active":true}]}
 ```
 
 ### 4.2 bis Tester — `POST /v1/webhook-endpoints/{id}/test`
@@ -478,9 +587,13 @@ notification de liaison sur le numéro fourni : n'utilisez que le vôtre.
 | `POST /v1/payments` | oui (MyCoolPay) | 201 |
 | `GET /v1/payments/{id}` | oui | 200 / 404 |
 | `GET /v1/wallets/{id}/balance` | oui (wallet crédité en interne) | 200 / 404 |
+| `GET /v1/parties/{ref}/wallets` | tests d'intégration | 200 |
+| `POST /v1/wallets/transfers` | tests d'intégration (dont concurrence réelle) | 201 / 400 / 403 / 409 / 422 |
+| `POST /v1/wallets/withdrawals` | tests d'intégration | 201 / 409 |
+| `GET /v1/wallets/{id}/transactions` | tests d'intégration | 200 / 404 |
 | `POST/GET/DELETE /v1/webhook-endpoints` | oui | 201 / 200 / 204 |
 | `POST /v1/webhook-endpoints/{id}/test` | tests d'intégration | 200 |
-| `POST /v1/sandbox/payments/{id}/simulate` | tests d'intégration | 200 / 409 / 403 |
+| `POST /v1/payments/{id}/simulate` (staging) | tests d'intégration | 200 / 409 |
 | `POST /v1/notifications/text` | oui (WAHA) | 201 `sent` |
 | `POST /v1/notifications/image` | oui (WAHA) | 201 `sent` |
 | `POST /v1/notifications/file` | oui (WAHA) | 201 `sent` |
@@ -488,5 +601,5 @@ notification de liaison sur le numéro fourni : n'utilisez que le vôtre.
 | `GET …/qr`, `GET …/screenshot`, `POST …/pairing-code` | oui (WAHA) | 200 / 422 si non enregistrée |
 
 Le passage d'un paiement à un statut final, l'événement qui en découle et le crédit du
-wallet indiqué sont couverts de bout en bout en sandbox (simulateur) par la suite de
-tests ; en live, ils dépendent de la validation par le client sur son téléphone.
+wallet indiqué sont couverts de bout en bout avec le simulateur par la suite de
+tests ; avec le vrai fournisseur, ils dépendent de la validation par le client sur son téléphone.

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Core\Identity\Domain\Model;
 
-use Core\Support\Environment;
 use DateTimeImmutable;
 
 /**
- * A server-to-server credential for a Project, scoped to one environment
- * (sandbox or live — spec technique §5.1). The secret itself is never held
+ * A server-to-server credential for a Project — exactly one per Project
+ * (ADR-0066: the Core has a single environment; testing happens on the
+ * staging deployment, not with a second key). The secret itself is never held
  * here: only its hash, and the visible `prefix` used to look the row up
  * before verifying.
  */
@@ -21,7 +21,6 @@ final class ApiKey
     public function __construct(
         public readonly string $id,
         public readonly string $projectId,
-        public readonly Environment $environment,
         public readonly string $prefix,
         private readonly string $keyHash,
         private array $scopes,
@@ -36,13 +35,12 @@ final class ApiKey
     public static function issue(
         string $id,
         string $projectId,
-        Environment $environment,
         string $prefix,
         string $secretHash,
         array $scopes,
         DateTimeImmutable $issuedAt,
     ): self {
-        return new self($id, $projectId, $environment, $prefix, $secretHash, $scopes, null, $issuedAt);
+        return new self($id, $projectId, $prefix, $secretHash, $scopes, null, $issuedAt);
     }
 
     /**

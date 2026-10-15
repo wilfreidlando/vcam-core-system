@@ -42,10 +42,10 @@ final class InMemoryApiKeyRepository implements ApiKeyRepository
         ));
     }
 
-    public function findByProjectAndEnvironment(string $projectId, \Core\Support\Environment $environment): ?ApiKey
+    public function findOneByProject(string $projectId): ?ApiKey
     {
         foreach ($this->apiKeys as $key) {
-            if ($key->projectId === $projectId && $key->environment === $environment) {
+            if ($key->projectId === $projectId) {
                 return $key;
             }
         }

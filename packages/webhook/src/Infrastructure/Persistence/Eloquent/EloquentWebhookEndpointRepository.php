@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Core\Webhook\Infrastructure\Persistence\Eloquent;
 
-use Core\Support\Environment;
 use Core\Webhook\Domain\Model\WebhookEndpoint;
 use Core\Webhook\Domain\Port\WebhookEndpointRepository;
 use Illuminate\Support\Facades\Crypt;
@@ -34,25 +33,23 @@ final class EloquentWebhookEndpointRepository implements WebhookEndpointReposito
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findActiveForProject(string $projectId, ?Environment $environment = null): array
+    public function findActiveForProject(string $projectId): array
     {
         return array_values(
             WebhookEndpointRecord::query()
                 ->where('project_id', $projectId)
                 ->where('active', true)
-                ->when($environment !== null, fn ($query) => $query->where('environment', $environment?->value))
                 ->get()
                 ->map(fn (WebhookEndpointRecord $record): WebhookEndpoint => $this->toDomain($record))
                 ->all(),
         );
     }
 
-    public function findAllForProject(string $projectId, ?Environment $environment = null): array
+    public function findAllForProject(string $projectId): array
     {
         return array_values(
             WebhookEndpointRecord::query()
                 ->where('project_id', $projectId)
-                ->when($environment !== null, fn ($query) => $query->where('environment', $environment?->value))
                 ->get()
                 ->map(fn (WebhookEndpointRecord $record): WebhookEndpoint => $this->toDomain($record))
                 ->all(),
@@ -71,7 +68,6 @@ final class EloquentWebhookEndpointRepository implements WebhookEndpointReposito
             'secret_encrypted' => Crypt::encryptString($endpoint->secret),
             'events' => $endpoint->subscribedEventTypes,
             'active' => $endpoint->active,
-            'environment' => $endpoint->environment->value,
         ];
     }
 
@@ -84,7 +80,6 @@ final class EloquentWebhookEndpointRepository implements WebhookEndpointReposito
             secret: Crypt::decryptString($record->secret_encrypted),
             subscribedEventTypes: array_values($record->events),
             active: $record->active,
-            environment: Environment::from($record->environment),
         );
     }
 }
