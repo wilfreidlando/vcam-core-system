@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Http\Middleware\ResolveOperatorSession;
 use App\Infrastructure\DatabaseIdempotencyStore;
 use App\Infrastructure\DatabaseUnitOfWork;
 use App\Infrastructure\ProjectIdempotencyScope;
@@ -26,6 +27,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Horizon\Horizon;
 
 /**
  * The application shell. It is the composition root: it may depend on the
@@ -58,6 +60,13 @@ final class AppServiceProvider extends ServiceProvider
         // banner). The 'operator.session' middleware gates them.
         Route::middleware('web')
             ->group(base_path('routes/admin.php'));
+
+        // ADR-0067: the Horizon dashboard (its routes run under `web`, so
+        // the console session is available) opens to the operator signed in
+        // to the admin console who holds `queues:manage` — PlatformAdmin
+        // only. Left as Horizon's default (open) in `local`.
+        Horizon::auth(static fn (Request $request): bool => app()->environment('local')
+            || (app(ResolveOperatorSession::class)->currentOperator()?->hasPermission('queues:manage') ?? false));
 
         $this->configureRateLimiting();
         $this->configureApiDocumentationTags();

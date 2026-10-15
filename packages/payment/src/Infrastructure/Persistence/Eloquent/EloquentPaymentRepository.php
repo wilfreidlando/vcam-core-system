@@ -88,7 +88,7 @@ final class EloquentPaymentRepository implements PaymentRepository
         return $this->toDomain($record);
     }
 
-    public function findStuckSince(DateTimeImmutable $threshold, int $limit): array
+    public function findStuckSince(DateTimeImmutable $threshold, int $limit, DateTimeImmutable $createdAfter): array
     {
         // `whereIn`/`orderBy`/`take` are forwarded by Eloquent\Builder to
         // the underlying query builder rather than declared on it
@@ -96,10 +96,13 @@ final class EloquentPaymentRepository implements PaymentRepository
         // Larastan false positive ("dynamic call to static method") on
         // those forwarded calls, and `PaymentRecord::hydrate()` restores
         // the model casts afterwards.
+        // ADR-0067: "last looked at" = GREATEST(updated_at, reconciled_at)
+        // (GREATEST ignores NULLs) — matches payments_reconciliation_turn_idx.
         $base = PaymentRecord::query()->toBase();
         $base->whereIn('status', [PaymentStatus::Pending->value, PaymentStatus::Processing->value]);
-        $base->where('updated_at', '<', $threshold);
-        $base->orderBy('updated_at');
+        $base->whereRaw('GREATEST(updated_at, reconciled_at) < ?', [$threshold->format(DATE_ATOM)]);
+        $base->where('created_at', '>=', $createdAfter);
+        $base->orderByRaw('GREATEST(updated_at, reconciled_at)');
         $base->take($limit);
 
         $rows = $base->get()->map(static fn (object $row): array => (array) $row)->all();
@@ -149,13 +152,21 @@ final class EloquentPaymentRepository implements PaymentRepository
         return ['items' => $payments, 'total' => $total];
     }
 
-    public function countStuckSince(DateTimeImmutable $threshold): int
+    public function countStuckSince(DateTimeImmutable $threshold, DateTimeImmutable $createdAfter): int
     {
         // See findStuckSince() above for why whereIn()/count() go through toBase().
-        $base = PaymentRecord::query()->where('updated_at', '<', $threshold)->toBase();
+        $base = PaymentRecord::query()->where('created_at', '>=', $createdAfter)->toBase();
         $base->whereIn('status', [PaymentStatus::Pending->value, PaymentStatus::Processing->value]);
+        $base->whereRaw('GREATEST(updated_at, reconciled_at) < ?', [$threshold->format(DATE_ATOM)]);
 
         return $base->count();
+    }
+
+    public function markReconciliationChecked(string $paymentId, DateTimeImmutable $checkedAt): void
+    {
+        // Query builder, not the model: `updated_at` must keep meaning
+        // "the payment last changed" (ADR-0067).
+        PaymentRecord::query()->whereKey($paymentId)->toBase()->update(['reconciled_at' => $checkedAt]);
     }
 
     public function countRecentByStatus(DateTimeImmutable $since): array

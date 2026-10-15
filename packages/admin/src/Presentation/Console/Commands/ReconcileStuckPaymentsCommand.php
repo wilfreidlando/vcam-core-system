@@ -9,7 +9,7 @@ use Core\Payment\Contracts\ReconcileStuckPaymentsCommand as ReconcileCommand;
 use Illuminate\Console\Command;
 
 /**
- * Scheduled every 5 minutes (bootstrap/app.php) — the primary delivery
+ * Scheduled every minute (bootstrap/app.php, ADR-0067) — the primary delivery
  * mechanism for reconciliation (spec technique §10). Uses the full
  * configured batch size, unlike the on-demand HTTP trigger.
  */

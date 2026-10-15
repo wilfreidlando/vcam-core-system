@@ -55,13 +55,24 @@ interface PaymentRepository
     public function findByProviderTransactionRefForUpdate(string $providerCode, string $providerTransactionRef): ?Payment;
 
     /**
-     * Non-terminal payments (`pending`/`processing`) untouched since
-     * before `$threshold` — candidates for reconciliation (ADR-0044):
-     * a missed webhook, not necessarily a failure.
+     * Non-terminal payments (`pending`/`processing`) neither changed nor
+     * checked since before `$threshold`, created at or after
+     * `$createdAfter` — candidates for reconciliation (ADR-0044, ADR-0067):
+     * a missed webhook, not necessarily a failure. Least recently looked
+     * at first (`GREATEST(updated_at, reconciled_at)`), so that payments
+     * the provider keeps answering `pending` for take their turn instead
+     * of starving newer ones.
      *
      * @return list<Payment>
      */
-    public function findStuckSince(DateTimeImmutable $threshold, int $limit): array;
+    public function findStuckSince(DateTimeImmutable $threshold, int $limit, DateTimeImmutable $createdAfter): array;
+
+    /**
+     * Records that the provider was just asked about this payment
+     * (`reconciled_at`, ADR-0067), whatever the answer — without touching
+     * `updated_at`, which keeps meaning "the payment last changed".
+     */
+    public function markReconciliationChecked(string $paymentId, DateTimeImmutable $checkedAt): void;
 
     /**
      * Newest first, optionally narrowed to one `projectId` and/or one
@@ -85,7 +96,7 @@ interface PaymentRepository
      * live-provider-calling, state-mutating action, just to populate a
      * "count" widget).
      */
-    public function countStuckSince(DateTimeImmutable $threshold): int;
+    public function countStuckSince(DateTimeImmutable $threshold, DateTimeImmutable $createdAfter): int;
 
     /**
      * Global (cross-project) counts over a time window — the admin

@@ -946,6 +946,23 @@ final class AdminWebFlowTest extends TestCase
         $this->get('/admin/webhook-deliveries/'.Str::uuid())->assertRedirect(route('admin.webhook-deliveries.dead.web'));
     }
 
+    #[Test]
+    public function horizon_opens_only_to_a_platform_admin_signed_in_to_the_console(): void
+    {
+        // ADR-0067: Horizon can retry and delete jobs — `queues:manage`, PlatformAdmin only.
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        $this->get('/horizon')->assertForbidden();
+
+        $this->loginAndEnrollMfa(OperatorRole::FinanceOperator);
+        $this->get('/admin')->assertDontSee('Files (Horizon)');
+        $this->get('/horizon')->assertForbidden();
+
+        $this->post('/admin/logout');
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+        $this->get('/admin')->assertSee('Files (Horizon)');
+        $this->get('/horizon')->assertOk();
+    }
+
     /**
      * Pulls the operator's plaintext bearer token out of the encrypted
      * session that `AuthController::completeLogin()` wrote at login time.

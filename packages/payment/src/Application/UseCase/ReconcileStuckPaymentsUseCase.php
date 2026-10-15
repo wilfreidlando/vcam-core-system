@@ -35,8 +35,8 @@ use Throwable;
  * A failure on one payment — provider-side or not (a persistence error,
  * a domain invariant, anything `PaymentStatusChangeHandler` can throw) —
  * is logged and skipped. The batch must never abort partway through: with
- * `findStuckSince()` ordering the oldest-untouched payment first and no
- * separate starvation guard, a single payment whose processing always
+ * `findStuckSince()` ordering the least-recently-looked-at payment first
+ * (ADR-0067: `reconciled_at` is set before each check), a single payment whose processing always
  * throws would otherwise sit at the head of every future run forever,
  * silently blocking reconciliation for the whole platform (caught in
  * review — a narrower catch here previously let non-provider exceptions
@@ -53,6 +53,7 @@ final readonly class ReconcileStuckPaymentsUseCase implements ReconcileStuckPaym
         private int $stuckAfterMinutes,
         private int $batchSize,
         private PaymentJourney $journey,
+        private int $maxAgeHours = 24,
     ) {}
 
     public function reconcile(ReconcileStuckPaymentsCommand $command): ReconciliationSummary
@@ -60,7 +61,9 @@ final readonly class ReconcileStuckPaymentsUseCase implements ReconcileStuckPaym
         $limit = $command->limitOverride ?? $this->batchSize;
         $threshold = $this->clock->now()->modify(sprintf('-%d minutes', $this->stuckAfterMinutes));
 
-        $stuck = $this->payments->findStuckSince($threshold, $limit);
+        $createdAfter = $this->clock->now()->modify(sprintf('-%d hours', $this->maxAgeHours));
+
+        $stuck = $this->payments->findStuckSince($threshold, $limit, $createdAfter);
 
         $checked = 0;
         $updated = 0;
@@ -73,6 +76,8 @@ final readonly class ReconcileStuckPaymentsUseCase implements ReconcileStuckPaym
             }
 
             $checked++;
+            // ADR-0067: this payment has had its turn, whatever the outcome below.
+            $this->payments->markReconciliationChecked($payment->id, $this->clock->now());
 
             try {
                 $changed = $this->reconcileOne($payment);

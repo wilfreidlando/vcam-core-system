@@ -14,12 +14,13 @@ final readonly class CountStuckPaymentsUseCase implements CountStuckPayments
         private PaymentRepository $payments,
         private Clock $clock,
         private int $stuckAfterMinutes,
+        private int $maxAgeHours = 24,
     ) {}
 
     public function count(): int
     {
         $threshold = $this->clock->now()->modify(sprintf('-%d minutes', $this->stuckAfterMinutes));
 
-        return $this->payments->countStuckSince($threshold);
+        return $this->payments->countStuckSince($threshold, $this->clock->now()->modify(sprintf('-%d hours', $this->maxAgeHours)));
     }
 }

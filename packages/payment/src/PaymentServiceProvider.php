@@ -193,7 +193,9 @@ final class PaymentServiceProvider extends ServiceProvider
 
         $this->app->bind(ReconcileStuckPayments::class, function (Application $app): ReconcileStuckPaymentsUseCase {
             /** @var int $stuckAfterMinutes */
-            $stuckAfterMinutes = $app->make('config')->get('payment.reconciliation.stuck_after_minutes', 15);
+            $stuckAfterMinutes = $app->make('config')->get('payment.reconciliation.stuck_after_minutes', 2);
+            /** @var int $maxAgeHours */
+            $maxAgeHours = $app->make('config')->get('payment.reconciliation.max_age_hours', 24);
             /** @var int $batchSize */
             $batchSize = $app->make('config')->get('payment.reconciliation.batch_size', 100);
 
@@ -206,6 +208,7 @@ final class PaymentServiceProvider extends ServiceProvider
                 stuckAfterMinutes: $stuckAfterMinutes,
                 batchSize: $batchSize,
                 journey: $app->make(PaymentJourney::class),
+                maxAgeHours: $maxAgeHours,
             );
         });
 
@@ -213,23 +216,29 @@ final class PaymentServiceProvider extends ServiceProvider
 
         $this->app->bind(CountStuckPayments::class, function (Application $app): CountStuckPaymentsUseCase {
             /** @var int $stuckAfterMinutes */
-            $stuckAfterMinutes = $app->make('config')->get('payment.reconciliation.stuck_after_minutes', 15);
+            $stuckAfterMinutes = $app->make('config')->get('payment.reconciliation.stuck_after_minutes', 2);
+            /** @var int $maxAgeHours */
+            $maxAgeHours = $app->make('config')->get('payment.reconciliation.max_age_hours', 24);
 
             return new CountStuckPaymentsUseCase(
                 payments: $app->make(PaymentRepository::class),
                 clock: $app->make(Clock::class),
                 stuckAfterMinutes: $stuckAfterMinutes,
+                maxAgeHours: $maxAgeHours,
             );
         });
 
         $this->app->bind(ListStuckPayments::class, function (Application $app): ListStuckPaymentsUseCase {
             /** @var int $stuckAfterMinutes */
-            $stuckAfterMinutes = $app->make('config')->get('payment.reconciliation.stuck_after_minutes', 15);
+            $stuckAfterMinutes = $app->make('config')->get('payment.reconciliation.stuck_after_minutes', 2);
+            /** @var int $maxAgeHours */
+            $maxAgeHours = $app->make('config')->get('payment.reconciliation.max_age_hours', 24);
 
             return new ListStuckPaymentsUseCase(
                 payments: $app->make(PaymentRepository::class),
                 clock: $app->make(Clock::class),
                 stuckAfterMinutes: $stuckAfterMinutes,
+                maxAgeHours: $maxAgeHours,
             );
         });
 

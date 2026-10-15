@@ -64,6 +64,8 @@ final readonly class ReconcilePaymentUseCase implements ReconcilePayment
         }
 
         $gateway = $this->gateways->gatewayFor(ProviderCode::fromString($payment->providerCode));
+        // ADR-0067: an on-demand check also counts as this payment's turn.
+        $this->payments->markReconciliationChecked($payment->id, $this->clock->now());
         $this->journey->forgetPendingExchanges();
         $receipt = $gateway->checkStatus($payment->providerTransactionRef, $payment->projectId);
         $this->journey->recordProviderExchanges($payment->id, $payment->projectId);

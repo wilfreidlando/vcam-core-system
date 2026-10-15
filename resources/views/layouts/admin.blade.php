@@ -98,6 +98,8 @@
                 $canWallets = $has('wallets:read');
                 $canReconciliation = $has('payments:reconcile:write');
                 $canWebhooks = $has('webhooks:read');
+                // ADR-0067: Horizon can retry and delete jobs — PlatformAdmin only.
+                $canQueues = $has('queues:manage');
                 $canSessions = $has('channel-sessions:write');
                 $canAudit = $has('audit:read');
 
@@ -228,7 +230,7 @@
                     @endif
 
                     {{-- Plateforme --}}
-                    @if($canWebhooks || $canAudit || $canSessions)
+                    @if($canWebhooks || $canAudit || $canSessions || $canQueues)
                         <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Plateforme</p>
 
                         @if($canWebhooks)
@@ -254,6 +256,13 @@
                             <a href="{{ route('admin.audit-log.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.audit-log.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                 <span class="truncate">Journal d'audit</span>
+                            </a>
+                        @endif
+
+                        @if($canQueues)
+                            <a href="{{ url(config('horizon.path', 'horizon')) }}" target="_blank" rel="noopener" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 text-slate-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"/></svg>
+                                <span class="truncate">Files (Horizon)</span>
                             </a>
                         @endif
                     @endif

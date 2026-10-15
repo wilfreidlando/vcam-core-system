@@ -259,7 +259,9 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   /webhook-deliveries/dead` + `POST .../replay` (réutilise
   `ReplayWebhookDelivery` intact), `POST /payment-reconciliation-runs`
   (déclenche `Core\Payment\Contracts\ReconcileStuckPayments`, aussi
-  planifié via `admin:reconcile-stuck-payments` toutes les 5 minutes).
+  planifié via `admin:reconcile-stuck-payments` chaque minute, à tour de
+  rôle — ADR-0067). `/horizon` est ouvert aux opérateurs `PlatformAdmin`
+  connectés à la console (permission `queues:manage`, ADR-0067).
   Deuxième tranche (ADR-0045) : listing générique, un port `List*` par
   module (`Identity\Contracts\ListProjects`, `Payment\Contracts\ListPayments`,
   `Wallet\Contracts\ListWallets`, `Notification\Contracts\ListNotifications`)

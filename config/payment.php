@@ -22,7 +22,11 @@ return [
     ],
 
     'reconciliation' => [
-        'stuck_after_minutes' => (int) env('PAYMENT_RECONCILIATION_STUCK_AFTER_MINUTES', 15),
+        // ADR-0067: checked every minute, a payment silent for 2 minutes is
+        // asked to its provider; older than 24 hours, it is no longer asked
+        // automatically (on-demand reconciliation still works at any age).
+        'stuck_after_minutes' => (int) env('PAYMENT_RECONCILIATION_STUCK_AFTER_MINUTES', 2),
+        'max_age_hours' => (int) env('PAYMENT_RECONCILIATION_MAX_AGE_HOURS', 24),
         'batch_size' => (int) env('PAYMENT_RECONCILIATION_BATCH_SIZE', 100),
     ],
 ];

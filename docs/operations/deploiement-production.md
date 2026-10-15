@@ -244,7 +244,7 @@ make prod-logs                                                  # logs JSON stru
 
 Deux tâches planifiées tournent dans `scheduler`, à vérifier dans ses logs :
 `events:relay` (chaque minute — seul lecteur de l'outbox, relaie vers les
-webhooks) et `admin:reconcile-stuck-payments` (toutes les 5 minutes).
+webhooks) et `admin:reconcile-stuck-payments` (chaque minute, ADR-0067).
 
 ## 12. Déployer une mise à jour
 
