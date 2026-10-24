@@ -22,7 +22,7 @@ d'extension prévu (ADR-0090), non planifié · **✗** refusé (liste négative
 | Adaptateurs SMS, e-mail | ○ | ADR-0090 |
 | Webhooks signés, retry, DLQ, rejeu, test | ● | ADR-0040, ADR-0063 |
 | Rotation du secret de webhook (double signature) | ◐ lot 8 | ADR-0082 |
-| Audit | ● ; immuabilité en base ◐ lot 8 | ADR-0081 S-16 |
+| Audit | ● ; immuabilité en base et chaîne d'empreintes quotidiennes ● (lot 8) | ADR-0081 S-16 |
 | Limitation de débit par projet, clé, classe | ◐ lot 15 | ADR-0085 |
 | Métriques par projet, objectifs de service | ◐ lot 15 | ADR-0085 |
 | Contrat versionné, dépréciation, changelog | ● (`/v1`, G9) ; politique ◐ lot 16 | ADR-0028, ADR-0086 |

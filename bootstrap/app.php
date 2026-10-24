@@ -102,6 +102,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // opens a critical money exception in the console.
         $schedule->command('invariants:check', ['--hours' => '2'])->hourly()->withoutOverlapping()->onOneServer();
 
+        // ADR-0081 S-16: seal each complete day of the audit log, then verify
+        // the whole digest chain (exit 1 = a sealed day was altered).
+        $schedule->command('audit:seal')->dailyAt('00:20')->withoutOverlapping()->onOneServer();
+        $schedule->command('audit:verify')->dailyAt('00:40')->withoutOverlapping()->onOneServer();
+
         // Audit 2026-10-03 §4.3: re-dispatch webhook deliveries whose job was lost.
         $schedule->command('webhook:sweep')->everyFiveMinutes()->withoutOverlapping();
 
