@@ -375,6 +375,10 @@ expect_rejection "G7" "POST /v1/payments loses its idempotency middleware" \
 # least ambiguous breaking change oasdiff can detect.
 git show HEAD:openapi/v1.json > /tmp/guard-g9-base.json
 backup packages/identity/routes/api.php
+# The probe regenerates openapi/v1.json over the working copy: back it up so
+# reset_workspace restores it exactly — including uncommitted contract work
+# (a `git checkout` here used to silently discard it).
+backup openapi/v1.json
 python3 - <<'PY'
 path = 'packages/identity/routes/api.php'
 needle = "Route::get('/whoami', WhoAmIController::class)->name('identity.whoami');"
@@ -387,9 +391,6 @@ expect_rejection "G9" "the /whoami endpoint is silently removed, no version bump
     'api-path-removed|breaking' \
     docker run --rm -v /tmp:/specs -v "$PWD/openapi:/head" tufin/oasdiff:latest \
     breaking /specs/guard-g9-base.json /head/v1.json --fail-on ERR
-# The probe overwrote the real openapi/v1.json on disk (reset_workspace only
-# restores the route file) — restore the committed snapshot too.
-git checkout -- openapi/v1.json
 rm -f /tmp/guard-g9-base.json
 
 # ── G11 — the ledger's own deferred balance trigger, disabled ──────────────
@@ -409,6 +410,22 @@ PY
 expect_rejection "G11" "the ledger_entries deferred balance trigger is not installed" \
     'must be rejected at commit' \
     bash -c "$DC_TESTING_DB php artisan migrate:fresh --force >/dev/null 2>&1 && $DC_DB vendor/bin/pest --group=invariants --filter=every_transaction_balances_to_zero"
+$DC_TESTING_DB php artisan migrate:fresh --force > /dev/null 2>&1
+
+# ── G13 — the ledger project-isolation trigger, disabled ───────────────────
+# Same shape as G11: the trigger install is commented out, the database is
+# refreshed to pick that up, then refreshed again with the restored file.
+backup packages/ledger/database/migrations/2026_10_24_130000_guard_ledger_project_isolation_and_transaction_immutability.php
+python3 - <<'PY'
+path = 'packages/ledger/database/migrations/2026_10_24_130000_guard_ledger_project_isolation_and_transaction_immutability.php'
+needle = '        $this->installProjectIsolationTrigger();\n'
+content = open(path).read()
+assert needle in content, 'installProjectIsolationTrigger() call not found — probe out of date'
+open(path, 'w').write(content.replace(needle, '        // GUARD PROBE: project isolation trigger intentionally not installed.\n'))
+PY
+expect_rejection "G13" "the ledger project-isolation trigger is not installed" \
+    'must be rejected by the database \(G13\)' \
+    bash -c "$DC_TESTING_DB php artisan migrate:fresh --force >/dev/null 2>&1 && $DC_DB vendor/bin/pest --group=invariants --filter=an_entry_can_never_cross_projects"
 $DC_TESTING_DB php artisan migrate:fresh --force > /dev/null 2>&1
 
 # ── Summary ─────────────────────────────────────────────────────────────────

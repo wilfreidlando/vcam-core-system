@@ -6,6 +6,7 @@ namespace Core\Payment\Infrastructure\Persistence\Eloquent;
 
 use Core\Payment\Domain\Exception\PaymentAlreadyExists;
 use Core\Payment\Domain\Model\Payment;
+use Core\Payment\Domain\Model\SettlementException;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\PaymentStatus;
 use DateTimeImmutable;
@@ -202,6 +203,9 @@ final class EloquentPaymentRepository implements PaymentRepository
             'wallet_recipient_external_ref' => $payment->walletRecipientExternalRef,
             'callback_url' => $payment->callbackUrl,
             'callback_secret_encrypted' => $payment->callbackSecret === null ? null : Crypt::encryptString($payment->callbackSecret),
+            'confirmed_amount_minor' => $payment->confirmedAmount,
+            'confirmed_currency' => $payment->confirmedCurrency,
+            'settlement_exception' => $payment->settlementException?->value,
         ];
     }
 
@@ -235,6 +239,9 @@ final class EloquentPaymentRepository implements PaymentRepository
             // to happen.
             updatedAt: DateTimeImmutable::createFromInterface($record->updated_at),
             createdAt: DateTimeImmutable::createFromInterface($record->created_at),
+            confirmedAmount: $record->confirmed_amount_minor,
+            confirmedCurrency: $record->confirmed_currency,
+            settlementException: $record->settlement_exception === null ? null : SettlementException::from($record->settlement_exception),
         );
     }
 }

@@ -12,9 +12,15 @@ use Core\Payment\Application\Service\PaymentJourney;
 use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\Events\PaymentStatusNotification;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
+use Core\Payment\Domain\Model\MoneyException;
+use Core\Payment\Domain\Model\MoneyExceptionKind;
+use Core\Payment\Domain\Model\MoneyExceptionSeverity;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Model\PaymentTimelineEntryType;
+use Core\Payment\Domain\Model\SettlementException;
+use Core\Payment\Domain\Port\MoneyExceptionRepository;
 use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Payment\Domain\Port\SettlementLedger;
 use Core\Payment\PaymentStatus;
 use Core\Support\Clock;
 use Core\Support\Identifier;
@@ -27,10 +33,15 @@ use Psr\Log\LoggerInterface;
 
 /**
  * Applies a provider-reported status change to the Payment it belongs
- * to, and — only when the caller asked for it at initiation (ADR-0037)
- * AND the payment just settled — credits the wallet synchronously in the
- * same transaction (ADR-0036), before publishing the canonical event to
- * the outbox.
+ * to and, when the payment just settled, books the settlement in the same
+ * transaction (ADR-0036, ADR-0076 §3), before publishing the canonical
+ * event to the outbox. Exactly one of three bookings happens:
+ *
+ * - the provider confirmed another amount or currency (ADR-0077): the
+ *   confirmed amount goes to `payment_exceptions`, nothing is credited;
+ * - the caller asked for a wallet credit at initiation (ADR-0037): the
+ *   wallet is credited (`clearing → wallet`);
+ * - otherwise, a direct collection: `clearing → revenue`.
  *
  * `Payment` is resolved by `(providerCode, transactionRef)` — pinned at
  * `StartPaymentUseCase` time, never searched across every registered
@@ -48,6 +59,8 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
         private Clock $clock,
         private LoggerInterface $logger,
         private PaymentJourney $journey,
+        private SettlementLedger $settlementLedger,
+        private MoneyExceptionRepository $moneyExceptions,
     ) {}
 
     public function handle(PaymentStatusChanged $event, string $source = 'provider_callback'): void
@@ -76,6 +89,12 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
                 return;
             }
 
+            if ($this->isLateConfirmation($payment, $event)) {
+                $this->applyLateConfirmation($payment, $event, $source);
+
+                return;
+            }
+
             if (! $payment->status->canTransitionTo($event->status)) {
                 // Idempotent: a replayed or duplicate webhook after the
                 // payment already settled is a no-op, not an error.
@@ -98,6 +117,13 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
             }
 
             $updated = $payment->withStatusChange($event->status, $event->reason);
+            if ($updated->status === PaymentStatus::Succeeded) {
+                $updated = $updated->withSettlement(
+                    $event->confirmedAmountMinor,
+                    $event->confirmedCurrency,
+                    $payment->settlementExceptionFor($event->confirmedAmountMinor, $event->confirmedCurrency),
+                );
+            }
             $this->payments->save($updated);
 
             $this->journey->record(
@@ -115,8 +141,8 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
                 ],
             );
 
-            if ($updated->shouldCreditWallet()) {
-                $this->creditWalletFor($updated);
+            if ($updated->status === PaymentStatus::Succeeded) {
+                $this->bookSettlement($updated);
             }
 
             $eventId = $this->identifier->generate();
@@ -129,6 +155,8 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
                 currency: $updated->currency,
                 failureReason: $updated->status === PaymentStatus::Succeeded ? null : $updated->errorMessage,
                 occurredAt: $this->clock->now()->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
+                confirmedAmount: $updated->confirmedAmount,
+                exception: $updated->settlementException?->value,
             );
             $this->outbox->append(new DomainEvent(
                 $eventId,
@@ -172,6 +200,193 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
             'simulation' => 'simulation',
             default => $source,
         };
+    }
+
+    /**
+     * A payment settled by a source that confirms no amount (a
+     * `checkStatus()` reconciliation) and the provider's own callback,
+     * carrying the confirmed amount, arriving afterwards. The status does
+     * not change, but the amount must still be checked (ADR-0077 §1).
+     */
+    private function isLateConfirmation(Payment $payment, PaymentStatusChanged $event): bool
+    {
+        return $payment->status === PaymentStatus::Succeeded
+            && $event->status === PaymentStatus::Succeeded
+            && $payment->confirmedAmount === null
+            && $event->confirmedAmountMinor !== null;
+    }
+
+    /**
+     * Records the late confirmation. The settlement was already booked on
+     * the requested amount (revenue or a wallet credit), so nothing moves
+     * here: a mismatch opens a CRITICAL exception with nothing booked, for
+     * a person to correct — the money may already sit in a wallet.
+     */
+    private function applyLateConfirmation(Payment $payment, PaymentStatusChanged $event, string $source): void
+    {
+        $confirmedAmount = $event->confirmedAmountMinor ?? $payment->amount;
+        $confirmedCurrency = $event->confirmedCurrency ?? $payment->currency;
+        $exception = $payment->settlementExceptionFor($confirmedAmount, $confirmedCurrency);
+        $updated = $payment->withSettlement($confirmedAmount, $confirmedCurrency, $exception);
+        $this->payments->save($updated);
+
+        if ($exception === null) {
+            $this->journey->record(
+                $payment->id,
+                $payment->projectId,
+                PaymentTimelineEntryType::SettlementRecorded,
+                sprintf('Montant confirmé après coup par le prestataire (%s) : %d %s, conforme.', self::sourceLabel($source), $confirmedAmount, strtoupper($confirmedCurrency)),
+                ['source' => $source, 'confirmed_amount' => $confirmedAmount, 'confirmed_currency' => strtoupper($confirmedCurrency), 'late' => true],
+            );
+
+            return;
+        }
+
+        $this->moneyExceptions->create(MoneyException::open(
+            id: $this->identifier->generate(),
+            projectId: $payment->projectId,
+            kind: MoneyExceptionKind::fromSettlement($exception),
+            severity: MoneyExceptionSeverity::Critical,
+            amount: $confirmedAmount,
+            currency: $confirmedCurrency,
+            bookedAmount: 0,
+            paymentId: $payment->id,
+            subjectRef: $payment->walletRecipientExternalRef,
+            summary: sprintf(
+                'Paiement %s réglé sur %d %s avant confirmation ; le prestataire confirme ensuite %d %s. À corriger : la somme a déjà été écrite sur le montant demandé.',
+                $payment->idempotencyKey,
+                $payment->amount,
+                $payment->currency,
+                $confirmedAmount,
+                strtoupper($confirmedCurrency),
+            ),
+            details: [
+                'requested_amount' => $payment->amount,
+                'requested_currency' => $payment->currency,
+                'provider_code' => $payment->providerCode,
+                'provider_transaction_ref' => $payment->providerTransactionRef,
+                'wallet_recipient_external_ref' => $payment->walletRecipientExternalRef,
+                'booked' => false,
+                'late_confirmation' => true,
+            ],
+            now: $this->clock->now(),
+        ));
+
+        $this->logger->critical('payment.settlement.late_mismatch', [
+            'payment_id' => $payment->id,
+            'project_id' => $payment->projectId,
+            'exception' => $exception->value,
+            'requested' => [$payment->amount, $payment->currency],
+            'confirmed' => [$confirmedAmount, strtoupper($confirmedCurrency)],
+        ]);
+        $this->journey->record(
+            $payment->id,
+            $payment->projectId,
+            PaymentTimelineEntryType::SettlementException,
+            sprintf('Confirmation tardive en écart : réglé sur %d %s, le prestataire confirme %d %s — exception critique ouverte.', $payment->amount, $payment->currency, $confirmedAmount, strtoupper($confirmedCurrency)),
+            ['source' => $source, 'exception' => $exception->value, 'confirmed_amount' => $confirmedAmount, 'confirmed_currency' => strtoupper($confirmedCurrency), 'late' => true],
+        );
+    }
+
+    /**
+     * ADR-0076 §3 / ADR-0077 §2 — the one settlement booking of a payment
+     * that just succeeded.
+     */
+    private function bookSettlement(Payment $payment): void
+    {
+        if ($payment->settlementException !== null) {
+            $confirmedAmount = $payment->confirmedAmount ?? $payment->amount;
+            $confirmedCurrency = $payment->confirmedCurrency ?? $payment->currency;
+            $booked = $this->settlementLedger->recordUnallocatedSettlement($payment, $confirmedAmount, $confirmedCurrency);
+
+            // ADR-0077 §3 — the exception a person will settle, opened in
+            // the same transaction as the booking it accounts for.
+            $this->moneyExceptions->create(MoneyException::open(
+                id: $this->identifier->generate(),
+                projectId: $payment->projectId,
+                kind: MoneyExceptionKind::fromSettlement($payment->settlementException),
+                severity: MoneyExceptionSeverity::High,
+                amount: $confirmedAmount,
+                currency: $confirmedCurrency,
+                bookedAmount: $booked ? $confirmedAmount : 0,
+                paymentId: $payment->id,
+                subjectRef: $payment->walletRecipientExternalRef,
+                summary: sprintf(
+                    'Paiement %s : demandé %d %s, le prestataire confirme %d %s.',
+                    $payment->idempotencyKey,
+                    $payment->amount,
+                    $payment->currency,
+                    $confirmedAmount,
+                    $confirmedCurrency,
+                ),
+                details: [
+                    'requested_amount' => $payment->amount,
+                    'requested_currency' => $payment->currency,
+                    'provider_code' => $payment->providerCode,
+                    'provider_transaction_ref' => $payment->providerTransactionRef,
+                    'wallet_recipient_external_ref' => $payment->walletRecipientExternalRef,
+                    'booked' => $booked,
+                ],
+                now: $this->clock->now(),
+            ));
+
+            $this->logger->warning('payment.settlement.exception', [
+                'payment_id' => $payment->id,
+                'project_id' => $payment->projectId,
+                'exception' => $payment->settlementException->value,
+                'requested' => [$payment->amount, $payment->currency],
+                'confirmed' => [$confirmedAmount, $confirmedCurrency],
+                'booked' => $booked,
+            ]);
+            $this->journey->record(
+                $payment->id,
+                $payment->projectId,
+                PaymentTimelineEntryType::SettlementException,
+                sprintf(
+                    '%s : demandé %d %s, confirmé %d %s — %s',
+                    $payment->settlementException === SettlementException::CurrencyMismatch ? 'Écart de devise' : 'Écart de montant',
+                    $payment->amount,
+                    $payment->currency,
+                    $confirmedAmount,
+                    $confirmedCurrency,
+                    $booked ? 'mis en attente au compte des exceptions, rien n\'est crédité' : 'devise non prise en charge, rien n\'est écrit ni crédité',
+                ),
+                [
+                    'exception' => $payment->settlementException->value,
+                    'requested_amount' => $payment->amount,
+                    'requested_currency' => $payment->currency,
+                    'confirmed_amount' => $confirmedAmount,
+                    'confirmed_currency' => $confirmedCurrency,
+                    'booked' => $booked,
+                ],
+            );
+
+            return;
+        }
+
+        if ($payment->shouldCreditWallet()) {
+            $this->creditWalletFor($payment);
+
+            return;
+        }
+
+        $this->settlementLedger->recordDirectSettlement($payment);
+        $this->journey->record(
+            $payment->id,
+            $payment->projectId,
+            PaymentTimelineEntryType::SettlementRecorded,
+            sprintf(
+                'Encaissement de %d %s écrit au grand livre (revenu du projet)%s',
+                $payment->amount,
+                $payment->currency,
+                $payment->confirmedAmount === null ? ' — montant non confirmé par la source' : '',
+            ),
+            [
+                'amount' => $payment->amount,
+                'currency' => $payment->currency,
+                'amount_verified' => $payment->confirmedAmount !== null,
+            ],
+        );
     }
 
     private function creditWalletFor(Payment $payment): void

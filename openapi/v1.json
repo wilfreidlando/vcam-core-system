@@ -5175,7 +5175,9 @@
                             "amount": 5000,
                             "currency": "XAF",
                             "failure_reason": null,
-                            "occurred_at": "2026-10-03T10:15:00Z"
+                            "occurred_at": "2026-10-03T10:15:00Z",
+                            "confirmed_amount": 5000,
+                            "exception": null
                         }
                     }
                 ],
@@ -5265,6 +5267,26 @@
                                 "description": "When the Core recorded this status (UTC). Use it to ignore an older notification arriving after a newer one.",
                                 "examples": [
                                     "2026-10-03T10:15:00Z"
+                                ]
+                            },
+                            "confirmed_amount": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "description": "ADR-0077: amount the provider confirmed it collected, in minor units, on a settled payment. null when the source did not confirm an amount, and on any other status.",
+                                "examples": [
+                                    5000
+                                ]
+                            },
+                            "exception": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "description": "ADR-0077: amount_mismatch or currency_mismatch when the provider confirmed something else than requested. The payment is settled but NOT allocated: no wallet is credited. null otherwise. Open enumeration: ignore values you do not know.",
+                                "examples": [
+                                    null
                                 ]
                             }
                         },
@@ -6043,7 +6065,9 @@
                             "amount": 5000,
                             "currency": "XAF",
                             "failure_reason": null,
-                            "occurred_at": "2026-10-03T10:15:00Z"
+                            "occurred_at": "2026-10-03T10:15:00Z",
+                            "confirmed_amount": 5000,
+                            "exception": null
                         }
                     }
                 ],
@@ -6133,6 +6157,26 @@
                                 "description": "When the Core recorded this status (UTC). Use it to ignore an older notification arriving after a newer one.",
                                 "examples": [
                                     "2026-10-03T10:15:00Z"
+                                ]
+                            },
+                            "confirmed_amount": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "description": "ADR-0077: amount the provider confirmed it collected, in minor units, on a settled payment. null when the source did not confirm an amount, and on any other status.",
+                                "examples": [
+                                    5000
+                                ]
+                            },
+                            "exception": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "description": "ADR-0077: amount_mismatch or currency_mismatch when the provider confirmed something else than requested. The payment is settled but NOT allocated: no wallet is credited. null otherwise. Open enumeration: ignore values you do not know.",
+                                "examples": [
+                                    null
                                 ]
                             }
                         },

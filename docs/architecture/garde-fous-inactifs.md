@@ -37,6 +37,7 @@ garde-fou** (une porte qui échoue pour une autre raison ne compte pas).
 | G8c | L'écriture outbox et le changement d'état partagent une transaction — actif depuis `CreditWalletUseCase` (Lot 2, ADR-0032) | Pest + PostgreSQL |
 | G9  | Aucune rupture OpenAPI sans montée de version — actif depuis l'installation de Scramble et le premier snapshot commité (`openapi/v1.json`) | oasdiff + Spectral |
 | G11 | Invariants ledger (somme nulle, solde dérivé, concurrence, rejeu) — actif depuis le ledger et le wallet (Lot 2) | Pest + PostgreSQL |
+| G13 | Isolation financière : aucune écriture du grand livre ne traverse deux projets — trigger PostgreSQL, actif depuis le lot 9 (ADR-0076 §5) | Trigger PostgreSQL + Pest |
 
 Ces règles sont « actives » au sens où elles **rejettent aujourd'hui** une
 violation introduite n'importe où dans le code — ce que `make guard-test`

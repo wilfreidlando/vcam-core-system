@@ -76,6 +76,8 @@ Champ `data` de l'enveloppe, par type. Le schéma complet est publié dans `/doc
 | `currency` | string | Code ISO 4217. |
 | `failure_reason` | string \| null | Raison de l'échec, si `status` n'est pas `succeeded`. |
 | `occurred_at` | string | Date du changement, RFC 3339 UTC. |
+| `confirmed_amount` | integer \| null | Montant que le prestataire confirme avoir encaissé, en unités mineures, sur un paiement `succeeded`. `null` si la source ne l'a pas confirmé, et pour tout autre statut. |
+| `exception` | string \| null | `amount_mismatch` ou `currency_mismatch` quand le prestataire confirme autre chose que le montant ou la devise demandés : le paiement est `succeeded` mais **n'est pas imputé** (aucun wallet crédité) ; l'exploitant le traite. `null` sinon. Liste ouverte : ignorez une valeur inconnue. |
 
 #### 3.1 Statuts d'un paiement
 

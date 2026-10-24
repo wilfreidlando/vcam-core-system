@@ -136,7 +136,8 @@ correction n'altère une écriture existante.
 ## Vérification
 
 - Test d'invariant : chaque paiement `succeeded` a exactement une transaction
-  `payment:<id>:settle`.
+  de règlement, de clé d'idempotence = id du paiement (la même que celle du
+  crédit de wallet : un seul règlement par paiement, quel que soit le chemin).
 - Test du trigger inter-projets : une écriture vers un compte d'un autre projet
   → erreur PostgreSQL.
 - Test : balance de vérification d'un projet = 0 par devise.

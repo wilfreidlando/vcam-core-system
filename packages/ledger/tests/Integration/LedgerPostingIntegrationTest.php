@@ -148,6 +148,37 @@ final class LedgerPostingIntegrationTest extends TestCase
     }
 
     #[Test]
+    public function it_rejects_updating_or_deleting_a_transaction(): void
+    {
+        [$entryId] = $this->postOneBalancedEntryPair();
+        $transactionId = DB::table('ledger_entries')->where('id', $entryId)->value('transaction_id');
+
+        foreach (['update', 'delete', 'truncate'] as $operation) {
+            $threw = null;
+
+            try {
+                DB::transaction(function () use ($transactionId, $operation): void {
+                    $query = DB::table('ledger_transactions')->where('id', $transactionId);
+                    match ($operation) {
+                        'update' => $query->update(['type' => 'tampered']),
+                        'delete' => $query->delete(),
+                        // Flush the deferred balance checks the posting left
+                        // pending in this test transaction first, or
+                        // PostgreSQL refuses the TRUNCATE before our trigger
+                        // even runs ("pending trigger events").
+                        default => DB::statement('SET CONSTRAINTS ALL IMMEDIATE') && DB::statement('TRUNCATE ledger_transactions CASCADE'),
+                    };
+                });
+            } catch (QueryException $e) {
+                $threw = $e;
+            }
+
+            self::assertNotNull($threw, "Expected the immutability trigger to reject a transaction {$operation}.");
+            self::assertStringContainsString('append-only', $threw->getMessage());
+        }
+    }
+
+    #[Test]
     public function replaying_the_same_idempotency_key_posts_no_second_transaction(): void
     {
         $accounts = app(AccountResolver::class);

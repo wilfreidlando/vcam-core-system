@@ -994,7 +994,7 @@ Tous écrits dans l'outbox, dans la transaction de l'état (G8, G8c).
 |---|---|---|
 | HTTP (G7) | toute mutation monétaire : `/v1/payments/*`, `/v1/invoices/{id}/pay`, `/v1/payouts`, portail (jeton de formulaire) | `Idempotency-Key`, portée `(project_id, clé)` |
 | Domaine | notifications (ADR-0056), usage | `client_reference` / `idempotency_key` |
-| Grand livre | toute transaction | clé dérivée de l'objet : `payment:<id>:settle`, `invoice:<id>:issue`, `invoice_payment:<id>:allocate`, `manual_receipt:<id>`, `payout:<id>:reserve`… |
+| Grand livre | toute transaction | clé dérivée de l'objet : id du paiement pour son règlement (partagée avec le crédit de wallet, donc un seul règlement par paiement), `invoice:<id>:issue`, `invoice_payment:<id>:allocate`, `manual_receipt:<id>`, `payout:<id>:reserve`… |
 | Structurelle | `PUT /v1/customers/{ref}`, transitions d'état conditionnelles, consommation des jetons | la ressource elle-même |
 
 ## T9. Matrice des écritures (ADR-0076)

@@ -73,6 +73,16 @@ final readonly class Payment
          */
         public ?DateTimeImmutable $updatedAt = null,
         public ?DateTimeImmutable $createdAt = null,
+        /**
+         * ADR-0077 — what the provider confirmed it collected, once the
+         * payment settled. `null` = not confirmed by the source (a
+         * `checkStatus()` response, the simulator): settled on the
+         * requested amount, traced as "amount not verified".
+         */
+        public ?int $confirmedAmount = null,
+        public ?string $confirmedCurrency = null,
+        /** Set when the settlement could not be allocated automatically. */
+        public ?SettlementException $settlementException = null,
     ) {
         if (trim($providerTransactionRef) === '') {
             throw new InvalidArgumentException('A Payment must carry a non-blank provider transaction reference.');
@@ -115,6 +125,61 @@ final readonly class Payment
             callbackUrl: $this->callbackUrl,
             callbackSecret: $this->callbackSecret,
             createdAt: $this->createdAt,
+            confirmedAmount: $this->confirmedAmount,
+            confirmedCurrency: $this->confirmedCurrency,
+            settlementException: $this->settlementException,
+        );
+    }
+
+    /**
+     * ADR-0077 §2 — compares what the provider confirmed with what was
+     * requested. `null` when it matches, or when nothing was confirmed
+     * (the source cannot confirm an amount: nothing to compare).
+     * A currency difference wins over an amount difference: the amounts of
+     * two currencies are not comparable.
+     */
+    public function settlementExceptionFor(?int $confirmedAmount, ?string $confirmedCurrency): ?SettlementException
+    {
+        if ($confirmedCurrency !== null && strtoupper($confirmedCurrency) !== strtoupper($this->currency)) {
+            return SettlementException::CurrencyMismatch;
+        }
+
+        if ($confirmedAmount !== null && $confirmedAmount !== $this->amount) {
+            return SettlementException::AmountMismatch;
+        }
+
+        return null;
+    }
+
+    /**
+     * A new instance carrying the settlement facts: what the provider
+     * confirmed, and the exception that keeps it from being allocated, if any.
+     */
+    public function withSettlement(?int $confirmedAmount, ?string $confirmedCurrency, ?SettlementException $exception): self
+    {
+        return new self(
+            id: $this->id,
+            projectId: $this->projectId,
+            channel: $this->channel,
+            providerCode: $this->providerCode,
+            idempotencyKey: $this->idempotencyKey,
+            providerTransactionRef: $this->providerTransactionRef,
+            amount: $this->amount,
+            currency: $this->currency,
+            status: $this->status,
+            requiresAction: $this->requiresAction,
+            actionHint: $this->actionHint,
+            paymentUrl: $this->paymentUrl,
+            errorMessage: $this->errorMessage,
+            returnUrl: $this->returnUrl,
+            walletRecipientExternalRef: $this->walletRecipientExternalRef,
+            callbackUrl: $this->callbackUrl,
+            callbackSecret: $this->callbackSecret,
+            updatedAt: $this->updatedAt,
+            createdAt: $this->createdAt,
+            confirmedAmount: $confirmedAmount,
+            confirmedCurrency: $confirmedCurrency === null ? null : strtoupper($confirmedCurrency),
+            settlementException: $exception,
         );
     }
 
@@ -131,10 +196,14 @@ final readonly class Payment
      * ADR-0037: crediting a wallet is never automatic — only when the
      * caller asked for it at initiation (`walletRecipientExternalRef`
      * set) AND the payment has just reached the one terminal state that
-     * means money genuinely settled.
+     * means money genuinely settled — and never when the settlement is in
+     * exception (ADR-0077 §2: an amount the provider did not confirm is
+     * never credited).
      */
     public function shouldCreditWallet(): bool
     {
-        return $this->status === PaymentStatus::Succeeded && $this->walletRecipientExternalRef !== null;
+        return $this->status === PaymentStatus::Succeeded
+            && $this->walletRecipientExternalRef !== null
+            && $this->settlementException === null;
     }
 }

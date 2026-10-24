@@ -139,5 +139,11 @@ final class GuardRegistry
             'enforced_by' => 'tests/Invariants',
             'status' => self::ACTIVE,
         ],
+        'G13' => [
+            'rule' => 'Financial isolation: a ledger entry never crosses projects (ADR-0076 §5)',
+            'tool' => 'PostgreSQL trigger + Pest',
+            'enforced_by' => 'tests/Invariants/LedgerProjectIsolationTest.php',
+            'status' => self::ACTIVE,
+        ],
     ];
 }

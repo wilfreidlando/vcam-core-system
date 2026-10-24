@@ -67,7 +67,8 @@ l'application (`invariants:check`) appelle les contrôleurs des deux modules.
   enregistrés, imputations et corrections sont **hors périmètre** par
   construction — ce sont des mouvements internes.
 - **Clé de jointure** : `payments.provider_transaction_ref` ↔ référence du
-  relevé ; transaction du grand livre ↔ paiement par `payment:<id>:settle`.
+  relevé ; transaction du grand livre ↔ paiement par la clé d'idempotence = id du
+  paiement (la même que celle du crédit de wallet).
 - **Normalisation avant comparaison** : brut/net, frais
   (écriture `provider_fees` quand le relevé les donne), date de valeur contre
   date de règlement, fuseau.

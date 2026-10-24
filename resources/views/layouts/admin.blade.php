@@ -97,6 +97,8 @@
                 // project detail page carries the actual Wallets tab.
                 $canWallets = $has('wallets:read');
                 $canReconciliation = $has('payments:reconcile:write');
+                // ADR-0077 — the money exceptions queue.
+                $canMoneyExceptions = $has('money-exceptions:read');
                 $canWebhooks = $has('webhooks:read');
                 // ADR-0067: Horizon can retry and delete jobs — PlatformAdmin only.
                 $canQueues = $has('queues:manage');
@@ -119,6 +121,15 @@
                             ))->total;
                     } catch (\Throwable) {
                         $deadWebhookCount = null;
+                    }
+                }
+
+                $moneyExceptionsCount = null;
+                if ($canMoneyExceptions) {
+                    try {
+                        $moneyExceptionsCount = app(\Core\Payment\Contracts\ListMoneyExceptions::class)->countUnresolved();
+                    } catch (\Throwable) {
+                        $moneyExceptionsCount = null;
                     }
                 }
 
@@ -193,7 +204,7 @@
                     @endif
 
                     {{-- Argent --}}
-                    @if($canPayments || $canWallets || $canReconciliation)
+                    @if($canPayments || $canWallets || $canReconciliation || $canMoneyExceptions)
                         <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Argent</p>
 
                         @if($canPayments)
@@ -213,6 +224,18 @@
                             <a href="{{ route('admin.projects.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 text-slate-300">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12V7H5a2 2 0 010-4h14v4M3 5v14a2 2 0 002 2h16v-5M18 12a2 2 0 100 4 2 2 0 000-4z"/></svg>
                                 <span class="truncate">Wallets</span>
+                            </a>
+                        @endif
+
+                        @if($canMoneyExceptions)
+                            <a href="{{ route('admin.money-exceptions.index') }}" class="flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.money-exceptions.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
+                                <span class="flex items-center gap-3 min-w-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                                    <span class="truncate">Exceptions d'argent</span>
+                                </span>
+                                @if($moneyExceptionsCount !== null && $moneyExceptionsCount > 0)
+                                    <span class="inline-flex items-center justify-center rounded-full bg-rose-500/20 text-rose-300 text-xs font-semibold px-1.5 py-0.5 min-w-[1.375rem] shrink-0">{{ $moneyExceptionsCount }}</span>
+                                @endif
                             </a>
                         @endif
 

@@ -25,6 +25,9 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $wallet_recipient_external_ref
  * @property string|null $callback_url
  * @property string|null $callback_secret_encrypted
+ * @property int|null $confirmed_amount_minor
+ * @property string|null $confirmed_currency
+ * @property string|null $settlement_exception
  * @property \Illuminate\Support\Carbon $updated_at
  * @property \Illuminate\Support\Carbon $created_at
  */
@@ -52,10 +55,14 @@ final class PaymentRecord extends Model
         'wallet_recipient_external_ref',
         'callback_url',
         'callback_secret_encrypted',
+        'confirmed_amount_minor',
+        'confirmed_currency',
+        'settlement_exception',
     ];
 
     protected $casts = [
         'requires_action' => 'bool',
         'amount_minor' => 'int',
+        'confirmed_amount_minor' => 'int',
     ];
 }

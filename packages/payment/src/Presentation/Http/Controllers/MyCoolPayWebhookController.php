@@ -12,6 +12,7 @@ use Core\Payment\Domain\Model\PaymentTimelineEntryType;
 use Core\Payment\Domain\Port\PaymentCallbackAuthenticator;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
+use Core\Payment\PaymentStatus;
 use Core\Support\Clock;
 use Core\Support\Integration\Redaction\PayloadRedactor;
 use DateTimeZone;
@@ -276,6 +277,26 @@ final class MyCoolPayWebhookController
             return null;
         }
 
+        // ADR-0077 §1: MyCoolPay confirms the collected amount on every
+        // PAYIN callback (it is part of the signed fields). It matters only
+        // for a success — the money the platform will book: a success
+        // without a readable amount is malformed and is NOT applied (the
+        // reconciliation job settles the payment later, amount traced as
+        // not verified, then checked if the callback comes back). A failure
+        // or cancellation goes through without one. `transaction_fees` is
+        // separate and is not part of the comparison.
+        $confirmedAmount = self::minorAmount($body['transaction_amount'] ?? null);
+        $confirmedCurrency = self::stringField($body, 'transaction_currency');
+
+        if ($status === PaymentStatus::Succeeded && $confirmedAmount === null) {
+            $this->logger->error('my-coolpay.webhook.success_without_amount', [
+                'transaction_ref' => $transactionRef,
+                'raw_amount_type' => get_debug_type($body['transaction_amount'] ?? null),
+            ]);
+
+            return null;
+        }
+
         // `occurredAt` would be the provider's reported timestamp; MyCoolPay
         // doesn't include one in the webhook, so we use the receive time.
         $occurredAt = $this->clock->now()
@@ -289,7 +310,32 @@ final class MyCoolPayWebhookController
             status: $status,
             reason: $reason,
             occurredAt: $occurredAt,
+            confirmedAmountMinor: $confirmedAmount,
+            confirmedCurrency: $confirmedCurrency === '' ? null : $confirmedCurrency,
         );
+    }
+
+    /**
+     * MyCoolPay amounts are whole units of a currency without minor units
+     * (XAF): an integer, or its decimal-string / integral-float rendering.
+     * Anything else (a fractional amount, a negative one, garbage) is
+     * unreadable, never rounded.
+     */
+    private static function minorAmount(mixed $raw): ?int
+    {
+        if (is_int($raw)) {
+            return $raw >= 0 ? $raw : null;
+        }
+
+        if (is_float($raw) && floor($raw) === $raw && $raw >= 0 && $raw < PHP_INT_MAX) {
+            return (int) $raw;
+        }
+
+        if (is_string($raw) && preg_match('/^\d{1,18}(\.0+)?$/', $raw) === 1) {
+            return (int) $raw;
+        }
+
+        return null;
     }
 
     /**

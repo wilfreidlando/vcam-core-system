@@ -207,6 +207,24 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->name('reconciliation.run-one');
         });
 
+        // ADR-0077 — the money exceptions queue (console only, no JSON twin yet).
+        Route::prefix('money-exceptions')->group(function (): void {
+            Route::get('/', [App\Http\Controllers\Admin\MoneyExceptionsController::class, 'index'])
+                ->name('money-exceptions.index');
+            Route::get('{exception}', [App\Http\Controllers\Admin\MoneyExceptionsController::class, 'show'])
+                ->whereUuid('exception')
+                ->name('money-exceptions.show');
+            Route::post('{exception}/resolve', [App\Http\Controllers\Admin\MoneyExceptionsController::class, 'resolve'])
+                ->whereUuid('exception')
+                ->name('money-exceptions.resolve');
+            Route::post('{exception}/approve', [App\Http\Controllers\Admin\MoneyExceptionsController::class, 'approve'])
+                ->whereUuid('exception')
+                ->name('money-exceptions.approve');
+            Route::post('{exception}/reject', [App\Http\Controllers\Admin\MoneyExceptionsController::class, 'reject'])
+                ->whereUuid('exception')
+                ->name('money-exceptions.reject');
+        });
+
         // ADR-0050: operator self-service — mirrors packages/admin's JSON
         // /v1/admin/operators endpoints for the console web plane.
         // WhatsApp sessions of the PLATFORM (no owner Project): usable by

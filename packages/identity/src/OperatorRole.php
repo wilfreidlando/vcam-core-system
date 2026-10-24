@@ -41,6 +41,8 @@ enum OperatorRole: string
             self::FinanceOperator => [
                 'payments:reconcile:write', 'audit:read',
                 'payments:read', 'wallets:read', 'projects:read',
+                // ADR-0077 — read and settle the money exceptions queue.
+                'money-exceptions:read', 'money-exceptions:write',
             ],
             self::SupportOperator => [
                 'webhooks:read', 'webhooks:replay', 'webhook-endpoints:write', 'audit:read',
@@ -49,7 +51,7 @@ enum OperatorRole: string
             self::ProviderManager => ['audit:read', 'projects:read', 'provider-applications:write', 'channel-sessions:write'],
             self::ReadOnlyAuditor => [
                 'audit:read', 'projects:read', 'payments:read', 'wallets:read',
-                'notifications:read', 'webhooks:read',
+                'notifications:read', 'webhooks:read', 'money-exceptions:read',
             ],
         };
     }

@@ -56,6 +56,8 @@ final class PaymentsController
         'status_changed' => 'Changement de statut',
         'status_change_ignored' => 'Statut ignoré',
         'wallet_credited' => 'Wallet crédité',
+        'settlement_recorded' => 'Écrit au grand livre',
+        'settlement_exception' => 'Écart de montant',
         'event_published' => 'Événement publié',
         'callback_attempt' => 'Callback URL',
     ];
@@ -275,7 +277,8 @@ final class PaymentsController
             'callback_attempt' => ($details['success'] ?? false) === true ? 'success' : 'warning',
             'status_changed' => ($details['to'] ?? null) === 'succeeded' ? 'success' : ((($details['is_final'] ?? false) === true) ? 'danger' : 'neutral'),
             'provider_exchange' => is_array($details['response'] ?? null) && is_int($details['response']['status'] ?? null) && $details['response']['status'] < 400 ? 'neutral' : 'warning',
-            'wallet_credited' => 'success',
+            'wallet_credited', 'settlement_recorded' => 'success',
+            'settlement_exception' => 'danger',
             default => 'neutral',
         };
     }
