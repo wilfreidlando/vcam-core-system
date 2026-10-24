@@ -687,3 +687,378 @@ Séquencement recommandé : Foundation → Money/Payment → Notifications → B
 - Stratégie de sauvegarde/restauration et RPO/RTO du sous-système financier.
 
 Fin de la Spécification Technique — Version 1.0
+
+---
+
+# Addendum 1.0 — Plateforme multi-tenant de projets SaaS (2026-10-24)
+
+> **Addendum daté, statut proposé.** Le document Word
+> `source/Spec_Technique_Core_System.docx` reste la référence des §1 à §21
+> ci-dessus ; plusieurs de ses éléments ont depuis été remplacés par des ADR
+> (Passport → clés d'API, sandbox/live → environnement unique ADR-0066,
+> `notification_templates` supprimée ADR-0043). Cet addendum décrit l'état
+> cible des ADR-0068 à ADR-0090.
+>
+> **Règle anti-divergence** : le DDL complet d'une table est écrit **une seule
+> fois**, dans l'ADR qui la décide (colonne « Référence »). Cet addendum fait
+> foi pour l'**inventaire** (tables, routes, événements, portées, erreurs,
+> écritures, jobs, garde-fous) et donne le DDL des seules tables qu'aucun ADR
+> ne détaille.
+
+## T1. Modules et graphe
+
+| Module | Pilier | Statut | Dépendances (`ModuleGraph.php`) |
+|---|---|---|---|
+| `billing` | commerce | scaffold → production | `support`, `identity`, `payment`, `ledger`, `events` (inchangé) |
+| `portal` | commerce | **nouveau** | `support`, `identity`, `billing`, `payment`, `notification`, `audit` |
+| `payout` | grand livre | **nouveau** | `support`, `identity`, `ledger`, `wallet`, `parties`, `events`, `payment` |
+| `notification` | services | modifié | + `billing` (port `QuotaGuard`, ADR-0074) |
+| `developer-platform` | services | scaffold → production minimale | inchangé |
+| `admin` | services | modifié | + `payout`, `portal` |
+| `fees`, `storage` | — | scaffolds, hors périmètre | inchangés |
+
+Aucun cycle. `ledger` sans dépendance (G2). Artefacts à faire concorder (G1,
+G1b) : `ModuleGraph.php`, `deptrac-modules.yaml`, `composer.json` (module et
+racine), règle PHPStan `ModulesMeetOnlyThroughContracts`.
+
+## T2. Inventaire des tables
+
+| Table | Module | Référence | Notes clés |
+|---|---|---|---|
+| `organization_memberships` | identity | ADR-0069 §1 | une appartenance active par (organisation, compte) |
+| `operator_invitations` | identity | T3.1 | jeton d'activation haché, 72 h |
+| `api_keys` (modifiée) | identity | T3.2 | nom, portées, CIDR, expiration, dernier usage ; fin de l'unicité par projet |
+| `customers` | billing | ADR-0070 §1 | PII chiffrée, index aveugles, liste blanche de colonnes |
+| `plans`, `plan_versions` | billing | ADR-0071 §1 | versions publiées immuables (trigger) |
+| `subscriptions`, `subscription_periods` | billing | ADR-0072 §1 | contrainte d'exclusion des périodes, une période `current` |
+| `invoices`, `invoice_lines`, `invoice_number_sequences` | billing | ADR-0073 §1 | immuables à l'émission, numérotation sans trou |
+| `invoice_payments` | billing | ADR-0073 §2 | `payment_id` unique, une tentative `pending` par facture |
+| `manual_receipts` | billing | ADR-0073 §4 | quatre yeux en base |
+| `usage_records`, `usage_idempotency`, `usage_counters` | billing | ADR-0074 §1 | journal partitionné par mois |
+| `billing_settings` | billing | T3.3 | réglages commerciaux par projet |
+| `billing_daily_metrics` | billing | ADR-0080 §3 | instantanés quotidiens |
+| `portal_settings`, `portal_sessions`, `portal_login_codes` | portal | T3.4 | jetons et codes hachés |
+| `money_exceptions` | payment | ADR-0077 §3 | file d'exceptions d'argent |
+| `reconciliation_runs` | payment | ADR-0078 §5 | |
+| `payouts`, `payout_settings` | payout | T3.5 | destination chiffrée |
+| `ledger_transactions` (modifiée) | ledger | T3.6 | `reverses_transaction_id`, immuable |
+| `audit_log` (modifiée) | audit | T3.7 | trigger d'immuabilité, empreinte quotidienne |
+| `exports` | admin | ADR-0088 §3 | fichiers chiffrés, 7 jours |
+| `capabilities` (registre) | developer-platform | ADR-0087 §1 | fichier versionné, pas une table |
+
+Conventions : UUID v7, `timestamptz` UTC, montants `bigint` + `currency char(3)`
+(G5), `project_id NOT NULL` sur **toute** table de données de projet, aucune
+clé étrangère inter-modules (ADR-0033 §5) — les clés étrangères **intra-module**
+sont autorisées et utilisées.
+
+## T3. DDL des tables non détaillées par un ADR
+
+### T3.1 `operator_invitations`
+
+```sql
+CREATE TABLE operator_invitations (
+  id              uuid PRIMARY KEY,
+  organization_id uuid,                     -- NULL : invitation de personnel de plateforme
+  email           text NOT NULL,
+  role            text NOT NULL,
+  token_hash      text NOT NULL UNIQUE,
+  invited_by      uuid NOT NULL,
+  expires_at      timestamptz NOT NULL,
+  accepted_at     timestamptz,
+  revoked_at      timestamptz,
+  created_at      timestamptz NOT NULL DEFAULT now()
+);
+```
+
+### T3.2 `api_keys` (évolution)
+
+```sql
+ALTER TABLE api_keys DROP CONSTRAINT api_keys_one_per_project;
+ALTER TABLE api_keys
+  ADD COLUMN name          text NOT NULL DEFAULT 'clé principale',
+  ADD COLUMN allowed_cidrs cidr[],
+  ADD COLUMN expires_at    timestamptz,
+  ADD COLUMN last_used_at  timestamptz,
+  ADD COLUMN last_used_ip  inet,
+  ADD COLUMN revoke_reason text;
+-- borne « au plus N clés actives par projet » vérifiée à l'émission (N réglable, défaut 10)
+```
+
+### T3.3 `billing_settings`
+
+```sql
+CREATE TABLE billing_settings (
+  project_id                               uuid PRIMARY KEY,
+  timezone                                 text NOT NULL DEFAULT 'Africa/Douala',
+  invoice_prefix                           text NOT NULL,
+  default_tax_rate_bps                     integer NOT NULL DEFAULT 0 CHECK (default_tax_rate_bps BETWEEN 0 AND 10000),
+  renewal_lead_days                        integer NOT NULL DEFAULT 7 CHECK (renewal_lead_days BETWEEN 0 AND 60),
+  incomplete_expiry_hours                  integer NOT NULL DEFAULT 72,
+  manual_receipt_approval_threshold_minor  bigint,
+  require_customer_ref                     boolean NOT NULL DEFAULT false,
+  refund_failed_usage                      boolean NOT NULL DEFAULT true,
+  retain_invoice_identity                  boolean NOT NULL DEFAULT true,
+  meter_mappings                           jsonb NOT NULL DEFAULT '{}',  -- {"notification.whatsapp": "whatsapp_messages"}
+  document_branding                        jsonb NOT NULL DEFAULT '{}',
+  updated_at                               timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT billing_settings_prefix_format CHECK (invoice_prefix ~ '^[A-Z0-9]{2,12}$')
+);
+```
+
+### T3.4 `portal_*`
+
+```sql
+CREATE TABLE portal_settings (
+  project_id            uuid PRIMARY KEY,
+  slug                  text NOT NULL UNIQUE CHECK (slug ~ '^[a-z0-9-]{3,40}$'),
+  display_name          text NOT NULL,
+  logo_url              text CHECK (logo_url IS NULL OR logo_url ~ '^https://'),
+  primary_color         text CHECK (primary_color IS NULL OR primary_color ~ '^#[0-9a-f]{6}$'),
+  support_url           text,
+  allowed_return_urls   text[] NOT NULL DEFAULT '{}',
+  direct_login_enabled  boolean NOT NULL DEFAULT false,
+  allow_self_cancel     boolean NOT NULL DEFAULT false,
+  allow_plan_change     boolean NOT NULL DEFAULT false,
+  payment_channels      text[] NOT NULL DEFAULT '{}',
+  updated_at            timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE portal_sessions (
+  id              uuid PRIMARY KEY,
+  project_id      uuid NOT NULL,
+  customer_id     uuid NOT NULL,
+  link_token_hash text NOT NULL UNIQUE,   -- HMAC du jeton du lien
+  link_expires_at timestamptz NOT NULL,
+  consumed_at     timestamptz,
+  session_id_hash text UNIQUE,            -- HMAC de l'identifiant de cookie après échange
+  idle_expires_at timestamptz,
+  absolute_expires_at timestamptz,
+  created_by      text NOT NULL,          -- 'api_key:<id>' | 'direct_login'
+  return_url      text,
+  flow            jsonb NOT NULL DEFAULT '{}',
+  revoked_at      timestamptz,
+  created_at      timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE portal_login_codes (
+  id            uuid PRIMARY KEY,
+  project_id    uuid NOT NULL,
+  customer_id   uuid NOT NULL,
+  code_hash     text NOT NULL,
+  attempts      integer NOT NULL DEFAULT 0 CHECK (attempts <= 5),
+  expires_at    timestamptz NOT NULL,
+  consumed_at   timestamptz,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+```
+
+### T3.5 `payouts`, `payout_settings`
+
+```sql
+CREATE TABLE payouts (
+  id                    uuid PRIMARY KEY,
+  project_id            uuid NOT NULL,
+  party_id              uuid NOT NULL,
+  wallet_id             uuid NOT NULL,
+  amount_minor          bigint NOT NULL CHECK (amount_minor > 0),
+  currency              char(3) NOT NULL,
+  channel               text NOT NULL,          -- canal de versement canonique
+  provider_code         text NOT NULL,
+  destination_ciphertext text NOT NULL,
+  destination_masked    text NOT NULL,
+  idempotency_key       text NOT NULL,
+  status                text NOT NULL,
+  provider_reference    text,
+  requested_by          text NOT NULL,          -- 'api_key:<id>' | 'operator:<id>'
+  approved_by           uuid,
+  reason                text,
+  failure_reason        text,
+  created_at            timestamptz NOT NULL DEFAULT now(),
+  updated_at            timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT payouts_status_check CHECK (status IN
+    ('pending_approval', 'pending', 'processing', 'succeeded', 'failed', 'canceled', 'reversed')),
+  CONSTRAINT payouts_idem UNIQUE (project_id, idempotency_key)
+);
+
+CREATE TABLE payout_settings (
+  project_id                    uuid PRIMARY KEY,
+  max_amount_minor              bigint,
+  daily_limit_minor             bigint,
+  approval_threshold_minor      bigint,
+  new_destination_hold_minutes  integer NOT NULL DEFAULT 0,
+  updated_at                    timestamptz NOT NULL DEFAULT now()
+);
+```
+
+### T3.6 Grand livre
+
+```sql
+ALTER TABLE ledger_transactions ADD COLUMN reverses_transaction_id uuid;
+-- trigger : refuse UPDATE/DELETE sur ledger_transactions (comme ledger_entries)
+-- trigger : refuse une ledger_entry dont le compte n'a pas le project_id de la transaction (G13)
+```
+
+### T3.7 Journal d'audit
+
+```sql
+-- trigger : refuse UPDATE/DELETE sur audit_log
+CREATE TABLE audit_log_digests (
+  day        date PRIMARY KEY,
+  digest     text NOT NULL,        -- SHA-256(digest de la veille || entrées du jour triées)
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+## T4. Routes publiques ajoutées (`/v1`, `project.auth`)
+
+| Route | Portée | Idempotence |
+|---|---|---|
+| `PUT /v1/customers/{external_ref}` · `GET` | `customers:write` · `customers:read` | structurelle ; `If-Match` optionnel |
+| `GET /v1/customers` | `customers:read` | — |
+| `POST /v1/customers/{ref}/suspend` · `/reactivate` · `/erase` | `customers:write` | structurelle |
+| `GET /v1/customers/{ref}/entitlements` · `/export` | `customers:read` | — |
+| `GET /v1/plans` · `POST /v1/plans` · `POST /v1/plans/{code}/versions` · `…/versions/{n}/publish` · `POST /v1/plans/{code}/archive` | `plans:read` / `plans:write` | `Idempotency-Key` sur les `POST` |
+| `POST /v1/subscriptions` · `GET /v1/subscriptions` · `GET /v1/subscriptions/{id}` | `subscriptions:write` / `:read` | `Idempotency-Key` |
+| `POST /v1/subscriptions/{id}/cancel` · `/change-plan` | `subscriptions:write` | transition conditionnelle |
+| `POST /v1/invoices` · `GET /v1/invoices` · `GET /v1/invoices/{id}` · `…/document` | `invoices:write` / `:read` | `Idempotency-Key` |
+| `POST /v1/invoices/{id}/issue` · `/pay` · `/void` | `invoices:write` | `Idempotency-Key` (G7 sur `/pay`) |
+| `POST /v1/usage` · `GET /v1/usage` | `usage:write` / `:read` | `idempotency_key` dans le corps (domaine, comme ADR-0056) |
+| `POST /v1/portal/sessions` | `portal:write` | jeton à usage unique |
+| `POST /v1/payouts` · `GET /v1/payouts` · `GET /v1/payouts/{id}` | `payouts:write` / `:read` | `Idempotency-Key` (G7) |
+| `POST /v1/webhook-endpoints/{id}/rotate-secret` | `webhooks:write` | — |
+| `POST /v1/exports` · `GET /v1/exports/{id}` | `exports:write` | — |
+| `GET /v1/capabilities` | aucune portée | — |
+| `POST /v1/test-clock/advance` | `subscriptions:write` ; staging + projet `test_mode` | — |
+| `GET /v1/{payments, notifications, webhook-endpoints}` (listings) | `:read` correspondant | — |
+
+Routes du portail (hôte `portal.*`, session `portal.session`) : accueil,
+abonnements (annulation à échéance, changement de plan selon réglages),
+factures (lecture, document, paiement), paiements et reçus, usage, profil.
+Routes console : `/v1/admin/*` étendues (organisations, membres, clients,
+catalogue, abonnements et gestes, factures, encaissements hors ligne,
+exceptions, rapprochement, versements et approbations, portefeuille, exports),
+toutes sous `operator.auth` + `AccessScope`.
+
+## T5. Portées d'API
+
+Existantes (10) : `payments:read/write`, `webhooks:read/write`,
+`notifications:read/write`, `notification_channel_sessions:read/write`,
+`wallets:read/write`. Ajoutées : `customers:read/write`, `plans:read/write`,
+`subscriptions:read/write`, `invoices:read/write`, `usage:read/write`,
+`portal:write`, `payouts:read/write`, `exports:write`. Les clés existantes ne
+reçoivent **pas** automatiquement les nouvelles portées (ADR-0082 §2).
+
+## T6. Événements ajoutés
+
+Enveloppe existante (ADR-0063) + `api_version` (ADR-0086). Charges utiles sans
+donnée personnelle ; toute ressource de `billing` porte `version`.
+
+| Famille | Types |
+|---|---|
+| Clients | `customer.created`, `customer.updated`, `customer.suspended`, `customer.reactivated`, `customer.erased` |
+| Catalogue | `plan.version_published`, `plan.archived` |
+| Abonnements | `subscription.created`, `subscription.trial_will_end`, `subscription.activated`, `subscription.renewal_due`, `subscription.renewed`, `subscription.past_due`, `subscription.paused`, `subscription.resumed`, `subscription.plan_changed`, `subscription.canceled`, `subscription.expired` |
+| Factures | `invoice.created`, `invoice.issued`, `invoice.paid`, `invoice.payment_failed`, `invoice.voided`, `invoice.uncollectible` |
+| Usage | `usage.threshold_reached`, `usage.limit_reached` |
+| Versements | `payout.status_changed` |
+| Contrat | `api.deprecation_scheduled` |
+| Paiement (modifié) | `payment.status_changed` gagne `confirmed_amount` et `exception` (additifs) |
+
+Tous écrits dans l'outbox, dans la transaction de l'état (G8, G8c).
+
+## T7. Erreurs ajoutées (RFC 7807, `correlation_id`)
+
+| Statut | `type` | Quand |
+|---|---|---|
+| 403 | `project-suspended` | projet suspendu |
+| 403 | `key-origin-not-allowed` | origine hors CIDR de la clé |
+| 403 | `entitlement-inactive` | abonnement sans droits |
+| 403 | `feature-not-included` | fonctionnalité absente du plan |
+| 404 | `customer-not-found` | client inconnu **ou d'un autre projet** |
+| 409 | `invalid-state-transition` | transition interdite ou concurrente |
+| 409 | `plan-version-immutable` | modification d'une version publiée |
+| 409 | `invoice-not-payable` | facture non ouverte, ou tentative déjà en attente |
+| 409 | `insufficient-funds` | solde du wallet insuffisant (aligné sur ADR-0065) |
+| 409 | `insufficient-provider-balance` | position `clearing` insuffisante pour un versement |
+| 409 | `last-owner` | retrait du dernier propriétaire d'organisation |
+| 412 | `version-conflict` | `If-Match` périmé |
+| 422 | `customer-ref-required` | route mesurée sans client alors que l'attribution est obligatoire |
+| 422 | `return-url-not-allowed` | URL de retour hors liste |
+| 422 | `provider-application-missing` | versement sans application prestataire du projet |
+| 429 | `quota-exceeded` | limite commerciale atteinte (sans `Retry-After`) |
+| 429 | `rate-limit-exceeded` | protection de débit (avec `Retry-After`) |
+
+## T8. Idempotence
+
+| Niveau | Où | Clé |
+|---|---|---|
+| HTTP (G7) | toute mutation monétaire : `/v1/payments/*`, `/v1/invoices/{id}/pay`, `/v1/payouts`, portail (jeton de formulaire) | `Idempotency-Key`, portée `(project_id, clé)` |
+| Domaine | notifications (ADR-0056), usage | `client_reference` / `idempotency_key` |
+| Grand livre | toute transaction | clé dérivée de l'objet : `payment:<id>:settle`, `invoice:<id>:issue`, `invoice_payment:<id>:allocate`, `manual_receipt:<id>`, `payout:<id>:reserve`… |
+| Structurelle | `PUT /v1/customers/{ref}`, transitions d'état conditionnelles, consommation des jetons | la ressource elle-même |
+
+## T9. Matrice des écritures (ADR-0076)
+
+| Fait | Débit | Crédit | Module |
+|---|---|---|---|
+| Paiement confirmé, `purpose=wallet_credit` | `clearing:<p>` | `wallet:<partie>` | payment (via wallet) |
+| Paiement confirmé, `purpose=invoice` | `clearing:<p>` | `collections` | payment |
+| Paiement confirmé, `purpose=direct` | `clearing:<p>` | `revenue` | payment |
+| Paiement confirmé, montant ou devise en écart | `clearing:<p>` (montant confirmé) | `payment_exceptions` | payment |
+| Imputation d'un paiement à une facture | `collections` | `customer_receivable:<client>` | billing |
+| Surpaiement ou paiement tardif d'une facture déjà payée | `collections` | `payment_exceptions` | billing |
+| Émission d'une facture | `customer_receivable:<client>` | `revenue` | billing |
+| Annulation d'une facture | `revenue` | `customer_receivable:<client>` | billing |
+| Encaissement hors ligne | `manual_receipts:<moyen>` | `customer_receivable:<client>` | billing |
+| Irrécouvrable | `bad_debt` | `customer_receivable:<client>` | billing |
+| Résolution d'exception : imputer à une facture | `payment_exceptions` | `customer_receivable:<client>` | billing |
+| Résolution d'exception : imputer à un wallet / rembourser / revenu | `payment_exceptions` | `wallet` / `withdrawal` / `revenue` | payment |
+| Versement réservé | `wallet:<partie>` | `payout_in_transit:<p>` | payout |
+| Versement confirmé | `payout_in_transit:<p>` | `clearing:<p>` | payout |
+| Versement échoué / annulé | `payout_in_transit:<p>` | `wallet:<partie>` | payout |
+| Versement retourné | `clearing:<p>` | `wallet:<partie>` | payout |
+| Frais du prestataire (relevé) | `provider_fees:<p>` | `clearing:<p>` | payment |
+| Transfert entre wallets (existant) | `wallet:<a>` | `wallet:<b>` | wallet |
+| Sortie enregistrée (existant) | `wallet:<partie>` | `withdrawal` | wallet |
+| Correction d'exploitation | selon le cas | selon le cas, via `adjustment` | admin (double validation) |
+
+## T10. Travaux planifiés
+
+| Commande | Cadence | Garde |
+|---|---|---|
+| `events:relay` (existant) | après chaque commit + chaque minute | `SKIP LOCKED`, plusieurs workers |
+| `billing:advance-subscriptions` | 5 min | `onOneServer`, `withoutOverlapping`, `Clock` par projet |
+| `billing:daily-metrics` | quotidien | idempotent par `(projet, jour, devise)` |
+| `invariants:check` | horaire | lecture seule ; contrôleurs de `payment` et `billing` (ADR-0078 §2) |
+| `reconciliation:run --level=transactions|balance` | par cycle prestataire | `onOneServer` |
+| `payouts:sweep` | 1 min | `SKIP LOCKED` |
+| `partitions:ensure` | quotidien | crée les partitions des 3 mois suivants |
+| `privacy:purge` | quotidien | rétentions d'ADR-0083 |
+| `audit:digest` | quotidien | chaînage d'empreintes |
+| `admin:reconcile-stuck-payments` (existant) | 1 min | inchangé (ADR-0067) |
+
+## T11. Compatibilité avec les règles dures
+
+| Règle | Comment elle est tenue |
+|---|---|
+| G2 | `ledger` reste sans dépendance ; ses nouveaux ports sont en lecture, consommés par les autres |
+| G3b | agrégats `Customer`, `Plan`, `Subscription`, `Invoice`, `UsageCounter`, `Payout` en PHP pur ; ports à scalaires |
+| G3c | `notification`, `portal`, `payout`, `admin` n'atteignent `billing`/`payment` que par `Contracts/` |
+| G3d | chiffrement et index aveugle dans `support` sans persistance |
+| G4 | inchangé sur `parties` ; liste blanche de colonnes sur `customers` |
+| G5 | tous les montants ajoutés sont `bigint` + `char(3)` (`price_minor`, `total_minor`, `amount_minor`…) ; les compteurs d'usage sont des quantités `bigint` |
+| G6 / G6b / G6c | statuts canoniques `SubscriptionStatus`, `InvoiceStatus`, `PayoutStatus` protégés ; montant confirmé lu par l'adaptateur seul ; sorties HTTP par `Integration` |
+| G7 | `Idempotency-Key` sur `/invoices/{id}/pay` et `/payouts` ; portail par jeton de formulaire |
+| G8 / G8c | tous les événements par l'outbox, dans la transaction de l'état |
+| G9 | ajouts additifs ; étendu à `openapi/admin.json` (ADR-0086) |
+| **G13** (nouveau) | trigger d'isolation inter-projets du grand livre |
+| **G14** (nouveau) | aucun champ secret dans une réponse hors liste « affiché une fois » |
+| **G15** (nouveau) | tests IDOR générés pour toute route à identifiant |
+
+## T12. Ce qui n'est pas construit par cet addendum
+
+Rien : c'est une spécification. Les lots du plan de delivery (addendum du
+même jour) construisent ces éléments un par un, chacun après l'acceptation des
+ADR qu'il réalise.
+
+Fin de l'addendum — 2026-10-24

@@ -55,7 +55,7 @@ d'acceptation : il alimente la liste négative et sert de jurisprudence
 | [0025](0025-design-idempotence.md) | Design de l'idempotence HTTP | Accepté — implémentation Lot 3 (amendé par 0033) |
 | [0026](0026-integration-providers-externes.md) | Principes d'intégration des providers externes | Accepté — construction Lot 3 |
 | [0027](0027-read-models-et-acces-inter-modules.md) | Read models et accès inter-modules par `Contracts/` | Accepté |
-| [0028](0028-versionnement-api-par-url.md) | Versionnement d'API par préfixe d'URL | Accepté — fenêtre de dépréciation proposée |
+| [0028](0028-versionnement-api-par-url.md) | Versionnement d'API par préfixe d'URL | Accepté — fenêtre de dépréciation proposée par ADR-0086 |
 
 ### Décisions du Lot 1 (2026-09-15)
 
@@ -120,3 +120,38 @@ d'acceptation : il alimente la liste négative et sert de jurisprudence
 | [0065](0065-operations-wallet-exposees.md) | Opérations de wallet exposées : transferts multi-jambes atomiques et à somme nulle, sorties enregistrées, historique et wallets par partie (`wallets:write`/`wallets:read`) ; aucun crédit libre | Accepté — remplace ADR-0033 §1 |
 | [0066](0066-un-seul-environnement-staging-pour-les-tests.md) | Un seul environnement : plus de sandbox/live (colonnes, clés, `Core\Support\Environment`), une clé par projet, une application provider par (projet, provider) ; tests sur le déploiement de staging, simulateur de paiement activé par `PAYMENT_SIMULATOR_ENABLED` (`POST /v1/payments/{id}/simulate`) ; données sandbox supprimées | Accepté — remplace ADR-0060 |
 | [0067](0067-reconciliation-rapprochee-et-acces-horizon.md) | Réconciliation des paiements chaque minute, seuil 2 minutes, à tour de rôle (`payments.reconciled_at`, `GREATEST(updated_at, reconciled_at)`) pour qu'aucun paiement abandonné n'en bloque d'autres, fenêtre de 24 heures ; `/horizon` ouvert aux opérateurs `PlatformAdmin` connectés à la console (permission `queues:manage`) | Accepté — amende ADR-0044 §7 |
+
+### Plateforme multi-tenant de projets SaaS (2026-10-24)
+
+Cible : une plateforme qui gère des projets SaaS de bout en bout, pour toute
+organisation (l'entreprise ou une organisation tierce), en trois piliers —
+services de plateforme, grand livre, commerce SaaS (ADR-0068). Tous **proposés**,
+en attente du comité d'architecture ; aucun n'est construit. Ils ne nomment
+aucun produit ; la correspondance avec les dépôts voisins est dans les
+documents de transition de `docs/specs/` (`*-fusion.md`).
+
+| ADR | Décision | Statut |
+| --- | -------- | ------ |
+| [0068](0068-cible-plateforme-saas-trois-piliers.md) | Cible en trois piliers (services, grand livre, commerce SaaS), vocabulaire fixé, graphe de modules cible (`portal`, `payout`, `notification → billing`) | Proposé — amende ADR-0048 |
+| [0069](0069-organisations-projets-et-acces-console-scopes.md) | Appartenances d'organisation et rôles (`org_owner` … `org_viewer`), `AccessScope` obligatoire dans tout port appelé par la console, cycle de vie d'un projet (`active`/`suspended`/`archived`), invitation par jeton d'activation | Proposé — amende ADR-0044/0050/0052 |
+| [0070](0070-clients-d-un-projet.md) | Clients d'un projet dans `billing` : identité minimale chiffrée, index aveugles, upsert idempotent `PUT /v1/customers/{external_ref}`, événements sans donnée personnelle | Proposé — amende gouvernance §6 |
+| [0071](0071-catalogue-plans-versionnes-et-fonctionnalites.md) | Plans stables + versions immuables (prix, devise, intervalle, essai, grâce, fonctionnalités `boolean`/`limit` nommées par le projet), arithmétique des périodes dans le fuseau du projet | Proposé |
+| [0072](0072-abonnements-contrat-periodes-et-machine-d-etats.md) | Abonnement = contrat + périodes sans chevauchement (contrainte d'exclusion), machine d'états à 7 statuts, renouvellement par période suivante pré-créée, changement de plan, gestes d'exploitation audités, planificateur sur `Clock` | Proposé |
+| [0073](0073-factures-encaissement-et-paiements-hors-ligne.md) | Factures immuables à l'émission, numérotation sans trou, tentatives de paiement rattachées par `payment_id`, imputation au grand livre, encaissement hors ligne à quatre yeux, documents HTML/PDF | Proposé — amende ADR-0037 |
+| [0074](0074-usage-et-quotas.md) | Journal d'usage append-only + compteur atomique dans la transaction de l'effet, idempotence par clé, `POST /v1/usage`, port `QuotaGuard` de `notification`, attribution obligatoire quand la facturation est active | Proposé — modifie le graphe |
+| [0075](0075-portail-client-heberge.md) | Portail client hébergé : sessions créées par le serveur du projet (portée `portal:write`, lien à usage unique), connexion directe par code optionnelle, personnalisation, liste blanche des URL de retour | Proposé — nouveau module `portal` |
+| [0076](0076-grand-livre-complet-plan-de-comptes.md) | Toute somme est écrite : plan de comptes par projet (`clearing:<prestataire>`, `collections`, `customer_receivable`, `revenue`…), `purpose` du paiement, lectures par période et balance, trigger d'isolation inter-projets | Proposé — amende ADR-0037/0033 |
+| [0077](0077-confirmation-des-encaissements-et-exceptions.md) | Montant confirmé par le prestataire vérifié ; écart → compte `payment_exceptions`, jamais imputé ; file d'exceptions d'argent unique, résolution à quatre yeux | Proposé — amende ADR-0038/0051 |
+| [0078](0078-rapprochement-et-controles-d-invariants.md) | Trois niveaux : invariants internes (horaire), rapprochement transactionnel et de solde par capacités d'adaptateur ; un rapprochement constate, il n'écrit jamais | Proposé — complète ADR-0067 |
+| [0079](0079-versements-sortants.md) | Module `payout` : écriture avant appel (`payout_in_transit`), trois voies de confirmation, résultat ambigu laissé `pending`, compte du projet seulement, plafonds et double validation | Proposé — nouveau module |
+| [0080](0080-pilotage-des-projets-saas.md) | Console de portefeuille : indicateurs définis (MRR par devise, attrition, encaissé et créances lus dans le grand livre), instantanés quotidiens, liste de contrôle d'onboarding | Proposé — amende ADR-0045/0062 |
+| [0081](0081-modele-de-menace-et-exigences-de-securite.md) | Modèle de menace, exigences S-01 à S-20, nouveaux garde-fous G13 (isolation financière), G14 (aucun secret en réponse hors création), G15 (tests IDOR générés) | Proposé |
+| [0082](0082-cles-d-api-portees-rotation-et-secrets-de-webhook.md) | Plusieurs clés nommées par projet, portées choisies, rotation guidée et révocation d'urgence, restriction réseau, double signature des webhooks pendant la rotation | Proposé — amende ADR-0066/0044 |
+| [0083](0083-donnees-personnelles-chiffrement-conservation-effacement.md) | Minimisation, chiffrement applicatif à clé dédiée et versionnée, index aveugles, audit sans valeurs personnelles, conservation paramétrée, effacement sans toucher au grand livre, export par client | Proposé |
+| [0084](0084-contrat-d-integration-d-un-projet.md) | Le projet possède son domaine et ses utilisateurs, le core le commerce et l'argent ; droits lus + webhooks versionnés ; cloisonnement fail-closed exigé ; pas de fournisseur d'identité pour les utilisateurs finaux | Proposé |
+| [0085](0085-limitation-de-debit-observabilite-et-objectifs-de-service.md) | Débit par IP, projet, clé et classe de route ; métriques par projet sans donnée personnelle ; objectifs de service et alertes par budget d'erreur | Proposé |
+| [0086](0086-contrat-public-versionnement-depreciation.md) | Majeure dans l'URL, ajouts libres, énumérations ouvertes déclarées, 12 mois de vie après la majeure suivante, `Deprecation`/`Sunset`/`410`, `api_version` dans les événements, G9 étendu au plan d'administration | Proposé — complète ADR-0028 |
+| [0087](0087-catalogue-de-capacites-et-experience-developpeur.md) | Registre de capacités vérifié contre l'OpenAPI, page de démarrage testée par capacité, horloges de test par projet sur le staging | Proposé — amende ADR-0048/0066 |
+| [0088](0088-reversibilite-listings-et-export.md) | Listings publics par curseur pour tous les objets, export asynchrone par projet au format du contrat public, parcours de sortie | Proposé |
+| [0089](0089-absorption-de-la-plateforme-transitoire.md) | Correspondance et sort de chaque brique transitoire, flux JWT retiré, synchronisation inversée, bascule à blanc pilotée par la recette, extinction en cinq temps | Proposé |
+| [0090](0090-evolutivite-et-points-d-extension.md) | Partitionnement, relais de l'outbox réveillé après commit, équité des files, configuration par projet en base ; registre des points d'extension (prestataires, types de fonctionnalité, lignes de facture, prorata, prélèvement, domaine du portail, OAuth) | Proposé |

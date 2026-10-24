@@ -366,3 +366,91 @@ Indicateurs suivis à chaque fin de sprint :
 Une fois le pilote stabilisé : Billing/Subscriptions complet, Developer Platform externe (portail, SDK, quotas), Storage/Media avancé, providers additionnels (carte), puis extraction en services des modules dont la charge ou le domaine le justifient (introduction de RabbitMQ à ce moment-là seulement). Chaque nouveau produit branché est un incrément, plus une reconstruction.
 
 Fin du Plan de Delivery du MVP — Version 1.0
+
+---
+
+# Addendum 1.0 — Plan de delivery de la plateforme de projets SaaS (2026-10-24)
+
+> **Addendum daté, statut proposé.** Le document Word
+> `source/Plan_Delivery_MVP_Core_System.docx` reste la référence des §1 à §14
+> ci-dessus. Cet addendum découpe les ADR-0068 à ADR-0090 en lots. Aucun lot
+> ne commence avant l'acceptation par le comité des ADR qu'il réalise.
+
+## P1. Situation de départ
+
+Lots 0 à 6 livrés. Le lot 7 (« migration pilote ») est remplacé par le lot 17
+(bascule et extinction), puisqu'aucune donnée n'est à reprendre (ADR-0089,
+sous réserve de confirmation par la direction).
+
+## P2. Principes
+
+1. **Un lot = un incrément démontrable de bout en bout**, avec ses tests et sa
+   recette ; jamais une tranche de couche.
+2. **Chaque lot se termine vert** : `make ci`, `make guard-test`, `make arch`,
+   `make stan` ; `openapi/v1.json` (et `admin.json`) régénérés sans rupture.
+3. **Sécurité incluse, pas ajoutée** : chaque lot livre les contrôles S-xx de
+   ses ADR et passe la revue de sécurité (skill `security-review`) avant
+   fusion.
+4. **Le graphe de modules change avec le lot qui crée l'arête**, après
+   acceptation de l'ADR correspondant (comité, ADR-0002).
+5. **Estimations** en jours de travail d'un développeur senior, ±30 %, tests
+   et documentation inclus.
+
+## P3. Les lots
+
+| Lot | Contenu | ADR | Dépend de | Est. |
+|---|---|---|---|---|
+| **8 — Fondations de sécurité et d'identité** | appartenances d'organisation, `AccessScope` obligatoire dans tous les ports console (migration des ports existants), invitations par jeton, cycle de vie des projets ; clés multiples à portée, rotation, CIDR ; service de chiffrement et d'index aveugle dans `support` ; trigger d'immuabilité et empreinte de `audit_log` ; garde-fous **G14** et **G15** | 0069, 0081, 0082, 0083 (socle) | — | 12 j |
+| **9 — Grand livre complet** | `purpose` des paiements, écriture de tout paiement confirmé, `clearing:<prestataire>` et reclassement, vérification du montant confirmé, `payment_exceptions` et file `money_exceptions`, trigger inter-projets (**G13**), immuabilité des transactions, ports de lecture par période et balance, contrôles d'invariants de `payment` (`invariants:check`) | 0076, 0077, 0078 (niveau A) | — | 10 j |
+| **10 — Commerce I : clients, catalogue, abonnements** | module `billing` en production ; `customers` (PII chiffrée), `plans`/`plan_versions`, `subscriptions`/`subscription_periods`, machine d'états, planificateur sur `Clock`, `billing_settings`, événements, API publique, écrans console de base | 0070, 0071, 0072 | 8 | 14 j |
+| **11 — Commerce II : factures et encaissement** | factures, numérotation, documents HTML/PDF, `invoice_payments`, imputation au grand livre, encaissement hors ligne à quatre yeux, surpaiements en exception, reçus | 0073 | 9, 10 | 12 j |
+| **12 — Usage et quotas** | `usage_records` partitionné, `usage_idempotency`, `usage_counters`, `POST /v1/usage`, `entitlements`, port `QuotaGuard` de `notification` (arête `notification → billing`), seuils dans la transaction, compensation des échecs | 0074 | 10 | 9 j |
+| **13 — Portail client** | module `portal` : sessions créées par le projet, échange et cookie, personnalisation, écrans (abonnements, factures, paiement, reçus, usage, profil), connexion directe par code (désactivée par défaut), en-têtes de sécurité testés | 0075 | 8, 11 | 13 j |
+| **14 — Console de portefeuille** | écrans Portefeuille / Projet / Client / Créances / Exceptions, indicateurs, `billing_daily_metrics`, liste de contrôle d'onboarding, gestes d'exploitation d'abonnement | 0080, 0072 §6 | 11, 12 | 10 j |
+| **15 — Exploitation** | débit par projet / clé / classe, en-têtes `RateLimit-*`, métriques par projet, tableaux Grafana et alertes par budget d'erreur, relais de l'outbox après commit, partitions, listings publics par curseur, exports | 0085, 0088, 0090 | 8 | 10 j |
+| **16 — Contrat et expérience développeur** | politique de version (`Deprecation`/`Sunset`, G9 sur `admin.json`, énumérations ouvertes), `api_version` dans les événements, changelog au tag, registre de capacités testé, pages de démarrage exécutées, horloges de test | 0086, 0087 | 10 | 7 j |
+| **17 — Bascule et extinction** | guide d'intégration unique, recette bout-en-bout avec une application réelle, bascule projet par projet, coexistence 14 jours, coupure, retrait | 0084, 0089 | 11, 12, 13 | 8 j + 4 semaines calendaires |
+| **18 — Rapprochement prestataire** | capacités `listTransactions` et `balance` des adaptateurs, niveaux B et C, `reconciliation_runs`, écrans | 0078 | 9 | 10 j |
+| **19 — Versements sortants** | module `payout`, port et adaptateur avec environnement de test du prestataire, callback dédié, balayage, plafonds, double validation, destination chiffrée | 0079 | 9 | 15 j |
+
+**Total estimé** : 130 jours de travail (lots 8 à 19).
+
+## P4. Chemin critique et parallélisation
+
+```
+Lot 8 ─────────► Lot 10 ──► Lot 11 ──► Lot 13 ──► Lot 17 (bascule)
+                   │          ▲  │
+Lot 9 ─────────────┼──────────┘  └──► Lot 14
+  │                └──► Lot 12 ───────────────────▲ (17 dépend aussi de 12)
+  ├──► Lot 18
+  └──► Lot 19
+Lot 15 (dès la fin du lot 8)       Lot 16 (dès la fin du lot 10)
+```
+
+- **Chemin critique** : 8 → 10 → 11 → 13 → 17 = 12 + 14 + 12 + 13 + 8 =
+  **59 jours** de travail, puis 4 semaines de bascule.
+- **Seconde personne** : lot 9 dès le départ (indépendant du lot 8), puis 12,
+  15, 16.
+- Les lots 18 et 19 ne conditionnent pas la bascule.
+
+## P5. Critères de sortie communs
+
+- Les tests de vérification listés dans chaque ADR du lot passent.
+- Les critères de recette de la spécification fonctionnelle (addendum, §F8)
+  correspondants sont verts sur le staging.
+- Revue de sécurité faite, constats critiques et hauts corrigés.
+- Documentation d'intégration de la capacité écrite et exemples `curl`
+  exécutés par la suite de tests.
+
+## P6. Risques et parades
+
+| Risque | Parade |
+|---|---|
+| Le comité n'accepte pas un ADR qui modifie le graphe (0068, 0074, 0075, 0079) | les lots concernés sont isolés ; les autres avancent ; le dossier de portes est dans chaque ADR |
+| Le prestataire ne fournit pas le montant confirmé, le relevé ou le solde | capacités d'adaptateur déclarées (ADR-0077, ADR-0078) ; le core fonctionne en mode dégradé visible, jamais présumé juste |
+| Migration des ports console vers `AccessScope` plus longue que prévu | elle est en tête (lot 8) et vérifiée par une règle PHPStan |
+| Charge du journal d'usage | partitionnement dès la première migration ; test de charge au lot 15 |
+| Recette bout-en-bout dépendante d'une vraie session de messagerie et d'un vrai numéro | session créée par l'exploitant, numéro de l'équipe, simulateur de paiement et horloge de test |
+| Confirmation de « aucune donnée à reprendre » non obtenue | plan de reprise partielle (clients, plans) prévu dans le plan de bascule |
+
+Fin de l'addendum — 2026-10-24
