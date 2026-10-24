@@ -33,7 +33,8 @@ it('creates a project under an existing organization, provisions its API key, an
 
     expect($projects->find($provisioned->project->id))->not->toBeNull()
         ->and($provisioned->project->organizationId)->toBe('org-1')
-        ->and($apiKeys->find($provisioned->apiKey->apiKeyId)?->scopes())->toBe(ApiKeyScopes::ALL)
+        ->and($apiKeys->find($provisioned->apiKey->apiKeyId)?->scopes())->toBe(ApiKeyScopes::template(ApiKeyScopes::TEMPLATE_SERVER))
+        ->and($apiKeys->find($provisioned->apiKey->apiKeyId)?->scopes())->not->toContain('payouts:write')
         ->and($audit->entries[0]->action)->toBe('project.created')
         ->and(array_map(fn ($entry) => $entry->action, $audit->entries))->toBe(['project.created', 'api_key.issued']);
 });

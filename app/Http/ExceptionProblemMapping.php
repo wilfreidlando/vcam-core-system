@@ -32,6 +32,7 @@ use Core\Wallet\Domain\Exception\InsufficientFunds;
 use Core\Wallet\Domain\Exception\InvalidWalletOperation;
 use Core\Wallet\Domain\Exception\WalletNotFound;
 use Core\Wallet\Domain\Exception\WalletProjectMismatch;
+use Core\Webhook\Domain\Exception\InvalidWebhookSecretRotation;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotDead;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
 use Core\Webhook\Domain\Exception\WebhookEndpointInactive;
@@ -77,6 +78,7 @@ final class ExceptionProblemMapping
         NoProviderForNotificationChannelException::class => ['type' => 'no-provider-for-notification-channel', 'title' => 'No provider is configured for this notification channel', 'status' => 422],
         UnsupportedCurrency::class => ['type' => 'unsupported-currency', 'title' => 'Unsupported currency', 'status' => 422],
         WebhookEndpointNotFound::class => ['type' => 'webhook-endpoint-not-found', 'title' => 'Webhook endpoint not found', 'status' => 404],
+        InvalidWebhookSecretRotation::class => ['type' => 'invalid-webhook-secret-rotation', 'title' => 'Invalid webhook secret rotation', 'status' => 422],
         WebhookDeliveryNotFound::class => ['type' => 'webhook-delivery-not-found', 'title' => 'Webhook delivery not found', 'status' => 404],
         WebhookDeliveryNotDead::class => ['type' => 'webhook-delivery-not-dead', 'title' => 'Only a dead webhook delivery can be replayed', 'status' => 409],
         WebhookEndpointInactive::class => ['type' => 'webhook-endpoint-inactive', 'title' => 'The webhook endpoint is deactivated', 'status' => 409],

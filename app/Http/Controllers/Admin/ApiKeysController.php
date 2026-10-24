@@ -9,11 +9,16 @@ use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\GetProjectCommand;
 use Core\Identity\Contracts\IssueApiKey;
 use Core\Identity\Contracts\IssueApiKeyCommand;
+use Core\Identity\Contracts\IssuedApiKeyView;
 use Core\Identity\Contracts\ListApiKeys;
 use Core\Identity\Contracts\ListApiKeysCommand;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Identity\Contracts\RevokeApiKey;
 use Core\Identity\Contracts\RevokeApiKeyCommand;
+use Core\Identity\Contracts\RotateApiKey;
+use Core\Identity\Contracts\RotateApiKeyCommand;
+use DateTimeImmutable;
+use DateTimeZone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -21,43 +26,24 @@ use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Console web self-service for Project API keys — review finding: this
- * plane used to be genuinely CLI-only, by deliberate original design (see
- * `IssueApiKeyCommand`'s/`RevokeApiKeyCommand`'s own history), unlike
- * organizations/projects/operators, which already had self-service.
- * User-directed reversal of that choice: an operator driving the console
- * from a browser had no way to hand a Project's own API key to the
- * business app that needs one, short of a raw CLI call this controller
- * cannot assume access to.
- *
- * `identity:issue-api-key`/`identity:revoke-api-key` still exist and now
- * share the exact same `Contracts\IssueApiKey`/`Contracts\RevokeApiKey`
- * ports this controller calls — no duplicated business logic between the
- * CLI and the console.
- *
- * Second review finding, user-directed: project creation now
- * auto-provisions the project's single key already (ADR-0066), so
- * this form only exists for rotation (a lost or compromised key needs a
- * replacement) — an operator manually reaching for it never needs to type
- * scopes either, same reasoning as the auto-provisioned ones
- * (`ApiKeyScopes::ALL`, see its docblock).
+ * Console web self-service for Project API keys (ADR-0082): several named
+ * keys per project, scopes chosen from a template, optional network
+ * restriction and expiry, guided rotation, emergency revocation with a
+ * reason. The CLI (`identity:*-api-key`) calls the same `Contracts` ports.
  */
 final class ApiKeysController
 {
     public function __construct(
         private readonly ListApiKeys $listApiKeys,
         private readonly IssueApiKey $issueApiKey,
+        private readonly RotateApiKey $rotateApiKey,
         private readonly RevokeApiKey $revokeApiKey,
         private readonly GetProject $getProject,
     ) {}
 
     public function create(string $projectId, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('api-keys:write')) {
-            abort(403, 'La permission api-keys:write est requise.');
-        }
-
-        Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
+        $this->authorize($operator, $projectId);
 
         try {
             $project = $this->getProject->get(new GetProjectCommand($projectId));
@@ -65,71 +51,94 @@ final class ApiKeysController
             abort(404, 'Projet introuvable.');
         }
 
+        $keys = $this->listApiKeys->list(new ListApiKeysCommand($projectId));
+
         return response()->view('admin.api-keys.create', [
             'title' => 'Clés API · '.$project->name,
             'project' => $project,
-            'currentKey' => $this->currentKey($projectId),
+            'keys' => $keys,
+            'templates' => ApiKeyScopes::TEMPLATES,
+            'templateScopes' => array_map(ApiKeyScopes::template(...), array_combine(array_keys(ApiKeyScopes::TEMPLATES), array_keys(ApiKeyScopes::TEMPLATES))),
+            'allScopes' => ApiKeyScopes::ALL,
+            'graceDays' => ['min' => RotateApiKeyCommand::MIN_GRACE_DAYS, 'max' => RotateApiKeyCommand::MAX_GRACE_DAYS, 'default' => RotateApiKeyCommand::DEFAULT_GRACE_DAYS],
             'created' => session('admin.api-keys.created'),
         ]);
     }
 
     public function store(string $projectId, Request $request, OperatorContext $operator): RedirectResponse
     {
-        if (! $operator->hasPermission('api-keys:write')) {
-            abort(403, 'La permission api-keys:write est requise.');
-        }
+        $this->authorize($operator, $projectId);
 
-        Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
-
-        /** @var array{mode?: string|null} $data */
+        /** @var array{name: string, template: string, scopes?: list<string>|null, allowed_cidrs?: string|null, expires_at?: string|null} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
-            'mode' => ['nullable', 'string', 'in:generate,regenerate'],
+            'name' => ['required', 'string', 'max:80'],
+            'template' => ['required', 'string', 'in:'.implode(',', [...array_keys(ApiKeyScopes::TEMPLATES), 'custom'])],
+            'scopes' => ['required_if:template,custom', 'nullable', 'array'],
+            'scopes.*' => ['string', 'in:'.implode(',', ApiKeyScopes::ALL)],
+            'allowed_cidrs' => ['nullable', 'string', 'max:2000'],
+            'expires_at' => ['nullable', 'date', 'after:now'],
         ]);
 
-        $regenerate = ($data['mode'] ?? 'generate') === 'regenerate';
+        $scopes = $data['template'] === 'custom'
+            ? ($data['scopes'] ?? [])
+            : ApiKeyScopes::template($data['template']);
 
         try {
             $issued = $this->issueApiKey->issue(
-                new IssueApiKeyCommand($projectId, ApiKeyScopes::ALL, replaceExisting: $regenerate),
+                new IssueApiKeyCommand(
+                    projectId: $projectId,
+                    scopes: $scopes,
+                    name: $data['name'],
+                    allowedCidrs: self::cidrs($data['allowed_cidrs'] ?? null),
+                    expiresAt: ($data['expires_at'] ?? null) !== null ? new DateTimeImmutable($data['expires_at'], new DateTimeZone('UTC')) : null,
+                ),
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
             );
         } catch (RuntimeException $e) {
-            return back()->withInput()->withErrors(['mode' => $e->getMessage()]);
+            return back()->withInput()->withErrors(['name' => $e->getMessage()]);
         }
 
-        // The plaintext key is shown exactly once, on this redirect —
-        // same one-shot-secret pattern as a webhook endpoint's signing
-        // secret or a newly-registered provider application's keys. No
-        // separate audit call here: IssueApiKeyUseCase already self-audits
-        // (`api_key.issued`) — unlike provider applications/webhook
-        // endpoints, `identity` owning `AuditLogger` directly is not a
-        // module-graph violation (audit already sits underneath identity
-        // for operator/organization/project actions).
-        // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
-        session()->flash('admin.api-keys.created', [
-            'prefix' => $issued->prefix,
-            'plaintextToken' => $issued->plaintextToken,
-        ]);
-
-        return redirect()->route('admin.projects.api-keys.create', ['projectId' => $projectId]);
+        return $this->showOnce($projectId, $issued, 'Clé créée.');
     }
 
-    public function revoke(string $projectId, string $apiKeyId, OperatorContext $operator): RedirectResponse
+    public function rotate(string $projectId, string $apiKeyId, Request $request, OperatorContext $operator): RedirectResponse
     {
-        if (! $operator->hasPermission('api-keys:write')) {
-            abort(403, 'La permission api-keys:write est requise.');
+        $this->authorize($operator, $projectId, $apiKeyId);
+
+        /** @var array{grace_days: int|string} $data */
+        // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
+        $data = $request->validate([
+            'grace_days' => ['required', 'integer', 'between:'.RotateApiKeyCommand::MIN_GRACE_DAYS.','.RotateApiKeyCommand::MAX_GRACE_DAYS],
+        ]);
+
+        try {
+            $issued = $this->rotateApiKey->rotate(
+                new RotateApiKeyCommand($apiKeyId, projectId: $projectId, graceDays: (int) $data['grace_days']),
+                actor: 'operator:'.$operator->operatorId,
+                correlationId: null,
+            );
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['apiKeyId' => $e->getMessage()]);
         }
 
-        Validator::make(
-            ['project_id' => $projectId, 'api_key_id' => $apiKeyId],
-            ['project_id' => 'uuid', 'api_key_id' => 'uuid'],
-        )->validate();
+        return $this->showOnce($projectId, $issued, sprintf('Clé remplacée : l\'ancienne reste valide %d jour(s), le temps de déployer la nouvelle.', (int) $data['grace_days']));
+    }
+
+    public function revoke(string $projectId, string $apiKeyId, Request $request, OperatorContext $operator): RedirectResponse
+    {
+        $this->authorize($operator, $projectId, $apiKeyId);
+
+        /** @var array{reason: string} $data */
+        // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:500'],
+        ]);
 
         try {
             $this->revokeApiKey->revoke(
-                new RevokeApiKeyCommand($apiKeyId, projectId: $projectId),
+                new RevokeApiKeyCommand($apiKeyId, reason: $data['reason'], projectId: $projectId),
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
             );
@@ -138,20 +147,52 @@ final class ApiKeysController
         }
 
         return redirect()->route('admin.projects.api-keys.create', ['projectId' => $projectId])
-            ->with('status', 'Clé API révoquée et supprimée. Vous pouvez en générer une nouvelle.');
+            ->with('status', 'Clé révoquée : toute application qui l\'utilise est rejetée dès maintenant.');
+    }
+
+    private function authorize(OperatorContext $operator, string $projectId, ?string $apiKeyId = null): void
+    {
+        if (! $operator->hasPermission('api-keys:write')) {
+            abort(403, 'La permission api-keys:write est requise.');
+        }
+
+        Validator::make(
+            ['project_id' => $projectId, 'api_key_id' => $apiKeyId],
+            ['project_id' => 'uuid', 'api_key_id' => 'nullable|uuid'],
+        )->validate();
     }
 
     /**
-     * ADR-0066 — at most one key per project.
+     * The plaintext key is shown exactly once, on this redirect (S-07);
+     * the use case already audits the issuance.
      */
-    private function currentKey(string $projectId): ?\Core\Identity\Contracts\ApiKeySummaryView
+    private function showOnce(string $projectId, IssuedApiKeyView $issued, string $status): RedirectResponse
     {
-        foreach ($this->listApiKeys->list(new ListApiKeysCommand($projectId)) as $key) {
-            if (! $key->revoked) {
-                return $key;
-            }
+        // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
+        session()->flash('admin.api-keys.created', [
+            'prefix' => $issued->prefix,
+            'plaintextToken' => $issued->plaintextToken,
+        ]);
+
+        return redirect()->route('admin.projects.api-keys.create', ['projectId' => $projectId])->with('status', $status);
+    }
+
+    /**
+     * One block per line, or separated by commas or spaces.
+     *
+     * @return list<string>
+     */
+    private static function cidrs(?string $raw): array
+    {
+        if ($raw === null) {
+            return [];
         }
 
-        return null;
+        $parts = preg_split('/[\s,]+/', $raw);
+        if ($parts === false) {
+            return [];
+        }
+
+        return array_values(array_filter($parts, static fn (string $cidr): bool => $cidr !== ''));
     }
 }

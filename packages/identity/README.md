@@ -34,6 +34,33 @@ Allowed (via their `Contracts/` only):
 - `core/audit` (ADR-0029 — sensitive administrative actions, e.g. `api_key.issued`,
   `operator.created`, are recorded there; `identity` never reads it back)
 
+## Project API keys (Plan 2) — ADR-0082
+
+- **Several named keys per project** (10 active at most,
+  `identity.api_keys.max_per_project`), each with its own scopes. The limit is
+  checked inside the issuing transaction under a per-project advisory lock.
+  Project creation issues « Clé principale » with the *Serveur complet*
+  template (every scope but `payouts:write`).
+- **Scopes** come from `Contracts\ApiKeyScopes::ALL`; unknown scopes are
+  refused at issuance. Templates: `server`, `read_only`, `portal`, `payouts`.
+  `*` stays accepted for compatibility (shown as « accès total »). Adding a
+  scope to the catalogue never widens an existing key.
+- **Network restriction** (`allowed_cidrs`, IPv4/IPv6, stored canonical):
+  checked after the secret matched, against `$request->ip()` (trusted proxies
+  only) → `403 key-origin-not-allowed`, logged as a warning.
+- **Expiry** (`expires_at`): an expired key gets the same `401` as an unknown
+  or revoked one (no enumeration).
+- **Rotation** (`RotateApiKey`, `identity:rotate-api-key`): a replacement
+  with the same name, scopes and network; the old key gets `expires_at` =
+  now + 1–30 days and `replaced_by_api_key_id`. It keeps counting against the
+  limit until it expires; a rotation may take the project one key over the
+  limit, never more. A key is rotated once.
+- **Revocation** (`RevokeApiKey`, `identity:revoke-api-key --reason=…`):
+  immediate deletion, mandatory reason kept in the audit entry's `context`.
+- `ProjectContext::$apiKeyId` names the key behind each request (logs,
+  audit, metrics); `last_used_at` / `last_used_ip` are refreshed at most once
+  a minute, or when the address changes.
+
 ## Operators (Plan 1) — bootstrap vs. self-service
 
 A real operator never touches a CLI. Two distinct paths create an

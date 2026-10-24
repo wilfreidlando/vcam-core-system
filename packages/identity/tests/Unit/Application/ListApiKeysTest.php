@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Core\Identity\Application\UseCase\ListApiKeys;
 use Core\Identity\Contracts\ListApiKeysCommand;
 use Core\Identity\Domain\Model\ApiKey;
+use Core\Identity\Tests\Unit\Fakes\FixedClock;
 use Core\Identity\Tests\Unit\Fakes\InMemoryApiKeyRepository;
 
 it('lists a project\'s own keys, newest first, never carrying the secret', function (): void {
@@ -13,7 +14,7 @@ it('lists a project\'s own keys, newest first, never carrying the secret', funct
     $apiKeys->save(ApiKey::issue('key-2', 'project-1', 'pk_live_b', ApiKey::hash('s2'), [], new DateTimeImmutable('2026-09-15T10:00:00Z')));
     $apiKeys->save(ApiKey::issue('key-3', 'someone-elses-project', 'pk_c', ApiKey::hash('s3'), [], new DateTimeImmutable('2026-09-15T10:00:00Z')));
 
-    $useCase = new ListApiKeys($apiKeys);
+    $useCase = new ListApiKeys($apiKeys, new FixedClock);
 
     $views = $useCase->list(new ListApiKeysCommand('project-1'));
 
@@ -28,7 +29,7 @@ it('reflects the revoked flag', function (): void {
     $key->revoke(new DateTimeImmutable('2026-09-16T10:00:00Z'));
     $apiKeys->save($key);
 
-    $useCase = new ListApiKeys($apiKeys);
+    $useCase = new ListApiKeys($apiKeys, new FixedClock);
 
     $views = $useCase->list(new ListApiKeysCommand('project-1'));
 

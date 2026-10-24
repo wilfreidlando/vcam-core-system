@@ -2,8 +2,8 @@
 
 Les commandes de ce document ont été **exécutées pour de vrai** contre une instance
 du Core branchée sur une vraie application MyCoolPay et un vrai WAHA (WhatsApp), puis
-mises à jour pour le contrat actuel (réponses minimales, `is_final`, une seule clé par
-projet, simulateur de paiement du staging) ; les réponses de ces mises à jour sont celles
+mises à jour pour le contrat actuel (réponses minimales, `is_final`, clés nommées à
+portée, simulateur de paiement du staging) ; les réponses de ces mises à jour sont celles
 de la suite de tests d'intégration. Identifiants et secrets remplacés par des exemples.
 
 **Le Core n'a qu'un environnement** ([ADR-0066](../adr/0066-un-seul-environnement-staging-pour-les-tests.md)).
@@ -26,10 +26,24 @@ export PHONE="+2376XXXXXXXX"                               # un numéro qui vous
 export SESSION="ma-boutique"                               # nom de la session WhatsApp fourni par l'administrateur (§5)
 ```
 
-- **Clé API** : un projet a **exactement une clé**, créée avec le projet dans la
-  console (`/admin/projects/<id>/api-keys/create`) et affichée **une seule fois**.
-  Régénérer une clé remplace l'ancienne immédiatement ; révoquer la supprime. Le staging
-  et la production sont deux déploiements distincts : chacun a ses projets et ses clés.
+- **Clés API** ([ADR-0082](../adr/0082-cles-d-api-portees-rotation-et-secrets-de-webhook.md)) :
+  un projet a **plusieurs clés nommées** (10 au plus), une par composant — serveur,
+  portail, versements… Chaque clé ne porte que ses **portées** (modèles : *Serveur
+  complet*, *Lecture seule*, *Portail uniquement*, *Versements*) ; un appel hors portée
+  reçoit `403`. La première clé, « Clé principale » (*Serveur complet* : tout sauf
+  `payouts:write`), est créée avec le projet. Toute clé est affichée **une seule fois**,
+  dans la console (`/admin/projects/<id>/api-keys/create`).
+  - **Restriction réseau** (facultative) : une clé limitée à des blocs (`203.0.113.0/24`,
+    `2001:db8::/32`) répond `403` avec `type` …`/key-origin-not-allowed` depuis toute
+    autre adresse.
+  - **Expiration** (facultative) : une clé expirée répond `401`, comme une clé inconnue.
+  - **Rotation sans coupure** : « Faire tourner » crée une remplaçante avec les mêmes
+    portées et le même réseau ; l'ancienne reste valide 1 à 30 jours (7 par défaut), le
+    temps de déployer la nouvelle, puis cesse de fonctionner seule.
+  - **Révocation d'urgence** : immédiate, motif obligatoire, journalisée.
+
+  Le staging et la production sont deux déploiements distincts : chacun a ses projets
+  et ses clés.
 - **En-têtes communs** : `Authorization: Bearer $API_KEY`, `Accept: application/json`,
   et `Content-Type: application/json` pour les requêtes avec corps.
 - **Erreurs** : format RFC 7807 (`application/problem+json`) avec `type`, `title`,

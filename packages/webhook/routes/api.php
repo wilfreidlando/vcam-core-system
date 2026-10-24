@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Core\Webhook\Presentation\Http\Controllers\DeactivateWebhookEndpointController;
 use Core\Webhook\Presentation\Http\Controllers\ListWebhookEndpointsController;
 use Core\Webhook\Presentation\Http\Controllers\RegisterWebhookEndpointController;
+use Core\Webhook\Presentation\Http\Controllers\RotateWebhookSecretController;
 use Core\Webhook\Presentation\Http\Controllers\TestWebhookEndpointController;
 use Illuminate\Support\Facades\Route;
 
@@ -31,4 +32,9 @@ Route::middleware(['project.auth'])
             ->whereUuid('endpointId')
             ->middleware('throttle:10,1')
             ->name('webhook-endpoints.test');
+        // ADR-0082 §5 — new secret, double signature during the overlap.
+        Route::post('/webhook-endpoints/{endpointId}/rotate-secret', RotateWebhookSecretController::class)
+            ->whereUuid('endpointId')
+            ->middleware('throttle:10,1')
+            ->name('webhook-endpoints.rotate-secret');
     });

@@ -163,7 +163,7 @@ final class WebhookTestAndSignatureExamplesTest extends TestCase
         $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Project'), actor: 'service:test', correlationId: null)->project;
 
         return [app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, ['*'], replaceExisting: true),
+            new IssueApiKeyCommand($project->id, ['*']),
             actor: 'service:test',
             correlationId: null,
         )->plaintextToken, $project->id];

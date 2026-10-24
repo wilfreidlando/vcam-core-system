@@ -228,6 +228,37 @@ printf '%s' "$TS.$BODY" | openssl dgst -sha256 -hmac "$SECRET"
 # doit afficher la même valeur que l'en-tête X-Signature
 ```
 
+### Changer de secret sans rien casser — `POST /v1/webhook-endpoints/{id}/rotate-secret`
+
+Portée `webhooks:write`, 10 appels par minute au plus. Le nouveau secret est renvoyé
+**une seule fois** ([ADR-0082](../adr/0082-cles-d-api-portees-rotation-et-secrets-de-webhook.md) §5).
+
+```bash
+curl -s -X POST "$BASE_URL/v1/webhook-endpoints/01a101a1-7b5c-7374-808b-2d1c2b3b7121/rotate-secret" \
+  -H "Authorization: Bearer $API_KEY" -H "Content-Type: application/json" -H "Accept: application/json" \
+  -d '{"overlap_hours": 24}'
+```
+
+```json
+{"id":"01a101a1-7b5c-7374-808b-2d1c2b3b7121","secret":"whsec_…","previous_secret_expires_at":"2026-10-25T10:00:00+00:00"}
+```
+
+Pendant le recouvrement (`overlap_hours`, 24 h par défaut, de 1 à 72), chaque livraison
+porte **deux** signatures, même format, même `X-Timestamp` :
+
+| En-tête | Calculé avec |
+|---|---|
+| `X-Signature` | le **nouveau** secret |
+| `X-Signature-Previous` | l'**ancien** secret |
+
+Marche à suivre : déployez le nouveau secret chez le destinataire avant
+`previous_secret_expires_at`. Un vérificateur qui accepte l'une **ou** l'autre
+signature passe la bascule sans rejet ; un vérificateur qui ne lit que `X-Signature`
+fonctionne dès que son secret est à jour. À l'échéance, l'ancien secret est effacé et
+`X-Signature-Previous` disparaît. `GET /v1/webhook-endpoints` indique l'échéance en
+cours dans `previous_secret_expires_at` (`null` hors recouvrement). L'exploitant peut
+mettre fin au recouvrement plus tôt depuis la console (motif obligatoire, journalisé).
+
 ## 5. Tester son endpoint — `POST /v1/webhook-endpoints/{id}/test`
 
 Envoie immédiatement un événement `webhook.test` signé à l'endpoint et renvoie ce que

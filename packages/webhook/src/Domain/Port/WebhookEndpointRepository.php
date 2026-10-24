@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Webhook\Domain\Port;
 
 use Core\Webhook\Domain\Model\WebhookEndpoint;
+use DateTimeImmutable;
 
 interface WebhookEndpointRepository
 {
@@ -13,6 +14,13 @@ interface WebhookEndpointRepository
     public function save(WebhookEndpoint $endpoint): void;
 
     public function find(string $id): ?WebhookEndpoint;
+
+    /**
+     * Same as `find()`, holding the row until the end of the current
+     * transaction: a read-modify-write (secret rotation) never overwrites a
+     * concurrent change with stale values.
+     */
+    public function findForUpdate(string $id): ?WebhookEndpoint;
 
     /**
      * @return list<WebhookEndpoint>
@@ -29,4 +37,11 @@ interface WebhookEndpointRepository
      * @return list<WebhookEndpoint>
      */
     public function findAllForProject(string $projectId): array;
+
+    /**
+     * ADR-0082 §5 — erases every previous secret whose overlap has ended.
+     *
+     * @return int how many were erased
+     */
+    public function purgeExpiredPreviousSecrets(DateTimeImmutable $now): int;
 }

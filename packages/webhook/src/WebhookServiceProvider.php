@@ -16,8 +16,11 @@ use Core\Webhook\Application\UseCase\HandleRelayedEventUseCase;
 use Core\Webhook\Application\UseCase\ListDeadWebhookDeliveriesUseCase;
 use Core\Webhook\Application\UseCase\ListWebhookDeliveriesUseCase;
 use Core\Webhook\Application\UseCase\ListWebhookEndpointsUseCase;
+use Core\Webhook\Application\UseCase\PurgeExpiredWebhookSecretsUseCase;
 use Core\Webhook\Application\UseCase\RegisterWebhookEndpointUseCase;
 use Core\Webhook\Application\UseCase\ReplayWebhookDeliveryUseCase;
+use Core\Webhook\Application\UseCase\RevokePreviousWebhookSecretUseCase;
+use Core\Webhook\Application\UseCase\RotateWebhookSecretUseCase;
 use Core\Webhook\Application\UseCase\SweepStalledWebhookDeliveriesUseCase;
 use Core\Webhook\Application\UseCase\TestWebhookEndpointUseCase;
 use Core\Webhook\Application\UseCase\UpdateWebhookEndpointUseCase;
@@ -30,9 +33,12 @@ use Core\Webhook\Contracts\HandleRelayedEvent;
 use Core\Webhook\Contracts\ListDeadWebhookDeliveries;
 use Core\Webhook\Contracts\ListWebhookDeliveries;
 use Core\Webhook\Contracts\ListWebhookEndpoints;
+use Core\Webhook\Contracts\PurgeExpiredWebhookSecrets;
 use Core\Webhook\Contracts\QueueWebhookDelivery;
 use Core\Webhook\Contracts\RegisterWebhookEndpoint;
 use Core\Webhook\Contracts\ReplayWebhookDelivery;
+use Core\Webhook\Contracts\RevokePreviousWebhookSecret;
+use Core\Webhook\Contracts\RotateWebhookSecret;
 use Core\Webhook\Contracts\SweepStalledWebhookDeliveries;
 use Core\Webhook\Contracts\TestWebhookEndpoint;
 use Core\Webhook\Contracts\UpdateWebhookEndpoint;
@@ -49,6 +55,7 @@ use Core\Webhook\Infrastructure\Persistence\Eloquent\EloquentWebhookDeliveryRepo
 use Core\Webhook\Infrastructure\Persistence\Eloquent\EloquentWebhookDeliveryStats;
 use Core\Webhook\Infrastructure\Persistence\Eloquent\EloquentWebhookEndpointRepository;
 use Core\Webhook\Infrastructure\Security\RandomWebhookSecretGenerator;
+use Core\Webhook\Presentation\Console\Commands\PurgeExpiredWebhookSecretsCommand;
 use Core\Webhook\Presentation\Console\Commands\ReplayWebhookDeliveryCommand;
 use Core\Webhook\Presentation\Console\Commands\SweepStalledWebhookDeliveriesCommand;
 use Core\Webhook\Presentation\Listeners\FanOutRelayedEventListener;
@@ -82,6 +89,10 @@ final class WebhookServiceProvider extends ServiceProvider
         $this->app->bind(TestWebhookEndpoint::class, TestWebhookEndpointUseCase::class);
         $this->app->bind(ActivateWebhookEndpoint::class, ActivateWebhookEndpointUseCase::class);
         $this->app->bind(UpdateWebhookEndpoint::class, UpdateWebhookEndpointUseCase::class);
+        // ADR-0082 §5 — secret rotation with a double-signature overlap.
+        $this->app->bind(RotateWebhookSecret::class, RotateWebhookSecretUseCase::class);
+        $this->app->bind(RevokePreviousWebhookSecret::class, RevokePreviousWebhookSecretUseCase::class);
+        $this->app->bind(PurgeExpiredWebhookSecrets::class, PurgeExpiredWebhookSecretsUseCase::class);
         $this->app->bind(HandleRelayedEvent::class, HandleRelayedEventUseCase::class);
         $this->app->bind(DeliverWebhook::class, DeliverWebhookUseCase::class);
         $this->app->bind(ReplayWebhookDelivery::class, ReplayWebhookDeliveryUseCase::class);
@@ -120,6 +131,7 @@ final class WebhookServiceProvider extends ServiceProvider
             $this->commands([
                 ReplayWebhookDeliveryCommand::class,
                 SweepStalledWebhookDeliveriesCommand::class,
+                PurgeExpiredWebhookSecretsCommand::class,
             ]);
         }
     }

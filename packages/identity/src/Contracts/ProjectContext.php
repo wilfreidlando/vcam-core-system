@@ -23,6 +23,8 @@ final readonly class ProjectContext
         // The visible part of the key that authenticated the request
         // (never the secret) — for logs and the payment "Parcours".
         public string $apiKeyPrefix = '',
+        // ADR-0082 — which key authenticated the request (audit, metrics).
+        public string $apiKeyId = '',
     ) {}
 
     public function hasScope(string $scope): bool

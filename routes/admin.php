@@ -157,6 +157,11 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->name('projects.webhook-endpoints.activate');
             Route::post('{projectId}/webhook-endpoints/{endpointId}/deactivate', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'deactivate'])
                 ->name('projects.webhook-endpoints.deactivate');
+            // ADR-0082 §5 — secret rotation (double signature) and its early end.
+            Route::post('{projectId}/webhook-endpoints/{endpointId}/rotate-secret', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'rotateSecret'])
+                ->name('projects.webhook-endpoints.rotate-secret');
+            Route::post('{projectId}/webhook-endpoints/{endpointId}/revoke-previous-secret', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'revokePreviousSecret'])
+                ->name('projects.webhook-endpoints.revoke-previous-secret');
             // Review finding: API key issuance/revocation was genuinely
             // CLI-only (`identity:issue-api-key`/`identity:revoke-api-key`),
             // unlike organizations/projects/operators which already had
@@ -166,6 +171,8 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->name('projects.api-keys.create');
             Route::post('{projectId}/api-keys', [App\Http\Controllers\Admin\ApiKeysController::class, 'store'])
                 ->name('projects.api-keys.store');
+            Route::post('{projectId}/api-keys/{apiKeyId}/rotate', [App\Http\Controllers\Admin\ApiKeysController::class, 'rotate'])
+                ->name('projects.api-keys.rotate');
             Route::post('{projectId}/api-keys/{apiKeyId}/revoke', [App\Http\Controllers\Admin\ApiKeysController::class, 'revoke'])
                 ->name('projects.api-keys.revoke');
         });

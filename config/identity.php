@@ -23,4 +23,11 @@ declare(strict_types=1);
 return [
     'disable_totp_in_local' => (bool) env('IDENTITY_DISABLE_TOTP_IN_LOCAL', false),
     'disable_mfa' => (bool) env('IDENTITY_DISABLE_MFA', false),
+
+    // ADR-0082 §1 — API keys a project may hold at once. Every key that still
+    // authenticates counts; a rotation may go one over while the old key
+    // finishes its grace period.
+    'api_keys' => [
+        'max_per_project' => (int) env('IDENTITY_API_KEYS_MAX_PER_PROJECT', 10),
+    ],
 ];

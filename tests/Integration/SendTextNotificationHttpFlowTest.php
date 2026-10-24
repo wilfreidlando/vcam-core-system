@@ -198,7 +198,7 @@ final class SendTextNotificationHttpFlowTest extends TestCase
         )->project;
 
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, [$scope], replaceExisting: true),
+            new IssueApiKeyCommand($project->id, [$scope]),
             actor: 'service:test',
             correlationId: null,
         );

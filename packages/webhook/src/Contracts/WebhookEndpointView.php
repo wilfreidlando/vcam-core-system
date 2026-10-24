@@ -14,5 +14,11 @@ final readonly class WebhookEndpointView
         public string $url,
         public array $events,
         public bool $active,
+        /**
+         * ADR-0082 §5 — while a secret rotation's overlap lasts, deliveries
+         * also carry `X-Signature-Previous`; null otherwise. Serialized as
+         * is in the public API, hence the snake_case name.
+         */
+        public ?string $previous_secret_expires_at = null,
     ) {}
 }

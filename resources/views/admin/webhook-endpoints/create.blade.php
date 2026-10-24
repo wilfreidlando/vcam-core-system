@@ -41,6 +41,17 @@
         </div>
     @endif
 
+    @if (! empty($rotated))
+        <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <p class="text-base font-semibold text-emerald-800">Nouveau secret de signature</p>
+            <p class="mt-1 text-base text-emerald-700">
+                Affiché uniquement maintenant :
+                <code class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900 break-all">{{ $rotated['secret'] }}</code>
+            </p>
+            <p class="mt-1 text-sm text-emerald-700">Jusqu'au {{ $rotated['previousSecretExpiresAt'] }}, chaque livraison porte aussi <code class="font-mono">X-Signature-Previous</code>, calculée avec l'ancien secret : mettez à jour le vérificateur du destinataire avant cette échéance.</p>
+        </div>
+    @endif
+
     {{-- Existing endpoints — never shows the signing secret (there is no
          read path for it; WebhookEndpointRepository never exposes one).
          Active AND inactive endpoints both show (review finding: this
@@ -60,7 +71,7 @@
                         );
                         $isAll = $endpoint->events === ['*'];
                     @endphp
-                    <li class="py-3 text-base" x-data="{ editing: false }">
+                    <li class="py-3 text-base" x-data="{ editing: false, secret: null }">
                         <div class="flex items-center justify-between gap-2">
                             <span class="flex items-center gap-2 min-w-0"><span class="font-mono text-slate-900 truncate">{{ $endpoint->url }}</span></span>
                             <span @class([
@@ -86,12 +97,51 @@
                                     <span x-show="! editing">Modifier</span>
                                     <span x-show="editing" x-cloak>Fermer</span>
                                 </button>
+                                <button type="button" @click="secret = 'rotate'" class="font-medium text-indigo-600 hover:text-indigo-800">Faire tourner le secret</button>
                                 <form method="POST" action="{{ route('admin.projects.webhook-endpoints.'.($endpoint->active ? 'deactivate' : 'activate'), ['projectId' => $project->id, 'endpointId' => $endpoint->id]) }}">
                                     @csrf
                                     <button type="submit" class="font-medium {{ $endpoint->active ? 'text-rose-600 hover:text-rose-800' : 'text-emerald-600 hover:text-emerald-800' }}">
                                         {{ $endpoint->active ? 'Désactiver' : 'Réactiver' }}
                                     </button>
                                 </form>
+                            </div>
+                        </div>
+
+                        @if ($endpoint->previous_secret_expires_at !== null)
+                            <div class="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900">
+                                <span>Double signature active : l'ancien secret signe encore jusqu'au {{ \Carbon\CarbonImmutable::parse($endpoint->previous_secret_expires_at)->format('d/m/Y H:i') }}.</span>
+                                <button type="button" @click="secret = 'revoke'" class="font-medium text-rose-700 hover:text-rose-900">Révoquer l'ancien secret</button>
+                            </div>
+                        @endif
+
+                        <div x-show="secret !== null" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50" @click.self="secret = null">
+                            <div class="bg-white rounded-lg shadow-xl p-6 max-w-md mx-4">
+                                <template x-if="secret === 'rotate'">
+                                    <form method="POST" action="{{ route('admin.projects.webhook-endpoints.rotate-secret', ['projectId' => $project->id, 'endpointId' => $endpoint->id]) }}">
+                                        @csrf
+                                        <p class="font-semibold text-slate-900 mb-2">Faire tourner le secret de signature ?</p>
+                                        <p class="text-sm text-slate-600 mb-3">Un nouveau secret s'affichera une seule fois. Pendant le recouvrement, chaque livraison porte deux signatures (<code class="font-mono">X-Signature</code> et <code class="font-mono">X-Signature-Previous</code>) : le destinataire ne casse pas.</p>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1" for="overlap-{{ $endpoint->id }}">Recouvrement (heures)</label>
+                                        <input id="overlap-{{ $endpoint->id }}" type="number" name="overlap_hours" min="{{ $overlap['min'] }}" max="{{ $overlap['max'] }}" value="{{ $overlap['default'] }}" required class="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm">
+                                        <div class="mt-4 flex justify-end gap-2">
+                                            <button type="button" @click="secret = null" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Annuler</button>
+                                            <button type="submit" class="rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white">Générer le nouveau secret</button>
+                                        </div>
+                                    </form>
+                                </template>
+                                <template x-if="secret === 'revoke'">
+                                    <form method="POST" action="{{ route('admin.projects.webhook-endpoints.revoke-previous-secret', ['projectId' => $project->id, 'endpointId' => $endpoint->id]) }}">
+                                        @csrf
+                                        <p class="font-semibold text-slate-900 mb-2">Révoquer l'ancien secret maintenant ?</p>
+                                        <p class="text-sm text-slate-600 mb-3">Les livraisons ne porteront plus que la signature du nouveau secret : un destinataire qui vérifie encore l'ancien les rejettera.</p>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1" for="wh-reason-{{ $endpoint->id }}">Motif (journalisé)</label>
+                                        <textarea id="wh-reason-{{ $endpoint->id }}" name="reason" rows="2" minlength="3" maxlength="500" required class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"></textarea>
+                                        <div class="mt-4 flex justify-end gap-2">
+                                            <button type="button" @click="secret = null" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Annuler</button>
+                                            <button type="submit" class="rounded-md bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-sm font-medium text-white">Révoquer</button>
+                                        </div>
+                                    </form>
+                                </template>
                             </div>
                         </div>
 

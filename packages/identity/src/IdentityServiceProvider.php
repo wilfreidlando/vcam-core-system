@@ -16,6 +16,7 @@ use Core\Identity\Application\UseCase\ListOrganizationsUseCase;
 use Core\Identity\Application\UseCase\ListProjectsUseCase;
 use Core\Identity\Application\UseCase\RevokeApiKey as RevokeApiKeyUseCase;
 use Core\Identity\Application\UseCase\RevokeOperator as RevokeOperatorUseCase;
+use Core\Identity\Application\UseCase\RotateApiKey as RotateApiKeyUseCase;
 use Core\Identity\Application\UseCase\UpdateOperator as UpdateOperatorUseCase;
 use Core\Identity\Application\UseCase\UpdateOrganization as UpdateOrganizationUseCase;
 use Core\Identity\Application\UseCase\UpdateProject as UpdateProjectUseCase;
@@ -31,6 +32,7 @@ use Core\Identity\Contracts\ListOrganizations;
 use Core\Identity\Contracts\ListProjects;
 use Core\Identity\Contracts\RevokeApiKey;
 use Core\Identity\Contracts\RevokeOperator;
+use Core\Identity\Contracts\RotateApiKey;
 use Core\Identity\Contracts\UpdateOperator;
 use Core\Identity\Contracts\UpdateOrganization;
 use Core\Identity\Contracts\UpdateProject;
@@ -60,6 +62,7 @@ use Core\Identity\Presentation\Console\Commands\CreateOrganizationCommand;
 use Core\Identity\Presentation\Console\Commands\CreateProjectCommand;
 use Core\Identity\Presentation\Console\Commands\IssueApiKeyCommand;
 use Core\Identity\Presentation\Console\Commands\RevokeApiKeyCommand;
+use Core\Identity\Presentation\Console\Commands\RotateApiKeyCommand;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -92,6 +95,15 @@ final class IdentityServiceProvider extends ServiceProvider
         $this->app->bind(UpdateProject::class, UpdateProjectUseCase::class);
         $this->app->bind(IssueApiKey::class, IssueApiKeyUseCase::class);
         $this->app->bind(RevokeApiKey::class, RevokeApiKeyUseCase::class);
+        $this->app->bind(RotateApiKey::class, RotateApiKeyUseCase::class);
+        // ADR-0082 §1 — the per-project key limit, set by the platform.
+        $this->app->when(IssueApiKeyUseCase::class)
+            ->needs('$maxKeysPerProject')
+            ->give(static function (): int {
+                $limit = config('identity.api_keys.max_per_project', 10);
+
+                return is_numeric($limit) ? max(1, (int) $limit) : 10;
+            });
         $this->app->bind(ListApiKeys::class, ListApiKeysUseCase::class);
 
         $this->app->bind(OperatorRepository::class, EloquentOperatorRepository::class);
@@ -124,6 +136,7 @@ final class IdentityServiceProvider extends ServiceProvider
                 CreateProjectCommand::class,
                 IssueApiKeyCommand::class,
                 RevokeApiKeyCommand::class,
+                RotateApiKeyCommand::class,
                 CreateOperatorCommand::class,
             ]);
         }

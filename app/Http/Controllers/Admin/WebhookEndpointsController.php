@@ -19,6 +19,10 @@ use Core\Webhook\Contracts\ListWebhookEndpoints;
 use Core\Webhook\Contracts\ListWebhookEndpointsCommand;
 use Core\Webhook\Contracts\RegisterWebhookEndpoint;
 use Core\Webhook\Contracts\RegisterWebhookEndpointCommand;
+use Core\Webhook\Contracts\RevokePreviousWebhookSecret;
+use Core\Webhook\Contracts\RevokePreviousWebhookSecretCommand;
+use Core\Webhook\Contracts\RotateWebhookSecret;
+use Core\Webhook\Contracts\RotateWebhookSecretCommand;
 use Core\Webhook\Contracts\UpdateWebhookEndpoint;
 use Core\Webhook\Contracts\UpdateWebhookEndpointCommand;
 use Illuminate\Http\RedirectResponse;
@@ -83,6 +87,8 @@ final class WebhookEndpointsController
         private readonly GetProject $getProject,
         private readonly AuditLogger $audit,
         private readonly Clock $clock,
+        private readonly RotateWebhookSecret $rotateWebhookSecret,
+        private readonly RevokePreviousWebhookSecret $revokePreviousWebhookSecret,
     ) {}
 
     public function create(string $projectId, OperatorContext $operator): Response
@@ -107,6 +113,8 @@ final class WebhookEndpointsController
             'endpoints' => $endpoints,
             'categories' => self::CATEGORIES,
             'created' => session('admin.webhook-endpoints.created'),
+            'rotated' => session('admin.webhook-endpoints.rotated'),
+            'overlap' => ['min' => RotateWebhookSecretCommand::MIN_OVERLAP_HOURS, 'max' => RotateWebhookSecretCommand::MAX_OVERLAP_HOURS, 'default' => RotateWebhookSecretCommand::DEFAULT_OVERLAP_HOURS],
         ]);
     }
 
@@ -227,6 +235,95 @@ final class WebhookEndpointsController
     public function deactivate(string $projectId, string $endpointId, OperatorContext $operator): RedirectResponse
     {
         return $this->setActive($projectId, $endpointId, false, $operator);
+    }
+
+    /**
+     * ADR-0082 §5 — a new signing secret, shown once; the previous one keeps
+     * signing (`X-Signature-Previous`) for the chosen overlap.
+     */
+    public function rotateSecret(string $projectId, string $endpointId, Request $request, OperatorContext $operator): RedirectResponse
+    {
+        $this->authorizeEndpoint($operator, $projectId, $endpointId);
+
+        /** @var array{overlap_hours: int|string} $data */
+        // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
+        $data = $request->validate([
+            'overlap_hours' => ['required', 'integer', 'between:'.RotateWebhookSecretCommand::MIN_OVERLAP_HOURS.','.RotateWebhookSecretCommand::MAX_OVERLAP_HOURS],
+        ]);
+
+        try {
+            $rotated = $this->rotateWebhookSecret->rotate(new RotateWebhookSecretCommand($projectId, $endpointId, (int) $data['overlap_hours']));
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['endpoint' => $e->getMessage()]);
+        }
+
+        $this->audit->record(new AuditEntry(
+            actor: 'operator:'.$operator->operatorId,
+            action: 'webhook_endpoint.secret_rotated',
+            resource: 'webhook_endpoint:'.$endpointId,
+            before: null,
+            // Never a secret — only when the previous one stops signing.
+            after: ['project_id' => $projectId, 'previous_secret_expires_at' => $rotated->previousSecretExpiresAt->format(DATE_ATOM)],
+            context: [],
+            correlationId: null,
+            occurredAt: $this->clock->now(),
+        ));
+
+        // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
+        session()->flash('admin.webhook-endpoints.rotated', [
+            'secret' => $rotated->secret,
+            'previousSecretExpiresAt' => $rotated->previousSecretExpiresAt->format('d/m/Y H:i'),
+        ]);
+
+        return redirect()->route('admin.projects.webhook-endpoints.create', ['projectId' => $projectId]);
+    }
+
+    /** ADR-0082 §5 — end the overlap now, with a reason (audited). */
+    public function revokePreviousSecret(string $projectId, string $endpointId, Request $request, OperatorContext $operator): RedirectResponse
+    {
+        $this->authorizeEndpoint($operator, $projectId, $endpointId);
+
+        /** @var array{reason: string} $data */
+        // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:500'],
+        ]);
+
+        try {
+            $revoked = $this->revokePreviousWebhookSecret->revoke(new RevokePreviousWebhookSecretCommand($projectId, $endpointId));
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['endpoint' => $e->getMessage()]);
+        }
+
+        if (! $revoked) {
+            return back()->withErrors(['endpoint' => 'Il n\'y a plus d\'ancien secret à révoquer pour cet endpoint.']);
+        }
+
+        $this->audit->record(new AuditEntry(
+            actor: 'operator:'.$operator->operatorId,
+            action: 'webhook_endpoint.previous_secret_revoked',
+            resource: 'webhook_endpoint:'.$endpointId,
+            before: null,
+            after: ['project_id' => $projectId],
+            context: ['reason' => $data['reason']],
+            correlationId: null,
+            occurredAt: $this->clock->now(),
+        ));
+
+        return redirect()->route('admin.projects.webhook-endpoints.create', ['projectId' => $projectId])
+            ->with('status', 'Ancien secret révoqué : seules les signatures du nouveau secret sont envoyées désormais.');
+    }
+
+    private function authorizeEndpoint(OperatorContext $operator, string $projectId, string $endpointId): void
+    {
+        if (! $operator->hasPermission('webhook-endpoints:write')) {
+            abort(403, 'La permission webhook-endpoints:write est requise.');
+        }
+
+        Validator::make(
+            ['project_id' => $projectId, 'endpoint_id' => $endpointId],
+            ['project_id' => 'uuid', 'endpoint_id' => 'uuid'],
+        )->validate();
     }
 
     private function setActive(string $projectId, string $endpointId, bool $active, OperatorContext $operator): RedirectResponse

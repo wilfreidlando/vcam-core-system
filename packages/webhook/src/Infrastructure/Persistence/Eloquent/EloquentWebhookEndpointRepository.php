@@ -6,6 +6,7 @@ namespace Core\Webhook\Infrastructure\Persistence\Eloquent;
 
 use Core\Webhook\Domain\Model\WebhookEndpoint;
 use Core\Webhook\Domain\Port\WebhookEndpointRepository;
+use DateTimeImmutable;
 use Illuminate\Support\Facades\Crypt;
 
 /**
@@ -33,6 +34,15 @@ final class EloquentWebhookEndpointRepository implements WebhookEndpointReposito
         return $record === null ? null : $this->toDomain($record);
     }
 
+    public function findForUpdate(string $id): ?WebhookEndpoint
+    {
+        $query = WebhookEndpointRecord::query()->whereKey($id);
+        $query->getQuery()->lockForUpdate();
+        $record = $query->first();
+
+        return $record === null ? null : $this->toDomain($record);
+    }
+
     public function findActiveForProject(string $projectId): array
     {
         return array_values(
@@ -56,6 +66,15 @@ final class EloquentWebhookEndpointRepository implements WebhookEndpointReposito
         );
     }
 
+    public function purgeExpiredPreviousSecrets(DateTimeImmutable $now): int
+    {
+        $query = WebhookEndpointRecord::query()->toBase();
+        $query->whereNotNull('previous_secret_encrypted');
+        $query->where('previous_secret_expires_at', '<=', $now);
+
+        return $query->update(['previous_secret_encrypted' => null, 'previous_secret_expires_at' => null]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -68,6 +87,9 @@ final class EloquentWebhookEndpointRepository implements WebhookEndpointReposito
             'secret_encrypted' => Crypt::encryptString($endpoint->secret),
             'events' => $endpoint->subscribedEventTypes,
             'active' => $endpoint->active,
+            'previous_secret_encrypted' => $endpoint->previousSecret === null ? null : Crypt::encryptString($endpoint->previousSecret),
+            'previous_secret_expires_at' => $endpoint->previousSecretExpiresAt,
+            'secret_rotated_at' => $endpoint->secretRotatedAt,
         ];
     }
 
@@ -80,6 +102,9 @@ final class EloquentWebhookEndpointRepository implements WebhookEndpointReposito
             secret: Crypt::decryptString($record->secret_encrypted),
             subscribedEventTypes: array_values($record->events),
             active: $record->active,
+            previousSecret: $record->previous_secret_encrypted === null ? null : Crypt::decryptString($record->previous_secret_encrypted),
+            previousSecretExpiresAt: $record->previous_secret_expires_at,
+            secretRotatedAt: $record->secret_rotated_at,
         );
     }
 }

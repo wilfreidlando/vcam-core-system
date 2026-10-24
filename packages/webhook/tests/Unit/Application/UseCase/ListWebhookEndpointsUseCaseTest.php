@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Core\Webhook\Application\UseCase\ListWebhookEndpointsUseCase;
 use Core\Webhook\Contracts\ListWebhookEndpointsCommand;
 use Core\Webhook\Domain\Model\WebhookEndpoint;
+use Core\Webhook\Tests\Unit\Fakes\FixedClock;
 use Core\Webhook\Tests\Unit\Fakes\InMemoryWebhookEndpointRepository;
 
 it('lists both active and inactive endpoints for the project', function (): void {
@@ -14,7 +15,7 @@ it('lists both active and inactive endpoints for the project', function (): void
     $endpoints = new InMemoryWebhookEndpointRepository;
     $endpoints->create(new WebhookEndpoint('endpoint-active', 'project-1', 'https://example.test/a', 'whsec_a', ['*'], true));
     $endpoints->create(new WebhookEndpoint('endpoint-inactive', 'project-1', 'https://example.test/b', 'whsec_b', ['*'], false));
-    $useCase = new ListWebhookEndpointsUseCase($endpoints);
+    $useCase = new ListWebhookEndpointsUseCase($endpoints, new FixedClock);
 
     $views = $useCase->list(new ListWebhookEndpointsCommand('project-1'));
 
@@ -28,7 +29,7 @@ it('never lists another projects endpoints', function (): void {
     $endpoints = new InMemoryWebhookEndpointRepository;
     $endpoints->create(new WebhookEndpoint('endpoint-1', 'project-1', 'https://example.test/a', 'whsec_a', ['*'], true));
     $endpoints->create(new WebhookEndpoint('endpoint-2', 'project-2', 'https://example.test/b', 'whsec_b', ['*'], true));
-    $useCase = new ListWebhookEndpointsUseCase($endpoints);
+    $useCase = new ListWebhookEndpointsUseCase($endpoints, new FixedClock);
 
     $views = $useCase->list(new ListWebhookEndpointsCommand('project-1'));
 

@@ -765,9 +765,9 @@ final class AdminWebFlowTest extends TestCase
     }
 
     #[Test]
-    public function a_project_has_exactly_one_key_that_can_be_regenerated_and_revoked(): void
+    public function a_project_manages_several_named_keys_rotates_and_revokes_them(): void
     {
-        // ADR-0066 — one key per project.
+        // ADR-0082 — several named, scoped keys per project.
         $this->withoutMiddleware(PreventRequestForgery::class);
         $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
 
@@ -777,25 +777,71 @@ final class AdminWebFlowTest extends TestCase
 
         // Auto-provisioned at creation.
         self::assertCount(1, $keys());
-        $this->get("/admin/projects/{$project->id}/api-keys/create")->assertOk()->assertSee('Clé API du projet')->assertSee('Régénérer')->assertDontSee('Sandbox');
+        $this->get("/admin/projects/{$project->id}/api-keys/create")->assertOk()
+            ->assertSee('Clés du projet')->assertSee('Clé principale')->assertSee('Serveur complet')->assertSee('Faire tourner');
 
-        // Generating a second key is refused with a clear message.
-        $this->post("/admin/projects/{$project->id}/api-keys", ['mode' => 'generate'])
-            ->assertSessionHasErrors('mode');
-        self::assertCount(1, $keys());
+        // A second key, from the « Versements » template, restricted to a network.
+        $this->post("/admin/projects/{$project->id}/api-keys", ['name' => 'Versements', 'template' => 'payouts', 'allowed_cidrs' => "203.0.113.0/24\n2001:db8::/32"])
+            ->assertRedirect()->assertSessionHas('admin.api-keys.created');
+        $payouts = collect($keys())->firstWhere('name', 'Versements');
+        self::assertNotNull($payouts);
+        self::assertSame(['payouts:read', 'payouts:write'], $payouts->scopes);
+        self::assertSame(['203.0.113.0/24', '2001:db8::/32'], $payouts->allowedCidrs);
 
-        // Regenerating replaces it: still exactly one key, a new prefix.
-        $old = $keys()[0];
-        $this->post("/admin/projects/{$project->id}/api-keys", ['mode' => 'regenerate'])->assertRedirect();
-        $afterRegenerate = $keys();
-        self::assertCount(1, $afterRegenerate);
-        self::assertNotSame($old->prefix, $afterRegenerate[0]->prefix);
+        // A custom set of scopes; an unknown scope is refused by validation.
+        $this->post("/admin/projects/{$project->id}/api-keys", ['name' => 'Mauvaise', 'template' => 'custom', 'scopes' => ['payments:wrte']])
+            ->assertSessionHasErrors('scopes.0');
+        $this->post("/admin/projects/{$project->id}/api-keys", ['name' => 'Réseau', 'template' => 'server', 'allowed_cidrs' => '10.0.0.0/33'])
+            ->assertSessionHasErrors('name');
+        self::assertCount(2, $keys());
 
-        // Revoking deletes; a key can then be generated again.
-        $this->post("/admin/projects/{$project->id}/api-keys/{$afterRegenerate[0]->id}/revoke")->assertRedirect();
-        self::assertCount(0, $keys());
-        $this->post("/admin/projects/{$project->id}/api-keys", ['mode' => 'generate'])->assertRedirect();
-        self::assertCount(1, $keys());
+        // Rotation: a replacement appears, the old key stays valid for the grace period.
+        $this->post("/admin/projects/{$project->id}/api-keys/{$payouts->id}/rotate", ['grace_days' => 3])
+            ->assertRedirect()->assertSessionHas('admin.api-keys.created');
+        self::assertCount(3, $keys());
+        $rotated = collect($keys())->firstWhere('id', $payouts->id);
+        self::assertNotNull($rotated?->replacedByApiKeyId);
+        self::assertTrue($rotated->active);
+        $this->get("/admin/projects/{$project->id}/api-keys/create")->assertSee('Remplacée');
+
+        // Revocation needs a reason, which the audit trail keeps.
+        $this->post("/admin/projects/{$project->id}/api-keys/{$payouts->id}/revoke")->assertSessionHasErrors('reason');
+        $this->post("/admin/projects/{$project->id}/api-keys/{$payouts->id}/revoke", ['reason' => 'Prestataire remplacé'])->assertRedirect();
+        self::assertCount(2, $keys());
+        $context = \Illuminate\Support\Facades\DB::table('audit_log')->where('resource', 'api_key:'.$payouts->id)->where('action', 'api_key.revoked')->value('context');
+        self::assertIsString($context);
+        self::assertSame(['reason' => 'Prestataire remplacé'], json_decode($context, true));
+    }
+
+    #[Test]
+    public function an_operator_rotates_a_webhook_secret_then_ends_the_overlap_with_a_reason(): void
+    {
+        // ADR-0082 §5 — double signature during the overlap, early end audited.
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Secrets Org'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Secrets Project'), actor: 'service:test', correlationId: null)->project;
+        $endpoint = app(RegisterWebhookEndpoint::class)->register(new RegisterWebhookEndpointCommand($project->id, 'https://example.com/hooks/secret', ['*']));
+        $page = "/admin/projects/{$project->id}/webhook-endpoints/create";
+
+        $this->get($page)->assertOk()->assertSee('Faire tourner le secret')->assertDontSee('Double signature active');
+
+        $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/rotate-secret", ['overlap_hours' => 99])->assertSessionHasErrors('overlap_hours');
+        $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/rotate-secret", ['overlap_hours' => 12])
+            ->assertRedirect()->assertSessionHas('admin.webhook-endpoints.rotated');
+        $this->get($page)->assertSee('Double signature active')->assertSee('Révoquer l\'ancien secret', false);
+
+        $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/revoke-previous-secret")->assertSessionHasErrors('reason');
+        $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/revoke-previous-secret", ['reason' => 'Destinataire déjà migré'])->assertRedirect();
+        $this->get($page)->assertDontSee('Double signature active');
+
+        self::assertSame(
+            ['webhook_endpoint.secret_rotated', 'webhook_endpoint.previous_secret_revoked'],
+            \Illuminate\Support\Facades\DB::table('audit_log')->where('resource', 'webhook_endpoint:'.$endpoint->id)->orderBy('id')->pluck('action')->all(),
+        );
+        $audited = \Illuminate\Support\Facades\DB::table('audit_log')->where('resource', 'webhook_endpoint:'.$endpoint->id)->pluck('after')->implode(' ');
+        self::assertStringNotContainsString($endpoint->secret, $audited);
     }
 
     #[Test]

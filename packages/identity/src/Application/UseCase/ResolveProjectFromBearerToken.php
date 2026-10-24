@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Identity\Application\UseCase;
 
 use Core\Identity\Contracts\ProjectContext;
+use Core\Identity\Domain\Exception\ApiKeyOriginNotAllowed;
 use Core\Identity\Domain\Exception\InvalidApiKey;
 use Core\Identity\Domain\Exception\ProjectNotActive;
 use Core\Identity\Domain\Model\ApiKeyToken;
@@ -27,7 +28,14 @@ final readonly class ResolveProjectFromBearerToken
         private Clock $clock,
     ) {}
 
-    public function __invoke(string $bearerToken): ProjectContext
+    /**
+     * @param string|null $clientIp the address resolved through the trusted
+     *                              proxies (never a raw `X-Forwarded-For`)
+     *
+     * @throws InvalidApiKey unknown, revoked or expired key (401)
+     * @throws ApiKeyOriginNotAllowed valid key, address outside its blocks (403)
+     */
+    public function __invoke(string $bearerToken, ?string $clientIp = null): ProjectContext
     {
         $token = ApiKeyToken::parse($bearerToken);
 
@@ -38,7 +46,9 @@ final readonly class ResolveProjectFromBearerToken
             throw InvalidApiKey::unknown();
         }
 
-        if ($apiKey->isRevoked()) {
+        $now = $this->clock->now();
+        if (! $apiKey->isUsableAt($now)) {
+            // Revoked or expired: the same 401 either way (no enumeration).
             throw InvalidApiKey::revoked();
         }
 
@@ -49,13 +59,18 @@ final readonly class ResolveProjectFromBearerToken
             throw ProjectNotActive::withId($project->id);
         }
 
-        $this->apiKeys->touchLastUsed($apiKey->id, $this->clock->now());
+        if (! $apiKey->allowsOrigin($clientIp)) {
+            throw new ApiKeyOriginNotAllowed($apiKey->id, $apiKey->prefix, $project->id, $clientIp);
+        }
+
+        $this->apiKeys->touchLastUsed($apiKey->id, $now, $clientIp);
 
         return new ProjectContext(
             projectId: $project->id,
             organizationId: $project->organizationId,
             scopes: $apiKey->scopes(),
             apiKeyPrefix: $apiKey->prefix,
+            apiKeyId: $apiKey->id,
         );
     }
 }

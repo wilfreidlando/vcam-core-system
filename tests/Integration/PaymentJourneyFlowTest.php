@@ -154,7 +154,7 @@ final class PaymentJourneyFlowTest extends TestCase
         $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Journey Org'), actor: 'service:test', correlationId: null);
         $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Journey Project'), actor: 'service:test', correlationId: null)->project;
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, ['payments:write', 'payments:read', 'webhooks:write'], replaceExisting: true),
+            new IssueApiKeyCommand($project->id, ['payments:write', 'payments:read', 'webhooks:write']),
             actor: 'service:test',
             correlationId: null,
         );

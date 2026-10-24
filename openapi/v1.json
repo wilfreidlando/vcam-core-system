@@ -5149,6 +5149,204 @@
                     "webhooks:write"
                 ]
             }
+        },
+        "/webhook-endpoints/{endpointId}/rotate-secret": {
+            "post": {
+                "operationId": "webhook-endpoints.rotate-secret",
+                "description": "Returns the new secret, **shown once**. For `overlap_hours` (24 by\ndefault, 1 to 72), every delivery carries two signatures:\n`X-Signature` with the new secret and `X-Signature-Previous` with the\nold one, same format and timestamp. Switch your verifier to the new\nsecret within that window; afterwards only `X-Signature` remains.\nRequires the `webhooks:write` scope.",
+                "summary": "Rotate a webhook endpoint's signing secret",
+                "tags": [
+                    "Webhook"
+                ],
+                "parameters": [
+                    {
+                        "name": "endpointId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RotateWebhookSecretRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "secret": {
+                                            "type": "string",
+                                            "description": "The new signing secret. Shown once, never retrievable again."
+                                        },
+                                        "previous_secret_expires_at": {
+                                            "type": "string",
+                                            "description": "Until then, deliveries also carry `X-Signature-Previous`."
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "secret",
+                                        "previous_secret_expires_at"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Webhook endpoint not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/webhook-endpoint-not-found"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Webhook endpoint not found"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error."
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "webhooks:write"
+                ]
+            }
         }
     },
     "components": {
@@ -5453,6 +5651,21 @@
                     "phone_number"
                 ],
                 "title": "RequestChannelSessionPairingCodeRequest"
+            },
+            "RotateWebhookSecretRequest": {
+                "type": "object",
+                "properties": {
+                    "overlap_hours": {
+                        "type": "integer",
+                        "description": "Hours the previous secret keeps signing deliveries\n(`X-Signature-Previous`), from 1 to 72.",
+                        "examples": [
+                            24
+                        ],
+                        "minimum": 1,
+                        "maximum": 72
+                    }
+                },
+                "title": "RotateWebhookSecretRequest"
             },
             "SendFileNotificationRequest": {
                 "type": "object",
@@ -6040,13 +6253,21 @@
                     },
                     "active": {
                         "type": "boolean"
+                    },
+                    "previous_secret_expires_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "ADR-0082 \u00a75 \u2014 while a secret rotation's overlap lasts, deliveries\nalso carry `X-Signature-Previous`; null otherwise. Serialized as\nis in the public API, hence the snake_case name."
                     }
                 },
                 "required": [
                     "id",
                     "url",
                     "events",
-                    "active"
+                    "active",
+                    "previous_secret_expires_at"
                 ],
                 "title": "WebhookEndpointView"
             },

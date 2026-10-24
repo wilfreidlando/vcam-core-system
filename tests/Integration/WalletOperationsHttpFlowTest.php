@@ -228,7 +228,7 @@ final class WalletOperationsHttpFlowTest extends TestCase
         $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Test Org'), actor: 'service:test', correlationId: null);
         $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Test Project'), actor: 'service:test', correlationId: null)->project;
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, $scopes, replaceExisting: true),
+            new IssueApiKeyCommand($project->id, $scopes),
             actor: 'service:test',
             correlationId: null,
         );

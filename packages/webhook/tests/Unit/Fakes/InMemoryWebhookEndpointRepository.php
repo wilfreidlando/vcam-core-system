@@ -6,6 +6,7 @@ namespace Core\Webhook\Tests\Unit\Fakes;
 
 use Core\Webhook\Domain\Model\WebhookEndpoint;
 use Core\Webhook\Domain\Port\WebhookEndpointRepository;
+use DateTimeImmutable;
 
 final class InMemoryWebhookEndpointRepository implements WebhookEndpointRepository
 {
@@ -41,5 +42,23 @@ final class InMemoryWebhookEndpointRepository implements WebhookEndpointReposito
             $this->endpoints,
             static fn (WebhookEndpoint $endpoint): bool => $endpoint->projectId === $projectId,
         ));
+    }
+
+    public function findForUpdate(string $id): ?WebhookEndpoint
+    {
+        return $this->find($id);
+    }
+
+    public function purgeExpiredPreviousSecrets(DateTimeImmutable $now): int
+    {
+        $purged = 0;
+        foreach ($this->endpoints as $id => $endpoint) {
+            if ($endpoint->previousSecret !== null && $endpoint->previousSecretAt($now) === null) {
+                $this->endpoints[$id] = $endpoint->withoutPreviousSecret();
+                $purged++;
+            }
+        }
+
+        return $purged;
     }
 }

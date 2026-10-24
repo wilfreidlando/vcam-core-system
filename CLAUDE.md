@@ -222,9 +222,12 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   un événement Laravel interne auquel `webhook` s'abonne
   (`FanOutRelayedEventListener`, `ShouldQueue`) — jamais de deuxième
   lecteur de l'outbox. `POST/GET /v1/webhook-endpoints` (self-service,
-  contrairement aux clés d'API qui restent CLI-only), secret HMAC généré
+  les clés d'API, elles, se gèrent en console ou en CLI), secret HMAC généré
   une fois et chiffré au repos (`Crypt`, jamais haché — il doit être relu
-  en clair pour signer chaque livraison). La livraison HTTP ne passe **pas**
+  en clair pour signer chaque livraison) ; rotation sans coupure
+  (`POST /v1/webhook-endpoints/{id}/rotate-secret`, ADR-0082 §5) : l'ancien
+  secret signe encore `X-Signature-Previous` pendant 1 à 72 h, puis
+  `webhooks:purge-expired-secrets` l'efface. La livraison HTTP ne passe **pas**
   par `ExternalApiCaller` (conçu pour un catalogue de providers, pas une
   URL Project dynamique avec retry sur des heures) : elle compose
   directement `Core\Support\Integration\Transport\HttpTransport` +
@@ -314,7 +317,9 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   `wallets:write`/`wallets:read` ; **jamais de crédit libre** (la valeur
   n'entre que par un paiement confirmé avec `wallet_recipient_external_ref`).
   **Un seul environnement** (ADR-0066, remplace ADR-0060) : plus de
-  sandbox/live ni de `Core\Support\Environment`, une clé par projet ; les
+  sandbox/live ni de `Core\Support\Environment` ; **plusieurs clés nommées
+  à portée par projet** (ADR-0082, amende ADR-0066 : 10 au plus, CIDR et
+  expiration facultatifs, rotation guidée, révocation motivée) ; les
   tests se font sur le déploiement de staging, où `PAYMENT_SIMULATOR_ENABLED`
   active le simulateur de paiement (`POST /v1/payments/{id}/simulate`,
   jamais en production). Historique de départ (Lot 2, pour mémoire) :
