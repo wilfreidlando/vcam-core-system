@@ -453,4 +453,37 @@ Lot 15 (dès la fin du lot 8)       Lot 16 (dès la fin du lot 10)
 | Recette bout-en-bout dépendante d'une vraie session de messagerie et d'un vrai numéro | session créée par l'exploitant, numéro de l'équipe, simulateur de paiement et horloge de test |
 | Confirmation de « aucune donnée à reprendre » non obtenue | plan de reprise partielle (clients, plans) prévu dans le plan de bascule |
 
+## P7. Calendrier prévisionnel
+
+Hypothèses : deux développeurs seniors (A sur le chemin critique, B en
+parallèle), jours ouvrés, hors 25 décembre, 1ᵉʳ janvier et 11 février ;
+démarrage après la semaine de validation par le comité. Les dates glissent
+d'autant si la validation glisse ; chaque lot reste conditionné à
+l'acceptation de ses ADR.
+
+| Étape | Qui | Début | Fin |
+|---|---|---|---|
+| Validation des ADR-0068 à 0090 par le comité | direction + comité | 2026-10-26 | 2026-10-30 |
+| Lot 8 — Fondations de sécurité et d'identité | A | 2026-11-02 | 2026-11-17 |
+| Lot 9 — Grand livre complet | B | 2026-11-02 | 2026-11-13 |
+| Lot 15 — Exploitation | B | 2026-11-18 | 2026-12-01 |
+| Lot 10 — Commerce I (clients, catalogue, abonnements) | A | 2026-11-18 | 2026-12-07 |
+| *Marge de B (revue de sécurité des lots 8–9, harnais de tests IDOR)* | B | 2026-12-02 | 2026-12-07 |
+| Lot 11 — Commerce II (factures, encaissement) | A | 2026-12-08 | 2026-12-23 |
+| Lot 12 — Usage et quotas | B | 2026-12-08 | 2026-12-18 |
+| Lot 16 — Contrat et expérience développeur | B | 2026-12-21 | 2026-12-30 |
+| Lot 13 — Portail client | A | 2026-12-24 | 2027-01-13 |
+| Lot 14 — Console de portefeuille | B | 2026-12-31 | 2027-01-14 |
+| Lot 17 — Bascule (préparation, recette bout-en-bout) | A | 2027-01-14 | 2027-01-25 |
+| Lot 18 — Rapprochement prestataire | B | 2027-01-15 | 2027-01-28 |
+| Bascule, coexistence 14 j, coupure, retrait | A + exploitation | 2027-01-26 | 2027-02-22 |
+| Lot 19 — Versements sortants | A | 2027-01-26 | 2027-02-16 |
+
+**Jalons** : socle sécurisé le 17 novembre · commerce complet (abonnements +
+factures) le 23 décembre · portail client le 13 janvier · début de bascule le
+26 janvier · **extinction de la plateforme transitoire le 22 février 2027**.
+
+Revue d'avancement chaque vendredi ; un lot en retard de plus de 20 % sur son
+estimation déclenche une replanification écrite dans cet addendum.
+
 Fin de l'addendum — 2026-10-24
