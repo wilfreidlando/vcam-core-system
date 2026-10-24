@@ -180,6 +180,57 @@ final class EloquentPaymentRepository implements PaymentRepository
         return ['total' => $total, 'succeeded' => $succeeded];
     }
 
+    public function findSucceededUpdatedSince(DateTimeImmutable $since, int $limit): array
+    {
+        // See findStuckSince() above for why this goes through toBase()/hydrate().
+        $base = PaymentRecord::query()->toBase();
+        $base->where('status', PaymentStatus::Succeeded->value);
+        $base->where('updated_at', '>=', $since);
+        $base->orderBy('updated_at');
+        $base->orderBy('id');
+        $base->take($limit);
+
+        return $this->hydrateAll($base->get()->map(static fn (object $row): array => (array) $row)->all());
+    }
+
+    public function findByIds(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $base = PaymentRecord::query()->toBase();
+        $base->whereIn('id', array_values(array_unique($ids)));
+
+        return $this->hydrateAll($base->get()->map(static fn (object $row): array => (array) $row)->all());
+    }
+
+    public function projectsWithActivitySince(DateTimeImmutable $since): array
+    {
+        $projects = [];
+        foreach (PaymentRecord::query()->where('updated_at', '>=', $since)->toBase()->distinct()->pluck('project_id') as $projectId) {
+            if (is_string($projectId)) {
+                $projects[] = $projectId;
+            }
+        }
+
+        return $projects;
+    }
+
+    /**
+     * @param array<int, array<array-key, mixed>> $rows
+     * @return list<Payment>
+     */
+    private function hydrateAll(array $rows): array
+    {
+        $payments = [];
+        foreach (PaymentRecord::hydrate(array_values($rows)) as $record) {
+            $payments[] = $this->toDomain($record);
+        }
+
+        return $payments;
+    }
+
     /**
      * @return array<string, mixed>
      */

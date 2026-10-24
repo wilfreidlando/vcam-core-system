@@ -97,6 +97,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // production, so this is the only way a payment gets confirmed.
         $schedule->command('admin:reconcile-stuck-payments')->everyMinute()->withoutOverlapping();
 
+        // ADR-0078 §2: the financial invariants (ledger completeness, trial
+        // balance, wallets backed by collections). Reads only; a violation
+        // opens a critical money exception in the console.
+        $schedule->command('invariants:check', ['--hours' => '2'])->hourly()->withoutOverlapping()->onOneServer();
+
         // Audit 2026-10-03 §4.3: re-dispatch webhook deliveries whose job was lost.
         $schedule->command('webhook:sweep')->everyFiveMinutes()->withoutOverlapping();
 

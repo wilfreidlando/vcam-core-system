@@ -139,6 +139,26 @@ final class InMemoryPaymentRepository implements PaymentRepository
         return ['total' => $total, 'succeeded' => $succeeded];
     }
 
+    public function findSucceededUpdatedSince(DateTimeImmutable $since, int $limit): array
+    {
+        $found = array_values(array_filter(
+            $this->payments,
+            static fn (Payment $p): bool => $p->status === PaymentStatus::Succeeded,
+        ));
+
+        return array_slice($found, 0, $limit);
+    }
+
+    public function findByIds(array $ids): array
+    {
+        return array_values(array_filter($this->payments, static fn (Payment $p): bool => in_array($p->id, $ids, true)));
+    }
+
+    public function projectsWithActivitySince(DateTimeImmutable $since): array
+    {
+        return array_values(array_unique(array_map(static fn (Payment $p): string => $p->projectId, array_values($this->payments))));
+    }
+
     /** @return list<Payment> */
     private function stuckCandidates(DateTimeImmutable $threshold): array
     {

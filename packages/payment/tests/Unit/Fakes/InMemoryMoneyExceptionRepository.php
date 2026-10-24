@@ -61,6 +61,21 @@ final class InMemoryMoneyExceptionRepository implements MoneyExceptionRepository
         ));
     }
 
+    public function hasUnresolvedControlFailure(string $projectId, string $check, string $key): bool
+    {
+        foreach ($this->exceptions as $e) {
+            if ($e->projectId === $projectId
+                && $e->kind === \Core\Payment\Domain\Model\MoneyExceptionKind::InvariantViolation
+                && $e->status !== MoneyExceptionStatus::Resolved
+                && ($e->details['check'] ?? null) === $check
+                && ($e->details['key'] ?? null) === $key) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** @return list<MoneyException> */
     public function all(): array
     {

@@ -100,6 +100,17 @@ final class EloquentMoneyExceptionRepository implements MoneyExceptionRepository
         return $base->count();
     }
 
+    public function hasUnresolvedControlFailure(string $projectId, string $check, string $key): bool
+    {
+        return MoneyExceptionRecord::query()->toBase()
+            ->where('project_id', $projectId)
+            ->where('kind', MoneyExceptionKind::InvariantViolation->value)
+            ->where('status', '!=', MoneyExceptionStatus::Resolved->value)
+            ->whereRaw("details->>'check' = ?", [$check])
+            ->whereRaw("details->>'key' = ?", [$key])
+            ->exists();
+    }
+
     /**
      * @return array<string, mixed>
      */

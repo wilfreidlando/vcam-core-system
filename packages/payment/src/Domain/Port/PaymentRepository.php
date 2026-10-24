@@ -108,4 +108,25 @@ interface PaymentRepository
      * @return array{total: int, succeeded: int}
      */
     public function countRecentByStatus(DateTimeImmutable $since): array;
+
+    /**
+     * ADR-0078 §2 — succeeded payments changed since `$since`, oldest
+     * first, for the hourly invariant check.
+     *
+     * @return list<Payment>
+     */
+    public function findSucceededUpdatedSince(DateTimeImmutable $since, int $limit): array;
+
+    /**
+     * @param list<string> $ids
+     * @return list<Payment>
+     */
+    public function findByIds(array $ids): array;
+
+    /**
+     * Projects with at least one payment changed since `$since`.
+     *
+     * @return list<string>
+     */
+    public function projectsWithActivitySince(DateTimeImmutable $since): array;
 }

@@ -32,4 +32,11 @@ interface MoneyExceptionRepository
      * @param list<string>|null $projectIds
      */
     public function countUnresolved(?array $projectIds): int;
+
+    /**
+     * Whether an unresolved control failure already exists for this check
+     * and key — the hourly invariant check must not open the same exception
+     * every hour (ADR-0078 §2).
+     */
+    public function hasUnresolvedControlFailure(string $projectId, string $check, string $key): bool;
 }

@@ -7,6 +7,7 @@ namespace Core\Payment;
 use Core\Events\Contracts\OutboxEventPublished;
 use Core\Payment\Application\Port\PaymentSimulator;
 use Core\Payment\Application\Service\PaymentJourney;
+use Core\Payment\Application\UseCase\CheckPaymentInvariantsUseCase;
 use Core\Payment\Application\UseCase\CountStuckPaymentsUseCase;
 use Core\Payment\Application\UseCase\GetPaymentStatusUseCase;
 use Core\Payment\Application\UseCase\GetPaymentTimelineUseCase;
@@ -23,6 +24,7 @@ use Core\Payment\Application\UseCase\RegisterProviderApplication as RegisterProv
 use Core\Payment\Application\UseCase\ResolveMoneyExceptionUseCase;
 use Core\Payment\Application\UseCase\SimulatePaymentUseCase;
 use Core\Payment\Application\UseCase\StartPaymentUseCase;
+use Core\Payment\Contracts\CheckPaymentInvariants;
 use Core\Payment\Contracts\CountStuckPayments;
 use Core\Payment\Contracts\GetPaymentStatus;
 use Core\Payment\Contracts\GetPaymentTimeline;
@@ -65,6 +67,7 @@ use Core\Payment\Infrastructure\Provider\PaymentGatewayRegistryImpl;
 use Core\Payment\Infrastructure\Provider\Simulator\InternalPaymentSimulator;
 use Core\Payment\Infrastructure\Routing\ConfigPaymentProviderRouter;
 use Core\Payment\Infrastructure\Security\RandomPaymentCallbackSecretGenerator;
+use Core\Payment\Presentation\Console\Commands\CheckInvariantsCommand;
 use Core\Payment\Presentation\Console\Commands\RegisterProviderApplicationCommand;
 use Core\Payment\Presentation\Listeners\DeliverPaymentCallbackListener;
 use Core\Support\Clock;
@@ -112,6 +115,7 @@ final class PaymentServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 RegisterProviderApplicationCommand::class,
+                CheckInvariantsCommand::class,
             ]);
         }
     }
@@ -187,6 +191,7 @@ final class PaymentServiceProvider extends ServiceProvider
         $this->app->bind(SettlementLedger::class, LedgerSettlementLedger::class);
         $this->app->bind(MoneyExceptionRepository::class, EloquentMoneyExceptionRepository::class);
         $this->app->bind(RecordMoneyException::class, RecordMoneyExceptionUseCase::class);
+        $this->app->bind(CheckPaymentInvariants::class, CheckPaymentInvariantsUseCase::class);
         $this->app->bind(ListMoneyExceptions::class, ListMoneyExceptionsUseCase::class);
         $this->app->bind(ResolveMoneyException::class, function (Application $app): ResolveMoneyExceptionUseCase {
             /** @var int $threshold */
