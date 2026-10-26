@@ -213,10 +213,10 @@ Fin du document — Version 1.0
 
 # Addendum — Amendements proposés du 2026-10-24 (plateforme de projets SaaS)
 
-> **Statut : proposé**, à trancher par le comité d'architecture avec les
-> ADR-0068 à ADR-0090. Tant qu'il n'est pas accepté, les sections 1 à 16
-> ci-dessus font foi sans modification. Le texte d'origine n'est pas réécrit :
-> les amendements s'y ajoutent.
+> **Statut : accepté** par le comité d'architecture le 2026-10-27, avec les
+> ADR-0068 à ADR-0091. Les sections 1 à 16 ci-dessus restent donc la
+> référence, Complétées par le présent addendum ; le texte d'origine n'est pas
+> réécrit : les amendements s'y ajoutent.
 
 ## A1. Périmètre (§4) — le commerce SaaS est une capacité transverse
 

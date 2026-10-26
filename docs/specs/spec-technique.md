@@ -692,12 +692,12 @@ Fin de la Spécification Technique — Version 1.0
 
 # Addendum 1.0 — Plateforme multi-tenant de projets SaaS (2026-10-24)
 
-> **Addendum daté, statut proposé.** Le document Word
+> **Addendum daté, ratifié le 2026-10-27.** Le document Word
 > `source/Spec_Technique_Core_System.docx` reste la référence des §1 à §21
 > ci-dessus ; plusieurs de ses éléments ont depuis été remplacés par des ADR
 > (Passport → clés d'API, sandbox/live → environnement unique ADR-0066,
 > `notification_templates` supprimée ADR-0043). Cet addendum décrit l'état
-> cible des ADR-0068 à ADR-0090.
+> cible des ADR-0068 à ADR-0091.
 >
 > **Règle anti-divergence** : le DDL complet d'une table est écrit **une seule
 > fois**, dans l'ADR qui la décide (colonne « Référence »). Cet addendum fait

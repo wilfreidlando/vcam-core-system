@@ -3,7 +3,7 @@
 > **Document de transition** (ADR-0068 §6). Chaque constat a été vérifié par
 > lecture du code le 2026-10-24 ; la source est indiquée.
 
-- **Date** : 2026-10-24 · **Version** : 2.0 · **Statut** : à valider
+- **Date** : 2026-10-24 · **Version** : 2.0 · **Statut** : **ratifié** le 2026-10-27
 
 ## 1. Le core aujourd'hui (à ne pas reconstruire)
 

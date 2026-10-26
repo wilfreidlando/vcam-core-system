@@ -5,14 +5,14 @@ tendance défavorable déclenche une revue du comité d'architecture.
 
 | Indicateur | Cible | Où le lire | Dernière mesure |
 | ---------- | ----- | ---------- | ---------------- |
-| Dette de frontières (violations Deptrac) | Zéro | `make arch` | — (Phase 0 : 0 violation) |
-| Colonnes PII dans `parties` | Zéro | `tests/Schema/PartiesPiiTest.php` (G4) | — (table pas encore créée) |
+| Dette de frontières (violations Deptrac) | Zéro | `make arch` | 0 violation (2026-10-27) |
+| Colonnes PII dans `parties` | Zéro | `tests/Schema/PartiesPiiTest.php` (G4) | 0 (2026-10-27) |
 | Nombre d'exceptions actives | Tend vers zéro | `docs/gouvernance/registre-exceptions.md` | 0 |
-| Capacités dans le Core vs valeur démontrée | Croissance justifiée, pas mécanique | `docs/adr/README.md` | 15 modules scaffoldés (spec §4), 0 lot métier livré |
-| Versions de contrat en vol | Maîtrisées, dates de dépréciation connues | Fenêtre de dépréciation — à confirmer avant Lot 2 (ADR-0028) | — |
-| Écarts de réconciliation financière | Tendent vers zéro | Réconciliation shadow mode (Lot 7) | — (pas encore de flux réel) |
-| Taux d'accès au catalogue des capacités | Signe de réutilisation, pas de reconstruction | Catalogue des capacités (`docs/architecture/`, à créer avec Lot 1) | — |
-| Garde-fous actifs vs en attente | Croît vers « tous actifs » à mesure des lots | `docs/architecture/garde-fous-inactifs.md` | 9 actifs / 7 en attente (2026-09-14) |
+| Capacités dans le Core vs valeur démontrée | Croissance justifiée, pas mécanique | `docs/adr/README.md` | 11 modules portés (hors les 4 scaffolds hors périmètre, ADR-0048) ; carte des capacités : 14 **●** / 28 **◐** / 9 **○** / 3 **✗** (2026-10-27) |
+| Versions de contrat en vol | Maîtrisées, dates de dépréciation connues | `openapi/v1.json` (G9, ADR-0086) | 1 version publiée (`/v1`), 0 en dépréciation ; fenêtre de 12 mois après la majeure suivante (2026-10-27) |
+| Écarts de réconciliation financière | Tendent vers zéro | Réconciliation `checkStatus()` (ADR-0067) ; bascule (Lot 17) | — (pas encore de flux réel) |
+| Taux d'accès au catalogue des capacités | Signe de réutilisation, pas de reconstruction | Catalogue des capacités (ADR-0087, lot 16) | — (catalogue non construit) |
+| Garde-fous actifs vs en attente | Croît vers « tous actifs » à mesure des lots | `docs/architecture/garde-fous-inactifs.md` | 21 actifs / 1 en attente (2026-10-27) |
 
 ## Procédure de revue trimestrielle
 

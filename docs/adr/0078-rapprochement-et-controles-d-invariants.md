@@ -1,8 +1,8 @@
 # ADR-0078 — Rapprochement et contrôles d'invariants : le grand livre confronté au réel
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-24
-- **Décideurs** : comité d'architecture (à valider)
+- **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D6 intégrité financière · D4 provider · D7 organisationnelle
 - **Complète** : ADR-0067 (réconciliation de statut des paiements bloqués — inchangée)
 

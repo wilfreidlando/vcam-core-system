@@ -1,8 +1,8 @@
 # ADR-0072 — Les abonnements : un contrat, des périodes, une machine d'états
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-24
-- **Décideurs** : comité d'architecture (à valider)
+- **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D5 contrat · D6 intégrité financière · D7 organisationnelle
 
 ## Contexte

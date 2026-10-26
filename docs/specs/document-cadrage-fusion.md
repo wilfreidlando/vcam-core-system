@@ -3,9 +3,9 @@
 > **Document de transition** (ADR-0068 §6) : il peut nommer les dépôts
 > voisins. Il est retiré du core après l'extinction.
 
-- **Date** : 2026-10-24 · **Version** : 2.0 · **Statut** : à valider par la
-  direction et le comité d'architecture
-- **Réf.** : ADR-0068 à ADR-0090 (tous **proposés**), addenda du 2026-10-24
+- **Date** : 2026-10-24 · **Version** : 2.0 · **Statut** : **ratifié** par le
+  comité d'architecture le 2026-10-27
+- **Réf.** : ADR-0068 à ADR-0091 (tous **acceptés**), addenda du 2026-10-24
   des spécifications fonctionnelle, technique, du plan de delivery et de la
   gouvernance
 

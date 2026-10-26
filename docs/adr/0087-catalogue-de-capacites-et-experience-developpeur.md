@@ -1,8 +1,8 @@
 # ADR-0087 — Catalogue de capacités, démarrage par capacité, horloges de test
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-24
-- **Décideurs** : comité d'architecture (à valider)
+- **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D5 contrat · D7 organisationnelle
 - **Amende** : ADR-0048 (`developer-platform` entre en production en version minimale), ADR-0066 (horloges de test sur le staging)
 

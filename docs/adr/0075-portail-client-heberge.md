@@ -1,8 +1,8 @@
 # ADR-0075 — Le portail client hébergé : sessions créées par le projet, connexion directe optionnelle
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-24
-- **Décideurs** : comité d'architecture (à valider)
+- **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D1 périmètre · D3 données/PII · D5 contrat
 - **Nouveau module** : `portal` (graphe : `support`, `identity`, `billing`, `payment`, `notification`, `audit`)
 

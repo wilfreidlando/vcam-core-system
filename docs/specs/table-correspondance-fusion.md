@@ -3,7 +3,7 @@
 > **Document de transition** (ADR-0068 §6). Décision : ADR-0089. Modèle cible :
 > ADR-0069 à ADR-0076 et addendum de la spécification technique (T2).
 
-- **Date** : 2026-10-24 · **Version** : 2.0 · **Statut** : à valider
+- **Date** : 2026-10-24 · **Version** : 2.0 · **Statut** : **ratifié** le 2026-10-27
 
 **Sorts** — *Recoder* : le concept survit sous la forme cible ; *Retirer* : un
 mécanisme du core le remplace ou il disparaît ; *Garder* : il reste dans

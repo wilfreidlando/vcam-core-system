@@ -1,8 +1,8 @@
 # ADR-0083 — Données personnelles : minimisation, chiffrement, conservation, effacement
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-24
-- **Décideurs** : comité d'architecture (à valider)
+- **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D3 données/PII · D6 intégrité financière
 
 ## Contexte

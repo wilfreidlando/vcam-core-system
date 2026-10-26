@@ -50,7 +50,7 @@ démontre — même si peu de code métier existe encore.
 
 | ID   | Règle | Activé par | Propriétaire |
 | ---- | ----- | ---------- | ------------ |
-| G10  | Aucune régression de contrat consommateur | **Lot 7** — intégration du produit pilote | QA |
+| G10  | Aucune régression de contrat consommateur | **Lot 17** — bascule et extinction de la plateforme transitoire (le lot 7 « migration pilote » est remplacé par le lot 17, ADR-0068 §P1) | QA |
 
 ## Comment retirer une ligne de la section « en attente »
 

@@ -1,8 +1,8 @@
 # ADR-0074 — Mesure d'usage et quotas : enregistrement idempotent, compteur atomique, refus avant l'effet
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-24
-- **Décideurs** : comité d'architecture (à valider)
+- **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D1 périmètre · D2 couplage · D5 contrat · D6 intégrité financière
 - **Modifie le graphe** : `notification → billing` (comité, ADR-0002)
 

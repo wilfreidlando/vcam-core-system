@@ -30,5 +30,7 @@ reproductible, et ne jamais « corriger » le passé.
 ## Conséquences
 
 - Definition of Done du Lot 2 : invariants G11 verts, y compris sous concurrence.
-- Proposition à valider au Lot 2 : retirer `UPDATE`/`DELETE` sur `ledger_entries`
-  au rôle PostgreSQL applicatif, pour que l'immuabilité ne repose pas sur le code.
+- Immuabilité posée au Lot 2 : un trigger PostgreSQL (`ledger_entries_immutable`)
+  refuse `UPDATE`/`DELETE` sur `ledger_entries` — l'immuabilité ne repose pas
+  sur le code. Le retrait du privilège au rôle applicatif lui-même reste la
+  seule étape non faite (le rôle est aujourd'hui le propriétaire des tables).

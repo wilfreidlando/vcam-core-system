@@ -4,7 +4,7 @@
 > voisins. Il est retiré du core après l'extinction de la plateforme
 > transitoire.
 
-- **Date** : 2026-10-24 · **Statut** : à valider · **Réf.** : ADR-0068 à ADR-0090
+- **Date** : 2026-10-24 · **Statut** : **ratifié** le 2026-10-27 · **Réf.** : ADR-0068 à ADR-0091
 
 ## 1. Pourquoi
 

@@ -1,8 +1,8 @@
 # ADR-0068 — Cible : une plateforme multi-tenant de projets SaaS, en trois piliers
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-24
-- **Décideurs** : comité d'architecture (à valider)
+- **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D1 périmètre · D2 couplage · D5 contrat · D6 intégrité financière · D7 organisationnelle
 - **Amende** : ADR-0048 (`billing` et `developer-platform` entrent en production ; `fees` et `storage` restent des scaffolds)
 
@@ -108,6 +108,17 @@ Aucun code, aucune migration avant que les ADR de cette série soient
 **acceptés par le comité**. Les documents de transition (cadrage, inventaire,
 correspondance, plan de bascule) sont les seuls autorisés à nommer les dépôts
 voisins ; tous les autres décrivent des rôles.
+
+La série a été **ratifiée par le comité d'architecture le 2026-10-27**. Sept de
+ces ADR (0069, 0076, 0077, 0078, 0081, 0082, 0083) avaient déjà leur code
+livré et conforme au moment de la ratification : le code a précédé la décision
+plutôt que l'inverse, ce qui n'est pas la séquence prévue ci-dessus. Le
+comité a donc **vérifié la conformité du code livré** aux sept décisions
+concernées avant de les ratifier, et a consigné les écarts constatés dans les
+ADR eux-mêmes (section « Mise en œuvre » d'ADR-0069 pour le lot 8) plutôt que
+de les laisser au code. Les huit contrats publics que le code avait introduits
+sans décision écrite sont rétrospectivement consignés par ADR-0091. Le reste de
+la série reste à construire, dans l'ordre du plan de delivery.
 
 ## Alternatives écartées
 

@@ -1,8 +1,8 @@
 # ADR-0073 — Factures, encaissement d'une facture et paiements hors ligne
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-24
-- **Décideurs** : comité d'architecture (à valider)
+- **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D5 contrat · D6 intégrité financière
 - **Amende** : ADR-0037 (le paiement d'une facture est rattaché par le module `billing`, jamais deviné par `payment`)
 

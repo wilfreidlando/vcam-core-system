@@ -1,8 +1,8 @@
 # ADR-0077 — Confirmation des encaissements : montant vérifié, file d'exceptions
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-24
-- **Décideurs** : comité d'architecture (à valider)
+- **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D4 provider · D6 intégrité financière
 - **Amende** : ADR-0038 (callback → statut), ADR-0051 (authentification du callback)
 

@@ -156,11 +156,22 @@ données personnelles dans `core/support` (`privacy:generate-key`, ADR-0083)
 [ADR-0082](docs/adr/0082-cles-d-api-portees-rotation-et-secrets-de-webhook.md),
 [ADR-0083](docs/adr/0083-donnees-personnelles-chiffrement-conservation-effacement.md)).
 `billing`, `storage`, `fees`, `developer-platform`
-restent des scaffolds Lot 0 vides, **explicitement hors périmètre de la
-version de production** de ce Core
-([ADR-0048](docs/adr/0048-billing-storage-fees-developer-platform-hors-perimetre-production.md)) —
+sont **encore** des scaffolds Lot 0 vides. **ADR-0068 amends ADR-0048** :
+`billing` et `developer-platform` **entrent en production** (`billing` au lot 10,
+`developer-platform` plus tard) ; `storage` et `fees` restent **hors
+périmètre** de la version de production
+([ADR-0048](docs/adr/0048-billing-storage-fees-developer-platform-hors-perimetre-production.md),
+amendé par [ADR-0068](docs/adr/0068-cible-plateforme-saas-trois-piliers.md)) —
 voir « Ce qui n'est PAS encore construit » ci-dessous. Détail de chaque lot :
 [docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.
+
+**Gouvernance des ADR** : la série ADR-0068 → ADR-0090 a été **ratifiée par le
+comité d'architecture le 2026-10-27** — sept de ces ADR avaient déjà leur code
+livré et conforme au moment de la décision, donc la décision a suivi le code
+(après vérification de conformité, pas avant). ADR-0091 consigne les huit
+contrats publics que le code avait introduits sans décision écrite. Un ADR
+accepté ne se réécrit pas : on le **remplace** par un nouvel ADR et on met à
+jour le statut de l'ancien (« amendé par ADR-XXXX », « Remplacé par ADR-XXXX »).
 
 **Aucune capacité métier n'est implémentée avant que Lot 0 soit vert**
 (`make ci` et `make guard-test` passants — c'est le cas).

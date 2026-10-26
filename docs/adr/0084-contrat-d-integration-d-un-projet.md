@@ -1,8 +1,8 @@
 # ADR-0084 — Le contrat d'intégration d'un projet : ce que le projet fait, ce que le core fait
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-24
-- **Décideurs** : comité d'architecture (à valider)
+- **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D1 périmètre · D2 couplage · D3 données/PII · D5 contrat
 
 ## Contexte

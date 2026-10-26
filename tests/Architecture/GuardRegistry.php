@@ -131,7 +131,7 @@ final class GuardRegistry
             'tool' => 'Pest fixtures (Pact deferred until a second consumer exists)',
             'enforced_by' => 'tests/Contract',
             'status' => self::PENDING_CODE,
-            'lot' => 'Lot 7 — pilot product integration',
+            'lot' => 'Lot 17 — bascule et extinction de la plateforme transitoire',
         ],
         'G11' => [
             'rule' => 'Ledger invariants: sum-zero, derived balances, concurrency, idempotent replay',

@@ -3,7 +3,7 @@
 > **Document de transition** (ADR-0068 §6). Décision : ADR-0089. Exécuté au
 > lot 17 du plan de delivery.
 
-- **Date** : 2026-10-24 · **Version** : 1.0 · **Statut** : à valider
+- **Date** : 2026-10-24 · **Version** : 1.0 · **Statut** : **ratifié** le 2026-10-27
 
 ## 1. Hypothèse de départ
 

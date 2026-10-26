@@ -603,7 +603,7 @@ coup d'œil :
 | Vocabulaire canonique | G6b (`PaymentStatus`, `NotificationStatus`) | Pest |
 | Mutation monétaire | G7 (`Idempotency-Key` obligatoire) | Pest, application bootée |
 | Événements | G8, G8c (outbox transactionnel) | PHPat + règle PHPStan + Pest |
-| Contrat API | G9 (pas de rupture OpenAPI sans version), G10 (contrat consommateur, Lot 7) | oasdiff + Spectral |
+| Contrat API | G9 (pas de rupture OpenAPI sans version), G10 (contrat consommateur, Lot 17 — en attente) | oasdiff + Spectral |
 | Ledger | G11 (somme nulle, solde dérivé, concurrence, rejeu) | Pest + PostgreSQL |
 | Isolation financière | G13 (aucune écriture du grand livre ne traverse deux projets) | Trigger PostgreSQL + Pest |
 | Secrets en réponse | G14 (un secret n'est utilisable qu'une fois, à sa création) | Pest |

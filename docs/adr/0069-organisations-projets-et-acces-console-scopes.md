@@ -1,8 +1,8 @@
 # ADR-0069 — Organisations, projets et accès console scopé par organisation
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-24
-- **Décideurs** : comité d'architecture (à valider)
+- **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D2 couplage · D3 données/PII · D7 organisationnelle
 - **Amende** : ADR-0044 (rôles opérateur), ADR-0050 / ADR-0052 (gestion des opérateurs, création d'organisations et de projets)
 

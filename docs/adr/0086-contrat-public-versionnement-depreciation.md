@@ -1,8 +1,8 @@
 # ADR-0086 — Le contrat public : versionnement, évolution sans rupture, dépréciation
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-24
-- **Décideurs** : comité d'architecture (à valider)
+- **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D5 contrat · D7 organisationnelle
 - **Complète** : ADR-0028 (versionnement par préfixe d'URL — sa fenêtre de dépréciation, laissée « à confirmer », est fixée ici)
 

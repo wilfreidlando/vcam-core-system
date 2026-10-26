@@ -1,27 +1,31 @@
 # Carte des capacités — la plateforme de projets SaaS, état par capacité
 
-- **Date** : 2026-10-24 · **Version** : 2.0 · **Statut** : référence produit
+- **Date** : 2026-10-27 · **Version** : 2.1 · **Statut** : référence produit
   (ne construit rien)
-- **Réf.** : ADR-0068 à ADR-0090 · plan de delivery, addendum du 2026-10-24
+- **Réf.** : ADR-0068 à ADR-0091 · plan de delivery, addendum du 2026-10-24
 
-Légende : **●** livré · **◐** décidé (ADR proposé), lot indiqué · **○** point
+Légende : **●** livré · **◐** décidé (ADR accepté), lot à construire · **○** point
 d'extension prévu (ADR-0090), non planifié · **✗** refusé (liste négative).
+
+La série ADR-0068 à ADR-0090 a été **ratifiée le 2026-10-27** ; ADR-0091 consigne
+les décisions que le code avait introduites sans ADR. Le lot 8 est **livré** : ses
+lignes sont passées de **◐** à **●**.
 
 ## 1. Services de plateforme
 
 | Capacité | État | Où |
 |---|---|---|
 | Organisations, projets | ● | `identity` |
-| Cycle de vie d'un projet (`active` / `suspended` / `archived`) | ◐ lot 8 | ADR-0069 |
-| Console scopée par organisation, rôles `org_*`, invitations | ◐ lot 8 | ADR-0069 |
+| Cycle de vie d'un projet (`active` / `suspended` / `archived`) | ● (lot 8) | ADR-0069 |
+| Console scopée par organisation, rôles `org_*`, invitations | ● (lot 8) | ADR-0069 |
 | Clés d'API (une par projet, toutes portées) | ● | ADR-0066 |
-| Clés multiples à portée, rotation, restriction réseau | ◐ lot 8 | ADR-0082 |
+| Clés multiples à portée, rotation, restriction réseau | ● (lot 8) | ADR-0082 |
 | Paiement : canal, routage, MyCoolPay, idempotence, réconciliation de statut | ● | ADR-0038, ADR-0051, ADR-0067 |
 | Vérification du montant confirmé | ◐ lot 9 | ADR-0077 |
 | Notifications multicanal, WhatsApp (WAHA) | ● | ADR-0041, ADR-0057 |
 | Adaptateurs SMS, e-mail | ○ | ADR-0090 |
 | Webhooks signés, retry, DLQ, rejeu, test | ● | ADR-0040, ADR-0063 |
-| Rotation du secret de webhook (double signature) | ◐ lot 8 | ADR-0082 |
+| Rotation du secret de webhook (double signature) | ● (lot 8) | ADR-0082 |
 | Audit | ● ; immuabilité en base et chaîne d'empreintes quotidiennes ● (lot 8) | ADR-0081 S-16 |
 | Limitation de débit par projet, clé, classe | ◐ lot 15 | ADR-0085 |
 | Métriques par projet, objectifs de service | ◐ lot 15 | ADR-0085 |
@@ -75,8 +79,8 @@ d'extension prévu (ADR-0090), non planifié · **✗** refusé (liste négative
 |---|---|---|
 | Console de portefeuille : MRR, attrition, encaissé, créances, exceptions, usage | ◐ lot 14 | ADR-0080 |
 | Liste de contrôle d'onboarding d'un projet | ◐ lot 14 | ADR-0080 §4 |
-| Modèle de menace, exigences S-01 à S-20 | ◐ (chaque lot) | ADR-0081 |
+| Modèle de menace, exigences S-01 à S-20 | ● (modèle écrit, lot 8) ; les contrôles sont vérifiés à chaque lot | ADR-0081 |
 | Garde-fous G13, G14, G15, G16 | ● — les quatre sont actifs et vérifiés par `make guard-test` | ADR-0081, ADR-0069 |
-| Chiffrement des données personnelles, effacement, conservation | ◐ lot 8 (socle) et lot 10 | ADR-0083 |
+| Chiffrement des données personnelles, effacement, conservation | ● (chiffrement et index aveugle, lot 8) ; ◐ lot 10 (effacement, conservation) | ADR-0083 |
 | Cloisonnement des données internes des applications | ✗ | ADR-0084 |
 | Fournisseur d'identité des utilisateurs finaux | ✗ (condition de réexamen écrite) | ADR-0084 |

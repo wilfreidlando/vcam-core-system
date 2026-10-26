@@ -1,8 +1,8 @@
 # ADR-0079 — Les versements sortants (payout) : écrire d'abord, verser ensuite, confirmer par trois voies
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-24
-- **Décideurs** : comité d'architecture (à valider)
+- **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D1 périmètre · D4 provider · D6 intégrité financière
 - **Nouveau module** : `payout` (graphe : `support`, `identity`, `ledger`, `wallet`, `parties`, `events`, `payment`)
 - **Complète** : ADR-0065 (les sorties **enregistrées** restent pour l'argent versé hors plateforme)

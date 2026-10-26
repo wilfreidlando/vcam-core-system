@@ -1,8 +1,8 @@
 # ADR-0082 — Clés d'API à portée limitée, rotation sans coupure, secrets de webhook rotables
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-24
-- **Décideurs** : comité d'architecture (à valider)
+- **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D2 couplage · D5 contrat · D7 organisationnelle
 - **Amende** : ADR-0066 (« une seule clé par projet » devient « plusieurs clés nommées par projet »), ADR-0044 (toute clé reçoit `ApiKeyScopes::ALL`)
 
