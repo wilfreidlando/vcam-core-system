@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Contracts\GetOrganization;
@@ -30,6 +31,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class OrganizationsController
 {
+    use ResolvesScopedProject;
+
     /**
      * The only two statuses this console offers — the Domain model itself
      * never constrained the column beyond `isActive()`'s `=== 'active'`
@@ -48,9 +51,7 @@ final class OrganizationsController
 
     public function index(Request $request, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('projects:read')) {
-            abort(403, 'La permission projects:read est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'projects:read');
 
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
@@ -61,7 +62,7 @@ final class OrganizationsController
             page: $page,
             perPage: $perPage,
             search: $search,
-        ));
+        ), $scope);
 
         return response()->view('admin.organizations.index', [
             'title' => 'Organisations',
@@ -115,7 +116,7 @@ final class OrganizationsController
         Validator::make(['organization_id' => $organizationId], ['organization_id' => 'uuid'])->validate();
 
         try {
-            $organization = $this->getOrganization->get(new GetOrganizationCommand($organizationId));
+            $organization = $this->getOrganization->get(new GetOrganizationCommand($organizationId), $operator->scope);
         } catch (RuntimeException) {
             abort(404, 'Organisation introuvable.');
         }
@@ -134,6 +135,14 @@ final class OrganizationsController
         }
 
         Validator::make(['organization_id' => $organizationId], ['organization_id' => 'uuid'])->validate();
+
+        // ADR-0069 §2 — the organization must be in the account's scope
+        // before it is written to (404, never 403).
+        try {
+            $this->getOrganization->get(new GetOrganizationCommand($organizationId), $operator->scope);
+        } catch (RuntimeException) {
+            abort(404, 'Organisation introuvable.');
+        }
 
         /** @var array{name: string, status: string} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.

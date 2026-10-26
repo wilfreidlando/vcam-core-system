@@ -145,5 +145,23 @@ final class GuardRegistry
             'enforced_by' => 'tests/Invariants/LedgerProjectIsolationTest.php',
             'status' => self::ACTIVE,
         ],
+        'G14' => [
+            'rule' => 'No usable secret in an API response, except once in the response that creates it (ADR-0081 S-07)',
+            'tool' => 'Pest',
+            'enforced_by' => 'tests/Architecture/SecretLeakGuardTest.php',
+            'status' => self::ACTIVE,
+        ],
+        'G15' => [
+            'rule' => 'Every console route carrying an identifier gets a generated isolation case: another organization\'s resource answers 404, never 403 (ADR-0081 S-01/S-04)',
+            'tool' => 'Pest (generated cases)',
+            'enforced_by' => 'tests/Architecture/IdorGuardTest.php',
+            'status' => self::ACTIVE,
+        ],
+        'G16' => [
+            'rule' => 'Every read port the console calls takes the organization access scope, and no template calls a port (ADR-0069 §2)',
+            'tool' => 'PHPStan (custom rule) + Pest',
+            'enforced_by' => 'tools/PhpStan/Rules/AdminQueriesAreScopedRule.php',
+            'status' => self::ACTIVE,
+        ],
     ];
 }

@@ -40,17 +40,24 @@ final class EloquentWebhookDeliveryRepository implements WebhookDeliveryReposito
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findByEventIds(array $eventIds): array
+    public function findByEventIds(array $eventIds, ?array $projectIds = null): array
     {
         if ($eventIds === []) {
             return [];
         }
 
-        $rows = WebhookDeliveryRecord::query()
+        $query = WebhookDeliveryRecord::query()
             ->toBase()
-            ->whereIn('event_id', $eventIds)
-            ->orderBy('created_at')
-            ->get();
+            ->whereIn('event_id', $eventIds);
+
+        // ADR-0069 §2 — the account's scope narrows the query itself.
+        // An empty list means "nothing is visible" (`whereIn` on an empty
+        // array matches no row), `null` means "no restriction".
+        if ($projectIds !== null) {
+            $query->whereIn('project_id', $projectIds);
+        }
+
+        $rows = $query->orderBy('created_at')->get();
 
         $records = WebhookDeliveryRecord::hydrate(array_map(static fn (mixed $row): array => (array) $row, $rows->all()));
 
@@ -77,7 +84,7 @@ final class EloquentWebhookDeliveryRepository implements WebhookDeliveryReposito
         return array_values($rows->map(fn (WebhookDeliveryRecord $record): WebhookDelivery => $this->toDomain($record))->all());
     }
 
-    public function findByStatusPaginated(?WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage): array
+    public function findByStatusPaginated(?WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage, ?array $projectIds = null): array
     {
         $query = WebhookDeliveryRecord::query();
 
@@ -95,6 +102,15 @@ final class EloquentWebhookDeliveryRepository implements WebhookDeliveryReposito
         // ("dynamic call to static method") on those forwarded calls, and
         // `WebhookDeliveryRecord::hydrate()` restores the model casts after.
         $base = $query->toBase();
+
+        // ADR-0069 §2 — the account's scope narrows the query itself, so
+        // a delivery of a foreign project is never even fetched. An empty
+        // list means "nothing is visible" (`whereIn` on an empty array
+        // matches no row), `null` means "no restriction" (a platform
+        // scope).
+        if ($projectIds !== null) {
+            $base->whereIn('project_id', $projectIds);
+        }
 
         $total = (clone $base)->count();
 

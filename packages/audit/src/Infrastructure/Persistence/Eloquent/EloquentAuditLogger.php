@@ -21,6 +21,8 @@ final class EloquentAuditLogger implements AuditLogger
             'actor' => $entry->actor,
             'action' => $entry->action,
             'resource' => $entry->resource,
+            'organization_id' => $entry->organizationId,
+            'project_id' => $entry->projectId,
             'before' => $entry->before,
             'after' => $entry->after,
             'context' => $entry->context,

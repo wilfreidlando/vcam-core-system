@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Wallet\Presentation\Http\Controllers;
 
 use Core\Identity\Contracts\ProjectContext;
+use Core\Support\Access\AccessScope;
 use Core\Support\Http\ProblemDetails;
 use Core\Wallet\Contracts\GetWalletBalance;
 use Core\Wallet\Contracts\GetWalletBalanceCommand;
@@ -41,7 +42,13 @@ final class WalletBalanceController
             return ProblemDetails::forbidden('The wallets:read scope is required.');
         }
 
-        $balance = $this->getBalance->get(new GetWalletBalanceCommand($walletId, $project->projectId));
+        // ADR-0069 §2 — the public API's scope is the calling project's own
+        // one: the port takes it as a required parameter, never as an
+        // optional filter the controller could forget to pass.
+        $balance = $this->getBalance->get(
+            new GetWalletBalanceCommand($walletId, $project->projectId),
+            AccessScope::forProject($project->projectId),
+        );
 
         return new JsonResponse([
             'wallet_id' => $balance->walletId,

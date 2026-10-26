@@ -76,7 +76,7 @@ d'extension prévu (ADR-0090), non planifié · **✗** refusé (liste négative
 | Console de portefeuille : MRR, attrition, encaissé, créances, exceptions, usage | ◐ lot 14 | ADR-0080 |
 | Liste de contrôle d'onboarding d'un projet | ◐ lot 14 | ADR-0080 §4 |
 | Modèle de menace, exigences S-01 à S-20 | ◐ (chaque lot) | ADR-0081 |
-| Garde-fous G13, G14, G15 | ◐ lots 8 et 9 | ADR-0081 |
+| Garde-fous G13, G14, G15, G16 | ● — les quatre sont actifs et vérifiés par `make guard-test` | ADR-0081, ADR-0069 |
 | Chiffrement des données personnelles, effacement, conservation | ◐ lot 8 (socle) et lot 10 | ADR-0083 |
 | Cloisonnement des données internes des applications | ✗ | ADR-0084 |
 | Fournisseur d'identité des utilisateurs finaux | ✗ (condition de réexamen écrite) | ADR-0084 |

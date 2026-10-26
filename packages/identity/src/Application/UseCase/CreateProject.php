@@ -63,6 +63,8 @@ final readonly class CreateProject implements CreateProjectPort
             context: [],
             correlationId: $correlationId,
             occurredAt: $this->clock->now(),
+            projectId: $project->id,
+            organizationId: $project->organizationId,
         ));
 
         $apiKey = $this->issueApiKey->issue(

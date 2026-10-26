@@ -126,6 +126,7 @@ final readonly class IssueApiKey implements IssueApiKeyPort
                 context: [],
                 correlationId: $correlationId,
                 occurredAt: $now,
+                projectId: $apiKey->projectId,
             ));
         });
 

@@ -34,6 +34,11 @@ interface WebhookEndpointRepository
      * operator managing endpoints needs to see a deactivated one too, to
      * reactivate or edit it.
      *
+     * ADR-0069 §2 — this is the query-level restriction of the endpoints
+     * listing: the rows are selected by `project_id`, so the account's
+     * scope (checked by `ListWebhookEndpointsUseCase` before the call)
+     * and the query agree on which project is read.
+     *
      * @return list<WebhookEndpoint>
      */
     public function findAllForProject(string $projectId): array;

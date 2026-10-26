@@ -61,6 +61,7 @@ final readonly class RevokeApiKey implements RevokeApiKeyPort
                 context: ['reason' => mb_substr($reason, 0, 500)],
                 correlationId: $correlationId,
                 occurredAt: $this->clock->now(),
+                projectId: $apiKey->projectId,
             ));
         });
     }

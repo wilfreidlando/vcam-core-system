@@ -16,6 +16,7 @@ use Core\Identity\OperatorRole;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\PaymentStatus;
+use Core\Support\Access\AccessScope;
 use Core\Support\Money\Money;
 use Core\Wallet\Contracts\CreditWallet;
 use Core\Wallet\Contracts\CreditWalletCommand;
@@ -339,6 +340,7 @@ final class AdminWebFlowTest extends TestCase
 
         $endpoints = app(ListWebhookEndpoints::class)->list(
             new ListWebhookEndpointsCommand($project->id),
+            AccessScope::platform(),
         );
         self::assertCount(1, $endpoints);
         self::assertSame(
@@ -381,7 +383,7 @@ final class AdminWebFlowTest extends TestCase
         ]);
         $update->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
 
-        $afterUpdate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id));
+        $afterUpdate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id), AccessScope::platform());
         self::assertCount(1, $afterUpdate);
         self::assertSame('https://example.com/hooks/updated', $afterUpdate[0]->url);
         self::assertSame(['wallet.credited', 'wallet.debited'], $afterUpdate[0]->events);
@@ -394,7 +396,7 @@ final class AdminWebFlowTest extends TestCase
         $deactivate = $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/deactivate");
         $deactivate->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
 
-        $afterDeactivate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id));
+        $afterDeactivate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id), AccessScope::platform());
         self::assertCount(1, $afterDeactivate, 'a deactivated endpoint must still be listed, not vanish');
         self::assertFalse($afterDeactivate[0]->active);
 
@@ -406,7 +408,7 @@ final class AdminWebFlowTest extends TestCase
         $activate = $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/activate");
         $activate->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
 
-        $afterActivate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id));
+        $afterActivate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id), AccessScope::platform());
         self::assertTrue($afterActivate[0]->active);
     }
 
@@ -773,7 +775,7 @@ final class AdminWebFlowTest extends TestCase
 
         $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Keys Org'), actor: 'service:test', correlationId: null);
         $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Keys Project'), actor: 'service:test', correlationId: null)->project;
-        $keys = static fn (): array => app(\Core\Identity\Contracts\ListApiKeys::class)->list(new \Core\Identity\Contracts\ListApiKeysCommand($project->id));
+        $keys = static fn (): array => app(\Core\Identity\Contracts\ListApiKeys::class)->list(new \Core\Identity\Contracts\ListApiKeysCommand($project->id), AccessScope::platform());
 
         // Auto-provisioned at creation.
         self::assertCount(1, $keys());

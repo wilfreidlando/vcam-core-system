@@ -26,6 +26,7 @@ use Core\Notification\Tests\Unit\Fakes\FakeNotificationProviderRouter;
 use Core\Notification\Tests\Unit\Fakes\FixedClock;
 use Core\Notification\Tests\Unit\Fakes\InMemoryChannelSessionRepository;
 use Core\Notification\Tests\Unit\Fakes\SequentialIdentifier;
+use Core\Support\Access\AccessScope;
 use Core\Support\Integration\Provider\ProviderCode;
 
 /**
@@ -55,7 +56,7 @@ it('returns the qr code for a session registered for the project, without creati
     registerSession($sessions, 'project-1', 'shop-1');
 
     $qr = (new GetChannelSessionQrCodeUseCase($router, $registry, $sessions))
-        ->get(new GetChannelSessionCommand('project-1', whatsapp(), 'shop-1'));
+        ->get(new GetChannelSessionCommand('project-1', whatsapp(), 'shop-1'), AccessScope::forProject('project-1'));
 
     expect($qr)->toBe($provider->nextQrCode)
         ->and($provider->startedSessions)->toBe([]);
@@ -64,9 +65,10 @@ it('returns the qr code for a session registered for the project, without creati
 it('refuses a qr code, screenshot or pairing code for a session that is not registered, and creates nothing', function (): void {
     [$provider, $registry, $router, $sessions] = sessionFixtures();
     $command = new GetChannelSessionCommand('project-1', whatsapp(), 'unknown');
+    $scope = AccessScope::forProject('project-1');
 
-    expect(fn () => (new GetChannelSessionQrCodeUseCase($router, $registry, $sessions))->get($command))->toThrow(ChannelSessionNotFound::class)
-        ->and(fn () => (new GetChannelSessionScreenshotUseCase($router, $registry, $sessions))->get($command))->toThrow(ChannelSessionNotFound::class)
+    expect(fn () => (new GetChannelSessionQrCodeUseCase($router, $registry, $sessions))->get($command, $scope))->toThrow(ChannelSessionNotFound::class)
+        ->and(fn () => (new GetChannelSessionScreenshotUseCase($router, $registry, $sessions))->get($command, $scope))->toThrow(ChannelSessionNotFound::class)
         ->and(fn () => (new RequestChannelSessionPairingCodeUseCase($router, $registry, $sessions))->request(
             new RequestChannelSessionPairingCodeCommand('project-1', whatsapp(), 'unknown', '237699009900'),
         ))->toThrow(ChannelSessionNotFound::class)
@@ -79,9 +81,10 @@ it('does not let a project reach another project\'s session, nor a global one, t
     registerSession($sessions, null, 'shared');
 
     $useCase = new GetChannelSessionQrCodeUseCase($router, $registry, $sessions);
+    $scope = AccessScope::forProject('project-A');
 
-    expect(fn () => $useCase->get(new GetChannelSessionCommand('project-A', whatsapp(), 'shop-1')))->toThrow(ChannelSessionNotFound::class)
-        ->and(fn () => $useCase->get(new GetChannelSessionCommand('project-A', whatsapp(), 'shared')))->toThrow(ChannelSessionNotFound::class);
+    expect(fn () => $useCase->get(new GetChannelSessionCommand('project-A', whatsapp(), 'shop-1'), $scope))->toThrow(ChannelSessionNotFound::class)
+        ->and(fn () => $useCase->get(new GetChannelSessionCommand('project-A', whatsapp(), 'shared'), $scope))->toThrow(ChannelSessionNotFound::class);
 });
 
 it('returns a pairing code for a registered session', function (): void {
@@ -134,10 +137,36 @@ it('lists only the sessions of the requested owner', function (): void {
     registerSession($sessions, null, 'shared');
     $useCase = new ListChannelSessionsUseCase($sessions);
 
-    $mine = array_map(fn ($v) => $v->sessionRef, $useCase->list(new ListChannelSessionsCommand('project-1', whatsapp())));
-    $global = array_map(fn ($v) => $v->sessionRef, $useCase->list(new ListChannelSessionsCommand(null, whatsapp())));
+    $mine = array_map(fn ($v) => $v->sessionRef, $useCase->list(new ListChannelSessionsCommand('project-1', whatsapp()), AccessScope::forProject('project-1')));
+    $global = array_map(fn ($v) => $v->sessionRef, $useCase->list(new ListChannelSessionsCommand(null, whatsapp()), AccessScope::platform()));
 
     expect($mine)->toBe(['mine'])->and($global)->toBe(['shared']);
+});
+
+it('lists no session of a project outside the account\'s scope, nor the platform\'s global ones', function (): void {
+    // ADR-0069 §2 — the port filters, not the console.
+    [, , , $sessions] = sessionFixtures();
+    registerSession($sessions, 'project-2', 'theirs');
+    registerSession($sessions, null, 'shared');
+    $useCase = new ListChannelSessionsUseCase($sessions);
+    $scope = AccessScope::forProject('project-1');
+
+    expect($useCase->list(new ListChannelSessionsCommand('project-2', whatsapp()), $scope))->toBe([])
+        ->and($useCase->list(new ListChannelSessionsCommand(null, whatsapp()), $scope))->toBe([]);
+});
+
+it('lists the platform\'s global sessions for a scope that sees every organization', function (): void {
+    // The global sessions have no owner: the scope's project list does
+    // not apply to them — they would otherwise vanish from the console's
+    // "global sessions" page.
+    [, , , $sessions] = sessionFixtures();
+    registerSession($sessions, null, 'shared');
+    $useCase = new ListChannelSessionsUseCase($sessions);
+    $scope = new AccessScope(allOrganizations: true, organizationIds: [], permissionsByOrganization: [], allProjects: false, projectIds: []);
+
+    $global = array_map(fn ($v) => $v->sessionRef, $useCase->list(new ListChannelSessionsCommand(null, whatsapp()), $scope));
+
+    expect($global)->toBe(['shared']);
 });
 
 it('throws when the primary provider for the channel has no session capability', function (): void {
@@ -147,7 +176,7 @@ it('throws when the primary provider for the channel has no session capability',
     $router = new FakeNotificationProviderRouter(['sms-only']);
 
     expect(fn () => (new GetChannelSessionQrCodeUseCase($router, $registry, new InMemoryChannelSessionRepository))
-        ->get(new GetChannelSessionCommand('project-1', NotificationChannel::fromString('sms'), 'anything')))
+        ->get(new GetChannelSessionCommand('project-1', NotificationChannel::fromString('sms'), 'anything'), AccessScope::forProject('project-1')))
         ->toThrow(ChannelDoesNotSupportSessions::class);
 });
 
@@ -205,7 +234,23 @@ it('reads the live state of a registered session and refuses an unregistered one
     registerSession($sessions, 'project-1', 'shop-1');
     $provider->nextState = ChannelSessionState::AwaitingLink;
     $useCase = new GetChannelSessionStatusUseCase($router, $registry, $sessions);
+    $scope = AccessScope::forProject('project-1');
 
-    expect($useCase->get(new GetChannelSessionCommand('project-1', whatsapp(), 'shop-1')))->toBe(ChannelSessionState::AwaitingLink)
-        ->and(fn () => $useCase->get(new GetChannelSessionCommand('project-1', whatsapp(), 'unknown')))->toThrow(ChannelSessionNotFound::class);
+    expect($useCase->get(new GetChannelSessionCommand('project-1', whatsapp(), 'shop-1'), $scope))->toBe(ChannelSessionState::AwaitingLink)
+        ->and(fn () => $useCase->get(new GetChannelSessionCommand('project-1', whatsapp(), 'unknown'), $scope))->toThrow(ChannelSessionNotFound::class);
+});
+
+it('never asks the provider about a session outside the account\'s scope', function (): void {
+    // ADR-0069 §2 — out of scope is "not found", and the provider is not
+    // called at all for it.
+    [$provider, $registry, $router, $sessions] = sessionFixtures();
+    registerSession($sessions, 'project-2', 'theirs');
+
+    $useCase = new GetChannelSessionStatusUseCase($router, $registry, $sessions);
+
+    expect(fn () => $useCase->get(
+        new GetChannelSessionCommand('project-2', whatsapp(), 'theirs'),
+        AccessScope::forProject('project-1'),
+    ))->toThrow(ChannelSessionNotFound::class)
+        ->and($provider->sessionStateCalls)->toBe([]);
 });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Admin\Presentation\Http\Controllers;
 
+use Core\Admin\Presentation\Http\Controllers\Concerns\AuthorizesInScope;
 use Core\Identity\Contracts\CreateProject;
 use Core\Identity\Contracts\CreateProjectCommand;
 use Core\Identity\Contracts\OperatorContext;
@@ -15,6 +16,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class CreateProjectController
 {
+    use AuthorizesInScope;
+
     public function __construct(
         private readonly CreateProject $createProject,
     ) {}
@@ -27,7 +30,8 @@ final class CreateProjectController
      */
     public function __invoke(Request $request, OperatorContext $operator): JsonResponse|Response
     {
-        if (! $operator->hasPermission('projects:write')) {
+        $scope = $this->permittedScope($operator, 'projects:write');
+        if ($scope === null) {
             return ProblemDetails::forbidden('The projects:write permission is required.');
         }
 
@@ -37,6 +41,16 @@ final class CreateProjectController
             'organization_id' => ['required', 'uuid'],
             'name' => ['required', 'string', 'max:255'],
         ]);
+
+        // ADR-0069 §2 — the organization comes from the request: 404 when
+        // the account may not see it (never confirm a foreign one exists),
+        // 403 when its role there may not create a project.
+        if (! $operator->scope->allowsOrganization($data['organization_id'])) {
+            return ProblemDetails::make('organization-not-found', 'Organization not found', 404, sprintf('Organization %s does not exist.', $data['organization_id']));
+        }
+        if (! $scope->allowsOrganization($data['organization_id'])) {
+            return ProblemDetails::forbidden('The projects:write permission is required in this organization.');
+        }
 
         try {
             $provisioned = $this->createProject->create(

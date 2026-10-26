@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $organization_id
  * @property string $name
  * @property string $status
+ * @property \Carbon\CarbonImmutable|null $status_changed_at
+ * @property string|null $status_reason
  */
 final class ProjectRecord extends Model
 {
@@ -19,5 +21,9 @@ final class ProjectRecord extends Model
 
     protected $table = 'projects';
 
-    protected $fillable = ['id', 'organization_id', 'name', 'status'];
+    protected $fillable = ['id', 'organization_id', 'name', 'status', 'status_changed_at', 'status_reason'];
+
+    protected $casts = [
+        'status_changed_at' => 'immutable_datetime',
+    ];
 }

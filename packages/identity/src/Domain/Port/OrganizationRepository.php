@@ -21,7 +21,11 @@ interface OrganizationRepository
      * `name` — the only identifying field an operator has to go on when
      * hunting for one organization among many.
      *
+     * @param list<string>|null $organizationIds when given, only those
+     *                                           organizations are listed
+     *                                           (ADR-0069 §2 — the
+     *                                           console's scope)
      * @return array{items: list<Organization>, total: int}
      */
-    public function findAll(int $page, int $perPage, ?string $search = null): array;
+    public function findAll(int $page, int $perPage, ?string $search = null, ?array $organizationIds = null): array;
 }

@@ -100,7 +100,7 @@
          l'opérateur vérifie directement auprès du provider, quel que
          soit le statut actuel (review finding : « je dois pouvoir
          réconcilier une transaction sélectionnée »). --}}
-    @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('payments:reconcile:write'))
+    @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('payments:reconcile:write')->allowsProject($projectId))
         <div class="bg-white border border-slate-200 rounded-lg p-4 flex items-center justify-between gap-4">
             <p class="text-sm text-slate-600">
                 Vérifie le statut réel de ce paiement directement auprès de son

@@ -54,6 +54,11 @@
                     id="role"
                     required
                     class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm">
+                    {{-- Le rôle est obligatoire : une option vide et sélectionnée
+                         par défaut empêche le navigateur de soumettre d'office
+                         le rôle le plus privilégié (`platform_admin`, premier
+                         de `OperatorRole::cases()`). --}}
+                    <option value="" @selected(old('role') === null)>Choisir un rôle…</option>
                     @foreach ($roles as $role)
                         <option value="{{ $role->value }}" @selected(old('role') === $role->value)>
                             {{ $role->value }}

@@ -73,3 +73,6 @@ services:
     -
         class: Core\Tooling\PhpStan\Rules\NoDirectEventDispatchRule
         tags: [phpstan.rules.rule]
+    -
+        class: Core\Tooling\PhpStan\Rules\AdminQueriesAreScopedRule
+        tags: [phpstan.rules.rule]

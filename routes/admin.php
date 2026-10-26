@@ -71,6 +71,37 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->name('organizations.update');
         });
 
+        // ADR-0069 §1/§4 — the members of an organization: list, invite,
+        // revoke, change role. Kept outside the `organizations` prefix
+        // group above so the URL reads `/admin/organizations/{id}/members`
+        // without a doubled prefix.
+        // Named `organizations.members.*` — `packages/admin/routes/api.php`
+        // owns the JSON plane's `admin.organizations.members` (the GET
+        // listing) and `admin.organizations.members.revoke`/`.update`
+        // (the mutations); the web plane's own names end in `.index`,
+        // `.invite`, `.store`, `.revoke.web` and `.role.web` so the two
+        // planes never share a final name — the same collision-avoidance
+        // convention the rest of this file follows.
+        Route::prefix('organizations/{organizationId}/members')->group(function (): void {
+            Route::get('/', [App\Http\Controllers\Admin\OrganizationMembersController::class, 'index'])
+                ->whereUuid('organizationId')
+                ->name('organizations.members.index');
+            Route::get('invite', [App\Http\Controllers\Admin\OrganizationMembersController::class, 'create'])
+                ->whereUuid('organizationId')
+                ->name('organizations.members.invite');
+            Route::post('/', [App\Http\Controllers\Admin\OrganizationMembersController::class, 'store'])
+                ->whereUuid('organizationId')
+                ->name('organizations.members.store');
+            Route::post('{operatorId}/revoke', [App\Http\Controllers\Admin\OrganizationMembersController::class, 'revoke'])
+                ->whereUuid('organizationId')
+                ->whereUuid('operatorId')
+                ->name('organizations.members.revoke.web');
+            Route::put('{operatorId}/role', [App\Http\Controllers\Admin\OrganizationMembersController::class, 'updateRole'])
+                ->whereUuid('organizationId')
+                ->whereUuid('operatorId')
+                ->name('organizations.members.role.web');
+        });
+
         Route::prefix('projects')->group(function (): void {
             Route::get('/', [App\Http\Controllers\Admin\ProjectsController::class, 'index'])
                 ->name('projects.index');

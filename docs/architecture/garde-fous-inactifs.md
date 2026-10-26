@@ -38,6 +38,9 @@ garde-fou** (une porte qui échoue pour une autre raison ne compte pas).
 | G9  | Aucune rupture OpenAPI sans montée de version — actif depuis l'installation de Scramble et le premier snapshot commité (`openapi/v1.json`) | oasdiff + Spectral |
 | G11 | Invariants ledger (somme nulle, solde dérivé, concurrence, rejeu) — actif depuis le ledger et le wallet (Lot 2) | Pest + PostgreSQL |
 | G13 | Isolation financière : aucune écriture du grand livre ne traverse deux projets — trigger PostgreSQL, actif depuis le lot 9 (ADR-0076 §5) | Trigger PostgreSQL + Pest |
+| G14 | Aucun secret utilisable dans une réponse d'API, sauf une fois dans la réponse qui le crée — inventaire des champs « secrets » des DTO de réponse et contrôle des réponses réelles, liste blanche des créations justifiée route par route (ADR-0081 S-07) | Pest (analyse + application bootée) |
+| G15 | Isolation tenant de la console : toute route console porteuse d'un identifiant a un cas généré « compte de l'organisation A sur une ressource de B → 404, jamais 403 », avec contrôle positif et réserve plateforme ; le manifeste est confronté à la table de routage vivante, donc une route nouvelle sans cas n'échappe pas (ADR-0081 S-01/S-04, ADR-0069 §Sécurité) | Pest (cas générés) |
+| G16 | Toute lecture console passe par la portée d'organisation : un port de lecture appelé depuis la console exige `AccessScope` — en **paramètre requis**, sans valeur par défaut, sinon la console peut l'omettre et le port lit tout (règle PHPStan `AdminQueriesAreScopedRule`, sans aucune exemption) — et aucun gabarit Blade n'appelle de port : PHPStan ne lit pas les gabarits (ADR-0069 §2) | Règle PHPStan + Pest |
 
 Ces règles sont « actives » au sens où elles **rejettent aujourd'hui** une
 violation introduite n'importe où dans le code — ce que `make guard-test`

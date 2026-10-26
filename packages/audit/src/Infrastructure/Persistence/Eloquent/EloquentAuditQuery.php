@@ -8,10 +8,12 @@ use Core\Audit\Contracts\AuditEntryView;
 use Core\Audit\Contracts\AuditQuery;
 use Core\Audit\Contracts\AuditSearchCriteria;
 use Core\Audit\Contracts\AuditSearchResult;
+use Core\Support\Access\AccessScope;
+use Illuminate\Database\Query\Builder;
 
 final class EloquentAuditQuery implements AuditQuery
 {
-    public function search(AuditSearchCriteria $criteria): AuditSearchResult
+    public function search(AuditSearchCriteria $criteria, AccessScope $scope): AuditSearchResult
     {
         $query = AuditLogRecord::query();
 
@@ -41,6 +43,39 @@ final class EloquentAuditQuery implements AuditQuery
         // `AuditLogRecord::hydrate()` restores the model casts afterwards.
         $base = $query->toBase();
 
+        // ADR-0069 §2 — the journal is scoped like everything else. The
+        // filter is in the query, so the paginated `total` counts only the
+        // rows the account may see: a tenant never learns how many entries
+        // another tenant has.
+        //
+        // An entry that concerns neither an organization nor a project is a
+        // platform event (console authentication, console account
+        // management): it belongs to nobody, so it is visible to a platform
+        // role only — which is exactly what "no restriction for a platform
+        // scope, no match for an organization scope" means.
+        //
+        // Entries written before the journal carried an attribution are
+        // never rewritten (append-only, ADR-0081 S-16): those of the
+        // historical form `resource = "project:<uuid>"` are matched on
+        // `resource` instead.
+        if (! $scope->allOrganizations) {
+            $organizationIds = $scope->organizationIds;
+            $projectIds = $scope->projectIds;
+
+            $base->where(static function (Builder $scoped) use ($organizationIds, $projectIds): void {
+                $scoped->whereIn('organization_id', $organizationIds);
+
+                if ($projectIds !== []) {
+                    $scoped->orWhereIn('project_id', $projectIds);
+                    $scoped->orWhere(static function (Builder $legacy) use ($projectIds): void {
+                        $legacy->whereNull('organization_id')
+                            ->whereNull('project_id')
+                            ->whereIn('resource', array_map(static fn (string $projectId): string => 'project:'.$projectId, $projectIds));
+                    });
+                }
+            });
+        }
+
         $total = (clone $base)->count();
 
         // Tiebreaker on the primary key: two rows can share the same
@@ -69,6 +104,8 @@ final class EloquentAuditQuery implements AuditQuery
                 context: $record->context,
                 correlationId: $record->correlation_id,
                 occurredAt: $record->created_at->toDateTimeImmutable(),
+                organizationId: $record->organization_id,
+                projectId: $record->project_id,
             );
         }
 

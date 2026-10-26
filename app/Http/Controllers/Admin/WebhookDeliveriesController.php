@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Concerns\ResolvesProjectNames;
+use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
 use Core\Webhook\Contracts\DeliverWebhookCommand;
 use Core\Webhook\Contracts\GetWebhookDeliveryDetails;
@@ -43,6 +45,7 @@ use Symfony\Component\HttpFoundation\Response;
 final class WebhookDeliveriesController
 {
     use ResolvesProjectNames;
+    use ResolvesScopedProject;
 
     public function __construct(
         private readonly ListWebhookDeliveries $listDeliveries,
@@ -59,16 +62,19 @@ final class WebhookDeliveriesController
      * ADR-0062 — one delivery with every attempt: the exact signed request
      * sent (signature masked), the receiver's answer, the duration and what
      * the Core decided next.
+     *
+     * ADR-0069 §2 / S-04 — a delivery of a project outside the account's
+     * scope is answered like a missing one ("livraison introuvable"),
+     * never with a 403: the reply must not confirm that the resource
+     * exists.
      */
     public function show(string $delivery, OperatorContext $operator): Response|RedirectResponse
     {
-        if (! $operator->hasPermission('webhooks:read')) {
-            abort(403, 'La permission webhooks:read est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'webhooks:read');
 
         Validator::make(['delivery' => $delivery], ['delivery' => 'uuid'])->validate();
 
-        $view = $this->details->forDelivery($delivery);
+        $view = $this->details->forDelivery($delivery, $scope);
         if ($view === null) {
             return redirect()->route('admin.webhook-deliveries.dead.web')->withErrors(['id' => 'Livraison introuvable.']);
         }
@@ -76,16 +82,14 @@ final class WebhookDeliveriesController
         return response()->view('admin.webhook-deliveries.show', [
             'title' => 'Livraison '.substr($view->id, 0, 8).'…',
             'delivery' => $view,
-            'projectNames' => $this->resolveProjectNames($this->getProject, [$view->projectId]),
-            'canReplay' => $operator->hasPermission('webhooks:replay'),
+            'projectNames' => $this->resolveProjectNames($this->getProject, [$view->projectId], $scope),
+            'canReplay' => $operator->scopeFor('webhooks:replay')->allowsProject($view->projectId),
         ]);
     }
 
     public function index(Request $request, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('webhooks:read')) {
-            abort(403, 'La permission webhooks:read est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'webhooks:read');
 
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
@@ -103,7 +107,7 @@ final class WebhookDeliveriesController
             projectId: $projectId === '' ? null : $projectId,
             page: $page,
             perPage: $perPage,
-        ));
+        ), $scope);
 
         $projectIds = array_map(
             static fn ($delivery): string => $delivery->projectId,
@@ -117,16 +121,14 @@ final class WebhookDeliveriesController
             'page' => $page,
             'perPage' => $perPage,
             'filters' => ['project_id' => $projectId, 'status' => $status],
-            'projectNames' => $this->resolveProjectNames($this->getProject, $projectIds),
-            'endpointUrls' => $this->resolveEndpointUrls($projectIds),
+            'projectNames' => $this->resolveProjectNames($this->getProject, $projectIds, $scope),
+            'endpointUrls' => $this->resolveEndpointUrls($projectIds, $scope),
         ]);
     }
 
     public function replay(string $delivery, OperatorContext $operator): RedirectResponse
     {
-        if (! $operator->hasPermission('webhooks:replay')) {
-            abort(403, 'La permission webhooks:replay est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'webhooks:replay');
 
         // Validate UUID shape before delegating — otherwise the contract
         // throws a 404 which is rendered as problem+json (correct for API
@@ -135,6 +137,17 @@ final class WebhookDeliveriesController
         if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $delivery) !== 1) {
             return redirect()->route('admin.webhook-deliveries.dead.web')
                 ->withErrors(['id' => 'Identifiant de livraison invalide.']);
+        }
+
+        // ADR-0069 §2 / S-04 — the delivery is resolved *inside the
+        // operator's scope* before it is replayed: a delivery of a project
+        // the account may not see is "not found", never "forbidden" — the
+        // answer must not confirm that the resource exists, and replaying
+        // it would re-send another tenant's payload to its receiver.
+        $detail = $this->details->forDelivery($delivery, $scope);
+        if ($detail === null) {
+            return redirect()->route('admin.webhook-deliveries.dead.web')
+                ->withErrors(['id' => 'Livraison introuvable.']);
         }
 
         try {
@@ -172,6 +185,7 @@ final class WebhookDeliveriesController
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            projectId: $detail->projectId,
         ));
 
         return redirect()->route('admin.webhook-deliveries.dead.web')
@@ -187,14 +201,17 @@ final class WebhookDeliveriesController
      * a global lookup-by-id, so this fetches each unique project's
      * endpoint list once and flattens the results into one id => url map.
      *
+     * ADR-0069 §2 — the operator's scope is passed down: a project the
+     * account may not see yields no endpoint, hence no URL.
+     *
      * @param list<string> $projectIds
      * @return array<string, string> endpointId => url
      */
-    private function resolveEndpointUrls(array $projectIds): array
+    private function resolveEndpointUrls(array $projectIds, AccessScope $scope): array
     {
         $urls = [];
         foreach (array_unique($projectIds) as $projectId) {
-            foreach ($this->listEndpoints->list(new ListWebhookEndpointsCommand($projectId)) as $endpoint) {
+            foreach ($this->listEndpoints->list(new ListWebhookEndpointsCommand($projectId), $scope) as $endpoint) {
                 $urls[$endpoint->id] = $endpoint->url;
             }
         }

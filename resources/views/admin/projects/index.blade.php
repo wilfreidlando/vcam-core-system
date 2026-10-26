@@ -7,7 +7,7 @@
      renders a child's @section content before the parent layout (and its
      @php block) runs, so a permission gate in a child view must resolve
      OperatorContext itself, same as the layout does. --}}
-@if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('projects:write'))
+@if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermissionAnywhere('projects:write'))
     <div class="mb-4 flex justify-end">
         <a href="{{ route('admin.projects.new') }}"
            class="inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-base font-medium text-white shadow-sm">
@@ -62,7 +62,7 @@
                    class="text-indigo-600 hover:text-indigo-800 font-medium">
                     Voir →
                 </a>
-                @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('projects:write'))
+                @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('projects:write')->allowsProject($project->id))
                     <a href="{{ route('admin.projects.edit', ['projectId' => $project->id]) }}"
                        class="text-slate-500 hover:text-slate-700 font-medium">
                         Modifier

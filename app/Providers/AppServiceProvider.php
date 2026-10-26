@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Http\Middleware\ResolveOperatorSession;
+use App\Http\View\Composers\AdminSidebarComposer;
 use App\Infrastructure\DatabaseIdempotencyStore;
 use App\Infrastructure\DatabaseUnitOfWork;
 use App\Infrastructure\ProjectIdempotencyScope;
@@ -26,6 +27,7 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Horizon\Horizon;
 
@@ -60,6 +62,10 @@ final class AppServiceProvider extends ServiceProvider
         // banner). The 'operator.session' middleware gates them.
         Route::middleware('web')
             ->group(base_path('routes/admin.php'));
+
+        // ADR-0069 §2 — the console sidebar reads its entries and badges
+        // through a composer, never through a port called in the template.
+        View::composer('layouts.admin', AdminSidebarComposer::class);
 
         // ADR-0067: the Horizon dashboard (its routes run under `web`, so
         // the console session is available) opens to the operator signed in
@@ -254,6 +260,22 @@ final class AppServiceProvider extends ServiceProvider
             return [
                 Limit::perMinute(20)->by('operator-auth-ip:'.$request->ip()),
                 Limit::perMinute(5)->by('operator-auth-credential:'.hash('sha256', $credential)),
+            ];
+        });
+
+        // ADR-0069 §4 — accepting an invitation is public. For an account
+        // that already exists, it checks that account's current password:
+        // without a per-invitation ceiling, whoever sent the invitation
+        // could test the invitee's password from as many IPs as they like.
+        // Two limits apply together: per IP, and per invitation (keyed on
+        // the token's hash — one invitation, one invitee). A request without
+        // a token shares one bucket, which only throttles malformed calls.
+        RateLimiter::for('invitation-accept', function (Request $request): array {
+            $token = $request->string('token')->value();
+
+            return [
+                Limit::perMinute(10)->by('invitation-accept-ip:'.$request->ip()),
+                Limit::perMinute(5)->by('invitation-accept-token:'.hash('sha256', $token !== '' ? $token : 'none')),
             ];
         });
     }

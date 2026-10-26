@@ -26,6 +26,19 @@ final class CreateOrganizationController
      */
     public function __invoke(Request $request, OperatorContext $operator): JsonResponse|Response
     {
+        // ADR-0069 §4 — "Une organisation est créée par un rôle de
+        // plateforme (la création libre-service n'est pas ouverte)".
+        // An account that only holds organization memberships has no
+        // platform role: it joins organizations, it does not create
+        // them. The check is explicit rather than left to the
+        // `projects:write` permission below, so the reason the request
+        // is refused is the one the ADR gives.
+        if (! $operator->isPlatformRole()) {
+            return ProblemDetails::forbidden(
+                'Only a console account with a platform role can create an organization (ADR-0069 §4).',
+            );
+        }
+
         if (! $operator->hasPermission('projects:write')) {
             return ProblemDetails::forbidden('The projects:write permission is required.');
         }

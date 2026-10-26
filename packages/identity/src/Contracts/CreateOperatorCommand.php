@@ -13,6 +13,9 @@ namespace Core\Identity\Contracts;
  * on an unrecognised value — this one really is a validation error (unlike
  * an unrecognised status filter elsewhere), since a role must be valid for
  * the created operator to mean anything.
+ *
+ * ADR-0069 §1: an **empty** role means the account has no platform role
+ * at all — it then sees only the organizations it belongs to.
  */
 final readonly class CreateOperatorCommand
 {

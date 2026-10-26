@@ -4,34 +4,46 @@ declare(strict_types=1);
 
 namespace Core\Identity;
 
+use Core\Identity\Application\UseCase\AcceptOrganizationInvitation as AcceptOrganizationInvitationUseCase;
+use Core\Identity\Application\UseCase\ChangeOrganizationMemberRole as ChangeOrganizationMemberRoleUseCase;
 use Core\Identity\Application\UseCase\CreateOperator as CreateOperatorUseCase;
 use Core\Identity\Application\UseCase\CreateOrganization as CreateOrganizationUseCase;
 use Core\Identity\Application\UseCase\CreateProject as CreateProjectUseCase;
 use Core\Identity\Application\UseCase\GetOrganization as GetOrganizationUseCase;
 use Core\Identity\Application\UseCase\GetProjectUseCase;
+use Core\Identity\Application\UseCase\InviteOrganizationMember as InviteOrganizationMemberUseCase;
 use Core\Identity\Application\UseCase\IssueApiKey as IssueApiKeyUseCase;
 use Core\Identity\Application\UseCase\ListApiKeys as ListApiKeysUseCase;
 use Core\Identity\Application\UseCase\ListOperatorsUseCase;
+use Core\Identity\Application\UseCase\ListOrganizationMembers as ListOrganizationMembersUseCase;
 use Core\Identity\Application\UseCase\ListOrganizationsUseCase;
 use Core\Identity\Application\UseCase\ListProjectsUseCase;
+use Core\Identity\Application\UseCase\ResolveAccessScopeUseCase;
 use Core\Identity\Application\UseCase\RevokeApiKey as RevokeApiKeyUseCase;
 use Core\Identity\Application\UseCase\RevokeOperator as RevokeOperatorUseCase;
+use Core\Identity\Application\UseCase\RevokeOrganizationMember as RevokeOrganizationMemberUseCase;
 use Core\Identity\Application\UseCase\RotateApiKey as RotateApiKeyUseCase;
 use Core\Identity\Application\UseCase\UpdateOperator as UpdateOperatorUseCase;
 use Core\Identity\Application\UseCase\UpdateOrganization as UpdateOrganizationUseCase;
 use Core\Identity\Application\UseCase\UpdateProject as UpdateProjectUseCase;
+use Core\Identity\Contracts\AcceptOrganizationInvitation;
+use Core\Identity\Contracts\ChangeOrganizationMemberRole;
 use Core\Identity\Contracts\CreateOperator;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateProject;
 use Core\Identity\Contracts\GetOrganization;
 use Core\Identity\Contracts\GetProject;
+use Core\Identity\Contracts\InviteOrganizationMember;
 use Core\Identity\Contracts\IssueApiKey;
 use Core\Identity\Contracts\ListApiKeys;
 use Core\Identity\Contracts\ListOperators;
+use Core\Identity\Contracts\ListOrganizationMembers;
 use Core\Identity\Contracts\ListOrganizations;
 use Core\Identity\Contracts\ListProjects;
+use Core\Identity\Contracts\ResolveAccessScope;
 use Core\Identity\Contracts\RevokeApiKey;
 use Core\Identity\Contracts\RevokeOperator;
+use Core\Identity\Contracts\RevokeOrganizationMember;
 use Core\Identity\Contracts\RotateApiKey;
 use Core\Identity\Contracts\UpdateOperator;
 use Core\Identity\Contracts\UpdateOrganization;
@@ -43,11 +55,15 @@ use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Identity\Domain\Port\OperatorTokenIssuer;
 use Core\Identity\Domain\Port\OperatorTokenResolver;
 use Core\Identity\Domain\Port\OperatorTokenRevoker;
+use Core\Identity\Domain\Port\OrganizationInvitationRepository;
+use Core\Identity\Domain\Port\OrganizationMembershipRepository;
 use Core\Identity\Domain\Port\OrganizationRepository;
 use Core\Identity\Domain\Port\ProjectRepository;
 use Core\Identity\Domain\Port\TotpProvider;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentApiKeyRepository;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOperatorRepository;
+use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOrganizationInvitationRepository;
+use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOrganizationMembershipRepository;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOrganizationRepository;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentProjectRepository;
 use Core\Identity\Infrastructure\Security\AlwaysValidTotpProvider;
@@ -107,6 +123,17 @@ final class IdentityServiceProvider extends ServiceProvider
         $this->app->bind(ListApiKeys::class, ListApiKeysUseCase::class);
 
         $this->app->bind(OperatorRepository::class, EloquentOperatorRepository::class);
+        // ADR-0069 — organization memberships and the scope they grant.
+        $this->app->bind(OrganizationMembershipRepository::class, EloquentOrganizationMembershipRepository::class);
+        $this->app->bind(ResolveAccessScope::class, ResolveAccessScopeUseCase::class);
+        // ADR-0069 §4 — the invitations, and the operations that manage
+        // the members of an organization.
+        $this->app->bind(OrganizationInvitationRepository::class, EloquentOrganizationInvitationRepository::class);
+        $this->app->bind(InviteOrganizationMember::class, InviteOrganizationMemberUseCase::class);
+        $this->app->bind(ListOrganizationMembers::class, ListOrganizationMembersUseCase::class);
+        $this->app->bind(RevokeOrganizationMember::class, RevokeOrganizationMemberUseCase::class);
+        $this->app->bind(ChangeOrganizationMemberRole::class, ChangeOrganizationMemberRoleUseCase::class);
+        $this->app->bind(AcceptOrganizationInvitation::class, AcceptOrganizationInvitationUseCase::class);
         $this->app->bind(TotpProvider::class, function (Application $app): TotpProvider {
             // Both checks are required, deliberately — the environment
             // check happens here in code, not only via the config flag,

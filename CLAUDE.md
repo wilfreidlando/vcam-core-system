@@ -131,7 +131,31 @@ réconciliation, résolution des composants Blade, entre autres —
 puis une troisième tranche livrant la gestion self-service des opérateurs
 (créer/lister/révoquer, JSON et console web, réservé à `PlatformAdmin` —
 [ADR-0050](docs/adr/0050-gestion-self-service-des-operateurs.md))
-→ Lot 7 migration pilote. `billing`, `storage`, `fees`, `developer-platform`
+→ Lot 7 migration pilote → **Lot 8 Fondations de sécurité et d'identité —
+livré** : organisations, projets et **portée d'accès**
+(`Core\Support\Access\AccessScope`) ; console scopée par organisation —
+appartenances, rôles `org_*`, invitations par jeton d'activation à usage unique
+(32 octets aléatoires, haché, 72 h), refus de la privélégation, protection du
+dernier propriétaire (`409 last-owner`) — et cycle de vie d'un projet (`active` ⇄
+`suspended`, `active|suspended → archived`) ; l'`AccessScope` est un paramètre
+**requis** de tout port de lecture que la console appelle (garde-fou **G16** :
+règle PHPStan `AdminQueriesAreScopedRule`, et aucun gabarit Blade ne résout un
+port) ; le journal d'audit est scopé par organisation/projet et prouvé
+tamper-evident (append-only — UPDATE/DELETE/TRUNCATE refusés — et chaîne
+d'empreintes SHA-256 quotidiennes, ADR-0081 S-16) ; un secret n'est utilisable
+**qu'une fois**, à sa création, et le middleware d'idempotence ne le
+réenregistre pas (ADR-0081 S-07, garde-fou **G14**) ; toute route console
+porteuse d'un identifiant a un test **IDOR généré** « organisation A sur une
+ressource de B → 404, jamais 403 » (garde-fou **G15**) ; clés d'API multiples
+et nommées à portée (10 au plus par projet), rotation guidée, restriction CIDR
+et expiration facultatives, révocation motivée, et rotation du secret de webhook
+à double signature (ADR-0082) ; service de chiffrement et index aveugle des
+données personnelles dans `core/support` (`privacy:generate-key`, ADR-0083)
+([ADR-0069](docs/adr/0069-organisations-projets-et-acces-console-scopes.md),
+[ADR-0081](docs/adr/0081-modele-de-menace-et-exigences-de-securite.md),
+[ADR-0082](docs/adr/0082-cles-d-api-portees-rotation-et-secrets-de-webhook.md),
+[ADR-0083](docs/adr/0083-donnees-personnelles-chiffrement-conservation-effacement.md)).
+`billing`, `storage`, `fees`, `developer-platform`
 restent des scaffolds Lot 0 vides, **explicitement hors périmètre de la
 version de production** de ce Core
 ([ADR-0048](docs/adr/0048-billing-storage-fees-developer-platform-hors-perimetre-production.md)) —

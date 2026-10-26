@@ -94,11 +94,21 @@ vérifiés en CI pour les nouvelles surfaces.
 
 ## Conséquences
 
-- Trois nouveaux garde-fous à créer avec les lots concernés : **G13**
-  (isolation financière, trigger), **G14** (aucun secret dans une réponse hors
-  création), **G15** (tests IDOR générés). Ils entrent dans
-  `GuardRegistry.php` et `garde-fous-inactifs.md` au moment de leur
-  implémentation.
+- Trois nouveaux garde-fous : **G13** (isolation financière, trigger
+  PostgreSQL d'ADR-0076 §5), **G14** (aucun secret dans une réponse hors
+  création) et **G15** (tests IDOR générés). Les trois sont aujourd'hui
+  **actifs** : ils figurent dans `GuardRegistry.php` et dans
+  `garde-fous-inactifs.md` (tableau « actifs »), et `make guard-test` injecte
+  une violation de chacun et vérifie qu'il la rejette **avec son propre
+  message**.
+  - **G15** est *généré*, pas écrit route par route :
+    `tests/Architecture/Idor/ConsoleRouteManifest.php` liste chaque route
+    console porteuse d'un identifiant, et le manifeste est confronté à la
+    table de routage vivante — une route console nouvelle, sans cas
+    d'isolation, fait échouer la suite au lieu d'attendre d'être revue.
+- Le lot 8 ajoute un garde-fou voisin, **G16** (un port de lecture appelé
+  depuis la console doit exiger l'`AccessScope`), qui vient d'ADR-0069 §2
+  et non du présent modèle de menace.
 - Le journal d'audit gagne un trigger d'immuabilité (S-16) ; la rédaction de
   données personnelles n'y est pas nécessaire car il ne stocke pas de valeurs
   personnelles (ADR-0083 §4).

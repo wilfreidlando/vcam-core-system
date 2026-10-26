@@ -605,6 +605,10 @@ coup d'œil :
 | Événements | G8, G8c (outbox transactionnel) | PHPat + règle PHPStan + Pest |
 | Contrat API | G9 (pas de rupture OpenAPI sans version), G10 (contrat consommateur, Lot 7) | oasdiff + Spectral |
 | Ledger | G11 (somme nulle, solde dérivé, concurrence, rejeu) | Pest + PostgreSQL |
+| Isolation financière | G13 (aucune écriture du grand livre ne traverse deux projets) | Trigger PostgreSQL + Pest |
+| Secrets en réponse | G14 (un secret n'est utilisable qu'une fois, à sa création) | Pest |
+| Isolation console | G15 (toute route console à identifiant a son cas IDOR généré) | Pest (cas générés) |
+| Portée console | G16 (tout port de lecture appelé par la console exige l'`AccessScope`) | Règle PHPStan + Pest |
 
 `make guard-test` injecte une vraie violation de chaque garde-fou actif et
 vérifie le rejet — c'est la seule façon de savoir qu'un garde-fou protège

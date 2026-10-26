@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
 use Core\Identity\Contracts\ApiKeyScopes;
 use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\GetProjectCommand;
@@ -33,6 +34,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class ApiKeysController
 {
+    use ResolvesScopedProject;
+
     public function __construct(
         private readonly ListApiKeys $listApiKeys,
         private readonly IssueApiKey $issueApiKey,
@@ -46,12 +49,12 @@ final class ApiKeysController
         $this->authorize($operator, $projectId);
 
         try {
-            $project = $this->getProject->get(new GetProjectCommand($projectId));
+            $project = $this->getProject->get(new GetProjectCommand($projectId), $operator->scope);
         } catch (RuntimeException) {
             abort(404, 'Projet introuvable.');
         }
 
-        $keys = $this->listApiKeys->list(new ListApiKeysCommand($projectId));
+        $keys = $this->listApiKeys->list(new ListApiKeysCommand($projectId), $operator->scope);
 
         return response()->view('admin.api-keys.create', [
             'title' => 'Clés API · '.$project->name,
@@ -152,14 +155,17 @@ final class ApiKeysController
 
     private function authorize(OperatorContext $operator, string $projectId, ?string $apiKeyId = null): void
     {
-        if (! $operator->hasPermission('api-keys:write')) {
-            abort(403, 'La permission api-keys:write est requise.');
-        }
+        $this->permittedScope($operator, 'api-keys:write');
 
         Validator::make(
             ['project_id' => $projectId, 'api_key_id' => $apiKeyId],
             ['project_id' => 'uuid', 'api_key_id' => 'nullable|uuid'],
         )->validate();
+
+        // ADR-0069 §2 — the permission is not the scope: the project must
+        // also be one the account may see (404 otherwise), and the account
+        // must hold the permission in the project's organization (403).
+        $this->resolveScopedProject($this->getProject, $operator, $projectId, 'api-keys:write');
     }
 
     /**

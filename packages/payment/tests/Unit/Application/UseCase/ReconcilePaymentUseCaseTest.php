@@ -12,6 +12,7 @@ use Core\Payment\Tests\Unit\Fakes\FakePaymentGatewayRegistry;
 use Core\Payment\Tests\Unit\Fakes\FakePaymentStatusChangeHandler;
 use Core\Payment\Tests\Unit\Fakes\FixedClock;
 use Core\Payment\Tests\Unit\Fakes\InMemoryPaymentRepository;
+use Core\Support\Access\AccessScope;
 use Core\Support\Integration\Provider\ProviderCode;
 
 function paymentForReconciliation(string $id, PaymentStatus $status = PaymentStatus::Processing): Payment
@@ -44,7 +45,7 @@ it('throws PaymentNotFound — never a bare RuntimeException a provider failure 
         journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
-    $useCase->reconcile(new ReconcilePaymentCommand('missing'));
+    $useCase->reconcile(new ReconcilePaymentCommand('missing'), AccessScope::platform());
 })->throws(Core\Payment\Domain\Exception\PaymentNotFound::class);
 
 it('reports no change when the provider confirms the same status', function (): void {
@@ -65,7 +66,7 @@ it('reports no change when the provider confirms the same status', function (): 
         journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
-    $result = $useCase->reconcile(new ReconcilePaymentCommand('p1'));
+    $result = $useCase->reconcile(new ReconcilePaymentCommand('p1'), AccessScope::platform());
 
     expect($result->changed)->toBeFalse()
         ->and($result->statusBefore)->toBe('processing')
@@ -91,7 +92,7 @@ it('converges on the status-change handler when the provider reports a different
         journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
-    $result = $useCase->reconcile(new ReconcilePaymentCommand('p1'));
+    $result = $useCase->reconcile(new ReconcilePaymentCommand('p1'), AccessScope::platform());
 
     expect($result->changed)->toBeTrue()
         ->and($result->statusBefore)->toBe('processing')
@@ -121,5 +122,45 @@ it('lets a provider failure propagate rather than swallowing it', function (): v
         journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
-    $useCase->reconcile(new ReconcilePaymentCommand('p1'));
+    $useCase->reconcile(new ReconcilePaymentCommand('p1'), AccessScope::platform());
 })->throws(Core\Support\Integration\Exception\ProviderTransientError::class);
+
+it('treats a payment outside the caller scope exactly like a missing one, without asking the provider (ADR-0069 §2)', function (): void {
+    $payments = new InMemoryPaymentRepository;
+    $payments->create(paymentForReconciliation('p1', PaymentStatus::Processing));
+
+    $gateway = new FakePaymentGateway(ProviderCode::fromString('fake-provider'));
+    $gateway->checkStatusException = new RuntimeException('The provider must never be asked about a foreign payment.');
+    $registry = new FakePaymentGatewayRegistry;
+    $registry->register($gateway);
+
+    $useCase = new ReconcilePaymentUseCase(
+        payments: $payments,
+        gateways: $registry,
+        statusChangeHandler: new FakePaymentStatusChangeHandler,
+        clock: new FixedClock,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
+    );
+
+    $useCase->reconcile(new ReconcilePaymentCommand('p1'), AccessScope::forProject('another-project'));
+})->throws(Core\Payment\Domain\Exception\PaymentNotFound::class);
+
+it('reports the payment\'s project on the result, for the audit trail', function (): void {
+    $payments = new InMemoryPaymentRepository;
+    $payments->create(paymentForReconciliation('p1', PaymentStatus::Processing));
+
+    $gateway = new FakePaymentGateway(ProviderCode::fromString('fake-provider'));
+    $gateway->nextReceipt = new PaymentReceipt('tx-p1', PaymentStatus::Processing);
+    $registry = new FakePaymentGatewayRegistry;
+    $registry->register($gateway);
+
+    $useCase = new ReconcilePaymentUseCase(
+        payments: $payments,
+        gateways: $registry,
+        statusChangeHandler: new FakePaymentStatusChangeHandler,
+        clock: new FixedClock,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
+    );
+
+    expect($useCase->reconcile(new ReconcilePaymentCommand('p1'), AccessScope::forProject('project-1'))->projectId)->toBe('project-1');
+});

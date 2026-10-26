@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Contracts\GetProject;
-use Core\Identity\Contracts\GetProjectCommand;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Identity\Contracts\ProjectView;
 use Core\Support\Clock;
 use Core\Support\Integration\Security\SafeOutboundUrlRule;
 use Core\Webhook\Contracts\ActivateWebhookEndpoint;
@@ -63,6 +64,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class WebhookEndpointsController
 {
+    use ResolvesScopedProject;
+
     /**
      * One product-level category per meaningful integration purpose — the
      * same grouping `/admin/webhook-events` documents. `'all'` is
@@ -93,19 +96,9 @@ final class WebhookEndpointsController
 
     public function create(string $projectId, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('webhook-endpoints:write')) {
-            abort(403, 'La permission webhook-endpoints:write est requise.');
-        }
+        $project = $this->authorizedProject($operator, $projectId);
 
-        Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
-
-        try {
-            $project = $this->getProject->get(new GetProjectCommand($projectId));
-        } catch (RuntimeException) {
-            abort(404, 'Projet introuvable.');
-        }
-
-        $endpoints = $this->listWebhookEndpoints->list(new ListWebhookEndpointsCommand($projectId));
+        $endpoints = $this->listWebhookEndpoints->list(new ListWebhookEndpointsCommand($projectId), $operator->scope);
 
         return response()->view('admin.webhook-endpoints.create', [
             'title' => 'Endpoints webhook · '.$project->name,
@@ -120,11 +113,10 @@ final class WebhookEndpointsController
 
     public function store(string $projectId, Request $request, OperatorContext $operator): RedirectResponse
     {
-        if (! $operator->hasPermission('webhook-endpoints:write')) {
-            abort(403, 'La permission webhook-endpoints:write est requise.');
-        }
-
-        Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
+        // ADR-0069 §2 — the endpoint is registered on a project, so the
+        // project must be inside the account's scope: without this, an
+        // operator could attach a receiver to another tenant's project.
+        $project = $this->authorizedProject($operator, $projectId);
 
         /** @var array{url: string, categories?: list<string>, all?: string} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
@@ -162,6 +154,8 @@ final class WebhookEndpointsController
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            projectId: $projectId,
+            organizationId: $project->organizationId,
         ));
 
         // The plaintext signing secret is shown exactly once, on this
@@ -178,14 +172,10 @@ final class WebhookEndpointsController
 
     public function update(string $projectId, string $endpointId, Request $request, OperatorContext $operator): RedirectResponse
     {
-        if (! $operator->hasPermission('webhook-endpoints:write')) {
-            abort(403, 'La permission webhook-endpoints:write est requise.');
-        }
-
-        Validator::make(
-            ['project_id' => $projectId, 'endpoint_id' => $endpointId],
-            ['project_id' => 'uuid', 'endpoint_id' => 'uuid'],
-        )->validate();
+        // ADR-0069 §2 — the endpoint belongs to a project: that project
+        // must be inside the account's scope, otherwise the console could
+        // rewrite the receiver of another tenant.
+        $project = $this->authorizeEndpoint($operator, $projectId, $endpointId);
 
         /** @var array{url: string, categories?: list<string>, all?: string} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
@@ -221,6 +211,8 @@ final class WebhookEndpointsController
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            projectId: $projectId,
+            organizationId: $project->organizationId,
         ));
 
         return redirect()->route('admin.projects.webhook-endpoints.create', ['projectId' => $projectId])
@@ -243,7 +235,7 @@ final class WebhookEndpointsController
      */
     public function rotateSecret(string $projectId, string $endpointId, Request $request, OperatorContext $operator): RedirectResponse
     {
-        $this->authorizeEndpoint($operator, $projectId, $endpointId);
+        $project = $this->authorizeEndpoint($operator, $projectId, $endpointId);
 
         /** @var array{overlap_hours: int|string} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
@@ -267,6 +259,8 @@ final class WebhookEndpointsController
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            projectId: $projectId,
+            organizationId: $project->organizationId,
         ));
 
         // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
@@ -281,7 +275,7 @@ final class WebhookEndpointsController
     /** ADR-0082 §5 — end the overlap now, with a reason (audited). */
     public function revokePreviousSecret(string $projectId, string $endpointId, Request $request, OperatorContext $operator): RedirectResponse
     {
-        $this->authorizeEndpoint($operator, $projectId, $endpointId);
+        $project = $this->authorizeEndpoint($operator, $projectId, $endpointId);
 
         /** @var array{reason: string} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
@@ -308,34 +302,42 @@ final class WebhookEndpointsController
             context: ['reason' => $data['reason']],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            projectId: $projectId,
+            organizationId: $project->organizationId,
         ));
 
         return redirect()->route('admin.projects.webhook-endpoints.create', ['projectId' => $projectId])
             ->with('status', 'Ancien secret révoqué : seules les signatures du nouveau secret sont envoyées désormais.');
     }
 
-    private function authorizeEndpoint(OperatorContext $operator, string $projectId, string $endpointId): void
+    /**
+     * ADR-0069 §2 — the project must be in the account's scope (404), and
+     * the account's role in its organization must carry the permission
+     * (403).
+     */
+    private function authorizedProject(OperatorContext $operator, string $projectId): ProjectView
     {
-        if (! $operator->hasPermission('webhook-endpoints:write')) {
-            abort(403, 'La permission webhook-endpoints:write est requise.');
-        }
+        $this->permittedScope($operator, 'webhook-endpoints:write');
 
-        Validator::make(
-            ['project_id' => $projectId, 'endpoint_id' => $endpointId],
-            ['project_id' => 'uuid', 'endpoint_id' => 'uuid'],
-        )->validate();
+        return $this->scopedProject($this->getProject, $operator, $projectId, 'webhook-endpoints:write');
+    }
+
+    private function authorizeEndpoint(OperatorContext $operator, string $projectId, string $endpointId): ProjectView
+    {
+        $project = $this->authorizedProject($operator, $projectId);
+
+        Validator::make(['endpoint_id' => $endpointId], ['endpoint_id' => 'uuid'])->validate();
+
+        return $project;
     }
 
     private function setActive(string $projectId, string $endpointId, bool $active, OperatorContext $operator): RedirectResponse
     {
-        if (! $operator->hasPermission('webhook-endpoints:write')) {
-            abort(403, 'La permission webhook-endpoints:write est requise.');
-        }
-
-        Validator::make(
-            ['project_id' => $projectId, 'endpoint_id' => $endpointId],
-            ['project_id' => 'uuid', 'endpoint_id' => 'uuid'],
-        )->validate();
+        // Permission, UUID shape and scope in one place — the same gate
+        // the secret actions go through. ADR-0069 §2: activating or
+        // deactivating a receiver of a project outside the account's
+        // scope would let one tenant silence another tenant's webhook.
+        $project = $this->authorizeEndpoint($operator, $projectId, $endpointId);
 
         try {
             if ($active) {
@@ -356,6 +358,8 @@ final class WebhookEndpointsController
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            projectId: $projectId,
+            organizationId: $project->organizationId,
         ));
 
         return redirect()->route('admin.projects.webhook-endpoints.create', ['projectId' => $projectId])

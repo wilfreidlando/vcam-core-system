@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Wallet\Application\UseCase;
 
+use Core\Support\Access\AccessScope;
 use Core\Wallet\Contracts\ListWallets;
 use Core\Wallet\Contracts\ListWalletsCommand;
 use Core\Wallet\Contracts\WalletPage;
@@ -22,9 +23,23 @@ final readonly class ListWalletsUseCase implements ListWallets
         private LoggerInterface $logger,
     ) {}
 
-    public function list(ListWalletsCommand $command): WalletPage
+    public function list(ListWalletsCommand $command, AccessScope $scope): WalletPage
     {
-        $result = $this->wallets->findByProject($command->projectId, $command->page, $command->perPage, $command->search);
+        // ADR-0069 §2 — an explicit project outside the account's scope
+        // yields nothing rather than another tenant's wallets.
+        if (! $scope->allowsProject($command->projectId)) {
+            return new WalletPage([], 0, $command->page, $command->perPage);
+        }
+
+        // The filter is applied at the query level, so the rows of another
+        // tenant are never materialised — not just hidden after the fact.
+        $result = $this->wallets->findByProject(
+            $command->projectId,
+            $command->page,
+            $command->perPage,
+            $command->search,
+            $scope->projectFilter(),
+        );
 
         $walletIds = array_map(static fn (Wallet $wallet): string => $wallet->id, $result['items']);
         $balances = $this->balances->findMany($walletIds);

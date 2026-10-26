@@ -6,6 +6,7 @@ use Core\Identity\Application\UseCase\ListProjectsUseCase;
 use Core\Identity\Contracts\ListProjectsCommand;
 use Core\Identity\Domain\Model\Project;
 use Core\Identity\Tests\Unit\Fakes\InMemoryProjectRepository;
+use Core\Support\Access\AccessScope;
 
 it('lists every project when no organization filter is given', function (): void {
     $projects = new InMemoryProjectRepository;
@@ -13,7 +14,7 @@ it('lists every project when no organization filter is given', function (): void
     $projects->save(Project::create('project-2', 'org-b', 'Project Two'));
 
     $useCase = new ListProjectsUseCase($projects);
-    $page = $useCase->list(new ListProjectsCommand);
+    $page = $useCase->list(new ListProjectsCommand, AccessScope::platform());
 
     expect($page->total)->toBe(2);
 });
@@ -24,7 +25,7 @@ it('filters by organization when given', function (): void {
     $projects->save(Project::create('project-2', 'org-b', 'Project Two'));
 
     $useCase = new ListProjectsUseCase($projects);
-    $page = $useCase->list(new ListProjectsCommand(organizationId: 'org-a'));
+    $page = $useCase->list(new ListProjectsCommand(organizationId: 'org-a'), AccessScope::platform());
 
     expect($page->total)->toBe(1)
         ->and($page->items[0]->id)->toBe('project-1')
@@ -38,7 +39,7 @@ it('paginates', function (): void {
     }
 
     $useCase = new ListProjectsUseCase($projects);
-    $page = $useCase->list(new ListProjectsCommand(page: 1, perPage: 2));
+    $page = $useCase->list(new ListProjectsCommand(page: 1, perPage: 2), AccessScope::platform());
 
     expect($page->total)->toBe(3)
         ->and($page->items)->toHaveCount(2);

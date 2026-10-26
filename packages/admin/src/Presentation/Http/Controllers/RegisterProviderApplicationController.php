@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Core\Admin\Presentation\Http\Controllers;
 
+use Core\Admin\Presentation\Http\Controllers\Concerns\AuthorizesInScope;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
+use Core\Identity\Contracts\GetProject;
+use Core\Identity\Contracts\GetProjectCommand;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Payment\Contracts\RegisterProviderApplication;
 use Core\Payment\Contracts\RegisterProviderApplicationCommand;
@@ -18,8 +21,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class RegisterProviderApplicationController
 {
+    use AuthorizesInScope;
+
     public function __construct(
         private readonly RegisterProviderApplication $registerProviderApplication,
+        private readonly GetProject $getProject,
         private readonly AuditLogger $audit,
         private readonly Clock $clock,
     ) {}
@@ -34,7 +40,8 @@ final class RegisterProviderApplicationController
      */
     public function __invoke(Request $request, OperatorContext $operator): JsonResponse|Response
     {
-        if (! $operator->hasPermission('provider-applications:write')) {
+        $scope = $this->permittedScope($operator, 'provider-applications:write');
+        if ($scope === null) {
             return ProblemDetails::forbidden('The provider-applications:write permission is required.');
         }
 
@@ -49,6 +56,17 @@ final class RegisterProviderApplicationController
             'private_key' => ['nullable', 'string', 'max:1024'],
         ]);
 
+        // ADR-0069 §2 / S-04 — 404 for a project out of scope, 403 when the
+        // account's role in its organization lacks the permission.
+        $refusal = $this->projectRefusal($this->getProject, $operator, $data['project_id'], 'provider-applications:write');
+        if ($refusal === 'not-found') {
+            return ProblemDetails::make('project-not-found', 'Project not found', 404, sprintf('Project %s does not exist.', $data['project_id']));
+        }
+        if ($refusal === 'forbidden') {
+            return ProblemDetails::forbidden('The provider-applications:write permission is required on this project.');
+        }
+        $organizationId = $this->getProject->get(new GetProjectCommand($data['project_id']), $operator->scope)->organizationId;
+
         try {
             $rotated = $this->registerProviderApplication->register(new RegisterProviderApplicationCommand(
                 $data['project_id'],
@@ -56,7 +74,7 @@ final class RegisterProviderApplicationController
                 $data['public_key'],
                 $data['private_key'] ?? null,
                 $data['label'] ?? null,
-            ));
+            ), $scope);
         } catch (RuntimeException $e) {
             // ADR-0060: every failure carries an operator-readable message
             // (unknown project, public key already used elsewhere, missing
@@ -77,6 +95,8 @@ final class RegisterProviderApplicationController
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            projectId: $data['project_id'],
+            organizationId: $organizationId,
         ));
 
         return new JsonResponse([

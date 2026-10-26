@@ -15,6 +15,7 @@ use Core\Payment\Contracts\UnsupportedPaymentGatewayException;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Model\PaymentTimelineEntryType;
 use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
 use Core\Support\Integration\CircuitBreaker\CircuitOpenException;
 use Core\Support\Integration\Exception\ProviderException;
@@ -56,14 +57,16 @@ final readonly class ReconcileStuckPaymentsUseCase implements ReconcileStuckPaym
         private int $maxAgeHours = 24,
     ) {}
 
-    public function reconcile(ReconcileStuckPaymentsCommand $command): ReconciliationSummary
+    public function reconcile(ReconcileStuckPaymentsCommand $command, AccessScope $scope): ReconciliationSummary
     {
         $limit = $command->limitOverride ?? $this->batchSize;
         $threshold = $this->clock->now()->modify(sprintf('-%d minutes', $this->stuckAfterMinutes));
 
         $createdAfter = $this->clock->now()->modify(sprintf('-%d hours', $this->maxAgeHours));
 
-        $stuck = $this->payments->findStuckSince($threshold, $limit, $createdAfter);
+        // ADR-0069 §2 — only the payments of the projects in the scope are
+        // selected, in the query itself.
+        $stuck = $this->payments->findStuckSince($threshold, $limit, $createdAfter, $scope->projectFilter());
 
         $checked = 0;
         $updated = 0;

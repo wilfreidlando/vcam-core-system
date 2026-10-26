@@ -6,6 +6,7 @@ namespace Core\Admin\Presentation\Console\Commands;
 
 use Core\Payment\Contracts\ReconcileStuckPayments;
 use Core\Payment\Contracts\ReconcileStuckPaymentsCommand as ReconcileCommand;
+use Core\Support\Access\AccessScope;
 use Illuminate\Console\Command;
 
 /**
@@ -21,7 +22,9 @@ final class ReconcileStuckPaymentsCommand extends Command
 
     public function handle(ReconcileStuckPayments $reconcileStuckPayments): int
     {
-        $summary = $reconcileStuckPayments->reconcile(new ReconcileCommand);
+        // The scheduled job reconciles every project: an explicit platform
+        // scope, never an implicit one (ADR-0069 §2).
+        $summary = $reconcileStuckPayments->reconcile(new ReconcileCommand, AccessScope::platform());
 
         $this->info(sprintf(
             'Reconciliation: %d checked, %d updated, %d errors.',

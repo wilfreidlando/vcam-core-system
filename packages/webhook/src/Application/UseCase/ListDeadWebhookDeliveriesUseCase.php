@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Webhook\Application\UseCase;
 
+use Core\Support\Access\AccessScope;
 use Core\Webhook\Contracts\DeadWebhookDeliveryPage;
 use Core\Webhook\Contracts\DeadWebhookDeliveryView;
 use Core\Webhook\Contracts\ListDeadWebhookDeliveries;
@@ -18,13 +19,22 @@ final readonly class ListDeadWebhookDeliveriesUseCase implements ListDeadWebhook
         private WebhookDeliveryRepository $deliveries,
     ) {}
 
-    public function list(ListDeadWebhookDeliveriesCommand $command): DeadWebhookDeliveryPage
+    public function list(ListDeadWebhookDeliveriesCommand $command, AccessScope $scope): DeadWebhookDeliveryPage
     {
+        // ADR-0069 §2 — an explicit project outside the account's scope
+        // yields nothing rather than another tenant's dead deliveries.
+        if ($command->projectId !== null && ! $scope->allowsProject($command->projectId)) {
+            return new DeadWebhookDeliveryPage([], 0, $command->page, $command->perPage);
+        }
+
         $result = $this->deliveries->findByStatusPaginated(
             WebhookDeliveryStatus::Dead,
             $command->projectId,
             $command->page,
             $command->perPage,
+            // The scope's project list narrows the query itself — never
+            // the controller.
+            $scope->projectFilter(),
         );
 
         $items = array_map(

@@ -115,7 +115,7 @@ final readonly class DatabaseAuditDigests implements AuditDigests
             $firstId ??= $id;
             $lastId = $id;
             $count++;
-            hash_update($context, "\n".json_encode([
+            $fields = [
                 $id,
                 $data['actor'] ?? null,
                 $data['action'] ?? null,
@@ -125,7 +125,20 @@ final readonly class DatabaseAuditDigests implements AuditDigests
                 $data['context'] ?? null,
                 $data['correlation_id'] ?? null,
                 $data['created_at'] ?? null,
-            ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            ];
+
+            // ADR-0069 §2 — the tenant attribution decides who may read the
+            // entry, so it is sealed too: re-attributing an entry to another
+            // organization breaks the chain. Only when set — an entry written
+            // before the attribution existed hashes exactly as it was sealed.
+            $organizationId = $data['organization_id'] ?? null;
+            $projectId = $data['project_id'] ?? null;
+            if ($organizationId !== null || $projectId !== null) {
+                $fields[] = $organizationId;
+                $fields[] = $projectId;
+            }
+
+            hash_update($context, "\n".json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         }
 
         return [$count, $firstId, $lastId, hash_final($context)];

@@ -9,6 +9,7 @@ use Core\Identity\Contracts\ListApiKeys as ListApiKeysPort;
 use Core\Identity\Contracts\ListApiKeysCommand;
 use Core\Identity\Domain\Model\ApiKey;
 use Core\Identity\Domain\Port\ApiKeyRepository;
+use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
 
 final readonly class ListApiKeys implements ListApiKeysPort
@@ -18,9 +19,15 @@ final readonly class ListApiKeys implements ListApiKeysPort
         private Clock $clock,
     ) {}
 
-    public function list(ListApiKeysCommand $command): array
+    public function list(ListApiKeysCommand $command, AccessScope $scope): array
     {
         $now = $this->clock->now();
+
+        // ADR-0069 §2 — a project outside the caller's organizations has
+        // no key to list.
+        if (! $scope->allowsProject($command->projectId)) {
+            return [];
+        }
 
         return array_map(
             static fn (ApiKey $apiKey): ApiKeySummaryView => new ApiKeySummaryView(

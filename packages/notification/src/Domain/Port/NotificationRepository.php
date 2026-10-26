@@ -28,9 +28,14 @@ interface NotificationRepository
      * Newest first, optionally narrowed to one canonical `status`
      * (ADR-0045 — the operator console's project-scoped listing).
      *
+     * @param list<string>|null $projectIds when given, only the
+     *                                      notifications of those
+     *                                      projects are returned
+     *                                      (ADR-0069 §2) — the scope
+     *                                      filters at the query level
      * @return array{items: list<Notification>, total: int}
      */
-    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage): array;
+    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage, ?array $projectIds = null): array;
 
     /**
      * ADR-0062 / decision D5 — empties the content and variables (recipient

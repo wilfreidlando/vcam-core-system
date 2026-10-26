@@ -428,6 +428,149 @@ expect_rejection "G13" "the ledger project-isolation trigger is not installed" \
     bash -c "$DC_TESTING_DB php artisan migrate:fresh --force >/dev/null 2>&1 && $DC_DB vendor/bin/pest --group=invariants --filter=an_entry_can_never_cross_projects"
 $DC_TESTING_DB php artisan migrate:fresh --force > /dev/null 2>&1
 
+# ── G14 — a secret readable outside the response that creates it ───────────
+# ADR-0081 S-07: a secret is usable in an API response once, at its creation.
+# The probe adds a read model that would hand a webhook signing secret out on
+# every listing: the guard must name the field.
+probe packages/webhook/src/Contracts/GuardProbeEndpointView.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Core\Webhook\Contracts;
+
+/**
+ * A read model that would hand the signing secret out on every listing.
+ */
+final readonly class GuardProbeEndpointView
+{
+    public function __construct(
+        public string $endpointId,
+        public string $signingSecret,
+    ) {}
+}
+PHP
+expect_rejection "G14" "a webhook read model exposes its signing secret outside creation" \
+    'GuardProbeEndpointView::\$signingSecret \(matched "secret"\)' \
+    $DC_DB vendor/bin/pest tests/Architecture/SecretLeakGuardTest.php --no-progress
+
+# ── G16 (templates) — a console template calling a port ─────────────────────
+# PHPStan never reads a Blade template: the second half of G16 forbids a
+# template from resolving a port, so the rule cannot be bypassed from a view.
+backup resources/views/admin/dashboard.blade.php
+printf '\n{{ app(\\Core\\Payment\\Contracts\\ListMoneyExceptions::class)->countUnresolved() }}\n' >> resources/views/admin/dashboard.blade.php
+expect_rejection "G16" "a console template resolves a read port from the container" \
+    'resolves Core\\Payment\\Contracts\\ListMoneyExceptions' \
+    $DC vendor/bin/pest tests/Architecture/ConsoleViewsCallNoPortTest.php --no-progress
+
+# ── G16 — a console read port that takes no access scope ────────────────────
+# ADR-0069 §2: every read port the console calls must REQUIRE the
+# `AccessScope` parameter — "a port that does not take it cannot be called
+# from admin". The probe adds a read port with no scope and calls it from the
+# console: the PHPStan rule `AdminQueriesAreScopedRule` must refuse it with
+# its own identifier (`core.adminQueryWithoutScope`).
+probe packages/payment/src/Contracts/ListGuardProbeItems.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Core\Payment\Contracts;
+
+interface ListGuardProbeItems
+{
+    public function list(): int;
+}
+PHP
+probe app/Http/Controllers/Admin/GuardProbeController.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Admin;
+
+use Core\Payment\Contracts\ListGuardProbeItems;
+
+final class GuardProbeController
+{
+    public function __construct(
+        private readonly ListGuardProbeItems $probe,
+    ) {}
+
+    public function count(): int
+    {
+        return $this->probe->list();
+    }
+}
+PHP
+expect_rejection "G16" "the console calls a read port that takes no access scope" \
+    'adminQueryWithoutScope' \
+    $DC $STAN app/Http/Controllers/Admin/GuardProbeController.php
+
+# ── G16 (paramètre requis) — un port dont la portée a une valeur par défaut ─
+# ADR-0069 §2: « l'`AccessScope` en **paramètre requis** (pas de valeur par
+# défaut) ». Une portée par défaut est un trou : la console peut appeler le
+# port sans elle, et le port lit alors tout. La sonde ajoute un port dont la
+# portée est facultative : la règle doit refuser, avec son propre message.
+probe packages/payment/src/Contracts/ListGuardProbeOptionalScopeItems.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Core\Payment\Contracts;
+
+use Core\Support\Access\AccessScope;
+
+interface ListGuardProbeOptionalScopeItems
+{
+    public function list(?AccessScope $scope = null): int;
+}
+PHP
+probe app/Http/Controllers/Admin/GuardProbeOptionalScopeController.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Admin;
+
+use Core\Payment\Contracts\ListGuardProbeOptionalScopeItems;
+
+final class GuardProbeOptionalScopeController
+{
+    public function __construct(
+        private readonly ListGuardProbeOptionalScopeItems $probe,
+    ) {}
+
+    public function count(): int
+    {
+        return $this->probe->list();
+    }
+}
+PHP
+expect_rejection "G16" "the console calls a read port whose access scope is not required" \
+    'adminScopeIsOptional' \
+    $DC $STAN app/Http/Controllers/Admin/GuardProbeOptionalScopeController.php
+
+# ── G15 — a console route with an identifier left out of the IDOR manifest ───
+# ADR-0081 S-01/S-04, ADR-0069 §Sécurité: every console route that carries an
+# identifier gets a generated "organization A on organization B's resource →
+# 404" case. The probe drops one entry from the manifest: the guard must
+# notice that a route's isolation is no longer proven — a route nobody listed
+# is a route whose tenant isolation nobody proved.
+backup tests/Architecture/Idor/ConsoleRouteManifest.php
+python3 - <<'PY'
+path = 'tests/Architecture/Idor/ConsoleRouteManifest.php'
+with open(path) as handle:
+    lines = handle.readlines()
+
+kept = [line for line in lines if "Entry::isolated('admin.projects.show'" not in line]
+
+with open(path, 'w') as handle:
+    handle.writelines(kept)
+PY
+expect_rejection "G15" "a console route with an identifier is missing from the IDOR manifest" \
+    'are not in the IDOR manifest' \
+    $DC_DB vendor/bin/pest tests/Architecture/IdorGuardTest.php --no-progress
+
 # ── Summary ─────────────────────────────────────────────────────────────────
 printf '\n\033[1m%d guardrail(s) rejected their violation, %d did not.\033[0m\n' "$PASSED" "$FAILED"
 

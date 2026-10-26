@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Webhook\Contracts;
 
+use Core\Support\Access\AccessScope;
+
 /**
  * The full delivery history, across every status — pending, delivered and
  * dead — not just the DLQ `ListDeadWebhookDeliveries` exposes. Diagnosing a
@@ -14,5 +16,9 @@ namespace Core\Webhook\Contracts;
  */
 interface ListWebhookDeliveries
 {
-    public function list(ListWebhookDeliveriesCommand $command): WebhookDeliveryPage;
+    /**
+     * ADR-0069 §2 — the scope is a REQUIRED parameter: the history never
+     * crosses the projects the console account may see.
+     */
+    public function list(ListWebhookDeliveriesCommand $command, AccessScope $scope): WebhookDeliveryPage;
 }

@@ -55,6 +55,18 @@ final readonly class ResolveProjectFromBearerToken
         $project = $this->projects->find($apiKey->projectId)
             ?? throw InvalidApiKey::unknown(); // orphaned key: treat as invalid, not a 500.
 
+        // ADR-0069 §3 — a suspended project refuses /v1 requests; an
+        // archived one is final. The provider webhooks that already carry
+        // money do not go through this path: the cash in flight must not
+        // stop because an administrator suspended the project.
+        if ($project->isSuspended()) {
+            throw ProjectNotActive::suspended($project->id);
+        }
+
+        if ($project->isArchived()) {
+            throw ProjectNotActive::archived($project->id);
+        }
+
         if (! $project->isActive()) {
             throw ProjectNotActive::withId($project->id);
         }

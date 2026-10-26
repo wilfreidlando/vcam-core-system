@@ -40,11 +40,30 @@
                     class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm bg-white">
                     @foreach ($statuses as $status)
                         <option value="{{ $status }}" @selected(old('status', $project->status) === $status)>
-                            {{ $status === 'active' ? 'Actif' : 'Suspendu' }}
+                            {{ match ($status) {
+                                'active' => 'Actif',
+                                'suspended' => 'Suspendu',
+                                'archived' => 'Archivé (définitif — révoque les clés)',
+                                default => $status,
+                            } }}
                         </option>
                     @endforeach
                 </select>
                 @error('status')
+                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
+                @enderror
+            </div>
+
+            {{-- ADR-0069 §3 — a status change is audited with its reason. --}}
+            <div>
+                <label for="reason" class="block text-base font-medium text-slate-700 mb-1">Motif du changement de statut <span class="font-normal text-slate-500">(obligatoire si le statut change)</span></label>
+                <textarea
+                    name="reason"
+                    id="reason"
+                    rows="2"
+                    maxlength="500"
+                    class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm">{{ old('reason') }}</textarea>
+                @error('reason')
                     <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
                 @enderror
             </div>

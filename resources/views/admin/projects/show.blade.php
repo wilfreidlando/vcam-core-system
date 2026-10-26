@@ -17,7 +17,7 @@
     @endif
 
     <div class="bg-white border border-slate-200 rounded-lg p-6">
-        @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('projects:write'))
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('projects:write')->allowsProject($project->id))
             <div class="flex justify-end mb-2">
                 <a href="{{ route('admin.projects.edit', ['projectId' => $project->id]) }}"
                    class="text-base font-medium text-indigo-600 hover:text-indigo-800">
@@ -64,7 +64,7 @@
             <span class="font-medium text-slate-900">Wallets de ce projet</span>
             <span class="text-indigo-600">→</span>
         </a>
-        @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('notifications:read'))
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('notifications:read')->allowsProject($project->id))
             <a href="{{ route('admin.projects.notifications.index', ['projectId' => $project->id]) }}"
                class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
                 <span class="font-medium text-slate-900">Notifications de ce projet</span>
@@ -76,28 +76,28 @@
              button): OperatorContext resolved directly since $has() is
              only defined in the layout's own @php block, out of scope for
              a child @section('content'). --}}
-        @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('provider-applications:write'))
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('provider-applications:write')->allowsProject($project->id))
             <a href="{{ route('admin.projects.provider-applications.create', ['projectId' => $project->id]) }}"
                class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
                 <span class="font-medium text-slate-900">Enregistrer une application provider de paiement</span>
                 <span class="text-indigo-600">→</span>
             </a>
         @endif
-        @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('webhook-endpoints:write'))
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('webhook-endpoints:write')->allowsProject($project->id))
             <a href="{{ route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]) }}"
                class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
                 <span class="font-medium text-slate-900">Enregistrer un endpoint webhook</span>
                 <span class="text-indigo-600">→</span>
             </a>
         @endif
-        @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('channel-sessions:write'))
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('channel-sessions:write')->allowsProject($project->id))
             <a href="{{ route('admin.projects.channel-sessions.index', ['projectId' => $project->id]) }}"
                class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
                 <span class="font-medium text-slate-900">Sessions WhatsApp</span>
                 <span class="text-indigo-600">→</span>
             </a>
         @endif
-        @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('api-keys:write'))
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('api-keys:write')->allowsProject($project->id))
             <a href="{{ route('admin.projects.api-keys.create', ['projectId' => $project->id]) }}"
                class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
                 <span class="font-medium text-slate-900">Clés API</span>

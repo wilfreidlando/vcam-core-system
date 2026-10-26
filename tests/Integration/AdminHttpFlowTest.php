@@ -536,8 +536,13 @@ final class AdminHttpFlowTest extends TestCase
             ->assertJsonPath('data.0.resource', 'provider_application:'.$project->id.':my-coolpay');
     }
 
+    /**
+     * ADR-0069 §2 / S-04 — an unknown project and a project outside the
+     * account's scope get the same answer: 404, never a body that would
+     * tell them apart.
+     */
     #[Test]
-    public function registering_a_provider_application_for_an_unknown_project_is_rejected_with_a_clean_422(): void
+    public function registering_a_provider_application_for_an_unknown_project_is_rejected_with_a_clean_404(): void
     {
         $token = $this->authenticatedOperatorToken(OperatorRole::ProviderManager);
 
@@ -547,8 +552,9 @@ final class AdminHttpFlowTest extends TestCase
             'public_key' => 'pub-key-123',
             'private_key' => 'secret-private-key',
         ], ['Authorization' => "Bearer {$token}"])
-            ->assertStatus(422)
-            ->assertHeader('Content-Type', 'application/problem+json');
+            ->assertStatus(404)
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('type', 'https://errors.core-system.internal/project-not-found');
     }
 
     #[Test]

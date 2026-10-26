@@ -25,7 +25,10 @@ final class WebhookEventsController
 {
     public function index(OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('webhooks:read')) {
+        // Static documentation: any account that reads webhooks somewhere
+        // may read it (ADR-0069 §2 — the permission is held in at least one
+        // organization; no tenant data is shown).
+        if (! $operator->hasPermissionAnywhere('webhooks:read')) {
             abort(403, 'La permission webhooks:read est requise.');
         }
 

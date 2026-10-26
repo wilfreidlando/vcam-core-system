@@ -46,12 +46,14 @@ final class InMemoryWebhookDeliveryRepository implements WebhookDeliveryReposito
         return count($this->deliveries);
     }
 
-    public function findByStatusPaginated(?WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage): array
+    public function findByStatusPaginated(?WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage, ?array $projectIds = null): array
     {
         $matching = array_values(array_filter(
             $this->deliveries,
             static fn (WebhookDelivery $delivery): bool => ($status === null || $delivery->status === $status)
-                && ($projectId === null || $delivery->projectId === $projectId),
+                && ($projectId === null || $delivery->projectId === $projectId)
+                // ADR-0069 §2 — the account's scope restricts the query.
+                && ($projectIds === null || in_array($delivery->projectId, $projectIds, true)),
         ));
 
         $total = count($matching);
@@ -71,8 +73,13 @@ final class InMemoryWebhookDeliveryRepository implements WebhookDeliveryReposito
         return array_slice($stalled, 0, $limit);
     }
 
-    public function findByEventIds(array $eventIds): array
+    public function findByEventIds(array $eventIds, ?array $projectIds = null): array
     {
-        return array_values(array_filter($this->deliveries, static fn (WebhookDelivery $d): bool => in_array($d->eventId, $eventIds, true)));
+        return array_values(array_filter(
+            $this->deliveries,
+            static fn (WebhookDelivery $d): bool => in_array($d->eventId, $eventIds, true)
+                // ADR-0069 §2 — the account's scope restricts the query.
+                && ($projectIds === null || in_array($d->projectId, $projectIds, true)),
+        ));
     }
 }

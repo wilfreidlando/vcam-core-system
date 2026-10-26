@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Webhook\Application\UseCase;
 
+use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
 use Core\Webhook\Contracts\ListWebhookEndpoints;
 use Core\Webhook\Contracts\ListWebhookEndpointsCommand;
@@ -18,8 +19,16 @@ final readonly class ListWebhookEndpointsUseCase implements ListWebhookEndpoints
         private Clock $clock,
     ) {}
 
-    public function list(ListWebhookEndpointsCommand $command): array
+    public function list(ListWebhookEndpointsCommand $command, AccessScope $scope): array
     {
+        // ADR-0069 §2 — a project outside the account's scope yields an
+        // empty listing rather than another tenant's endpoints. The
+        // repository filters on `project_id`, so the query itself never
+        // reaches a foreign project's rows either.
+        if (! $scope->allowsProject($command->projectId)) {
+            return [];
+        }
+
         // Every endpoint, active or not — review finding: this used to
         // call `findActiveForProject()`, so a deactivated endpoint simply
         // vanished from the admin listing instead of showing as

@@ -7,6 +7,7 @@ namespace Core\Admin\Presentation\Http\Controllers;
 use Core\Identity\Contracts\CreateOperator;
 use Core\Identity\Contracts\CreateOperatorCommand;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Identity\Contracts\OperatorEmailAlreadyTaken;
 use Core\Support\Http\ProblemDetails;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,11 @@ final class CreateOperatorController
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
             );
+        } catch (OperatorEmailAlreadyTaken $e) {
+            // ADR-0069 §1 — one console account per mailbox. Answered
+            // before the generic catch, which would mislabel it as an
+            // invalid role.
+            return ProblemDetails::make('operator-email-already-taken', 'This email address is already taken', 409, $e->getMessage());
         } catch (RuntimeException $e) {
             // The concrete exception (InvalidOperatorRole) lives in
             // identity's Domain layer; admin must not reference it (G3c)

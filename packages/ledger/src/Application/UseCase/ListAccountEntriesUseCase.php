@@ -12,6 +12,7 @@ use Core\Ledger\Domain\Model\AccountKind;
 use Core\Ledger\Domain\Model\PostedLedgerEntry;
 use Core\Ledger\Domain\Port\LedgerAccountRepository;
 use Core\Ledger\Domain\Port\LedgerEntryRepository;
+use Core\Support\Access\AccessScope;
 
 final readonly class ListAccountEntriesUseCase implements ListAccountEntries
 {
@@ -20,8 +21,15 @@ final readonly class ListAccountEntriesUseCase implements ListAccountEntries
         private LedgerEntryRepository $entries,
     ) {}
 
-    public function list(ListAccountEntriesCommand $command): LedgerEntryPage
+    public function list(ListAccountEntriesCommand $command, AccessScope $scope): LedgerEntryPage
     {
+        // ADR-0069 §2 — the ledger entries of a project the account may
+        // not see are never returned: an empty page, not another
+        // tenant's ledger.
+        if (! $scope->allowsProject($command->projectId)) {
+            return new LedgerEntryPage([], 0, $command->page, $command->perPage);
+        }
+
         $account = $this->accounts->findByComposite(
             $command->projectId,
             AccountKind::fromString($command->kind),
@@ -36,7 +44,16 @@ final readonly class ListAccountEntriesUseCase implements ListAccountEntries
             return new LedgerEntryPage([], 0, $command->page, $command->perPage);
         }
 
-        $result = $this->entries->findByAccountPaginated($account->id, $command->page, $command->perPage);
+        // The project's filter is applied in the query itself — the
+        // entries of an account of another project are never
+        // materialised, and the paginated `total` counts the scoped rows
+        // only.
+        $result = $this->entries->findByAccountPaginated(
+            $account->id,
+            $command->page,
+            $command->perPage,
+            $command->projectId,
+        );
 
         $items = array_map(
             static fn (PostedLedgerEntry $entry): LedgerEntryView => new LedgerEntryView(

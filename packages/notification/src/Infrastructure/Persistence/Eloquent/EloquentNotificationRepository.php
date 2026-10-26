@@ -59,7 +59,7 @@ final class EloquentNotificationRepository implements NotificationRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage): array
+    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage, ?array $projectIds = null): array
     {
         // `orderBy`/`skip`/`take`/`count` are forwarded by Eloquent\Builder
         // to the underlying query builder rather than declared on it
@@ -67,6 +67,12 @@ final class EloquentNotificationRepository implements NotificationRepository
         // positive ("dynamic call to static method") on those forwarded
         // calls, and `NotificationRecord::hydrate()` restores the casts.
         $base = NotificationRecord::query()->where('project_id', $projectId)->toBase();
+
+        if ($projectIds !== null) {
+            // ADR-0069 §2 — the scope filters at the query level, so
+            // another tenant's rows are never materialised.
+            $base->whereIn('project_id', $projectIds);
+        }
 
         if ($status !== null) {
             $base->where('status', $status->value);

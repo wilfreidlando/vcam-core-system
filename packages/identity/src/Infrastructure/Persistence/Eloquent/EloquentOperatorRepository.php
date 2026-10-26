@@ -35,12 +35,33 @@ final class EloquentOperatorRepository implements OperatorRepository
 
     public function findByEmail(string $email): ?Operator
     {
-        $record = OperatorRecord::query()->where('email', $email)->first();
+        // ADR-0069 §1 — one console account per mailbox: the comparison
+        // is case-insensitive, so `Foo@example.com` and `foo@example.com`
+        // are the same person. Without it, an invitation addressed to one
+        // casing lands on a brand-new account instead of the existing one
+        // — two credentials for one mailbox.
+        //
+        // `lower(email)` cannot use the unique index; the console's
+        // accounts are few, and a correct lookup beats a fast one.
+        //
+        // `toBase()` + `hydrate()` like the other repositories: Larastan
+        // flags `whereRaw` — a call the Eloquent builder only forwards —
+        // as a dynamic static call.
+        $row = OperatorRecord::query()
+            ->toBase()
+            ->whereRaw('lower(email) = ?', [strtolower(trim($email))])
+            ->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $record = OperatorRecord::hydrate([$row])->first();
 
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findAll(int $page, int $perPage, ?string $search = null): array
+    public function findAll(int $page, int $perPage, ?string $search = null, ?array $operatorIds = null): array
     {
         // `orderBy`/`skip`/`take`/`count` are forwarded by Eloquent\Builder
         // to the underlying query builder rather than declared on it
@@ -56,6 +77,13 @@ final class EloquentOperatorRepository implements OperatorRepository
             });
         }
         $base = $query->toBase();
+
+        if ($operatorIds !== null) {
+            // ADR-0069 §2 — the scope filters at the query level, so the
+            // operators of another tenant are never materialised. An empty
+            // list matches nothing (Laravel compiles it as `0 = 1`).
+            $base->whereIn('id', $operatorIds);
+        }
 
         $total = (clone $base)->count();
 
@@ -86,7 +114,7 @@ final class EloquentOperatorRepository implements OperatorRepository
             'email' => $operator->email,
             'name' => $operator->name,
             'password_hash' => $operator->passwordHash(),
-            'role' => $operator->role->value,
+            'role' => $operator->role?->value,
             'mfa_secret_encrypted' => $operator->mfaSecret() === null ? null : Crypt::encryptString($operator->mfaSecret()),
             'mfa_enabled' => $operator->mfaEnabled(),
             'mfa_last_verified_timestep' => $operator->mfaLastVerifiedTimestep(),
@@ -101,7 +129,7 @@ final class EloquentOperatorRepository implements OperatorRepository
             email: $record->email,
             name: $record->name,
             passwordHash: $record->password_hash,
-            role: OperatorRole::from($record->role),
+            role: $record->role === null ? null : OperatorRole::from($record->role),
             mfaSecret: $record->mfa_secret_encrypted === null ? null : Crypt::decryptString($record->mfa_secret_encrypted),
             mfaEnabled: $record->mfa_enabled,
             mfaLastVerifiedTimestep: $record->mfa_last_verified_timestep,

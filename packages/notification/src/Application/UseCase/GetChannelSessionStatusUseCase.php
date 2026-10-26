@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Notification\Application\UseCase;
 
+use Core\Notification\Application\Support\ChannelSessionAccess;
 use Core\Notification\Contracts\ChannelDoesNotSupportSessions;
 use Core\Notification\Contracts\ChannelSessionNotFound;
 use Core\Notification\Contracts\ChannelSessionProvider;
@@ -14,6 +15,7 @@ use Core\Notification\Contracts\NotificationChannelProviderRegistry;
 use Core\Notification\Contracts\NotificationProviderRouter;
 use Core\Notification\Domain\Model\ScopedSessionRef;
 use Core\Notification\Domain\Port\ChannelSessionRepository;
+use Core\Support\Access\AccessScope;
 
 final readonly class GetChannelSessionStatusUseCase implements GetChannelSessionStatus
 {
@@ -23,13 +25,21 @@ final readonly class GetChannelSessionStatusUseCase implements GetChannelSession
         private ChannelSessionRepository $sessions,
     ) {}
 
-    public function get(GetChannelSessionCommand $command): ChannelSessionState
+    public function get(GetChannelSessionCommand $command, AccessScope $scope): ChannelSessionState
     {
         $providerCode = $this->router->resolveProviders($command->channel, $command->projectId ?? '')[0];
         $gateway = $this->registry->gatewayFor($providerCode);
 
         if (! $gateway instanceof ChannelSessionProvider) {
             throw new ChannelDoesNotSupportSessions($providerCode, $gateway::class);
+        }
+
+        // ADR-0069 §2 — a session out of the caller's scope is "not
+        // found", never "forbidden" (S-04). The check runs before the
+        // provider is called, so an out-of-scope session never reaches
+        // it.
+        if (! ChannelSessionAccess::allows($command->projectId, $scope)) {
+            throw new ChannelSessionNotFound($command->sessionRef);
         }
 
         $sessionRef = ScopedSessionRef::forOwner($command->projectId, $command->sessionRef)->value;

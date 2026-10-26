@@ -7,6 +7,7 @@ use Core\Identity\Contracts\ListApiKeysCommand;
 use Core\Identity\Domain\Model\ApiKey;
 use Core\Identity\Tests\Unit\Fakes\FixedClock;
 use Core\Identity\Tests\Unit\Fakes\InMemoryApiKeyRepository;
+use Core\Support\Access\AccessScope;
 
 it('lists a project\'s own keys, newest first, never carrying the secret', function (): void {
     $apiKeys = new InMemoryApiKeyRepository;
@@ -16,7 +17,7 @@ it('lists a project\'s own keys, newest first, never carrying the secret', funct
 
     $useCase = new ListApiKeys($apiKeys, new FixedClock);
 
-    $views = $useCase->list(new ListApiKeysCommand('project-1'));
+    $views = $useCase->list(new ListApiKeysCommand('project-1'), AccessScope::platform());
 
     expect($views)->toHaveCount(2)
         ->and(array_map(fn ($v) => $v->id, $views))->toEqualCanonicalizing(['key-1', 'key-2'])
@@ -31,7 +32,7 @@ it('reflects the revoked flag', function (): void {
 
     $useCase = new ListApiKeys($apiKeys, new FixedClock);
 
-    $views = $useCase->list(new ListApiKeysCommand('project-1'));
+    $views = $useCase->list(new ListApiKeysCommand('project-1'), AccessScope::platform());
 
     expect($views[0]->revoked)->toBeTrue();
 });

@@ -62,7 +62,7 @@ final class EloquentWalletRepository implements WalletRepository
         return $wallets;
     }
 
-    public function findByProject(string $projectId, int $page, int $perPage, ?string $search = null): array
+    public function findByProject(string $projectId, int $page, int $perPage, ?string $search = null, ?array $projectIds = null): array
     {
         // `orderBy`/`skip`/`take`/`count` are forwarded by Eloquent\Builder
         // to the underlying query builder rather than declared on it
@@ -77,6 +77,13 @@ final class EloquentWalletRepository implements WalletRepository
             });
         }
         $base = $query->toBase();
+
+        if ($projectIds !== null) {
+            // ADR-0069 §2 — the scope filters at the query level, so the
+            // rows of another tenant are never materialised and the total
+            // is scoped like the rows.
+            $base->whereIn('project_id', $projectIds);
+        }
 
         $total = (clone $base)->count();
 

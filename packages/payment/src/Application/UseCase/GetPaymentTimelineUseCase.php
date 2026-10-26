@@ -8,6 +8,7 @@ use Core\Payment\Contracts\GetPaymentTimeline;
 use Core\Payment\Contracts\PaymentTimelineEntryView;
 use Core\Payment\Domain\Model\PaymentTimelineEntry;
 use Core\Payment\Domain\Port\PaymentTimeline;
+use Core\Support\Access\AccessScope;
 
 final readonly class GetPaymentTimelineUseCase implements GetPaymentTimeline
 {
@@ -15,8 +16,18 @@ final readonly class GetPaymentTimelineUseCase implements GetPaymentTimeline
         private PaymentTimeline $timeline,
     ) {}
 
-    public function forPayment(string $paymentId): array
+    public function forPayment(string $paymentId, AccessScope $scope): array
     {
+        $entries = $this->timeline->forPayment($paymentId);
+
+        // ADR-0069 §2 — the journey of a payment outside the account's
+        // scope is not readable. The entries carry their project id, so no
+        // extra query is needed.
+        $entries = array_values(array_filter(
+            $entries,
+            static fn (PaymentTimelineEntry $entry): bool => $scope->allowsProject($entry->projectId),
+        ));
+
         return array_map(
             static fn (PaymentTimelineEntry $entry): PaymentTimelineEntryView => new PaymentTimelineEntryView(
                 id: $entry->id,
@@ -27,7 +38,7 @@ final readonly class GetPaymentTimelineUseCase implements GetPaymentTimeline
                 correlationId: $entry->correlationId,
                 traceId: $entry->traceId,
             ),
-            $this->timeline->forPayment($paymentId),
+            $entries,
         );
     }
 }

@@ -71,77 +71,9 @@
              Fixed-width and fixed-height on md+ (its own scrollbar if the
              nav ever grows past the viewport), slide-over on mobile. --}}
         @if (app()->bound(\Core\Identity\Contracts\OperatorContext::class))
-            @php
-                /** @var \Core\Identity\Contracts\OperatorContext $operator */
-                $operator = app(\Core\Identity\Contracts\OperatorContext::class);
-                // Bug found by live verification: OperatorContext has no
-                // `permissions` property (only `hasPermission()`), so this
-                // used to read `null ?? []` and silently render an empty
-                // sidebar for every operator, of every role — navigable
-                // only by typing URLs directly.
-                $has = fn (string $permission) => $operator->hasPermission($permission);
-
-                // Per-link permission gates, computed once so both the
-                // group-visibility check and the link itself reuse the
-                // same boolean.
-                $canDashboard = $has('audit:read');
-                $canOrganizations = $has('projects:read');
-                $canProjects = $has('projects:read');
-                $canOperators = $has('operators:read');
-                $canPayments = $has('payments:read');
-                // Wallets have no standalone listing (ADR-0033 §1 / Part D:
-                // wallet visibility is always project-scoped,
-                // `GET projects/{projectId}/wallets`) — the sidebar entry
-                // sends the operator to pick a project first, exactly like
-                // the "Organizations -> View projects" pattern, then the
-                // project detail page carries the actual Wallets tab.
-                $canWallets = $has('wallets:read');
-                $canReconciliation = $has('payments:reconcile:write');
-                // ADR-0077 — the money exceptions queue.
-                $canMoneyExceptions = $has('money-exceptions:read');
-                $canWebhooks = $has('webhooks:read');
-                // ADR-0067: Horizon can retry and delete jobs — PlatformAdmin only.
-                $canQueues = $has('queues:manage');
-                $canSessions = $has('channel-sessions:write');
-                $canAudit = $has('audit:read');
-
-                // Cheap, best-effort badge counts (same defensive
-                // try/catch-degrade-to-null pattern as DashboardController's
-                // stat queries) — a failed count just hides the badge
-                // rather than erroring the whole sidebar/page. `perPage: 1`
-                // means these are single-row lookups, not full scans.
-                $deadWebhookCount = null;
-                if ($canWebhooks) {
-                    try {
-                        $deadWebhookCount = app(\Core\Webhook\Contracts\ListDeadWebhookDeliveries::class)
-                            ->list(new \Core\Webhook\Contracts\ListDeadWebhookDeliveriesCommand(
-                                projectId: null,
-                                page: 1,
-                                perPage: 1,
-                            ))->total;
-                    } catch (\Throwable) {
-                        $deadWebhookCount = null;
-                    }
-                }
-
-                $moneyExceptionsCount = null;
-                if ($canMoneyExceptions) {
-                    try {
-                        $moneyExceptionsCount = app(\Core\Payment\Contracts\ListMoneyExceptions::class)->countUnresolved();
-                    } catch (\Throwable) {
-                        $moneyExceptionsCount = null;
-                    }
-                }
-
-                $stuckPaymentsCount = null;
-                if ($canReconciliation) {
-                    try {
-                        $stuckPaymentsCount = app(\Core\Payment\Contracts\CountStuckPayments::class)->count();
-                    } catch (\Throwable) {
-                        $stuckPaymentsCount = null;
-                    }
-                }
-            @endphp
+            {{-- The entries and badges ($operator, $can*, $*Count) come from
+                 App\Http\View\Composers\AdminSidebarComposer — never from a
+                 port called in this template (ADR-0069 §2, guard G16). --}}
 
             <aside
                 x-data
@@ -294,7 +226,7 @@
                 {{-- Carte opérateur en bas de sidebar --}}
                 <div class="border-t border-slate-800/60 p-4 text-base">
                     <div class="font-medium text-white truncate">{{ $operator->email }}</div>
-                    <div class="text-slate-400 text-xs mt-0.5">Rôle : <span class="font-mono">{{ $operator->role->value ?? '' }}</span></div>
+                    <div class="text-slate-400 text-xs mt-0.5">Rôle : <span class="font-mono">{{ $operator->role->value ?? 'membre d\'organisation' }}</span></div>
                     <form method="POST" action="{{ route('admin.logout') }}" class="mt-3">
                         @csrf
                         <button type="submit" class="w-full inline-flex justify-center items-center gap-2 rounded-md bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-100">

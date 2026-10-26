@@ -11,6 +11,7 @@ use Core\Notification\Contracts\NotificationView;
 use Core\Notification\Domain\Model\Notification;
 use Core\Notification\Domain\Port\NotificationRepository;
 use Core\Notification\NotificationStatus;
+use Core\Support\Access\AccessScope;
 use DateTimeInterface;
 
 final readonly class ListNotificationsUseCase implements ListNotifications
@@ -19,11 +20,23 @@ final readonly class ListNotificationsUseCase implements ListNotifications
         private NotificationRepository $notifications,
     ) {}
 
-    public function list(ListNotificationsCommand $command): NotificationPage
+    public function list(ListNotificationsCommand $command, AccessScope $scope): NotificationPage
     {
         $status = $command->status !== null ? NotificationStatus::tryFrom($command->status) : null;
 
-        $result = $this->notifications->findByProject($command->projectId, $status, $command->page, $command->perPage);
+        // ADR-0069 §2 — a project outside the account's scope yields
+        // nothing rather than another tenant's notifications.
+        if (! $scope->allowsProject($command->projectId)) {
+            return new NotificationPage([], 0, $command->page, $command->perPage);
+        }
+
+        $result = $this->notifications->findByProject(
+            $command->projectId,
+            $status,
+            $command->page,
+            $command->perPage,
+            $scope->projectFilter(),
+        );
 
         $items = array_map(
             static fn (Notification $notification): NotificationView => new NotificationView(

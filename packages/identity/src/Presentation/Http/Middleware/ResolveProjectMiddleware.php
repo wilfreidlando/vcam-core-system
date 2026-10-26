@@ -57,8 +57,20 @@ final class ResolveProjectMiddleware
             return ProblemDetails::make('key-origin-not-allowed', 'Key origin not allowed', 403, 'This API key may not be used from this network address.');
         } catch (InvalidApiKey) {
             return ProblemDetails::unauthenticated('The provided API key is invalid or has been revoked.');
-        } catch (ProjectNotActive) {
-            return ProblemDetails::forbidden('This project is not active.');
+        } catch (ProjectNotActive $e) {
+            // ADR-0069 §3 — a suspended project says so plainly (its
+            // administrator is the one who can lift it), an archived one
+            // says it is over.
+            $type = str_contains($e->getMessage(), 'archived') ? 'project-archived' : 'project-suspended';
+
+            return ProblemDetails::make(
+                $type,
+                $type === 'project-archived' ? 'Project archived' : 'Project suspended',
+                403,
+                $type === 'project-archived'
+                    ? 'This project is archived and no longer accepts requests.'
+                    : 'This project is suspended and no longer accepts requests.',
+            );
         }
 
         app()->instance(ProjectContext::class, $context);

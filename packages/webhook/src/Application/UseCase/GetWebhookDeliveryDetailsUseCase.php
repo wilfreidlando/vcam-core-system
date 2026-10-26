@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Webhook\Application\UseCase;
 
+use Core\Support\Access\AccessScope;
 use Core\Webhook\Contracts\GetWebhookDeliveryDetails;
 use Core\Webhook\Contracts\WebhookDeliveryAttemptView;
 use Core\Webhook\Contracts\WebhookDeliveryDetailView;
@@ -22,16 +23,40 @@ final readonly class GetWebhookDeliveryDetailsUseCase implements GetWebhookDeliv
         private WebhookEndpointRepository $endpoints,
     ) {}
 
-    public function forDelivery(string $deliveryId): ?WebhookDeliveryDetailView
+    public function forDelivery(string $deliveryId, AccessScope $scope): ?WebhookDeliveryDetailView
     {
         $delivery = $this->deliveries->find($deliveryId);
 
-        return $delivery === null ? null : ($this->views([$delivery])[0] ?? null);
+        if ($delivery === null) {
+            return null;
+        }
+
+        // ADR-0069 §2 / S-04 — a delivery of a project outside the
+        // account's scope is reported as *not found*, never as forbidden:
+        // the answer must not confirm that the resource exists.
+        if (! $scope->allowsProject($delivery->projectId)) {
+            return null;
+        }
+
+        return $this->views([$delivery])[0] ?? null;
     }
 
-    public function forEvents(array $eventIds): array
+    public function forEvents(array $eventIds, AccessScope $scope): array
     {
-        return $this->views($this->deliveries->findByEventIds($eventIds));
+        // The scope's project list is applied in the query, never in the
+        // controller.
+        $deliveries = $this->deliveries->findByEventIds($eventIds, $scope->projectFilter());
+
+        // Defence in depth: the query already excludes the foreign
+        // projects, but `WebhookDeliveryDetailView` carries the project
+        // id — the check is repeated here so a delivery can never leak
+        // through this port.
+        $visible = array_values(array_filter(
+            $deliveries,
+            static fn (WebhookDelivery $delivery): bool => $scope->allowsProject($delivery->projectId),
+        ));
+
+        return $this->views($visible);
     }
 
     /**

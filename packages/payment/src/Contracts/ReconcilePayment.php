@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Payment\Contracts;
 
+use Core\Support\Access\AccessScope;
 use RuntimeException;
 
 /**
@@ -23,7 +24,10 @@ use RuntimeException;
 interface ReconcilePayment
 {
     /**
-     * @throws RuntimeException if no payment exists with that id.
+     * ADR-0069 §2 — the scope is a REQUIRED parameter: a payment of a
+     * project outside it is reported as not found (S-04), never checked.
+     *
+     * @throws RuntimeException if no payment exists with that id, or it is outside the scope.
      */
-    public function reconcile(ReconcilePaymentCommand $command): PaymentReconciliationResult;
+    public function reconcile(ReconcilePaymentCommand $command, AccessScope $scope): PaymentReconciliationResult;
 }

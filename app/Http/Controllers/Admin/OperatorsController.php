@@ -9,12 +9,14 @@ use Core\Identity\Contracts\CreateOperatorCommand;
 use Core\Identity\Contracts\ListOperators;
 use Core\Identity\Contracts\ListOperatorsCommand;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Identity\Contracts\OperatorEmailAlreadyTaken;
 use Core\Identity\Contracts\OperatorSummaryView;
 use Core\Identity\Contracts\RevokeOperator;
 use Core\Identity\Contracts\RevokeOperatorCommand;
 use Core\Identity\Contracts\UpdateOperator;
 use Core\Identity\Contracts\UpdateOperatorCommand;
 use Core\Identity\OperatorRole;
+use Core\Support\Access\AccessScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -61,7 +63,7 @@ final class OperatorsController
             page: $page,
             perPage: $perPage,
             search: $searchRaw === '' ? null : $searchRaw,
-        ));
+        ), $operator->scope);
 
         return response()->view('admin.operators.index', [
             'title' => 'Opérateurs',
@@ -106,6 +108,10 @@ final class OperatorsController
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
             );
+        } catch (OperatorEmailAlreadyTaken $e) {
+            // ADR-0069 §1 — one console account per mailbox: the refusal
+            // belongs to the address, not to the role.
+            return back()->withInput()->withErrors(['email' => $e->getMessage()]);
         } catch (RuntimeException $e) {
             return back()->withInput()->withErrors(['role' => $e->getMessage()]);
         }
@@ -155,7 +161,7 @@ final class OperatorsController
         return response()->view('admin.operators.edit', [
             'title' => "Modifier l'opérateur",
             'operatorId' => $operatorId,
-            'operatorRow' => $this->findOperator($operatorId),
+            'operatorRow' => $this->findOperator($operatorId, $operator->scope),
             'roles' => OperatorRole::cases(),
         ]);
     }
@@ -168,20 +174,28 @@ final class OperatorsController
 
         Validator::make(['operatorId' => $operatorId], ['operatorId' => 'uuid'])->validate();
 
-        /** @var array{email: string, name: string, role: string} $data */
+        /** @var array{email: string, name: string, role: string|null} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
             'email' => ['required', 'email'],
             'name' => ['required', 'string', 'max:255'],
-            'role' => ['required', 'string'],
+            // ADR-0069 §1 — the platform role is optional: an empty role
+            // means "no platform role at all" (the account keeps only its
+            // organization memberships). The key must still be present, so
+            // a partial update never clears the role by accident.
+            'role' => ['present', 'nullable', 'string', 'max:64'],
         ]);
 
         try {
             $this->updateOperator->update(
-                new UpdateOperatorCommand($operatorId, $data['email'], $data['name'], $data['role']),
+                new UpdateOperatorCommand($operatorId, $data['email'], $data['name'], $data['role'] ?? ''),
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
             );
+        } catch (OperatorEmailAlreadyTaken $e) {
+            // ADR-0069 §1 — one console account per mailbox: the refusal
+            // belongs to the address, not to the role.
+            return back()->withInput()->withErrors(['email' => $e->getMessage()]);
         } catch (RuntimeException $e) {
             return back()->withInput()->withErrors(['role' => $e->getMessage()]);
         }
@@ -199,12 +213,12 @@ final class OperatorsController
      * `operatorId`-only prefill — see admin.operators.edit's blank-field
      * note).
      */
-    private function findOperator(string $operatorId): ?OperatorSummaryView
+    private function findOperator(string $operatorId, AccessScope $scope): ?OperatorSummaryView
     {
         $page = $this->listOperators->list(new ListOperatorsCommand(
             page: 1,
             perPage: self::PREFILL_LOOKUP_LIMIT,
-        ));
+        ), $scope);
 
         foreach ($page->items as $item) {
             if ($item->id === $operatorId) {

@@ -67,6 +67,13 @@
                     id="role"
                     required
                     class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm">
+                    {{-- ADR-0069 §1 : le rôle de plateforme est facultatif. Sans
+                         cette option, un compte sans rôle de plateforme n'a rien
+                         de sélectionné et le navigateur soumet la première
+                         option — `platform_admin`. Modifier le nom d'un compte
+                         d'organisation lui accorderait donc silencieusement la
+                         plateforme. --}}
+                    <option value="" @selected((string) old('role', $operatorRow->role ?? '') === '')>Aucun rôle de plateforme</option>
                     @foreach ($roles as $role)
                         <option value="{{ $role->value }}" @selected(old('role', $operatorRow->role ?? null) === $role->value)>
                             {{ $role->value }}

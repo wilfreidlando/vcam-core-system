@@ -43,11 +43,13 @@ final class InMemoryChannelSessionRepository implements ChannelSessionRepository
         return $this->find($projectId, $channel, $sessionRef) ?? $this->find(null, $channel, $sessionRef);
     }
 
-    public function findAllFor(?string $projectId, string $channel): array
+    public function findAllFor(?string $projectId, string $channel, ?array $projectIds = null): array
     {
         return array_values(array_filter(
             $this->sessions,
-            static fn (ChannelSession $s): bool => $s->projectId === $projectId && $s->channel === $channel,
+            static fn (ChannelSession $s): bool => $s->projectId === $projectId
+                && $s->channel === $channel
+                && ($projectIds === null || in_array($s->projectId, $projectIds, true)),
         ));
     }
 }

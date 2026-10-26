@@ -17,7 +17,20 @@ interface ProjectRepository
      * — the operator console's project listing). `$search`, when given,
      * matches a case-insensitive substring of `name`.
      *
+     * @param list<string>|null $organizationIds when given, only the
+     *                                           projects of those
+     *                                           organizations are listed
+     *                                           (ADR-0069 §2 — the
+     *                                           console's scope)
      * @return array{items: list<Project>, total: int}
      */
-    public function findAll(?string $organizationId, int $page, int $perPage, ?string $search = null): array;
+    public function findAll(?string $organizationId, int $page, int $perPage, ?string $search = null, ?array $organizationIds = null): array;
+
+    /**
+     * Every project of an organization — the console's scope computation
+     * (ADR-0069 §2) needs the projects an account may see.
+     *
+     * @return list<Project>
+     */
+    public function findAllByOrganization(string $organizationId): array;
 }

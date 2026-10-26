@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Payment\Contracts;
 
+use Core\Support\Access\AccessScope;
+
 /**
  * A pure read — the list of payments currently stuck (non-terminal, older
  * than the configured threshold) — for an operator to preview before
@@ -14,6 +16,11 @@ namespace Core\Payment\Contracts;
  */
 interface ListStuckPayments
 {
-    /** @return list<StuckPaymentView> */
-    public function list(ListStuckPaymentsCommand $command): array;
+    /**
+     * The scope is required (ADR-0069 §2): the preview only shows the
+     * stuck payments of the projects the account may see.
+     *
+     * @return list<StuckPaymentView>
+     */
+    public function list(ListStuckPaymentsCommand $command, AccessScope $scope): array;
 }

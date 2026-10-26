@@ -14,6 +14,7 @@ use Core\Payment\Domain\Model\MoneyException;
 use Core\Payment\Domain\Model\MoneyExceptionResolution;
 use Core\Payment\Domain\Port\MoneyExceptionRepository;
 use Core\Payment\Domain\Port\SettlementLedger;
+use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
 use Core\Support\UnitOfWork;
 
@@ -33,13 +34,13 @@ final readonly class ResolveMoneyExceptionUseCase implements ResolveMoneyExcepti
         private int $approvalThresholdMinor,
     ) {}
 
-    public function resolve(ResolveMoneyExceptionCommand $command): MoneyExceptionView
+    public function resolve(ResolveMoneyExceptionCommand $command, AccessScope $scope): MoneyExceptionView
     {
         $resolution = MoneyExceptionResolution::tryFrom($command->resolution)
             ?? throw MoneyExceptionTransitionRefused::resolutionNotAllowed($command->exceptionId, $command->resolution);
 
-        return $this->unitOfWork->transactional(function () use ($command, $resolution): MoneyExceptionView {
-            $exception = $this->locked($command->exceptionId);
+        return $this->unitOfWork->transactional(function () use ($command, $resolution, $scope): MoneyExceptionView {
+            $exception = $this->locked($command->exceptionId, $scope);
 
             $resolved = $exception->propose(
                 resolution: $resolution,
@@ -54,23 +55,34 @@ final readonly class ResolveMoneyExceptionUseCase implements ResolveMoneyExcepti
         });
     }
 
-    public function approve(string $exceptionId, string $approverOperatorId): MoneyExceptionView
+    public function approve(string $exceptionId, string $approverOperatorId, AccessScope $scope): MoneyExceptionView
     {
-        return $this->unitOfWork->transactional(function () use ($exceptionId, $approverOperatorId): MoneyExceptionView {
-            return $this->persist($this->locked($exceptionId)->approve($approverOperatorId, $this->clock->now()));
+        return $this->unitOfWork->transactional(function () use ($exceptionId, $approverOperatorId, $scope): MoneyExceptionView {
+            return $this->persist($this->locked($exceptionId, $scope)->approve($approverOperatorId, $this->clock->now()));
         });
     }
 
-    public function reject(string $exceptionId, string $approverOperatorId): MoneyExceptionView
+    public function reject(string $exceptionId, string $approverOperatorId, AccessScope $scope): MoneyExceptionView
     {
-        return $this->unitOfWork->transactional(function () use ($exceptionId, $approverOperatorId): MoneyExceptionView {
-            return $this->persist($this->locked($exceptionId)->reject($approverOperatorId));
+        return $this->unitOfWork->transactional(function () use ($exceptionId, $approverOperatorId, $scope): MoneyExceptionView {
+            return $this->persist($this->locked($exceptionId, $scope)->reject($approverOperatorId));
         });
     }
 
-    private function locked(string $exceptionId): MoneyException
+    /**
+     * The exception, locked — and only if the caller may act on its
+     * project (ADR-0069 §2). The check runs on the locked row, so it
+     * cannot be raced by a concurrent read of a stale copy.
+     */
+    private function locked(string $exceptionId, AccessScope $scope): MoneyException
     {
-        return $this->exceptions->findForUpdate($exceptionId) ?? throw MoneyExceptionNotFound::withId($exceptionId);
+        $exception = $this->exceptions->findForUpdate($exceptionId);
+
+        if ($exception === null || ! $scope->allowsProject($exception->projectId)) {
+            throw MoneyExceptionNotFound::withId($exceptionId);
+        }
+
+        return $exception;
     }
 
     private function persist(MoneyException $exception): MoneyExceptionView

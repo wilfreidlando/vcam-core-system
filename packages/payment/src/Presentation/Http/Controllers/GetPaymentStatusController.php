@@ -8,6 +8,7 @@ use Core\Identity\Contracts\ProjectContext;
 use Core\Payment\Contracts\GetPaymentStatus;
 use Core\Payment\Contracts\GetPaymentStatusCommand;
 use Core\Payment\Domain\Exception\PaymentNotFound;
+use Core\Support\Access\AccessScope;
 use Core\Support\Http\ProblemDetails;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -39,7 +40,12 @@ final class GetPaymentStatusController
             return ProblemDetails::forbidden('The payments:read scope is required.');
         }
 
-        $view = $this->getPaymentStatus->get(new GetPaymentStatusCommand($paymentId, $project->projectId));
+        // The public API's scope is the calling project itself
+        // (ADR-0069 §2 — the port always takes a scope).
+        $view = $this->getPaymentStatus->get(
+            new GetPaymentStatusCommand($paymentId, $project->projectId),
+            AccessScope::forProject($project->projectId),
+        );
 
         // ADR-0061 — same shape as the creation response, plus `updated_at`.
         // `is_final` tells the caller whether to keep waiting.

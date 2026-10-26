@@ -4,6 +4,21 @@ declare(strict_types=1);
 
 namespace App\Http;
 
+use Core\Identity\Contracts\AlreadyOrganizationMember;
+use Core\Identity\Contracts\InvalidOrganizationRole;
+use Core\Identity\Contracts\InvitationAccountPasswordInvalid;
+use Core\Identity\Contracts\InvitationNotUsable;
+use Core\Identity\Contracts\InvitationPasswordTooWeak;
+use Core\Identity\Contracts\LastOrganizationOwner;
+use Core\Identity\Contracts\OperatorAlreadyExists;
+use Core\Identity\Contracts\OperatorEmailAlreadyTaken;
+use Core\Identity\Contracts\OrganizationInvitationAlreadyExists;
+use Core\Identity\Contracts\OrganizationInvitationNotFound;
+use Core\Identity\Contracts\OrganizationMemberManagementForbidden;
+use Core\Identity\Contracts\OrganizationMemberNotFound;
+use Core\Identity\Contracts\OrganizationNotVisible;
+use Core\Identity\Contracts\OrganizationPrivilegeEscalation;
+use Core\Identity\Contracts\PlatformRoleAssignmentForbidden;
 use Core\Identity\Domain\Exception\InvalidMfaCode;
 use Core\Identity\Domain\Exception\InvalidOperatorCredentials;
 use Core\Identity\Domain\Exception\MfaAlreadyEnrolled;
@@ -99,6 +114,30 @@ final class ExceptionProblemMapping
         ProviderTransientError::class => ['type' => 'provider-unavailable', 'title' => 'The external provider is temporarily unavailable', 'status' => 503],
         ProviderDisabledException::class => ['type' => 'provider-unavailable', 'title' => 'The external provider is temporarily unavailable', 'status' => 503],
         CircuitOpenException::class => ['type' => 'provider-unavailable', 'title' => 'The external provider is temporarily unavailable', 'status' => 503],
+        // ADR-0069 §1 and §4 — the organization-membership refusals. They
+        // live in `identity`'s `Contracts/` (not its Domain layer) so the
+        // console can translate them into an HTTP status without breaking
+        // G3c; the type, title and status below are the very ones the
+        // console's `TranslatesOrganizationRefusals` produces, so a refusal
+        // surfaced here and one surfaced by the console read identically.
+        OrganizationNotVisible::class => ['type' => 'organization-not-found', 'title' => 'Organization not found', 'status' => 404],
+        OrganizationMemberNotFound::class => ['type' => 'organization-member-not-found', 'title' => 'Member not found', 'status' => 404],
+        OrganizationInvitationNotFound::class => ['type' => 'organization-invitation-not-found', 'title' => 'Invitation not found', 'status' => 404],
+        OrganizationMemberManagementForbidden::class => ['type' => 'organization-members-forbidden', 'title' => 'Managing the members of this organization is not allowed', 'status' => 403],
+        OrganizationPrivilegeEscalation::class => ['type' => 'privilege-escalation', 'title' => 'Privilege escalation is refused', 'status' => 403],
+        PlatformRoleAssignmentForbidden::class => ['type' => 'platform-role-forbidden', 'title' => 'A platform role cannot be granted through an organization', 'status' => 403],
+        LastOrganizationOwner::class => ['type' => 'last-owner', 'title' => 'The last owner of the organization cannot be removed', 'status' => 409],
+        AlreadyOrganizationMember::class => ['type' => 'already-member', 'title' => 'Already a member of the organization', 'status' => 409],
+        OrganizationInvitationAlreadyExists::class => ['type' => 'invitation-already-exists', 'title' => 'An invitation is already pending for this email', 'status' => 409],
+        InvitationNotUsable::class => ['type' => 'invitation-not-usable', 'title' => 'This invitation can no longer be used', 'status' => 409],
+        OperatorAlreadyExists::class => ['type' => 'operator-already-exists', 'title' => 'The console account of this email is revoked', 'status' => 409],
+        // ADR-0069 §1 — one console account per mailbox: the refusal that
+        // says so, instead of the database's unique-index error leaking
+        // through as a mislabelled 422.
+        OperatorEmailAlreadyTaken::class => ['type' => 'operator-email-already-taken', 'title' => 'This email address is already taken', 'status' => 409],
+        InvalidOrganizationRole::class => ['type' => 'invalid-organization-role', 'title' => 'Invalid organization role', 'status' => 422],
+        InvitationPasswordTooWeak::class => ['type' => 'invitation-password-too-weak', 'title' => 'The chosen password is too weak', 'status' => 422],
+        InvitationAccountPasswordInvalid::class => ['type' => 'invitation-account-password-invalid', 'title' => 'The password of the existing account is required', 'status' => 422],
     ];
 
     public static function toResponse(Throwable $e): ?JsonResponse

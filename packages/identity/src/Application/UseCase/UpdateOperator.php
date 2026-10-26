@@ -6,6 +6,7 @@ namespace Core\Identity\Application\UseCase;
 
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
+use Core\Identity\Contracts\OperatorEmailAlreadyTaken;
 use Core\Identity\Contracts\UpdateOperator as UpdateOperatorPort;
 use Core\Identity\Contracts\UpdateOperatorCommand;
 use Core\Identity\Domain\Exception\InvalidOperatorRole;
@@ -31,28 +32,55 @@ final readonly class UpdateOperator implements UpdateOperatorPort
         $operator = $this->operators->find($command->operatorId)
             ?? throw OperatorNotFound::withId($command->operatorId);
 
-        $role = OperatorRole::tryFrom($command->role)
-            ?? throw InvalidOperatorRole::withValue($command->role);
+        // ADR-0069 §1: an empty role means "no platform role".
+        $role = trim($command->role) === ''
+            ? null
+            : (OperatorRole::tryFrom($command->role) ?? throw InvalidOperatorRole::withValue($command->role));
 
-        $before = ['email' => $operator->email, 'name' => $operator->name, 'role' => $operator->role->value];
+        $before = ['email' => $operator->email, 'name' => $operator->name, 'role' => $operator->role?->value];
 
-        $operator->updateProfile($command->email, $command->name, $role);
+        // ADR-0069 §1 — one console account per mailbox: the address is
+        // normalized and an address already taken by ANOTHER account is
+        // refused. Keeping its own address is not a conflict.
+        $email = strtolower(trim($command->email));
+        $existing = $this->operators->findByEmail($email);
+
+        if ($existing !== null && $existing->id !== $operator->id) {
+            throw OperatorEmailAlreadyTaken::forEmail($email);
+        }
+
+        $operator->updateProfile($email, $command->name, $role);
 
         $this->operators->save($operator);
 
-        $after = ['email' => $operator->email, 'name' => $operator->name, 'role' => $operator->role->value];
+        $after = ['email' => $operator->email, 'name' => $operator->name, 'role' => $operator->role?->value];
 
         if ($before === $after) {
             // No actual change — don't write a misleading audit entry.
             return;
         }
 
+        // ADR-0083 §4 — the journal records WHICH fields changed, never
+        // their values: it is append-only and tamper-evident, so a
+        // personal value written there could never be erased. The role
+        // is not personal data and stays readable.
+        $changed = [];
+        foreach (['email', 'name', 'role'] as $field) {
+            if ($before[$field] !== $after[$field]) {
+                $changed[] = $field;
+            }
+        }
+
         $this->audit->record(new AuditEntry(
             actor: $actor,
             action: 'operator.updated',
             resource: 'operator:'.$operator->id,
-            before: array_diff_assoc($before, $after),
-            after: array_diff_assoc($after, $before),
+            before: null,
+            after: [
+                'operator_id' => $operator->id,
+                'changed' => $changed,
+                'role' => $after['role'],
+            ],
             context: [],
             correlationId: $correlationId,
             occurredAt: $this->clock->now(),

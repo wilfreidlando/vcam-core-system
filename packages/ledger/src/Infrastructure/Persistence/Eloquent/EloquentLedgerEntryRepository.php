@@ -12,7 +12,7 @@ use DateTimeImmutable;
 
 final class EloquentLedgerEntryRepository implements LedgerEntryRepository
 {
-    public function findByAccountPaginated(string $accountId, int $page, int $perPage): array
+    public function findByAccountPaginated(string $accountId, int $page, int $perPage, ?string $projectId = null): array
     {
         $query = LedgerEntryRecord::query()->where('account_id', $accountId);
 
@@ -24,6 +24,19 @@ final class EloquentLedgerEntryRepository implements LedgerEntryRepository
         // casts after — same pattern used throughout the Core's other
         // paginated repositories.
         $base = $query->toBase();
+
+        if ($projectId !== null) {
+            // ADR-0069 §2 — the project's filter is applied in the query:
+            // `ledger_entries` carries no `project_id` of its own (the
+            // ledger is immutable, ADR-0005), so the project's accounts
+            // are resolved by a subquery — the entries of an account of
+            // another project are never materialised.
+            $base->whereIn(
+                'account_id',
+                LedgerAccountRecord::query()->toBase()->select('id')->where('project_id', $projectId),
+            );
+        }
+
         $total = (clone $base)->count();
 
         // Tiebreaker on the primary key — entries sharing the same

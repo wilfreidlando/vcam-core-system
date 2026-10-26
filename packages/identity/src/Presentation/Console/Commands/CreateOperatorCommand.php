@@ -6,6 +6,7 @@ namespace Core\Identity\Presentation\Console\Commands;
 
 use Core\Identity\Contracts\CreateOperator;
 use Core\Identity\Contracts\CreateOperatorCommand as Command;
+use Core\Identity\Contracts\OperatorEmailAlreadyTaken;
 use Core\Identity\Domain\Exception\InvalidOperatorRole;
 use Core\Identity\OperatorRole;
 use Illuminate\Console\Command as ConsoleCommand;
@@ -37,6 +38,11 @@ final class CreateOperatorCommand extends ConsoleCommand
             );
         } catch (InvalidOperatorRole) {
             $this->error('role must be one of: '.implode(', ', array_column(OperatorRole::cases(), 'value')));
+
+            return self::FAILURE;
+        } catch (OperatorEmailAlreadyTaken) {
+            // ADR-0069 §1 — one console account per mailbox.
+            $this->error('A console account already exists for this email address.');
 
             return self::FAILURE;
         }

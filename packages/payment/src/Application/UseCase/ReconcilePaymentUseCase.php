@@ -14,6 +14,7 @@ use Core\Payment\Contracts\ReconcilePaymentCommand;
 use Core\Payment\Domain\Exception\PaymentNotFound;
 use Core\Payment\Domain\Model\PaymentTimelineEntryType;
 use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
 use Core\Support\Integration\Provider\ProviderCode;
 use DateTimeZone;
@@ -37,10 +38,12 @@ final readonly class ReconcilePaymentUseCase implements ReconcilePayment
         private PaymentJourney $journey,
     ) {}
 
-    public function reconcile(ReconcilePaymentCommand $command): PaymentReconciliationResult
+    public function reconcile(ReconcilePaymentCommand $command, AccessScope $scope): PaymentReconciliationResult
     {
         $payment = $this->payments->find($command->paymentId);
-        if ($payment === null) {
+        // ADR-0069 §2 / S-04 — a payment outside the caller's scope is
+        // exactly as absent as a missing one.
+        if ($payment === null || ! $scope->allowsProject($payment->projectId)) {
             // A dedicated, never-thrown-elsewhere-in-this-path exception —
             // not a bare RuntimeException — so the caller can distinguish
             // "no such payment" from a provider-side failure (both of
@@ -60,7 +63,7 @@ final readonly class ReconcilePaymentUseCase implements ReconcilePayment
         // ADR-0066: a simulated payment has no provider to ask — only the
         // tester's simulation moves it.
         if ($payment->isSimulated()) {
-            return new PaymentReconciliationResult(changed: false, statusBefore: $statusBefore, statusAfter: $statusBefore);
+            return new PaymentReconciliationResult(changed: false, statusBefore: $statusBefore, statusAfter: $statusBefore, projectId: $payment->projectId);
         }
 
         $gateway = $this->gateways->gatewayFor(ProviderCode::fromString($payment->providerCode));
@@ -84,6 +87,7 @@ final readonly class ReconcilePaymentUseCase implements ReconcilePayment
                 changed: false,
                 statusBefore: $statusBefore,
                 statusAfter: $statusBefore,
+                projectId: $payment->projectId,
             );
         }
 
@@ -104,6 +108,7 @@ final readonly class ReconcilePaymentUseCase implements ReconcilePayment
             changed: true,
             statusBefore: $statusBefore,
             statusAfter: $receipt->status->value,
+            projectId: $payment->projectId,
         );
     }
 }

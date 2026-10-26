@@ -56,8 +56,15 @@ it('updates an operator profile, persists it, and audits only the changed fields
         ->and($audit->entries)->toHaveCount(1)
         ->and($audit->entries[0]->action)->toBe('operator.updated')
         ->and($audit->entries[0]->resource)->toBe('operator:op-1')
-        ->and($audit->entries[0]->before)->toBe(['email' => 'ops@example.com', 'role' => 'support_operator'])
-        ->and($audit->entries[0]->after)->toBe(['email' => 'new-ops@example.com', 'role' => 'finance_operator']);
+        // ADR-0083 §4 — the journal says WHICH fields changed, never
+        // their values: it is append-only, a personal value could never
+        // be erased from it.
+        ->and($audit->entries[0]->before)->toBeNull()
+        ->and($audit->entries[0]->after)->toBe([
+            'operator_id' => 'op-1',
+            'changed' => ['email', 'role'],
+            'role' => 'finance_operator',
+        ]);
 });
 
 it('throws when the operator does not exist', function (): void {

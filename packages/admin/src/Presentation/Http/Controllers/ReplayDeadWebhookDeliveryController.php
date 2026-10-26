@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Core\Admin\Presentation\Http\Controllers;
 
+use Core\Admin\Presentation\Http\Controllers\Concerns\AuthorizesInScope;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Support\Clock;
 use Core\Support\Http\ProblemDetails;
 use Core\Webhook\Contracts\DeliverWebhookCommand;
+use Core\Webhook\Contracts\GetWebhookDeliveryDetails;
 use Core\Webhook\Contracts\QueueWebhookDelivery;
 use Core\Webhook\Contracts\ReplayWebhookDelivery;
 use Core\Webhook\Contracts\ReplayWebhookDeliveryCommand;
@@ -27,8 +29,11 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class ReplayDeadWebhookDeliveryController
 {
+    use AuthorizesInScope;
+
     public function __construct(
         private readonly ReplayWebhookDelivery $replayWebhookDelivery,
+        private readonly GetWebhookDeliveryDetails $deliveryDetails,
         private readonly QueueWebhookDelivery $queueWebhookDelivery,
         private readonly AuditLogger $audit,
         private readonly Clock $clock,
@@ -42,11 +47,21 @@ final class ReplayDeadWebhookDeliveryController
      */
     public function __invoke(string $deliveryId, OperatorContext $operator): JsonResponse|Response
     {
-        if (! $operator->hasPermission('webhooks:replay')) {
+        $scope = $this->permittedScope($operator, 'webhooks:replay');
+        if ($scope === null) {
             return ProblemDetails::forbidden('The webhooks:replay permission is required.');
         }
 
         Validator::make(['deliveryId' => $deliveryId], ['deliveryId' => 'uuid'])->validate();
+
+        // ADR-0069 §2 / S-04 — the delivery is resolved inside the scope
+        // before it is replayed: replaying a foreign delivery would re-send
+        // another tenant's payload to its receiver. Out of scope is exactly
+        // as absent as missing.
+        $delivery = $this->deliveryDetails->forDelivery($deliveryId, $scope);
+        if ($delivery === null) {
+            return ProblemDetails::make('webhook-delivery-not-found', 'Webhook delivery not found', 404, sprintf('Webhook delivery %s does not exist.', $deliveryId));
+        }
 
         $view = $this->replayWebhookDelivery->replay(new ReplayWebhookDeliveryCommand($deliveryId));
 
@@ -61,6 +76,7 @@ final class ReplayDeadWebhookDeliveryController
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            projectId: $delivery->projectId,
         ));
 
         return new JsonResponse(['id' => $view->newDeliveryId], 201);

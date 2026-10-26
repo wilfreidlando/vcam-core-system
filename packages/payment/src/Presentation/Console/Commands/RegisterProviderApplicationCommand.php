@@ -6,6 +6,7 @@ namespace Core\Payment\Presentation\Console\Commands;
 
 use Core\Payment\Contracts\RegisterProviderApplication;
 use Core\Payment\Contracts\RegisterProviderApplicationCommand as Command;
+use Core\Support\Access\AccessScope;
 use Illuminate\Console\Command as ConsoleCommand;
 use RuntimeException;
 
@@ -51,12 +52,13 @@ final class RegisterProviderApplicationCommand extends ConsoleCommand
         $privateKey = $this->argument('private-key');
 
         try {
+            // The CLI is an operations tool: it acts as the platform.
             $registerProviderApplication->register(new Command(
                 projectId: $projectId,
                 providerCode: $providerCode,
                 publicKey: $publicKey,
                 privateKey: $privateKey,
-            ));
+            ), AccessScope::platform());
         } catch (RuntimeException $e) {
             $this->error($e->getMessage());
 

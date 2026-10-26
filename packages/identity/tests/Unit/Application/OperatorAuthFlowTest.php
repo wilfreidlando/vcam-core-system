@@ -10,6 +10,7 @@ use Core\Identity\Application\UseCase\ConfirmOperatorMfaEnrollment;
 use Core\Identity\Application\UseCase\CreateOperator;
 use Core\Identity\Application\UseCase\EnrollOperatorMfa;
 use Core\Identity\Application\UseCase\LoginOperator;
+use Core\Identity\Application\UseCase\ResolveAccessScopeUseCase;
 use Core\Identity\Application\UseCase\ResolveOperatorFromBearerToken;
 use Core\Identity\Application\UseCase\VerifyOperatorMfa;
 use Core\Identity\Contracts\CreateOperatorCommand;
@@ -25,6 +26,8 @@ use Core\Identity\Tests\Unit\Fakes\FixedClock;
 use Core\Identity\Tests\Unit\Fakes\FixedTotpProvider;
 use Core\Identity\Tests\Unit\Fakes\InMemoryLoginChallengeCodec;
 use Core\Identity\Tests\Unit\Fakes\InMemoryOperatorRepository;
+use Core\Identity\Tests\Unit\Fakes\InMemoryOrganizationMembershipRepository;
+use Core\Identity\Tests\Unit\Fakes\InMemoryProjectRepository;
 use Core\Identity\Tests\Unit\Fakes\RecordingAuditLogger;
 use Core\Identity\Tests\Unit\Fakes\SequentialIdentifier;
 
@@ -61,7 +64,11 @@ final readonly class OperatorAuthFlowFixture
             enrollOperatorMfa: new EnrollOperatorMfa($operators, $challenges, $totp, $clock),
             confirmOperatorMfaEnrollment: new ConfirmOperatorMfaEnrollment($operators, $challenges, $totp, $tokenIssuer, $audit, $clock),
             verifyOperatorMfa: new VerifyOperatorMfa($operators, $challenges, $totp, $tokenIssuer, $audit, $clock),
-            resolveOperatorFromBearerToken: new ResolveOperatorFromBearerToken($tokenResolver, $operators),
+            resolveOperatorFromBearerToken: new ResolveOperatorFromBearerToken(
+                $tokenResolver,
+                $operators,
+                new ResolveAccessScopeUseCase($operators, new InMemoryOrganizationMembershipRepository, new InMemoryProjectRepository),
+            ),
             operators: $operators,
             tokenIssuer: $tokenIssuer,
             tokenResolver: $tokenResolver,

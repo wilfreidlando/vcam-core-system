@@ -89,7 +89,7 @@ final class EloquentPaymentRepository implements PaymentRepository
         return $this->toDomain($record);
     }
 
-    public function findStuckSince(DateTimeImmutable $threshold, int $limit, DateTimeImmutable $createdAfter): array
+    public function findStuckSince(DateTimeImmutable $threshold, int $limit, DateTimeImmutable $createdAfter, ?array $projectIds = null): array
     {
         // `whereIn`/`orderBy`/`take` are forwarded by Eloquent\Builder to
         // the underlying query builder rather than declared on it
@@ -103,6 +103,10 @@ final class EloquentPaymentRepository implements PaymentRepository
         $base->whereIn('status', [PaymentStatus::Pending->value, PaymentStatus::Processing->value]);
         $base->whereRaw('GREATEST(updated_at, reconciled_at) < ?', [$threshold->format(DATE_ATOM)]);
         $base->where('created_at', '>=', $createdAfter);
+        if ($projectIds !== null) {
+            // ADR-0069 §2 — the scope filters at the query level.
+            $base->whereIn('project_id', $projectIds);
+        }
         $base->orderByRaw('GREATEST(updated_at, reconciled_at)');
         $base->take($limit);
 
@@ -118,14 +122,20 @@ final class EloquentPaymentRepository implements PaymentRepository
         return $payments;
     }
 
-    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage): array
+    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage, ?array $projectIds = null): array
     {
         // See findStuckSince() above for why this goes through toBase()/hydrate().
-        $query = PaymentRecord::query();
+        $base = PaymentRecord::query()->toBase();
+
         if ($projectId !== null) {
-            $query->where('project_id', $projectId);
+            $base->where('project_id', $projectId);
         }
-        $base = $query->toBase();
+
+        if ($projectIds !== null) {
+            // ADR-0069 §2 — the scope filters at the query level, so the
+            // rows of another tenant are never materialised.
+            $base->whereIn('project_id', $projectIds);
+        }
 
         if ($status !== null) {
             $base->where('status', $status->value);
@@ -153,12 +163,18 @@ final class EloquentPaymentRepository implements PaymentRepository
         return ['items' => $payments, 'total' => $total];
     }
 
-    public function countStuckSince(DateTimeImmutable $threshold, DateTimeImmutable $createdAfter): int
+    public function countStuckSince(DateTimeImmutable $threshold, DateTimeImmutable $createdAfter, ?array $projectIds = null): int
     {
         // See findStuckSince() above for why whereIn()/count() go through toBase().
         $base = PaymentRecord::query()->where('created_at', '>=', $createdAfter)->toBase();
         $base->whereIn('status', [PaymentStatus::Pending->value, PaymentStatus::Processing->value]);
         $base->whereRaw('GREATEST(updated_at, reconciled_at) < ?', [$threshold->format(DATE_ATOM)]);
+
+        if ($projectIds !== null) {
+            // ADR-0069 §2 — the scope filters at the query level: the
+            // stuck payments of another tenant are never counted.
+            $base->whereIn('project_id', $projectIds);
+        }
 
         return $base->count();
     }
@@ -170,9 +186,15 @@ final class EloquentPaymentRepository implements PaymentRepository
         PaymentRecord::query()->whereKey($paymentId)->toBase()->update(['reconciled_at' => $checkedAt]);
     }
 
-    public function countRecentByStatus(DateTimeImmutable $since): array
+    public function countRecentByStatus(DateTimeImmutable $since, ?array $projectIds = null): array
     {
         $base = PaymentRecord::query()->where('created_at', '>=', $since)->toBase();
+
+        if ($projectIds !== null) {
+            // ADR-0069 §2 — the scope filters the aggregation in the
+            // query: the payments of another tenant are never counted.
+            $base->whereIn('project_id', $projectIds);
+        }
 
         $total = (clone $base)->count();
         $succeeded = (clone $base)->where('status', PaymentStatus::Succeeded->value)->count();

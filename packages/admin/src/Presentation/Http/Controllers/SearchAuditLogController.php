@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Admin\Presentation\Http\Controllers;
 
+use Core\Admin\Presentation\Http\Controllers\Concerns\AuthorizesInScope;
 use Core\Audit\Contracts\AuditQuery;
 use Core\Audit\Contracts\AuditSearchCriteria;
 use Core\Identity\Contracts\OperatorContext;
@@ -20,6 +21,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class SearchAuditLogController
 {
+    use AuthorizesInScope;
+
     public function __construct(
         private readonly AuditQuery $auditQuery,
     ) {}
@@ -32,7 +35,8 @@ final class SearchAuditLogController
      */
     public function __invoke(Request $request, OperatorContext $operator): JsonResponse|Response
     {
-        if (! $operator->hasPermission('audit:read')) {
+        $scope = $this->permittedScope($operator, 'audit:read');
+        if ($scope === null) {
             return ProblemDetails::forbidden('The audit:read permission is required.');
         }
 
@@ -51,7 +55,7 @@ final class SearchAuditLogController
             to: $to,
             page: $page,
             perPage: $perPage,
-        ));
+        ), $scope);
 
         return new JsonResponse([
             'data' => array_map(static fn ($entry): array => [

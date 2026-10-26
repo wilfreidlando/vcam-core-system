@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Webhook\Presentation\Http\Controllers;
 
 use Core\Identity\Contracts\ProjectContext;
+use Core\Support\Access\AccessScope;
 use Core\Support\Http\ProblemDetails;
 use Core\Webhook\Contracts\ListWebhookEndpoints;
 use Core\Webhook\Contracts\ListWebhookEndpointsCommand;
@@ -31,7 +32,12 @@ final class ListWebhookEndpointsController
         }
 
         /** @var list<WebhookEndpointView> $endpoints */
-        $endpoints = $this->listWebhookEndpoints->list(new ListWebhookEndpointsCommand($project->projectId));
+        $endpoints = $this->listWebhookEndpoints->list(
+            new ListWebhookEndpointsCommand($project->projectId),
+            // ADR-0069 §2 — the public API plane's scope is the calling
+            // project itself: a project only ever sees its own endpoints.
+            AccessScope::forProject($project->projectId),
+        );
 
         return new JsonResponse(['data' => $endpoints]);
     }

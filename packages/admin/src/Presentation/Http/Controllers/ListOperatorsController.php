@@ -32,7 +32,7 @@ final class ListOperatorsController
         $page = max(1, (int) $request->query('page', '1'));
         $perPage = min(100, max(1, (int) $request->query('per_page', '25')));
 
-        $result = $this->listOperators->list(new ListOperatorsCommand($page, $perPage));
+        $result = $this->listOperators->list(new ListOperatorsCommand($page, $perPage), $operator->scope);
 
         return new JsonResponse([
             'data' => array_map(static fn ($op): array => [

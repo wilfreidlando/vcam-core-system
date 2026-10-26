@@ -13,6 +13,7 @@ use Core\Payment\Tests\Unit\Fakes\FixedClock;
 use Core\Payment\Tests\Unit\Fakes\InMemoryMoneyExceptionRepository;
 use Core\Payment\Tests\Unit\Fakes\PassthroughUnitOfWork;
 use Core\Payment\Tests\Unit\Fakes\RecordingSettlementLedger;
+use Core\Support\Access\AccessScope;
 
 /**
  * @return array{0: ResolveMoneyExceptionUseCase, 1: InMemoryMoneyExceptionRepository, 2: RecordingSettlementLedger}
@@ -41,7 +42,7 @@ it('resolves at once and books the money below the four-eyes threshold', functio
     [$resolver, $repository, $ledger] = makeResolver();
     openException($repository, 1_000);
 
-    $view = $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'refunded_outside', 'op-a', 'MOMO-REF-9', 'Remboursé au client par MoMo.'));
+    $view = $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'refunded_outside', 'op-a', 'MOMO-REF-9', 'Remboursé au client par MoMo.'), AccessScope::platform());
 
     expect($view->status)->toBe('resolved')
         ->and($view->resolution)->toBe('refunded_outside')
@@ -52,10 +53,10 @@ it('waits for a second person at or above the threshold, and books only on appro
     [$resolver, $repository, $ledger] = makeResolver(threshold: 1_000);
     openException($repository, 1_000);
 
-    $proposed = $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'recognized_as_revenue', 'op-a', null, 'Le client a payé un complément volontaire.'));
+    $proposed = $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'recognized_as_revenue', 'op-a', null, 'Le client a payé un complément volontaire.'), AccessScope::platform());
     expect($proposed->status)->toBe('awaiting_approval')->and($ledger->resolutions)->toBe([]);
 
-    $approved = $resolver->approve('exc-1', 'op-b');
+    $approved = $resolver->approve('exc-1', 'op-b', AccessScope::platform());
     expect($approved->status)->toBe('resolved')
         ->and($approved->approvedBy)->toBe('op-b')
         ->and($ledger->resolutions)->toBe([['exceptionId' => 'exc-1', 'amount' => 1_000, 'credit' => 'revenue']]);
@@ -64,17 +65,17 @@ it('waits for a second person at or above the threshold, and books only on appro
 it('never lets the author approve their own resolution', function (): void {
     [$resolver, $repository] = makeResolver(threshold: 1);
     openException($repository, 1_000);
-    $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'recognized_as_revenue', 'op-a', null, 'Motif suffisant.'));
+    $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'recognized_as_revenue', 'op-a', null, 'Motif suffisant.'), AccessScope::platform());
 
-    $resolver->approve('exc-1', 'op-a');
+    $resolver->approve('exc-1', 'op-a', AccessScope::platform());
 })->throws(MoneyExceptionTransitionRefused::class);
 
 it('sends a refused resolution back to open, with nothing booked', function (): void {
     [$resolver, $repository, $ledger] = makeResolver(threshold: 1);
     openException($repository, 1_000);
-    $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'recognized_as_revenue', 'op-a', null, 'Motif suffisant.'));
+    $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'recognized_as_revenue', 'op-a', null, 'Motif suffisant.'), AccessScope::platform());
 
-    $view = $resolver->reject('exc-1', 'op-b');
+    $view = $resolver->reject('exc-1', 'op-b', AccessScope::platform());
 
     expect($view->status)->toBe('open')->and($view->resolution)->toBeNull()->and($ledger->resolutions)->toBe([]);
 });
@@ -83,30 +84,45 @@ it('requires a reference for a refund made by hand', function (): void {
     [$resolver, $repository] = makeResolver();
     openException($repository, 1_000);
 
-    $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'refunded_outside', 'op-a', '  ', 'Remboursé.'));
+    $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'refunded_outside', 'op-a', '  ', 'Remboursé.'), AccessScope::platform());
 })->throws(MoneyExceptionTransitionRefused::class);
 
 it('only allows "no movement" when nothing was booked, and books nothing', function (): void {
     [$resolver, $repository, $ledger] = makeResolver();
     openException($repository, 0);
 
-    expect(fn () => $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'recognized_as_revenue', 'op-a', null, 'Essai.')))
+    expect(fn () => $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'recognized_as_revenue', 'op-a', null, 'Essai.'), AccessScope::platform()))
         ->toThrow(MoneyExceptionTransitionRefused::class);
 
-    $view = $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'no_action', 'op-a', null, 'Devise inconnue, traitée hors plateforme.'));
+    $view = $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'no_action', 'op-a', null, 'Devise inconnue, traitée hors plateforme.'), AccessScope::platform());
     expect($view->status)->toBe('resolved')->and($ledger->resolutions)->toBe([]);
 });
 
 it('refuses to resolve twice', function (): void {
     [$resolver, $repository] = makeResolver();
     openException($repository, 1_000);
-    $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'refunded_outside', 'op-a', 'REF-1', 'Remboursé.'));
+    $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'refunded_outside', 'op-a', 'REF-1', 'Remboursé.'), AccessScope::platform());
 
-    $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'recognized_as_revenue', 'op-b', null, 'Encore.'));
+    $resolver->resolve(new ResolveMoneyExceptionCommand('exc-1', 'recognized_as_revenue', 'op-b', null, 'Encore.'), AccessScope::platform());
 })->throws(MoneyExceptionTransitionRefused::class);
 
 it('reports an unknown exception', function (): void {
     [$resolver] = makeResolver();
 
-    $resolver->approve('nope', 'op-b');
+    $resolver->approve('nope', 'op-b', AccessScope::platform());
 })->throws(MoneyExceptionNotFound::class);
+
+it('never settles an exception of a project outside the caller scope (ADR-0069 §2)', function (): void {
+    [$resolver, $repository, $ledger] = makeResolver();
+    openException($repository, 10_000);
+
+    expect(fn () => $resolver->resolve(
+        new ResolveMoneyExceptionCommand('exc-1', 'refunded_outside', 'op-a', 'REF-1', 'Remboursé.'),
+        AccessScope::forProject('another-project'),
+    ))->toThrow(MoneyExceptionNotFound::class);
+
+    expect(fn () => $resolver->approve('exc-1', 'op-b', AccessScope::none()))->toThrow(MoneyExceptionNotFound::class)
+        ->and(fn () => $resolver->reject('exc-1', 'op-b', AccessScope::none()))->toThrow(MoneyExceptionNotFound::class)
+        ->and($repository->find('exc-1')?->status->value)->toBe('open')
+        ->and($ledger->resolutions)->toBe([]);
+});

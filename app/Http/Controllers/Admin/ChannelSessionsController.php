@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Contracts\GetProject;
@@ -24,11 +25,11 @@ use Core\Notification\Contracts\ListChannelSessionsCommand;
 use Core\Notification\Contracts\NotificationChannel;
 use Core\Notification\Contracts\RequestChannelSessionPairingCode;
 use Core\Notification\Contracts\RequestChannelSessionPairingCodeCommand;
+use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
 use Core\Support\Integration\Exception\ProviderException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -45,6 +46,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class ChannelSessionsController
 {
+    use ResolvesScopedProject;
+
     private const CHANNEL = 'whatsapp';
 
     private const PERMISSION = 'channel-sessions:write';
@@ -70,8 +73,11 @@ final class ChannelSessionsController
         return response()->view('admin.channel-sessions.index', [
             'title' => 'Sessions WhatsApp',
             'projectId' => $projectId,
-            'projectName' => $this->projectName($projectId),
-            'sessions' => $this->listSessions->list(new ListChannelSessionsCommand($projectId, NotificationChannel::fromString(self::CHANNEL))),
+            'projectName' => $this->projectName($projectId, $operator->scope),
+            'sessions' => $this->listSessions->list(
+                new ListChannelSessionsCommand($projectId, NotificationChannel::fromString(self::CHANNEL)),
+                $operator->scope,
+            ),
         ]);
     }
 
@@ -105,6 +111,8 @@ final class ChannelSessionsController
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            // A global session (no project) is a platform event.
+            projectId: $projectId,
         ));
 
         return redirect()->to($this->indexUrl($projectId))
@@ -117,8 +125,8 @@ final class ChannelSessionsController
         $sessionRef = $this->sessionRef($request);
         $this->authorize($operator, $projectId);
 
-        return $this->showImage($projectId, $sessionRef, 'QR code', function () use ($projectId, $sessionRef): array {
-            $qr = $this->getQrCode->get($this->command($projectId, $sessionRef));
+        return $this->showImage($projectId, $sessionRef, 'QR code', function () use ($projectId, $sessionRef, $operator): array {
+            $qr = $this->getQrCode->get($this->command($projectId, $sessionRef), $operator->scope);
 
             return [$qr->mimeType, $qr->base64Data];
         });
@@ -130,8 +138,8 @@ final class ChannelSessionsController
         $sessionRef = $this->sessionRef($request);
         $this->authorize($operator, $projectId);
 
-        return $this->showImage($projectId, $sessionRef, "Capture d'écran", function () use ($projectId, $sessionRef): array {
-            $shot = $this->getScreenshot->get($this->command($projectId, $sessionRef));
+        return $this->showImage($projectId, $sessionRef, "Capture d'écran", function () use ($projectId, $sessionRef, $operator): array {
+            $shot = $this->getScreenshot->get($this->command($projectId, $sessionRef), $operator->scope);
 
             return [$shot->mimeType, $shot->base64Data];
         });
@@ -148,7 +156,7 @@ final class ChannelSessionsController
         $this->authorize($operator, $projectId);
 
         try {
-            $state = $this->getStatus->get($this->command($projectId, $sessionRef));
+            $state = $this->getStatus->get($this->command($projectId, $sessionRef), $operator->scope);
         } catch (ChannelSessionNotFound|ProviderException $e) {
             return redirect()->to($this->indexUrl($projectId))->withErrors(['pairing' => $e->getMessage()]);
         }
@@ -217,6 +225,8 @@ final class ChannelSessionsController
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            // A global session (no project) is a platform event.
+            projectId: $projectId,
         ));
 
         return redirect()->to($this->indexUrl($projectId))
@@ -274,23 +284,32 @@ final class ChannelSessionsController
 
     private function authorize(OperatorContext $operator, ?string $projectId): void
     {
-        if (! $operator->hasPermission(self::PERMISSION)) {
-            abort(403, 'La permission '.self::PERMISSION.' est requise.');
+        if ($projectId === null) {
+            // ADR-0069 §2 — a global session (no project) belongs to the
+            // platform: only a platform role carrying the permission manages
+            // it, never an organization role.
+            if (! $operator->hasPermission(self::PERMISSION)) {
+                abort(403, 'Les sessions globales sont réservées à la plateforme.');
+            }
+
+            return;
         }
 
-        if ($projectId !== null) {
-            Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
-        }
+        // ADR-0069 §2 — a project session is scoped: the project must be
+        // one the account may see (404 otherwise), and its role in the
+        // project's organization must carry the permission (403).
+        $this->permittedScope($operator, self::PERMISSION);
+        $this->resolveScopedProject($this->getProject, $operator, $projectId, self::PERMISSION);
     }
 
-    private function projectName(?string $projectId): ?string
+    private function projectName(?string $projectId, AccessScope $scope): ?string
     {
         if ($projectId === null) {
             return null;
         }
 
         try {
-            return $this->getProject->get(new GetProjectCommand($projectId))->name;
+            return $this->getProject->get(new GetProjectCommand($projectId), $scope)->name;
         } catch (RuntimeException) {
             abort(404, 'Projet introuvable.');
         }

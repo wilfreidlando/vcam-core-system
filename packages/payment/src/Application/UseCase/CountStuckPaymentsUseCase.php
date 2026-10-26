@@ -6,6 +6,7 @@ namespace Core\Payment\Application\UseCase;
 
 use Core\Payment\Contracts\CountStuckPayments;
 use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
 
 final readonly class CountStuckPaymentsUseCase implements CountStuckPayments
@@ -17,10 +18,16 @@ final readonly class CountStuckPaymentsUseCase implements CountStuckPayments
         private int $maxAgeHours = 24,
     ) {}
 
-    public function count(): int
+    public function count(AccessScope $scope): int
     {
         $threshold = $this->clock->now()->modify(sprintf('-%d minutes', $this->stuckAfterMinutes));
 
-        return $this->payments->countStuckSince($threshold, $this->clock->now()->modify(sprintf('-%d hours', $this->maxAgeHours)));
+        // ADR-0069 §2 — the scope filters the count in the query: the
+        // stuck payments of another tenant are never counted.
+        return $this->payments->countStuckSince(
+            $threshold,
+            $this->clock->now()->modify(sprintf('-%d hours', $this->maxAgeHours)),
+            $scope->projectFilter(),
+        );
     }
 }

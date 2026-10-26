@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Concerns\ResolvesProjectNames;
+use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Contracts\GetProject;
@@ -33,6 +34,7 @@ use Throwable;
 final class MoneyExceptionsController
 {
     use ResolvesProjectNames;
+    use ResolvesScopedProject;
 
     private const STATUS_FILTERS = ['open', 'awaiting_approval', 'resolved'];
 
@@ -47,7 +49,7 @@ final class MoneyExceptionsController
 
     public function index(Request $request, OperatorContext $operator): Response
     {
-        $this->authorize($operator, 'money-exceptions:read');
+        $scope = $this->permittedScope($operator, 'money-exceptions:read');
 
         $status = $request->query('status');
         $status = is_string($status) && in_array($status, self::STATUS_FILTERS, true) ? $status : null;
@@ -59,7 +61,7 @@ final class MoneyExceptionsController
             status: $status,
             page: $page,
             perPage: 25,
-        ));
+        ), $scope);
 
         return response()->view('admin.money-exceptions.index', [
             'title' => "Exceptions d'argent",
@@ -71,15 +73,16 @@ final class MoneyExceptionsController
             'projectNames' => $this->resolveProjectNames(
                 $this->getProject,
                 array_map(static fn (MoneyExceptionView $e): string => $e->projectId, $result->items),
+                $scope,
             ),
         ]);
     }
 
     public function show(string $exception, OperatorContext $operator): Response
     {
-        $this->authorize($operator, 'money-exceptions:read');
+        $scope = $this->permittedScope($operator, 'money-exceptions:read');
 
-        $view = $this->exceptions->find($exception);
+        $view = $this->exceptions->find($exception, $scope);
         if ($view === null) {
             abort(404);
         }
@@ -87,15 +90,15 @@ final class MoneyExceptionsController
         return response()->view('admin.money-exceptions.show', [
             'title' => "Exception d'argent",
             'exception' => $view,
-            'projectName' => $this->resolveProjectNames($this->getProject, [$view->projectId])[$view->projectId] ?? null,
-            'canWrite' => $operator->hasPermission('money-exceptions:write'),
+            'projectName' => $this->resolveProjectNames($this->getProject, [$view->projectId], $scope)[$view->projectId] ?? null,
+            'canWrite' => $operator->scopeFor('money-exceptions:write')->allowsProject($view->projectId),
             'operatorId' => $operator->operatorId,
         ]);
     }
 
     public function resolve(string $exception, Request $request, OperatorContext $operator): RedirectResponse
     {
-        $this->authorize($operator, 'money-exceptions:write');
+        $scope = $this->permittedScope($operator, 'money-exceptions:write');
 
         /** @var array{resolution: string, reference?: string|null, note: string} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
@@ -106,14 +109,16 @@ final class MoneyExceptionsController
         ]);
 
         try {
-            $before = $this->exceptions->find($exception);
+            // ADR-0069 §2 — the write port checks the scope itself, on the
+            // locked row: an exception of another tenant is "not found".
+            $before = $this->exceptions->find($exception, $scope);
             $after = $this->resolver->resolve(new ResolveMoneyExceptionCommand(
                 exceptionId: $exception,
                 resolution: $data['resolution'],
                 operatorId: $operator->operatorId,
                 reference: $data['reference'] ?? null,
                 note: $data['note'],
-            ));
+            ), $scope);
         } catch (MoneyExceptionNotFound) {
             abort(404);
         } catch (MoneyExceptionTransitionRefused $e) {
@@ -139,13 +144,13 @@ final class MoneyExceptionsController
 
     private function decide(string $exception, OperatorContext $operator, bool $approve): RedirectResponse
     {
-        $this->authorize($operator, 'money-exceptions:write');
+        $scope = $this->permittedScope($operator, 'money-exceptions:write');
 
         try {
-            $before = $this->exceptions->find($exception);
+            $before = $this->exceptions->find($exception, $scope);
             $after = $approve
-                ? $this->resolver->approve($exception, $operator->operatorId)
-                : $this->resolver->reject($exception, $operator->operatorId);
+                ? $this->resolver->approve($exception, $operator->operatorId, $scope)
+                : $this->resolver->reject($exception, $operator->operatorId, $scope);
         } catch (MoneyExceptionNotFound) {
             abort(404);
         } catch (MoneyExceptionTransitionRefused $e) {
@@ -157,13 +162,6 @@ final class MoneyExceptionsController
         return redirect()->route('admin.money-exceptions.show', $exception)->with('status', $approve
             ? 'Résolution validée et écrite au grand livre.'
             : 'Résolution refusée : l\'exception est de nouveau ouverte.');
-    }
-
-    private function authorize(OperatorContext $operator, string $permission): void
-    {
-        if (! $operator->hasPermission($permission)) {
-            abort(403, sprintf('La permission %s est requise.', $permission));
-        }
     }
 
     /**
@@ -205,6 +203,7 @@ final class MoneyExceptionsController
             context: ['project_id' => $after->projectId, 'payment_id' => $after->paymentId],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            projectId: $after->projectId,
         ));
     }
 }

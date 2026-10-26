@@ -27,7 +27,13 @@ interface WalletRepository
      * substring of `partyId` OR `currency` — the only two identifying
      * fields a wallet carries (it has no name of its own).
      *
+     * @param list<string>|null $projectIds when given, only the wallets
+     *                                      of those projects are
+     *                                      returned (ADR-0069 §2). It is
+     *                                      applied in the query, so the
+     *                                      rows of another tenant are
+     *                                      never materialised.
      * @return array{items: list<Wallet>, total: int}
      */
-    public function findByProject(string $projectId, int $page, int $perPage, ?string $search = null): array;
+    public function findByProject(string $projectId, int $page, int $perPage, ?string $search = null, ?array $projectIds = null): array;
 }

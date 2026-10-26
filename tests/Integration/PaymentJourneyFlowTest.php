@@ -15,6 +15,7 @@ use Core\Payment\Contracts\GetPaymentTimeline;
 use Core\Payment\Contracts\PaymentTimelineEntryView;
 use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
+use Core\Support\Access\AccessScope;
 use Core\Webhook\Contracts\GetWebhookDeliveryDetails;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -97,7 +98,7 @@ final class PaymentJourneyFlowTest extends TestCase
         // ③ The relay publishes; the webhook is delivered (sync queue in tests).
         app(RelayOutboxEvents::class)->relay(100);
 
-        $timeline = app(GetPaymentTimeline::class)->forPayment($paymentId);
+        $timeline = app(GetPaymentTimeline::class)->forPayment($paymentId, AccessScope::platform());
         $types = array_map(static fn (PaymentTimelineEntryView $e): string => $e->type, $timeline);
 
         foreach ([
@@ -132,7 +133,7 @@ final class PaymentJourneyFlowTest extends TestCase
         $eventId = $byType['event_published']->details['event_id'] ?? null;
         self::assertIsString($eventId);
 
-        $deliveries = app(GetWebhookDeliveryDetails::class)->forEvents([$eventId]);
+        $deliveries = app(GetWebhookDeliveryDetails::class)->forEvents([$eventId], AccessScope::platform());
         self::assertCount(1, $deliveries);
         self::assertSame('delivered', $deliveries[0]->status);
         self::assertCount(1, $deliveries[0]->attempts);

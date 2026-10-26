@@ -13,6 +13,10 @@ use DateTimeImmutable;
  * Contracts DTO's public property with it would let a cross-module
  * consumer depend on that type through property access, invisibly to the
  * G3c guardrail.
+ *
+ * `role` is nullable: an account that holds **only** organization
+ * memberships has no platform role at all (ADR-0069 §2) — `null` says
+ * "not a platform operator", not "unknown".
  */
 final readonly class OperatorSummaryView
 {
@@ -20,7 +24,7 @@ final readonly class OperatorSummaryView
         public string $id,
         public string $email,
         public string $name,
-        public string $role,
+        public ?string $role,
         public bool $mfaEnabled,
         public bool $revoked,
         public DateTimeImmutable $createdAt,

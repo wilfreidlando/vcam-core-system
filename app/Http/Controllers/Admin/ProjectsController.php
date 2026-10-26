@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
 use Core\Identity\Contracts\CreateProject;
 use Core\Identity\Contracts\CreateProjectCommand;
 use Core\Identity\Contracts\GetProject;
@@ -33,6 +34,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class ProjectsController
 {
+    use ResolvesScopedProject;
+
     /**
      * The organization dropdown on the create form fetches one page of
      * `ListOrganizations` and renders every row as an <option> — fine at
@@ -47,6 +50,15 @@ final class ProjectsController
     /** Same HTTP-boundary choice as `OrganizationsController::STATUSES`. */
     private const STATUSES = ['active', 'suspended'];
 
+    /**
+     * Every status the model accepts (ADR-0069 §3). `archived` is here
+     * but not in `STATUSES`: archiving is **not** a free choice — it is
+     * reserved to the owner of the organization and to the platform
+     * administrator (`projects:archive`), so a request that carries it
+     * from anyone else is answered 403, not silently downgraded.
+     */
+    private const ALL_STATUSES = ['active', 'suspended', 'archived'];
+
     public function __construct(
         private readonly ListProjects $listProjects,
         private readonly GetProject $getProject,
@@ -57,9 +69,7 @@ final class ProjectsController
 
     public function index(Request $request, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('projects:read')) {
-            abort(403, 'La permission projects:read est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'projects:read');
 
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
@@ -75,7 +85,7 @@ final class ProjectsController
             page: $page,
             perPage: $perPage,
             search: $searchRaw === '' ? null : $searchRaw,
-        ));
+        ), $scope);
 
         // Same organization fetch the create-form dropdown already does
         // (capped at ORGANIZATION_OPTIONS_LIMIT) — reused here to resolve
@@ -85,7 +95,7 @@ final class ProjectsController
         // `ListOrganizations`, so this fetches the whole (small, capped)
         // set once rather than one call per row.
         $organizationNames = [];
-        foreach ($this->listOrganizations->list(new ListOrganizationsCommand(page: 1, perPage: self::ORGANIZATION_OPTIONS_LIMIT))->items as $organization) {
+        foreach ($this->listOrganizations->list(new ListOrganizationsCommand(page: 1, perPage: self::ORGANIZATION_OPTIONS_LIMIT), $scope)->items as $organization) {
             $organizationNames[$organization->id] = $organization->name;
         }
 
@@ -103,14 +113,12 @@ final class ProjectsController
 
     public function show(string $projectId, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('projects:read')) {
-            abort(403, 'La permission projects:read est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'projects:read');
 
         Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
 
         try {
-            $project = $this->getProject->get(new GetProjectCommand($projectId));
+            $project = $this->getProject->get(new GetProjectCommand($projectId), $scope);
         } catch (RuntimeException) {
             abort(404, 'Projet introuvable.');
         }
@@ -124,14 +132,14 @@ final class ProjectsController
 
     public function create(Request $request, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('projects:write')) {
-            abort(403, 'La permission projects:write est requise.');
-        }
+        // ADR-0069 §2 — only the organizations where the account may
+        // create a project are offered.
+        $scope = $this->permittedScope($operator, 'projects:write');
 
         $organizations = $this->listOrganizations->list(new ListOrganizationsCommand(
             page: 1,
             perPage: self::ORGANIZATION_OPTIONS_LIMIT,
-        ));
+        ), $scope);
 
         return response()->view('admin.projects.create', [
             'title' => 'Nouveau projet',
@@ -142,9 +150,7 @@ final class ProjectsController
 
     public function store(Request $request, OperatorContext $operator): RedirectResponse
     {
-        if (! $operator->hasPermission('projects:write')) {
-            abort(403, 'La permission projects:write est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'projects:write');
 
         /** @var array{name: string, organization_id: string} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
@@ -152,6 +158,16 @@ final class ProjectsController
             'name' => ['required', 'string', 'max:255'],
             'organization_id' => ['required', 'uuid'],
         ]);
+
+        // ADR-0069 §2 — the organization comes from the form: it must be one
+        // the account sees (404 otherwise — never confirm a foreign one
+        // exists), and one where its role may create a project (403).
+        if (! $operator->scope->allowsOrganization($data['organization_id'])) {
+            abort(404, 'Organisation introuvable.');
+        }
+        if (! $scope->allowsOrganization($data['organization_id'])) {
+            abort(403, 'La permission projects:write est requise dans cette organisation.');
+        }
 
         try {
             $provisioned = $this->createProject->create(
@@ -174,43 +190,45 @@ final class ProjectsController
 
     public function edit(string $projectId, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('projects:write')) {
-            abort(403, 'La permission projects:write est requise.');
-        }
-
-        Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
-
-        try {
-            $project = $this->getProject->get(new GetProjectCommand($projectId));
-        } catch (RuntimeException) {
-            abort(404, 'Projet introuvable.');
-        }
+        $this->permittedScope($operator, 'projects:write');
+        $project = $this->scopedProject($this->getProject, $operator, $projectId, 'projects:write');
 
         return response()->view('admin.projects.edit', [
             'title' => 'Modifier le projet',
             'project' => $project,
-            'statuses' => self::STATUSES,
+            'statuses' => $this->statusesFor($operator, $projectId),
         ]);
     }
 
     public function update(string $projectId, Request $request, OperatorContext $operator): RedirectResponse
     {
-        if (! $operator->hasPermission('projects:write')) {
-            abort(403, 'La permission projects:write est requise.');
-        }
+        $this->permittedScope($operator, 'projects:write');
 
-        Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
+        // ADR-0069 §2 — the project must be in the account's scope before
+        // it is written to (404), and the account's role in its
+        // organization must carry the permission (403).
+        $this->resolveScopedProject($this->getProject, $operator, $projectId, 'projects:write');
 
-        /** @var array{name: string, status: string} $data */
+        /** @var array{name: string, status: string, reason?: string|null} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'status' => ['required', 'string', 'in:'.implode(',', self::STATUSES)],
+            'status' => ['required', 'string', 'in:'.implode(',', self::ALL_STATUSES)],
+            // ADR-0069 §3 — a status change is audited with its reason.
+            'reason' => ['nullable', 'string', 'max:500'],
         ]);
+
+        // ADR-0069 §1 — archiving is final and reserved to the owner of the
+        // organization (`org_owner`, through its wildcard) or the platform
+        // administrator: an `org_admin` manages projects, it does not close
+        // them for good.
+        if ($data['status'] === 'archived' && ! $operator->scopeFor('projects:archive')->allowsProject($projectId)) {
+            abort(403, 'Seul le propriétaire de l\'organisation peut archiver un projet.');
+        }
 
         try {
             $this->updateProject->update(
-                new UpdateProjectCommand($projectId, $data['name'], $data['status']),
+                new UpdateProjectCommand($projectId, $data['name'], $data['status'], reason: $data['reason'] ?? null),
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
             );
@@ -220,5 +238,23 @@ final class ProjectsController
 
         return redirect()->route('admin.projects.show', ['projectId' => $projectId])
             ->with('status', 'Projet mis à jour : '.$data['name']);
+    }
+
+    /**
+     * The statuses this account may set on this project: the two
+     * reversible ones, plus `archived` when the account holds
+     * `projects:archive` on it — ADR-0069 §3 reserves the archive to the
+     * owner of the organization (`org_owner`, through its wildcard) and to
+     * the platform administrator.
+     *
+     * @return list<string>
+     */
+    private function statusesFor(OperatorContext $operator, string $projectId): array
+    {
+        if ($operator->scopeFor('projects:archive')->allowsProject($projectId)) {
+            return [...self::STATUSES, 'archived'];
+        }
+
+        return self::STATUSES;
     }
 }

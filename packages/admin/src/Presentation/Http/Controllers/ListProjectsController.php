@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Admin\Presentation\Http\Controllers;
 
+use Core\Admin\Presentation\Http\Controllers\Concerns\AuthorizesInScope;
 use Core\Identity\Contracts\ListProjects;
 use Core\Identity\Contracts\ListProjectsCommand;
 use Core\Identity\Contracts\OperatorContext;
@@ -15,6 +16,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class ListProjectsController
 {
+    use AuthorizesInScope;
+
     public function __construct(
         private readonly ListProjects $listProjects,
     ) {}
@@ -28,7 +31,8 @@ final class ListProjectsController
      */
     public function __invoke(Request $request, OperatorContext $operator): JsonResponse|Response
     {
-        if (! $operator->hasPermission('projects:read')) {
+        $scope = $this->permittedScope($operator, 'projects:read');
+        if ($scope === null) {
             return ProblemDetails::forbidden('The projects:read permission is required.');
         }
 
@@ -47,7 +51,7 @@ final class ListProjectsController
         $page = max(1, (int) $request->query('page', '1'));
         $perPage = min(100, max(1, (int) $request->query('per_page', '25')));
 
-        $result = $this->listProjects->list(new ListProjectsCommand($organizationId, $page, $perPage));
+        $result = $this->listProjects->list(new ListProjectsCommand($organizationId, $page, $perPage), $scope);
 
         return new JsonResponse([
             'data' => array_map(static fn ($project): array => [

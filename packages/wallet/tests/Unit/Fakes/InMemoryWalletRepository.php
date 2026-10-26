@@ -62,11 +62,12 @@ final class InMemoryWalletRepository implements WalletRepository
         return count($this->wallets);
     }
 
-    public function findByProject(string $projectId, int $page, int $perPage, ?string $search = null): array
+    public function findByProject(string $projectId, int $page, int $perPage, ?string $search = null, ?array $projectIds = null): array
     {
         $matching = array_values(array_filter(
             $this->wallets,
             static fn (Wallet $wallet): bool => $wallet->projectId === $projectId
+                && ($projectIds === null || in_array($wallet->projectId, $projectIds, true))
                 && ($search === null || $search === '' || stripos($wallet->partyId, $search) !== false || stripos($wallet->currency, $search) !== false),
         ));
 
