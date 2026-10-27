@@ -129,6 +129,37 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.notifications.index', Nature::Notification, Outcome::NotFound, control: true),
             Entry::isolated('admin.projects.notifications.show', Nature::Notification, Outcome::NotFound, ownParent: Outcome::NotFound, control: true),
 
+            // ── Commerce of a Project (ADR-0070 / ADR-0071 / ADR-0072) ──
+            // A **read** answers 404; a **mutation** answers the console's
+            // "introuvable" redirect — the operator keeps their place
+            // (the same idiom as the rotation of an API key). Neither
+            // ever answers 403, which would confirm that the resource
+            // exists somewhere (ADR-0081 S-04).
+            Entry::isolated('admin.projects.customers.index', Nature::Customer, Outcome::NotFound, control: true),
+            Entry::isolated('admin.projects.customers.new', Nature::Customer, Outcome::NotFound),
+            Entry::isolated('admin.projects.customers.store', Nature::Customer, Outcome::NotFound),
+            Entry::isolated('admin.projects.customers.edit', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFound),
+            Entry::isolated('admin.projects.customers.update.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.customers.suspend.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.customers.reactivate.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.customers.erase.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+
+            Entry::isolated('admin.projects.plans.index', Nature::Plan, Outcome::NotFound, control: true),
+            Entry::isolated('admin.projects.plans.new', Nature::Plan, Outcome::NotFound),
+            Entry::isolated('admin.projects.plans.store', Nature::Plan, Outcome::NotFound),
+            Entry::isolated('admin.projects.plans.versions.store', Nature::Plan, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.plans.versions.publish.web', Nature::Plan, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.plans.archive.web', Nature::Plan, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+
+            Entry::isolated('admin.projects.subscriptions.index', Nature::Subscription, Outcome::NotFound, control: true),
+            Entry::isolated('admin.projects.subscriptions.show', Nature::Subscription, Outcome::NotFound, ownParent: Outcome::NotFound),
+            Entry::isolated('admin.projects.subscriptions.pause.web', Nature::Subscription, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.subscriptions.resume.web', Nature::Subscription, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.subscriptions.cancel.web', Nature::Subscription, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.subscriptions.change-plan.web', Nature::Subscription, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.subscriptions.complimentary.web', Nature::Subscription, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.subscriptions.pay.web', Nature::Subscription, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+
             // ── Wallets, notifications, payments of a project (JSON) ───────
             Entry::isolated('admin.projects.wallets', Nature::Wallet, Outcome::NotFound, control: true),
             Entry::isolated('admin.projects.notifications', Nature::Notification, Outcome::NotFound, control: true),

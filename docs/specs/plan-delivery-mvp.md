@@ -424,12 +424,13 @@ direction).
 | **18 — Rapprochement prestataire** | capacités `listTransactions` et `balance` des adaptateurs, niveaux B et C, `reconciliation_runs`, écrans | 0078 | 9 | 10 j |
 | **19 — Versements sortants** | module `payout`, port et adaptateur avec environnement de test du prestataire, callback dédié, balayage, plafonds, double validation, destination chiffrée | 0079 | 9 | 15 j |
 
-**État au 2026-10-27** : les **lots 8 et 9 sont livrés** — code conforme à
+**État au 2026-10-27** : les **lots 8, 9 et 10 sont livrés** — code conforme à
 leurs ADR, `make ci` et `make guard-test` verts. La série d'ADR qui les
 réalise a été **ratifiée par le comité le 2026-10-27**, après vérification de
 la conformité du code livré (la décision a suivi le code, et non l'inverse —
-c'est tracé dans ADR-0068 §6 et dans ADR-0091). Le lot 10 démarre en
-parallèle ; le lot 9, qui ne dépend de rien, est terminé.
+c'est tracé dans ADR-0068 §6 et dans ADR-0091). Le lot 11 démarre en
+parallèle ; les lots 9 et 10, qui ne dépendent de rien d'autre, sont
+terminés.
 
 **État du lot 9** : il est **livré** (le 2026-10-27). L'écriture de tout
 paiement confirmé, la vérification du montant confirmé, la file
@@ -449,8 +450,24 @@ n'est plus ouvert par un mot de passe choisi par le système, mais par un
 jeton d'activation à usage unique — l'invitation est révocable, expirante,
 et le mot de passe est choisi par l'invité, à l'activation.
 
-**Total estimé** : 130 jours de travail (lots 8 à 19), dont **22 j déjà
-consommés** (lot 8 : 12 j, lot 9 : 10 j) — **reste 108 j** (lots 10 à 19).
+**État du lot 10** : il est **livré** (le 2026-10-27). Le module `billing`
+est en production : les **clients** d'un projet (identité minimale
+chiffrée, index aveugle, effacement qui détruit l'identité et garde la
+ligne — ADR-0070, ADR-0083), le **catalogue** de plans et de versions
+(une version publiée est figée par un trigger de base, ADR-0071), les
+**abonnements** et leurs périodes (machine d'états, exclusion des
+périodes qui se chevauchent, verrou optimiste — ADR-0072), l'ordonnanceur
+`billing:advance-subscriptions` sur `Clock`, les réglages par projet
+(`billing_settings`), l'**API publique** (16 routes `/v1`, un
+`FormRequest` par mutation, un corps documenté) et la **console** (les
+clients, les offres et les abonnements d'un projet ; chaque geste est
+audité — ADR-0092 §2 et §4). La **facture reste au lot 11** : la
+déclaration du paiement d'une période écrit le fait et **ne bouge pas
+d'argent** (ADR-0092 §2).
+
+**Total estimé** : 130 jours de travail (lots 8 à 19), dont **36 j déjà
+consommés** (lot 8 : 12 j, lot 9 : 10 j, lot 10 : 14 j) — **reste 94 j**
+(lots 11 à 19).
 
 ## P4. Chemin critique et parallélisation
 
@@ -465,10 +482,10 @@ Lot 15 (dès la fin du lot 8)       Lot 16 (dès la fin du lot 10)
 ```
 
 - **Chemin critique** : 8 → 10 → 11 → 13 → 17 = 12 + 14 + 12 + 13 + 8 =
-  **59 jours** de travail, puis 4 semaines de bascule. Le lot 8 étant livré,
-  il reste **47 jours** sur ce chemin.
-- **Seconde personne** : lot 15 dès le départ (le lot 9 est terminé), puis 12,
-  16, 14.
+  **59 jours** de travail, puis 4 semaines de bascule. Les lots 8 et 10
+  étant livrés, il reste **33 jours** sur ce chemin.
+- **Seconde personne** : lot 15 dès le départ (les lots 9 et 10 sont
+  terminés), puis 12, 16, 14.
 - Les lots 18 et 19 ne conditionnent pas la bascule.
 
 ## P5. Critères de sortie communs
@@ -495,10 +512,11 @@ Lot 15 (dès la fin du lot 8)       Lot 16 (dès la fin du lot 10)
 
 Hypothèses : deux développeurs seniors (A sur le chemin critique, B en
 parallèle), jours ouvrés, hors 25 décembre, 1ᵉʳ janvier et 11 février. Le
-comité a ratifié la série le 2026-10-27 et les **lots 8 et 9 sont
-livrés** : le plan démarre le **2026-10-28**, avec les durées inchangées. Le
-lot 9 ayant été terminé en avance, B enchaîne sans interruption sur le lot
-15 ; les dates du chemin critique (A) sont inchangées. Les dates glissent d'autant qu'un lot déborde ; chaque lot
+comité a ratifié la série le 2026-10-27 et les **lots 8, 9 et 10 sont
+livrés** : le plan démarre le **2026-10-28**, avec les durées inchangées. Les
+lots 9 et 10 ayant été terminés en avance, A enchaîne sans interruption sur
+le lot 11 et B sur le lot 15 — toute la chaîne du chemin critique avance de
+quatorze jours. Les dates glissent d'autant qu'un lot déborde ; chaque lot
 reste conditionné à l'acceptation de ses ADR.
 
 | Étape | Qui | Début | Fin |
@@ -506,22 +524,22 @@ reste conditionné à l'acceptation de ses ADR.
 | Ratification de la série ADR-0068 à ADR-0091 par le comité | direction + comité | 2026-10-26 | 2026-10-27 |
 | Lot 8 — Fondations de sécurité et d'identité | A | — | 2026-10-27 (**livré**) |
 | Lot 9 — Grand livre complet | B | — | 2026-10-27 (**livré**) |
-| Lot 10 — Commerce I (clients, catalogue, abonnements) | A | 2026-10-28 | 2026-11-16 |
-| Lot 15 — Exploitation | B | 2026-10-28 | 2026-11-10 |
-| Lot 11 — Commerce II (factures, encaissement) | A | 2026-11-17 | 2026-12-02 |
-| *Marge de B (revue de sécurité des lots 8–9, harnais de tests IDOR)* | B | 2026-11-11 | 2026-11-16 |
-| Lot 12 — Usage et quotas | B | 2026-11-17 | 2026-11-27 |
-| Lot 13 — Portail client | A | 2026-12-03 | 2026-12-21 |
+| Lot 10 — Commerce I (clients, catalogue, abonnements) | A | — | 2026-10-27 (**livré**) |
+| Lot 15 — Exploitation | B | 2026-10-28 | 2026-11-11 |
+| Lot 11 — Commerce II (factures, encaissement) | A | 2026-10-28 | 2026-11-13 |
+| *Marge de B (revue de sécurité des lots 8–10, harnais de tests IDOR)* | B | 2026-11-12 | 2026-11-17 |
+| Lot 12 — Usage et quotas | B | 2026-11-18 | 2026-12-01 |
+| Lot 13 — Portail client | A | 2026-11-16 | 2026-12-03 |
 | Lot 16 — Contrat et expérience développeur | B | 2026-11-30 | 2026-12-10 |
-| Lot 17 — Bascule (préparation, recette bout-en-bout) | A | 2026-12-22 | 2027-01-04 |
+| Lot 17 — Bascule (préparation, recette bout-en-bout) | A | 2026-12-04 | 2026-12-16 |
 | Lot 14 — Console de portefeuille | B | 2026-12-11 | 2026-12-24 |
-| Lot 19 — Versements sortants | A | 2027-01-05 | 2027-01-25 |
+| Lot 19 — Versements sortants | A | 2026-12-17 | 2027-01-11 |
 | Lot 18 — Rapprochement prestataire | B | 2027-01-08 | 2027-01-21 |
-| Bascule, coexistence 14 j, coupure, retrait | A + exploitation | 2027-01-05 | 2027-02-01 |
+| Bascule, coexistence 14 j, coupure, retrait | A + exploitation | 2026-12-17 | 2027-01-18 |
 
 **Jalons** : socle sécurisé le 27 octobre · commerce complet (abonnements +
-factures) le 2 décembre · portail client le 21 décembre · début de bascule le
-5 janvier · **extinction de la plateforme transitoire le 1ᵉʳ février 2027**.
+factures) le 13 novembre · portail client le 3 décembre · début de bascule le
+17 décembre · **extinction de la plateforme transitoire le 18 janvier 2027**.
 
 Revue d'avancement chaque vendredi ; un lot en retard de plus de 20 % sur son
 estimation déclenche une replanification écrite dans cet addendum.

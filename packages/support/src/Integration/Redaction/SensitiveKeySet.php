@@ -78,6 +78,19 @@ final class SensitiveKeySet
         'credential',
         'confirmation',
         'salt',
+        // ADR-0083 §1 / ADR-0081 S-17 — the **personal data**: a name,
+        // an address, a phone number. They are encrypted at rest
+        // (ADR-0083 §2), and they must never be written in clear in a
+        // log either. `phone` covers `phone_number` and `telephone`;
+        // `msisdn` is the mobile number the West African providers
+        // name it.
+        'email',
+        'phone',
+        'msisdn',
+        'display_name',
+        'full_name',
+        'first_name',
+        'last_name',
     ];
 
     /**

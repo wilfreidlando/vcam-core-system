@@ -1,11 +1,14 @@
 {
     "name": "core/billing",
-    "description": "Plans, subscriptions, entitlements, usage metering. Out of MVP scope.",
+    "description": "Commerce: the customers of a project, the versioned plan catalogue, and the subscription contracts with their periods (ADR-0070, ADR-0071, ADR-0072).",
     "type": "library",
     "license": "proprietary",
     "require": {
         "php": "^8.4",
-        "core/support": "*@dev"
+        "core/support": "*@dev",
+        "core/events": "*@dev",
+        "core/identity": "*@dev",
+        "core/ledger": "*@dev"
     },
     "autoload": {
         "psr-4": {

@@ -54,6 +54,17 @@ final readonly class AdminSidebarComposer
         $canLedgerAdjustments = $anywhere('money-exceptions:read');
         $canReconciliation = $anywhere('payments:reconcile:write');
 
+        // ADR-0092 §4 — the commerce of a project (its customers, its
+        // plan catalogue, its subscription contracts). The three
+        // resources are project-scoped, so the entry sends the operator
+        // to the project list first — exactly like "Wallets" — and the
+        // project page carries the three links. Hence the `projects:read`
+        // it holds together with the billing permission: an account
+        // without it would land on a page it cannot open.
+        $canBilling = self::holdsTogether($operator, 'projects:read', 'customers:read')
+            || self::holdsTogether($operator, 'projects:read', 'plans:read')
+            || self::holdsTogether($operator, 'projects:read', 'subscriptions:read');
+
         $view->with([
             'operator' => $operator,
             'canDashboard' => $anywhere('audit:read'),
@@ -66,6 +77,10 @@ final readonly class AdminSidebarComposer
             'canMoneyExceptions' => $canMoneyExceptions,
             'canLedgerAdjustments' => $canLedgerAdjustments,
             'canWebhooks' => $canWebhooks,
+            'canBilling' => $canBilling,
+            'canBillingCustomers' => $anywhere('customers:read'),
+            'canBillingPlans' => $anywhere('plans:read'),
+            'canBillingSubscriptions' => $anywhere('subscriptions:read'),
             // ADR-0067 — Horizon can retry and delete jobs: platform only.
             'canQueues' => $operator->hasPermission('queues:manage'),
             // The sidebar entry opens the global sessions, reserved to the

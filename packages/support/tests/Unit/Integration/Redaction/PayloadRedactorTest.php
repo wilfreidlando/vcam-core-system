@@ -140,4 +140,31 @@ final class PayloadRedactorTest extends TestCase
         self::assertSame(42, $redactor->redact(42));
         self::assertNull($redactor->redact(null));
     }
+
+    #[Test]
+    public function personal_data_is_redacted(): void
+    {
+        // ADR-0093 §6 / ADR-0081 S-17 — a name, an address and a phone
+        // number are personal data: they are encrypted at rest, and they
+        // must never be written in clear in a log.
+        $redactor = new PayloadRedactor(new SensitiveKeySet);
+
+        /** @var array<string, mixed> $redacted */
+        $redacted = $redactor->redact([
+            'display_name' => 'Marie Ngo Bell',
+            'email' => 'marie@example.cm',
+            'phone' => '+237699887766',
+            'variables' => ['phone_number' => '+237699887766'],
+            'plan_code' => 'mensuel',
+        ]);
+
+        self::assertSame('***REDACTED***', $redacted['display_name']);
+        self::assertSame('***REDACTED***', $redacted['email']);
+        self::assertSame('***REDACTED***', $redacted['phone']);
+        self::assertSame('mensuel', $redacted['plan_code']);
+
+        /** @var array<string, mixed> $variables */
+        $variables = $redacted['variables'];
+        self::assertSame('***REDACTED***', $variables['phone_number']);
+    }
 }

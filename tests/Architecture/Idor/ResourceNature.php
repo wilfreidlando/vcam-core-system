@@ -50,6 +50,15 @@ enum ResourceNature: string
     /** An operating correction of the ledger (ADR-0076 §6), owned by a Project. */
     case LedgerAdjustment = 'ledger-adjustment';
 
+    /** A customer of a Project (ADR-0070), declared by the Project itself. */
+    case Customer = 'customer';
+
+    /** A plan of a Project (ADR-0071) — its terms live in its versions. */
+    case Plan = 'plan';
+
+    /** A subscription contract of a Project (ADR-0072). */
+    case Subscription = 'subscription';
+
     /** A console account — owned by the platform, by no organization. */
     case Operator = 'operator';
 

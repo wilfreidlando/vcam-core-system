@@ -122,6 +122,16 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // ADR-0062 / D5: notification content (phone numbers…) kept 90 days.
         $schedule->command('notification:redact-expired')->dailyAt('03:27')->withoutOverlapping();
+
+        // ADR-0072 §8: the renewal scheduler — the next period is
+        // prepared before its deadline, the periods roll over at it. One
+        // server runs the pass, and a pass still running is not started
+        // again. The pass is idempotent: replayed, it creates neither a
+        // duplicate period nor a duplicate event.
+        $schedule->command('billing:advance-subscriptions')
+            ->everyFiveMinutes()
+            ->onOneServer()
+            ->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // One error format across the whole Core's JSON surface: RFC 7807

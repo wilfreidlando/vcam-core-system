@@ -43,6 +43,11 @@ enum OrganizationRole: string
                 'audit:read',
             ],
             self::Finance => [
+                // ADR-0092 §4 — the console's commerce plane (customers,
+                // plans, subscriptions) is reached from the project page:
+                // the role that manages a project's contracts must be able
+                // to open that project.
+                'projects:read',
                 'customers:read', 'customers:write',
                 'subscriptions:read', 'subscriptions:write',
                 'invoices:read', 'invoices:write',
@@ -51,6 +56,10 @@ enum OrganizationRole: string
                 'audit:read',
             ],
             self::Support => [
+                // ADR-0092 §4 — same reason as `org_finance`: the support
+                // role is the one that suspends a customer's subscription
+                // (spec §8.1), and the subscription lives on a project.
+                'projects:read',
                 'customers:read',
                 'subscriptions:read', 'subscriptions:write',
                 'invoices:read',

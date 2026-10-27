@@ -4,6 +4,22 @@ declare(strict_types=1);
 
 namespace App\Http;
 
+use Core\Billing\Domain\Exception\CustomerEmailAlreadyTaken;
+use Core\Billing\Domain\Exception\CustomerNotFound;
+use Core\Billing\Domain\Exception\CustomerVersionConflict;
+use Core\Billing\Domain\Exception\InvalidBillingInterval;
+use Core\Billing\Domain\Exception\InvalidBillingSettings;
+use Core\Billing\Domain\Exception\InvalidCustomerTransition;
+use Core\Billing\Domain\Exception\InvalidPlan;
+use Core\Billing\Domain\Exception\InvalidPlanFeature;
+use Core\Billing\Domain\Exception\InvalidSubscriptionStart;
+use Core\Billing\Domain\Exception\InvalidSubscriptionTransition;
+use Core\Billing\Domain\Exception\PlanCodeAlreadyTaken;
+use Core\Billing\Domain\Exception\PlanNotFound;
+use Core\Billing\Domain\Exception\PlanVersionNotEditable;
+use Core\Billing\Domain\Exception\PlanVersionNotFound;
+use Core\Billing\Domain\Exception\SubscriptionNotFound;
+use Core\Billing\Domain\Exception\UnsupportedCurrency as BillingUnsupportedCurrency;
 use Core\Identity\Contracts\AlreadyOrganizationMember;
 use Core\Identity\Contracts\InvalidOrganizationRole;
 use Core\Identity\Contracts\InvitationAccountPasswordInvalid;
@@ -138,6 +154,41 @@ final class ExceptionProblemMapping
         InvalidOrganizationRole::class => ['type' => 'invalid-organization-role', 'title' => 'Invalid organization role', 'status' => 422],
         InvitationPasswordTooWeak::class => ['type' => 'invitation-password-too-weak', 'title' => 'The chosen password is too weak', 'status' => 422],
         InvitationAccountPasswordInvalid::class => ['type' => 'invitation-account-password-invalid', 'title' => 'The password of the existing account is required', 'status' => 422],
+        // ADR-0070 / ADR-0071 / ADR-0072 — the `billing` module's
+        // refusals (Lot 10 — Commerce I). Without them a refused write
+        // fell through to a generic 500 and stayed invisible in
+        // `/docs/api`; with them the runtime handler and the OpenAPI
+        // extension answer the same problem+json the API really returns.
+        CustomerNotFound::class => ['type' => 'customer-not-found', 'title' => 'Customer not found', 'status' => 404],
+        PlanNotFound::class => ['type' => 'plan-not-found', 'title' => 'Plan not found', 'status' => 404],
+        SubscriptionNotFound::class => ['type' => 'subscription-not-found', 'title' => 'Subscription not found', 'status' => 404],
+        CustomerEmailAlreadyTaken::class => ['type' => 'customer-email-already-taken', 'title' => 'This email address is already taken', 'status' => 409],
+        PlanCodeAlreadyTaken::class => ['type' => 'plan-code-already-taken', 'title' => 'This plan code is already taken', 'status' => 409],
+        // ADR-0070 §1 / ADR-0072 §2 — a life cycle the state machine
+        // does not allow. Same type on both sides: the caller asked for
+        // a transition, and the answer is the same one.
+        InvalidCustomerTransition::class => ['type' => 'invalid-state-transition', 'title' => 'The state transition is not allowed', 'status' => 409],
+        InvalidSubscriptionTransition::class => ['type' => 'invalid-state-transition', 'title' => 'The state transition is not allowed', 'status' => 409],
+        PlanVersionNotEditable::class => ['type' => 'plan-version-not-editable', 'title' => 'The plan version is not editable', 'status' => 409],
+        PlanVersionNotFound::class => ['type' => 'plan-version-not-found', 'title' => 'Plan version not found', 'status' => 404],
+        // ADR-0070 §2 — the optimistic lock of a customer: the caller
+        // sent the version it last read and the stored one moved on.
+        CustomerVersionConflict::class => ['type' => 'version-conflict', 'title' => 'The version has changed', 'status' => 412],
+        InvalidPlan::class => ['type' => 'invalid-plan', 'title' => 'The plan is invalid', 'status' => 422],
+        InvalidPlanFeature::class => ['type' => 'invalid-plan-feature', 'title' => 'The plan feature is invalid', 'status' => 422],
+        InvalidBillingInterval::class => ['type' => 'invalid-billing-interval', 'title' => 'The billing interval is invalid', 'status' => 422],
+        // ADR-0071 §4 — the periods are computed in the timezone of the
+        // project: a contract whose periods cannot be computed is worse
+        // than a settings row that is refused outright.
+        InvalidBillingSettings::class => ['type' => 'invalid-billing-settings', 'title' => 'The billing settings are invalid', 'status' => 422],
+        // ADR-0072 §1 — the anchor of a contract is declared as an
+        // ISO-8601 timestamp; a value that is not one is refused here
+        // rather than at the first renewal.
+        InvalidSubscriptionStart::class => ['type' => 'invalid-subscription-start', 'title' => 'The start instant is invalid', 'status' => 422],
+        // ADR-0071 §5 — one currency per version, and the Core knows
+        // only the currencies the ledger supports. Same type as the
+        // payment module's own refusal of the same kind.
+        BillingUnsupportedCurrency::class => ['type' => 'unsupported-currency', 'title' => 'Unsupported currency', 'status' => 422],
     ];
 
     public static function toResponse(Throwable $e): ?JsonResponse

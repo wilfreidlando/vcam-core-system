@@ -1,14 +1,14 @@
 # Carte des capacités — la plateforme de projets SaaS, état par capacité
 
-- **Date** : 2026-10-27 · **Version** : 2.2 · **Statut** : référence produit
+- **Date** : 2026-10-27 · **Version** : 2.3 · **Statut** : référence produit
   (ne construit rien)
-- **Réf.** : ADR-0068 à ADR-0091 · plan de delivery, addendum du 2026-10-24
+- **Réf.** : ADR-0068 à ADR-0092 · plan de delivery, addendum du 2026-10-24
 
 Légende : **●** livré · **◐** décidé (ADR accepté), lot à construire · **○** point
 d'extension prévu (ADR-0090), non planifié · **✗** refusé (liste négative).
 
 La série ADR-0068 à ADR-0090 a été **ratifiée le 2026-10-27** ; ADR-0091 consigne
-les décisions que le code avait introduites sans ADR. Les lots 8 et 9 sont
+les décisions que le code avait introduites sans ADR. Les lots 8, 9 et 10 sont
 **livrés** : leurs lignes sont passées de **◐** à **●**.
 
 ## 1. Services de plateforme
@@ -41,10 +41,13 @@ les décisions que le code avait introduites sans ADR. Les lots 8 et 9 sont
 
 | Capacité | État | Où |
 |---|---|---|
-| Clients d'un projet (identité minimale chiffrée) | ◐ lot 10 | ADR-0070 |
-| Plans et versions immuables, fonctionnalités nommées par le projet | ◐ lot 10 | ADR-0071 |
-| Abonnements : essai, périodes, renouvellement, impayé, grâce, pause, annulation | ◐ lot 10 | ADR-0072 |
-| Changement de plan à l'échéance ou immédiat (sans prorata) | ◐ lot 10 | ADR-0072 §5 |
+| Clients d'un projet (identité minimale chiffrée) | ● (lot 10) | ADR-0070 |
+| Plans et versions immuables, fonctionnalités nommées par le projet | ● (lot 10) | ADR-0071 |
+| Abonnements : essai, périodes, renouvellement, impayé, grâce, pause, annulation | ● (lot 10) | ADR-0072 |
+| Changement de plan à l'échéance ou immédiat (sans prorata) | ● (lot 10) | ADR-0072 §5 |
+| Console de facturation : clients, offres, abonnements d'un projet | ● (lot 10) | ADR-0092 §4 |
+| Renouvellement des périodes par ordonnanceur (`billing:advance-subscriptions`) | ● (lot 10) | ADR-0072 §4 |
+| Déclaration du paiement d'une période (constat, **aucun mouvement d'argent**) | ● (lot 10) | ADR-0092 §2 |
 | Prorata | ○ | ADR-0090 |
 | Remises, codes promo | ○ (en v1 : plan privé remisé) | ADR-0071 §6 |
 | Factures, numérotation, documents | ◐ lot 11 | ADR-0073 |
@@ -85,6 +88,6 @@ les décisions que le code avait introduites sans ADR. Les lots 8 et 9 sont
 | Liste de contrôle d'onboarding d'un projet | ◐ lot 14 | ADR-0080 §4 |
 | Modèle de menace, exigences S-01 à S-20 | ● (modèle écrit, lot 8) ; les contrôles sont vérifiés à chaque lot | ADR-0081 |
 | Garde-fous G13, G14, G15, G16 | ● — les quatre sont actifs et vérifiés par `make guard-test` | ADR-0081, ADR-0069 |
-| Chiffrement des données personnelles, effacement, conservation | ● (chiffrement et index aveugle, lot 8) ; ◐ lot 10 (effacement, conservation) | ADR-0083 |
+| Chiffrement des données personnelles, effacement, conservation | ● (chiffrement et index aveugle, lot 8) ; ● (lot 10) (effacement, conservation) | ADR-0083 |
 | Cloisonnement des données internes des applications | ✗ | ADR-0084 |
 | Fournisseur d'identité des utilisateurs finaux | ✗ (condition de réexamen écrite) | ADR-0084 |

@@ -195,6 +195,21 @@
                         @endif
                     @endif
 
+                    {{-- Facturation --}}
+                    @if($canBilling)
+                        <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Facturation</p>
+
+                        {{-- Un client, une offre et un abonnement
+                             appartiennent à un projet : ce lien envoie
+                             d'abord choisir un projet (comme
+                             "Wallets"), puis la fiche projet porte les
+                             trois entrées. --}}
+                        <a href="{{ route('admin.projects.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 text-slate-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                            <span class="truncate">Facturation</span>
+                        </a>
+                    @endif
+
                     {{-- Plateforme --}}
                     @if($canWebhooks || $canAudit || $canSessions || $canQueues)
                         <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Plateforme</p>

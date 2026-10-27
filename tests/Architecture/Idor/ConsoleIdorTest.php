@@ -327,6 +327,20 @@ final class ConsoleIdorTest extends TestCase
             'admin.projects.channel-sessions.pairing-code', 'admin.channel-sessions.pairing-code' => ['phone_number' => '+237600000000'],
             'admin.money-exceptions.resolve' => ['resolution' => 'no_action', 'note' => 'Note de test IDOR'],
             'admin.operators.update', 'admin.operators.update.web' => ['email' => 'idor-target@example.com', 'name' => 'Cible', 'role' => 'platform_admin'],
+            // The commerce plane (ADR-0070 / ADR-0071 / ADR-0072). The
+            // body matters: without it the request would be refused by
+            // the **validation** and the case would prove nothing about
+            // the isolation — the gesture has to reach the use case.
+            'admin.projects.customers.update.web' => ['external_ref' => 'idor-client', 'display_name' => 'Renommé par IDOR'],
+            'admin.projects.customers.erase.web' => ['reason' => 'Effacement IDOR'],
+            'admin.projects.plans.versions.store' => [
+                'price_minor' => 5000, 'currency' => 'XAF', 'interval_unit' => 'month', 'interval_count' => 1,
+            ],
+            'admin.projects.subscriptions.pause.web' => ['reason' => 'Pause IDOR'],
+            'admin.projects.subscriptions.cancel.web' => ['at_period_end' => true, 'reason' => 'Annulation IDOR'],
+            'admin.projects.subscriptions.change-plan.web' => ['plan_code' => 'idor-plan', 'effective' => 'period_end'],
+            'admin.projects.subscriptions.complimentary.web' => ['days' => 30, 'reason' => 'Offre IDOR'],
+            'admin.projects.subscriptions.pay.web' => ['seq' => 1, 'reference' => 'virement-idor'],
             default => [],
         };
     }

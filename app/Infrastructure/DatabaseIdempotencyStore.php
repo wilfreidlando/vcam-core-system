@@ -88,4 +88,15 @@ final class DatabaseIdempotencyStore implements IdempotencyStore
                 'response_body' => json_encode($responseBody, JSON_THROW_ON_ERROR),
             ]);
     }
+
+    public function release(string $projectId, string $key): void
+    {
+        // The request failed: it produced no effect, so the key goes
+        // back to the caller. A key that stayed locked would make every
+        // retry of a failed request answer 409 for ever.
+        DB::table('idempotency_keys')
+            ->where('project_id', $projectId)
+            ->where('key', $key)
+            ->delete();
+    }
 }

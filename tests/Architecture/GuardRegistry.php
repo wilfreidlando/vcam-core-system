@@ -78,6 +78,12 @@ final class GuardRegistry
             'enforced_by' => 'tests/Schema/PartiesPiiTest.php',
             'status' => self::ACTIVE,
         ],
+        'G4b' => [
+            'rule' => 'The customers table holds no column outside its white-list, and its personal values are encrypted at rest',
+            'tool' => 'Pest + PostgreSQL',
+            'enforced_by' => 'tests/Schema/CustomersColumnsTest.php',
+            'status' => self::ACTIVE,
+        ],
         'G5' => [
             'rule' => 'Money is stored as bigint minor units, never float or decimal',
             'tool' => 'Pest + PostgreSQL',

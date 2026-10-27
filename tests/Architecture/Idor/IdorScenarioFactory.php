@@ -4,6 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Architecture\Idor;
 
+use Core\Billing\Contracts\CreatePlan;
+use Core\Billing\Contracts\CreatePlanCommand;
+use Core\Billing\Contracts\CreatePlanVersion;
+use Core\Billing\Contracts\CreatePlanVersionCommand;
+use Core\Billing\Contracts\CreateSubscription;
+use Core\Billing\Contracts\CreateSubscriptionCommand;
+use Core\Billing\Contracts\PublishPlanVersion;
+use Core\Billing\Contracts\PublishPlanVersionCommand;
+use Core\Billing\Contracts\UpsertCustomer;
+use Core\Billing\Contracts\UpsertCustomerCommand;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Contracts\CreateProject;
@@ -267,6 +277,127 @@ final class IdorScenarioFactory
                 ), AccessScope::forProject($owner->project->id));
 
                 return new ResourceRequest(['adjustment' => $adjustment->id], markers: [$adjustment->id, $reason]);
+
+            case ResourceNature::Customer:
+                $externalRef = 'idor-customer-'.Str::lower(Str::random(8));
+                app(UpsertCustomer::class)->upsert(new UpsertCustomerCommand(
+                    projectId: $owner->project->id,
+                    externalRef: $externalRef,
+                    displayName: 'Client '.$owner->secret,
+                    email: null,
+                    phone: null,
+                    locale: 'fr',
+                    metadata: [],
+                    expectedVersion: null,
+                    actor: 'test:idor',
+                    correlationId: null,
+                ));
+
+                return new ResourceRequest(['projectId' => $projectId, 'externalRef' => $externalRef], markers: [$externalRef]);
+
+            case ResourceNature::Plan:
+                $code = 'idor-plan-'.Str::lower(Str::random(8));
+                app(CreatePlan::class)->create(new CreatePlanCommand(
+                    projectId: $owner->project->id,
+                    code: $code,
+                    name: 'Plan '.$owner->secret,
+                    description: null,
+                    visibility: 'private',
+                    sortOrder: 0,
+                    actor: 'test:idor',
+                    correlationId: null,
+                ));
+
+                // A plan carries its terms in a **version** — the route
+                // that publishes one addresses it by its number, so the
+                // scenario has to hold a draft to publish.
+                $version = app(CreatePlanVersion::class)->createVersion(new CreatePlanVersionCommand(
+                    projectId: $owner->project->id,
+                    planCode: $code,
+                    priceMinor: 5_000,
+                    currency: 'XAF',
+                    intervalUnit: 'month',
+                    intervalCount: 1,
+                    trialDays: 0,
+                    graceDays: 7,
+                    graceAccess: true,
+                    features: [],
+                    actor: 'test:idor',
+                    correlationId: null,
+                ));
+
+                return new ResourceRequest(
+                    ['projectId' => $projectId, 'code' => $code, 'version' => (string) $version->version],
+                    markers: [$code],
+                );
+
+            case ResourceNature::Subscription:
+                // A contract needs a customer and a plan whose version is
+                // published — the two halves of the subscription.
+                $externalRef = 'idor-customer-'.Str::lower(Str::random(8));
+                app(UpsertCustomer::class)->upsert(new UpsertCustomerCommand(
+                    projectId: $owner->project->id,
+                    externalRef: $externalRef,
+                    displayName: 'Client '.$owner->secret,
+                    email: null,
+                    phone: null,
+                    locale: 'fr',
+                    metadata: [],
+                    expectedVersion: null,
+                    actor: 'test:idor',
+                    correlationId: null,
+                ));
+
+                $code = 'idor-plan-'.Str::lower(Str::random(8));
+                app(CreatePlan::class)->create(new CreatePlanCommand(
+                    projectId: $owner->project->id,
+                    code: $code,
+                    name: 'Plan '.$owner->secret,
+                    description: null,
+                    visibility: 'private',
+                    sortOrder: 0,
+                    actor: 'test:idor',
+                    correlationId: null,
+                ));
+
+                $version = app(CreatePlanVersion::class)->createVersion(new CreatePlanVersionCommand(
+                    projectId: $owner->project->id,
+                    planCode: $code,
+                    priceMinor: 5_000,
+                    currency: 'XAF',
+                    intervalUnit: 'month',
+                    intervalCount: 1,
+                    trialDays: 0,
+                    graceDays: 7,
+                    graceAccess: true,
+                    features: [],
+                    actor: 'test:idor',
+                    correlationId: null,
+                ));
+
+                app(PublishPlanVersion::class)->publish(new PublishPlanVersionCommand(
+                    projectId: $owner->project->id,
+                    planCode: $code,
+                    version: $version->version,
+                    actor: 'test:idor',
+                    correlationId: null,
+                ));
+
+                $subscription = app(CreateSubscription::class)->create(new CreateSubscriptionCommand(
+                    projectId: $owner->project->id,
+                    customerRef: $externalRef,
+                    planCode: $code,
+                    trialDays: 7,
+                    startAt: null,
+                    idempotencyKey: 'idor-'.Str::uuid(),
+                    actor: 'test:idor',
+                    correlationId: null,
+                ));
+
+                return new ResourceRequest(
+                    ['projectId' => $projectId, 'subscriptionId' => $subscription->id],
+                    markers: [$subscription->id, $externalRef, $code],
+                );
 
             case ResourceNature::Operator:
                 $email = 'idor-platform-'.Str::lower(Str::random(10)).'@example.com';

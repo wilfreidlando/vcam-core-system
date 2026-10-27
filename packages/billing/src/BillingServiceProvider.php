@@ -4,24 +4,132 @@ declare(strict_types=1);
 
 namespace Core\Billing;
 
+use Core\Billing\Application\Port\CustomerDirectory;
+use Core\Billing\Application\Port\PlanDirectory;
+use Core\Billing\Application\Port\PlanVersionDirectory;
+use Core\Billing\Application\Port\SubscriptionDirectory;
+use Core\Billing\Application\UseCase\ArchivePlanUseCase;
+use Core\Billing\Application\UseCase\CancelSubscriptionUseCase;
+use Core\Billing\Application\UseCase\ChangeSubscriptionPlanUseCase;
+use Core\Billing\Application\UseCase\ConfirmSubscriptionPeriodPaymentUseCase;
+use Core\Billing\Application\UseCase\CreatePlanUseCase;
+use Core\Billing\Application\UseCase\CreatePlanVersionUseCase;
+use Core\Billing\Application\UseCase\CreateSubscriptionUseCase;
+use Core\Billing\Application\UseCase\EraseCustomerUseCase;
+use Core\Billing\Application\UseCase\GetCustomerUseCase;
+use Core\Billing\Application\UseCase\GetSubscriptionUseCase;
+use Core\Billing\Application\UseCase\GrantComplimentaryPeriodUseCase;
+use Core\Billing\Application\UseCase\ListCustomersUseCase;
+use Core\Billing\Application\UseCase\ListPlansUseCase;
+use Core\Billing\Application\UseCase\ListSubscriptionPeriodsUseCase;
+use Core\Billing\Application\UseCase\ListSubscriptionsUseCase;
+use Core\Billing\Application\UseCase\PauseSubscriptionUseCase;
+use Core\Billing\Application\UseCase\PublishPlanVersionUseCase;
+use Core\Billing\Application\UseCase\ReactivateCustomerUseCase;
+use Core\Billing\Application\UseCase\ResumeSubscriptionUseCase;
+use Core\Billing\Application\UseCase\SuspendCustomerUseCase;
+use Core\Billing\Application\UseCase\UpsertCustomerUseCase;
+use Core\Billing\Contracts\ArchivePlan;
+use Core\Billing\Contracts\CancelSubscription;
+use Core\Billing\Contracts\ChangeSubscriptionPlan;
+use Core\Billing\Contracts\ConfirmSubscriptionPeriodPayment;
+use Core\Billing\Contracts\CreatePlan;
+use Core\Billing\Contracts\CreatePlanVersion;
+use Core\Billing\Contracts\CreateSubscription;
+use Core\Billing\Contracts\EraseCustomer;
+use Core\Billing\Contracts\GetCustomer;
+use Core\Billing\Contracts\GetSubscription;
+use Core\Billing\Contracts\GrantComplimentaryPeriod;
+use Core\Billing\Contracts\ListCustomers;
+use Core\Billing\Contracts\ListPlans;
+use Core\Billing\Contracts\ListSubscriptionPeriods;
+use Core\Billing\Contracts\ListSubscriptions;
+use Core\Billing\Contracts\PauseSubscription;
+use Core\Billing\Contracts\PublishPlanVersion;
+use Core\Billing\Contracts\ReactivateCustomer;
+use Core\Billing\Contracts\ResumeSubscription;
+use Core\Billing\Contracts\SuspendCustomer;
+use Core\Billing\Contracts\UpsertCustomer;
+use Core\Billing\Domain\Port\BillingSettingsRepository;
+use Core\Billing\Domain\Port\CustomerRepository;
+use Core\Billing\Domain\Port\PlanRepository;
+use Core\Billing\Domain\Port\PlanVersionRepository;
+use Core\Billing\Domain\Port\SubscriptionPeriodRepository;
+use Core\Billing\Domain\Port\SubscriptionRepository;
+use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentBillingSettingsRepository;
+use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentCustomerRepository;
+use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentPlanRepository;
+use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentPlanVersionRepository;
+use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentSubscriptionPeriodRepository;
+use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentSubscriptionRepository;
+use Core\Billing\Presentation\Console\Commands\AdvanceSubscriptionsCommand;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Composition root of the `billing` bounded context: binds Domain ports to their
- * Infrastructure adapters and registers this module's migrations, routes and commands.
+ * Composition root of the `billing` bounded context: binds Domain ports to
+ * their Infrastructure adapters, binds the published Contracts to their use
+ * cases, and registers this module's migrations, routes and commands.
  *
- * Responsibility: Plans, subscriptions, entitlements, usage metering. Out of MVP scope.
- * Delivery lot: Post-MVP
+ * Responsibility: the customers of a project (ADR-0070), the versioned plan
+ * catalogue (ADR-0071) and the subscription contracts with their periods
+ * (ADR-0072).
+ *
+ * Delivery lot: Lot 10 — Commerce I.
  */
 final class BillingServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // Bind Domain ports (interfaces) to Infrastructure adapters here.
+        // Domain ports → Infrastructure adapters.
+        $this->app->bind(CustomerRepository::class, EloquentCustomerRepository::class);
+        $this->app->bind(PlanRepository::class, EloquentPlanRepository::class);
+        $this->app->bind(PlanVersionRepository::class, EloquentPlanVersionRepository::class);
+        $this->app->bind(SubscriptionRepository::class, EloquentSubscriptionRepository::class);
+        $this->app->bind(SubscriptionPeriodRepository::class, EloquentSubscriptionPeriodRepository::class);
+        $this->app->bind(BillingSettingsRepository::class, EloquentBillingSettingsRepository::class);
+
+        // The Application ports — the listing half of the repositories
+        // (ADR-0088's cursor) — are served by the same adapters: the
+        // listing is a persistence concern, the view is not.
+        $this->app->bind(CustomerDirectory::class, EloquentCustomerRepository::class);
+        $this->app->bind(PlanDirectory::class, EloquentPlanRepository::class);
+        $this->app->bind(PlanVersionDirectory::class, EloquentPlanVersionRepository::class);
+        $this->app->bind(SubscriptionDirectory::class, EloquentSubscriptionRepository::class);
+
+        // Published contracts → use cases.
+        $this->app->bind(UpsertCustomer::class, UpsertCustomerUseCase::class);
+        $this->app->bind(GetCustomer::class, GetCustomerUseCase::class);
+        $this->app->bind(ListCustomers::class, ListCustomersUseCase::class);
+        $this->app->bind(SuspendCustomer::class, SuspendCustomerUseCase::class);
+        $this->app->bind(ReactivateCustomer::class, ReactivateCustomerUseCase::class);
+        $this->app->bind(EraseCustomer::class, EraseCustomerUseCase::class);
+        $this->app->bind(CreatePlan::class, CreatePlanUseCase::class);
+        $this->app->bind(ListPlans::class, ListPlansUseCase::class);
+        $this->app->bind(CreatePlanVersion::class, CreatePlanVersionUseCase::class);
+        $this->app->bind(PublishPlanVersion::class, PublishPlanVersionUseCase::class);
+        $this->app->bind(ArchivePlan::class, ArchivePlanUseCase::class);
+        $this->app->bind(CreateSubscription::class, CreateSubscriptionUseCase::class);
+        $this->app->bind(GetSubscription::class, GetSubscriptionUseCase::class);
+        $this->app->bind(ListSubscriptions::class, ListSubscriptionsUseCase::class);
+        $this->app->bind(ListSubscriptionPeriods::class, ListSubscriptionPeriodsUseCase::class);
+        $this->app->bind(CancelSubscription::class, CancelSubscriptionUseCase::class);
+        $this->app->bind(ChangeSubscriptionPlan::class, ChangeSubscriptionPlanUseCase::class);
+        $this->app->bind(PauseSubscription::class, PauseSubscriptionUseCase::class);
+        $this->app->bind(ResumeSubscription::class, ResumeSubscriptionUseCase::class);
+        $this->app->bind(GrantComplimentaryPeriod::class, GrantComplimentaryPeriodUseCase::class);
+        $this->app->bind(ConfirmSubscriptionPeriodPayment::class, ConfirmSubscriptionPeriodPaymentUseCase::class);
     }
 
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+
+        // ADR-0018 — a module owns its routes.
+        Route::middleware('api')->group(__DIR__.'/../routes/api.php');
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([AdvanceSubscriptionsCommand::class]);
+        }
     }
 }

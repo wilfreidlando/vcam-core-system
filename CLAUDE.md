@@ -169,7 +169,20 @@ rapprochements (`reconciliation_runs`)
 ([ADR-0076](docs/adr/0076-grand-livre-complet-plan-de-comptes.md),
 [ADR-0077](docs/adr/0077-confirmation-des-encaissements-et-exceptions.md),
 [ADR-0078](docs/adr/0078-rapprochement-et-controles-d-invariants.md)).
-`billing`, `storage`, `fees`, `developer-platform`
+→ **Lot 10 — Commerce I (clients, catalogue, abonnements) — livré** : le
+module `billing` entre en production. **Clients** d'un projet (identité
+minimale **chiffrée** + index aveugle, effacement qui détruit l'identité et
+garde la ligne — ADR-0070, ADR-0083) ; **catalogue** de plans et de
+versions (une version publiée est **figée** par un trigger de base, ADR-0071) ;
+**abonnements** et leurs périodes (machine d'états, exclusion des périodes
+qui se chevauchent, verrou optimiste, ADR-0072) ; ordonnanceur
+`billing:advance-subscriptions` sur `Clock` ; réglages par projet
+(`billing_settings`) ; **API publique** (16 routes `/v1`, un `FormRequest`
+par mutation) ; **console** (clients, offres et abonnements d'un projet,
+chaque geste audité) — **la facture reste au lot 11** : la déclaration du
+paiement d'une période écrit le fait et **ne bouge pas d'argent**
+([ADR-0092](docs/adr/0092-lot-10-lAbonnement-et-la-facture-au-lot-11.md)).
+`storage`, `fees`, `developer-platform`
 sont **encore** des scaffolds Lot 0 vides. **ADR-0068 amends ADR-0048** :
 `billing` et `developer-platform` **entrent en production** (`billing` au lot 10,
 `developer-platform` plus tard) ; `storage` et `fees` restent **hors
@@ -183,7 +196,15 @@ voir « Ce qui n'est PAS encore construit » ci-dessous. Détail de chaque lot :
 comité d'architecture le 2026-10-27** — sept de ces ADR avaient déjà leur code
 livré et conforme au moment de la décision, donc la décision a suivi le code
 (après vérification de conformité, pas avant). ADR-0091 consigne les huit
-contrats publics que le code avait introduits sans décision écrite. Un ADR
+contrats publics que le code avait introduits sans décision écrite ; ADR-0092
+consigne les décisions du **lot 10** (la facture reste au lot 11, la
+déclaration d'un paiement ne bouge pas d'argent, la console est portée par
+le projet) et ADR-0093 les corrections que la revue de code du lot 10 a
+apportées (pause depuis tout état non final, isolement de l'échec d'un
+contrat dans l'ordonnanceur, déclaration de paiement limitée à la période
+courante, effacement final, `retired` final, PII jamais affichée ni
+journalisée en clair, clé d'idempotence libérée quand la requête échoue,
+verrou optimiste du client dans l'écriture). Un ADR
 accepté ne se réécrit pas : on le **remplace** par un nouvel ADR et on met à
 jour le statut de l'ancien (« amendé par ADR-XXXX », « Remplacé par ADR-XXXX »).
 
@@ -395,6 +416,21 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   encore possible à `CreditWallet`/`DebitWallet` en pratique est
   `HandlePaymentStatusChangedUseCase`, qui dérive toujours son `partyId`
   du même `projectId`.
+- Module `billing` : **Lot 10 livré** — les **clients** d'un projet
+  (identité minimale chiffrée + index aveugle, effacement qui détruit
+  l'identité et garde la ligne — ADR-0070, ADR-0083), le **catalogue** de
+  plans et de versions (une version publiée est figée par un trigger de
+  base — ADR-0071), les **abonnements** et leurs périodes (machine d'états,
+  exclusion des périodes qui se chevauchent, verrou optimiste — ADR-0072),
+  l'ordonnanceur `billing:advance-subscriptions`, les réglages par projet
+  (`billing_settings`), l'API publique `/v1/customers`, `/v1/plans`,
+  `/v1/subscriptions` et la console (clients, offres et abonnements d'un
+  projet ; chaque geste est audité). **Ce qui n'existe pas encore** : la
+  **facture** (lot 11), l'usage et les quotas (lot 12), le portail client
+  (lot 13), la console de portefeuille (lot 14). Ne pas supposer qu'un
+  abonnement produit une facture : dans ce lot, une période déclarée payée
+  est un **fait enregistré**, jamais une somme encaissée (ADR-0092 §2).
+  Voir `packages/billing/README.md`.
 - Module `payment` : **orchestration Lot 3 livrée** — voir
   [ADR-0038](docs/adr/0038-conception-lot-3-payment-channel-routage-etat-callback.md)
   et [ADR-0039](docs/adr/0039-payment-gateway-registry-typed.md). Le champ

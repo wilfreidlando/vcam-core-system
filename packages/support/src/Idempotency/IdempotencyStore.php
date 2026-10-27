@@ -37,4 +37,12 @@ interface IdempotencyStore
      * @param array<string, mixed> $responseBody
      */
     public function complete(string $projectId, string $key, int $responseStatus, array $responseBody): void;
+
+    /**
+     * Gives the key back: the request it reserved **failed**, so it
+     * produced no effect and the caller must be able to try again with
+     * the same key (ADR-0025 — a key is a promise about a *successful*
+     * request, not a lock that outlives a failure).
+     */
+    public function release(string $projectId, string $key): void;
 }

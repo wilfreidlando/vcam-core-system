@@ -206,6 +206,82 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->name('projects.api-keys.rotate');
             Route::post('{projectId}/api-keys/{apiKeyId}/revoke', [App\Http\Controllers\Admin\ApiKeysController::class, 'revoke'])
                 ->name('projects.api-keys.revoke');
+
+            // ADR-0070 / ADR-0071 / ADR-0072 — the commerce of a Project:
+            // the customers it declares, its plan catalogue and its
+            // subscription contracts. The JSON plane owns
+            // `customers.*` / `plans.*` / `subscriptions.*`
+            // (`packages/billing/routes/api.php`, unprefixed); these are
+            // the console's own names, under `admin.projects.`.
+            Route::prefix('{projectId}/customers')->group(function (): void {
+                // The reference is format-checked in the route (the
+                // column carries the same CHECK constraint): a
+                // reference that does not match it is a route that does
+                // not exist, not a 500.
+                Route::get('/', [App\Http\Controllers\Admin\BillingCustomersController::class, 'index'])
+                    ->name('projects.customers.index');
+                Route::get('create', [App\Http\Controllers\Admin\BillingCustomersController::class, 'create'])
+                    ->name('projects.customers.new');
+                Route::post('/', [App\Http\Controllers\Admin\BillingCustomersController::class, 'store'])
+                    ->name('projects.customers.store');
+                Route::get('{externalRef}/edit', [App\Http\Controllers\Admin\BillingCustomersController::class, 'edit'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.edit');
+                Route::post('{externalRef}', [App\Http\Controllers\Admin\BillingCustomersController::class, 'update'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.update.web');
+                Route::post('{externalRef}/suspend', [App\Http\Controllers\Admin\BillingCustomersController::class, 'suspend'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.suspend.web');
+                Route::post('{externalRef}/reactivate', [App\Http\Controllers\Admin\BillingCustomersController::class, 'reactivate'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.reactivate.web');
+                Route::post('{externalRef}/erase', [App\Http\Controllers\Admin\BillingCustomersController::class, 'erase'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.erase.web');
+            });
+
+            Route::prefix('{projectId}/plans')->group(function (): void {
+                Route::get('/', [App\Http\Controllers\Admin\BillingPlansController::class, 'index'])
+                    ->name('projects.plans.index');
+                Route::get('create', [App\Http\Controllers\Admin\BillingPlansController::class, 'create'])
+                    ->name('projects.plans.new');
+                Route::post('/', [App\Http\Controllers\Admin\BillingPlansController::class, 'store'])
+                    ->name('projects.plans.store');
+                Route::post('{code}/versions', [App\Http\Controllers\Admin\BillingPlansController::class, 'storeVersion'])
+                    ->name('projects.plans.versions.store');
+                Route::post('{code}/versions/{version}/publish', [App\Http\Controllers\Admin\BillingPlansController::class, 'publish'])
+                    ->whereNumber('version')
+                    ->name('projects.plans.versions.publish.web');
+                Route::post('{code}/archive', [App\Http\Controllers\Admin\BillingPlansController::class, 'archive'])
+                    ->name('projects.plans.archive.web');
+            });
+
+            Route::prefix('{projectId}/subscriptions')->group(function (): void {
+                Route::get('/', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'index'])
+                    ->name('projects.subscriptions.index');
+                Route::get('{subscriptionId}', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'show'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.show');
+                Route::post('{subscriptionId}/pause', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'pause'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.pause.web');
+                Route::post('{subscriptionId}/resume', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'resume'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.resume.web');
+                Route::post('{subscriptionId}/cancel', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'cancel'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.cancel.web');
+                Route::post('{subscriptionId}/change-plan', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'changePlan'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.change-plan.web');
+                Route::post('{subscriptionId}/complimentary', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'complimentary'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.complimentary.web');
+                Route::post('{subscriptionId}/pay', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'pay'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.pay.web');
+            });
         });
 
         Route::prefix('payments')->group(function (): void {

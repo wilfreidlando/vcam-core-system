@@ -104,6 +104,32 @@
                 <span class="text-indigo-600">→</span>
             </a>
         @endif
+        {{-- ADR-0092 §4 — the commerce of the project: its customers
+             (ADR-0070), its plan catalogue (ADR-0071) and its
+             subscription contracts (ADR-0072). Each entry opens only
+             with the permission that governs it, checked in the
+             project's own organization. --}}
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('customers:read')->allowsProject($project->id))
+            <a href="{{ route('admin.projects.customers.index', ['projectId' => $project->id]) }}"
+               class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+                <span class="font-medium text-slate-900">Clients de ce projet</span>
+                <span class="text-indigo-600">→</span>
+            </a>
+        @endif
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('plans:read')->allowsProject($project->id))
+            <a href="{{ route('admin.projects.plans.index', ['projectId' => $project->id]) }}"
+               class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+                <span class="font-medium text-slate-900">Offres de ce projet</span>
+                <span class="text-indigo-600">→</span>
+            </a>
+        @endif
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('subscriptions:read')->allowsProject($project->id))
+            <a href="{{ route('admin.projects.subscriptions.index', ['projectId' => $project->id]) }}"
+               class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+                <span class="font-medium text-slate-900">Abonnements de ce projet</span>
+                <span class="text-indigo-600">→</span>
+            </a>
+        @endif
     </div>
 
     <div class="text-right">

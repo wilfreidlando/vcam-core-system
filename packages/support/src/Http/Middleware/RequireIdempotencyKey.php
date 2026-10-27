@@ -13,6 +13,7 @@ use Core\Support\Idempotency\IdempotencyStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 /**
  * The HTTP-level idempotency guard ADR-0025 designs and G7 requires on
@@ -105,7 +106,18 @@ final class RequireIdempotencyKey
             );
         }
 
-        $response = $next($request);
+        try {
+            $response = $next($request);
+        } catch (Throwable $exception) {
+            // The request **failed**: it produced no effect, so the key
+            // goes back to the caller. A key that stayed locked would
+            // make every retry of a failed request answer 409 "already
+            // in progress" for ever — the caller could never try again
+            // with the key it was given.
+            $this->store->release($scope, $key);
+
+            throw $exception;
+        }
 
         // ADR-0081 S-07/S-08 — the secrets the route shows once are dropped
         // from the stored copy: never kept in clear, never replayed.

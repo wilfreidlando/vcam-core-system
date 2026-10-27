@@ -237,6 +237,37 @@ expect_rejection "G4" "a migration adds an email column to parties" \
     'Core must not store end-user identity' \
     $DC_DB vendor/bin/pest --group=schema
 
+# ── G4b — a column added to the white-listed customers table ────────────────
+probe packages/billing/database/migrations/2026_10_27_999999_guard_probe_customer_column.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('customers', function (Blueprint $table): void {
+            $table->text('notes')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('customers', function (Blueprint $table): void {
+            $table->dropColumn('notes');
+        });
+    }
+};
+PHP
+expect_rejection "G4b" "a migration adds a column to the customers table" \
+    'Unexpected column\(s\) on `customers`' \
+    $DC_DB vendor/bin/pest --group=schema
+
 # ── G5 — money stored as a decimal column ───────────────────────────────────
 probe packages/ledger/database/migrations/2026_09_14_999999_guard_probe.php <<'PHP'
 <?php
