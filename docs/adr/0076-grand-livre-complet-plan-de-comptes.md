@@ -108,6 +108,51 @@ Une correction (`adjustment`) passe par la console : montant, comptes, motif,
 approuve). Elle est auditée et produit une transaction normale. Aucune
 correction n'altère une écriture existante.
 
+### Mise en œuvre (lot 9)
+
+Précisions apportées en réalisant la décision ; elles ne changent pas son
+sens.
+
+- **Le compte `clearing` porte le code du prestataire comme référence.**
+  `kind = 'clearing'`, `reference = <code prestataire>` — la nature reste
+  celle du registre du §2, c'est sa *référence* qui change. Le compte
+  historique de projet (référence vide) est conservé, et une commande
+  unique et motivée (`payment:reclassify-clearing`) le solde vers le compte
+  du prestataire. La commande refuse de deviner : un projet avec plusieurs
+  prestataires ne peut pas voir son solde attribué sans décision humaine,
+  et un solde que les règlements n'expliquent pas entièrement est refusé
+  avec son résidu affiché.
+- **Le module `wallet` ne sait pas ce qu'est un prestataire.** Le chemin
+  de l'argent lui décrit *d'où* vient la somme : `WalletCreditSource` (une
+  enum **fermée** : `clearing`, `payment_exceptions`) et `WalletCreditOrigin`,
+  qui porte le code du prestataire. Un appelant ne peut pas nommer un
+  compte `wallet` comme origine : cela créerait de la valeur. C'est le
+  module `payment` qui sait quel prestataire détient l'argent.
+- **Un débit de wallet ne passe plus par `clearing`.** Le compte du
+  prestataire est une créance sur lui : un mouvement de wallet n'en est
+  pas une. Le débit d'un wallet se solde désormais sur `withdrawal`, comme
+  une sortie enregistrée.
+- **`reverses_transaction_id` n'est plus une colonne morte.** Une
+  correction est une contre-passation qui **référence l'originale** : la
+  transaction visée doit exister, appartenir au même projet et n'être pas
+  elle-même une correction. La vérification est refaite au moment où
+  l'argent bouge, pas seulement à la proposition.
+- **`AccountStatement`** : le relevé d'un compte sur une période, avec le
+  solde d'ouverture (ce que le compte détenait strictement avant la
+  période) et le solde de clôture. Le solde porté par une ligne est celui
+  du **compte**, pas celui de la page : une page se lit seule. La
+  pagination est un curseur `(created_at, id)` ; la période est exclusive de
+  sa fin.
+- **Les corrections d'exploitation sont des propositions.** Un montant,
+  deux comptes, un motif, et l'approbation d'un **autre** compte console :
+  la contrainte est en base (`approved_by <> proposed_by`), pas seulement
+  dans le code. Les invariants du domaine (un compte `wallet` est
+  interdit, la source et la destination ne peuvent pas être le même
+  compte, une transaction à contre-passer est obligatoire) sont une
+  propriété de l'**état** : ils sont revérifiés sur le chemin qui déplace
+  l'argent, pas seulement à la proposition — une ligne écrite
+  directement en base ne peut donc pas contourner la règle.
+
 ## Alternatives écartées
 
 - **Écrire seulement les flux qui touchent un wallet (état actuel).** Rejeté :

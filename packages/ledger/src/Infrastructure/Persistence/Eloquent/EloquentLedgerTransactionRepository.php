@@ -30,6 +30,10 @@ final class EloquentLedgerTransactionRepository implements LedgerTransactionRepo
                     'type' => $transaction->type,
                     'external_ref' => $transaction->externalRef,
                     'idempotency_key' => $transaction->idempotencyKey,
+                    // ADR-0076 §5 — the transaction this one counter-passes.
+                    // It can only be set HERE: `ledger_transactions` is
+                    // append-only, a trigger refuses every UPDATE.
+                    'reverses_transaction_id' => $transaction->reversesTransactionId,
                 ]);
 
                 foreach ($transaction->entries as $entry) {
@@ -57,6 +61,16 @@ final class EloquentLedgerTransactionRepository implements LedgerTransactionRepo
         return $record === null ? null : $this->toDomain($record);
     }
 
+    public function findById(string $id): ?LedgerTransaction
+    {
+        $record = LedgerTransactionRecord::query()
+            ->whereKey($id)
+            ->with('entries')
+            ->first();
+
+        return $record === null ? null : $this->toDomain($record);
+    }
+
     private function toDomain(LedgerTransactionRecord $record): LedgerTransaction
     {
         return new LedgerTransaction(
@@ -70,6 +84,7 @@ final class EloquentLedgerTransactionRepository implements LedgerTransactionRepo
                 Direction::from($entry->direction),
                 Money::ofMinor($entry->amount_minor, $entry->currency),
             ))->all()),
+            $record->reverses_transaction_id,
         );
     }
 }

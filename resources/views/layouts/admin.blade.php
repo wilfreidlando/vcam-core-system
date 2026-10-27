@@ -136,7 +136,7 @@
                     @endif
 
                     {{-- Argent --}}
-                    @if($canPayments || $canWallets || $canReconciliation || $canMoneyExceptions)
+                    @if($canPayments || $canWallets || $canReconciliation || $canMoneyExceptions || $canLedgerAdjustments)
                         <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 px-3 pt-4 pb-1">Argent</p>
 
                         @if($canPayments)
@@ -168,6 +168,17 @@
                                 @if($moneyExceptionsCount !== null && $moneyExceptionsCount > 0)
                                     <span class="inline-flex items-center justify-center rounded-full bg-rose-500/20 text-rose-300 text-xs font-semibold px-1.5 py-0.5 min-w-[1.375rem] shrink-0">{{ $moneyExceptionsCount }}</span>
                                 @endif
+                            </a>
+                        @endif
+
+                        @if($canLedgerAdjustments)
+                            {{-- ADR-0076 §6 — les corrections d'exploitation :
+                                 l'autre moitié de la question des
+                                 exceptions d'argent. Même permission
+                                 (money-exceptions:read), même public. --}}
+                            <a href="{{ route('admin.ledger-adjustments.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.ledger-adjustments.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                <span class="truncate">Corrections d'exploitation</span>
                             </a>
                         @endif
 

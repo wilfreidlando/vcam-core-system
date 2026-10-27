@@ -2887,8 +2887,8 @@
             },
             "post": {
                 "operationId": "admin.operators.create",
-                "description": "The plaintext password is returned once in this response and never\nstored \u2014 the same one-shot-secret pattern as API key issuance and\nthe `identity:create-operator` CLI command, which this endpoint is\na self-service alternative to. Requires `operators:write` (Platform\nAdmin only). MFA enrollment happens on first login, not here.",
-                "summary": "Create a platform operator",
+                "description": "The response carries the **activation token**, once. The account\ndoes not exist yet: the invitee chooses their own password when\nthey activate the invitation\n(`POST /v1/admin/operator-invitations/accept`) \u2014 no password is\nchosen by the system and none is transmitted (ADR-0081 S-07), the\nsame one-shot-secret pattern as the API key issuance, applied to\nthe console account itself.\n\nRequires `operators:write` (Platform Admin only). MFA enrollment\nhappens on first login, not here.",
+                "summary": "Invite an email address to hold a console account",
                 "tags": [
                     "Admin"
                 ],
@@ -2903,18 +2903,17 @@
                                         "type": "string",
                                         "format": "email"
                                     },
-                                    "name": {
-                                        "type": "string",
-                                        "maxLength": 255
-                                    },
                                     "role": {
-                                        "type": "string"
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "ADR-0069 \u00a71 \u2014 an empty role means an account without a\nplatform role, living in its organizations only.",
+                                        "maxLength": 64
                                     }
                                 },
                                 "required": [
-                                    "email",
-                                    "name",
-                                    "role"
+                                    "email"
                                 ]
                             }
                         }
@@ -2928,16 +2927,35 @@
                                 "schema": {
                                     "type": "object",
                                     "properties": {
-                                        "id": {
+                                        "invitation_id": {
                                             "type": "string"
                                         },
-                                        "plaintext_password": {
+                                        "email": {
+                                            "type": "string"
+                                        },
+                                        "role": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "token": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "description": "Shown once, at creation \u2014 never retrievable again."
+                                        },
+                                        "expires_at": {
                                             "type": "string"
                                         }
                                     },
                                     "required": [
-                                        "id",
-                                        "plaintext_password"
+                                        "invitation_id",
+                                        "email",
+                                        "role",
+                                        "token",
+                                        "expires_at"
                                     ]
                                 }
                             }
@@ -3037,31 +3055,63 @@
                         "content": {
                             "application/problem+json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "const": "https://errors.core-system.internal/operator-email-already-taken"
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/operator-invitation-already-exists"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "An invitation is already pending for this email address"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
                                         },
-                                        "title": {
-                                            "type": "string",
-                                            "const": "This email address is already taken"
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "const": 409
-                                        },
-                                        "detail": {
-                                            "type": "string"
-                                        },
-                                        "correlation_id": {
-                                            "type": "string"
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/operator-email-already-taken"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "This email address is already taken"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
                                         }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
                                     ]
                                 }
                             }
@@ -4191,6 +4241,203 @@
                                                     "type": "integer",
                                                     "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
                                                     "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/v1/admin/operator-invitations/accept": {
+            "post": {
+                "operationId": "admin.operator-invitations.accept",
+                "description": "Public endpoint \u2014 the invitation token is the only thing that\ngrants access: the invitee is not signed in yet. Consumes the\ntoken (one-shot, 72 h) and creates the account with the password\nthe invitee **chooses**.",
+                "summary": "Activate a console account invitation",
+                "tags": [
+                    "Admin"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "token": {
+                                        "type": "string",
+                                        "minLength": 32,
+                                        "maxLength": 200
+                                    },
+                                    "name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "The display name of the account.",
+                                        "maxLength": 255
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "description": "ADR-0069 \u00a74 \u2014 the password the invitee chooses (the system\nnever chooses one, never transmits one). The length rule\nis the use case's, so the refusal is a 422 of its own.",
+                                        "maxLength": 255
+                                    }
+                                },
+                                "required": [
+                                    "token",
+                                    "password"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "operator_id": {
+                                            "type": "string"
+                                        },
+                                        "email": {
+                                            "type": "string"
+                                        },
+                                        "role": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "account_created": {
+                                            "type": "boolean"
+                                        },
+                                        "purpose": {
+                                            "type": "string",
+                                            "description": "The same pair `POST /v1/operators/login` returns:\n`mfa_enrollment` \u2192 `POST /v1/operators/mfa/enroll` then\n`/mfa/confirm`."
+                                        },
+                                        "challenge_token": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "operator_id",
+                                        "email",
+                                        "role",
+                                        "account_created",
+                                        "purpose",
+                                        "challenge_token"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid\n\nThe chosen password is too weak",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/invitation-password-too-weak"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The chosen password is too weak"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
                                                 },
                                                 "detail": {
                                                     "type": "string",

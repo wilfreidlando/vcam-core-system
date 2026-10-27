@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
-use Core\Identity\Contracts\CreateOperator;
-use Core\Identity\Contracts\CreateOperatorCommand;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Contracts\CreateProject;
@@ -38,6 +36,7 @@ use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
+use Tests\Support\OperatorFactory;
 use Tests\TestCase;
 
 /**
@@ -62,17 +61,13 @@ final class AdminWebFlowTest extends TestCase
     {
         $this->withoutMiddleware(PreventRequestForgery::class);
 
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand('webflow@example.com', 'Web Flow', OperatorRole::PlatformAdmin->value),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = OperatorFactory::create('webflow@example.com', OperatorRole::PlatformAdmin);
 
         $this->get('/admin/login')->assertOk();
 
         $login = $this->post('/admin/login', [
             'email' => 'webflow@example.com',
-            'password' => $created->plaintextPassword,
+            'password' => OperatorFactory::PASSWORD,
         ]);
         $login->assertRedirect(route('admin.mfa.enroll.show'));
 
@@ -229,7 +224,7 @@ final class AdminWebFlowTest extends TestCase
     }
 
     #[Test]
-    public function a_platform_admin_creates_and_revokes_an_operator_through_the_web_console(): void
+    public function a_platform_admin_invites_an_operator_through_the_web_console(): void
     {
         $this->withoutMiddleware(PreventRequestForgery::class);
 
@@ -239,16 +234,32 @@ final class AdminWebFlowTest extends TestCase
 
         $store = $this->post('/admin/operators', [
             'email' => $email,
-            'name' => 'New Operator',
             'role' => OperatorRole::SupportOperator->value,
         ]);
         $store->assertRedirect(route('admin.operators.index'));
 
+        // The activation token is shown once, on the page that follows.
         $index = $this->get('/admin/operators');
         $index->assertOk();
         $index->assertSee($email);
-        $index->assertSee('Mot de passe à usage unique');
+        // The text is literal in the template, so it is not escaped here.
+        $index->assertSee("Jeton d'activation à usage unique", false);
 
+        // ADR-0081 S-07 — the account does not exist yet: it is created
+        // by the activation, with the password the invitee chooses. The
+        // console never handles a password.
+        self::assertNull(app(OperatorRepository::class)->findByEmail($email));
+    }
+
+    #[Test]
+    public function a_platform_admin_revokes_an_operator_through_the_web_console(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $email = uniqid('revoked-op-', true).'@example.com';
+        OperatorFactory::create($email, OperatorRole::SupportOperator);
         $created = app(OperatorRepository::class)->findByEmail($email);
         assert($created instanceof Operator);
 
@@ -725,15 +736,11 @@ final class AdminWebFlowTest extends TestCase
         // middleware so the fallback is reachable.
         $this->withoutMiddleware(PreventRequestForgery::class);
 
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand('session-fallback@example.com', 'Session Fallback', OperatorRole::PlatformAdmin->value),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = OperatorFactory::create('session-fallback@example.com', OperatorRole::PlatformAdmin);
 
         $this->post('/admin/login', [
             'email' => 'session-fallback@example.com',
-            'password' => $created->plaintextPassword,
+            'password' => OperatorFactory::PASSWORD,
         ])->assertRedirect(route('admin.mfa.enroll.show'));
 
         $enroll = $this->get('/admin/mfa/enroll');
@@ -757,9 +764,7 @@ final class AdminWebFlowTest extends TestCase
 
         // JSON client with a Bearer header still authenticates the same
         // way it always did — the fallback is opt-in, not a replacement.
-        $bearer = $created->plaintextPassword === ''
-            ? null
-            : $this->extractOperatorBearerToken();
+        $bearer = $this->extractOperatorBearerToken();
         if ($bearer !== null) {
             $this->getJson('/v1/admin/operators', ['Authorization' => "Bearer {$bearer}"])
                 ->assertOk();
@@ -1033,18 +1038,14 @@ final class AdminWebFlowTest extends TestCase
      */
     private function loginAndEnrollMfa(OperatorRole $role): void
     {
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand(uniqid('op-', true).'@example.com', 'Ops', $role->value),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = OperatorFactory::create(uniqid('op-', true).'@example.com', $role);
 
-        $operator = app(OperatorRepository::class)->find($created->operatorId);
+        $operator = app(OperatorRepository::class)->find($created);
         assert($operator instanceof Operator);
 
         $login = $this->post('/admin/login', [
             'email' => $operator->email,
-            'password' => $created->plaintextPassword,
+            'password' => OperatorFactory::PASSWORD,
         ]);
         $login->assertRedirect(route('admin.mfa.enroll.show'));
 

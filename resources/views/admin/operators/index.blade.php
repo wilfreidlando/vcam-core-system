@@ -5,10 +5,15 @@
 @section('content')
 @if (! empty($created))
     <div class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3">
-        <p class="text-base font-semibold text-emerald-800">Opérateur créé : {{ $created['email'] }}</p>
+        <p class="text-base font-semibold text-emerald-800">Invitation créée : {{ $created['email'] }}</p>
         <p class="mt-1 text-base text-emerald-700">
-            Mot de passe à usage unique — affiché uniquement maintenant, jamais stocké ni journalisé :
-            <code class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900">{{ $created['plaintext_password'] }}</code>
+            Jeton d'activation à usage unique — affiché uniquement maintenant, jamais stocké ni journalisé :
+            <code class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900">{{ $created['token'] }}</code>
+        </p>
+        <p class="mt-1 text-sm text-emerald-700">
+            Valable jusqu'au {{ $created['expires_at'] }}. Transmettez-le à l'invité : c'est
+            <strong>lui</strong> qui choisit son mot de passe et enrôle son MFA (aucun mot de passe
+            n'est choisi par le système).
         </p>
     </div>
 @endif

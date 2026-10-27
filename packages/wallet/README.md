@@ -60,9 +60,9 @@ Any other cross-module dependency fails CI.
   `wallet_recipient_external_ref` (ADR-0037). Transfers move value, withdrawals record
   that it left; neither creates any.
 - **Project isolation.** Every read and mutation checks the wallet belongs to the
-  calling project. The `clearing` and `withdrawal` accounts are project-level (see
-  `SystemAccount`). The Core has one environment (ADR-0066): testing happens on the
-  staging deployment.
+  calling project. The `withdrawal` account is project-level; the `clearing` account is
+  per provider (`clearing:<prestataire>`) since ADR-0076 §2 (see `SystemAccount`). The
+  Core has one environment (ADR-0066): testing happens on the staging deployment.
 - **Locking.** A transfer locks every balance it touches in ascending wallet-id order
   (no deadlock between crossing transfers), then re-checks idempotency before posting —
   proven by `tests/Integration/TransferConcurrencyTest.php`.

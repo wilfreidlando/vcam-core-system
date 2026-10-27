@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Core\Identity;
 
+use Core\Identity\Application\UseCase\AcceptOperatorInvitation as AcceptOperatorInvitationUseCase;
 use Core\Identity\Application\UseCase\AcceptOrganizationInvitation as AcceptOrganizationInvitationUseCase;
 use Core\Identity\Application\UseCase\ChangeOrganizationMemberRole as ChangeOrganizationMemberRoleUseCase;
-use Core\Identity\Application\UseCase\CreateOperator as CreateOperatorUseCase;
 use Core\Identity\Application\UseCase\CreateOrganization as CreateOrganizationUseCase;
 use Core\Identity\Application\UseCase\CreateProject as CreateProjectUseCase;
 use Core\Identity\Application\UseCase\GetOrganization as GetOrganizationUseCase;
 use Core\Identity\Application\UseCase\GetProjectUseCase;
+use Core\Identity\Application\UseCase\InviteOperator as InviteOperatorUseCase;
 use Core\Identity\Application\UseCase\InviteOrganizationMember as InviteOrganizationMemberUseCase;
 use Core\Identity\Application\UseCase\IssueApiKey as IssueApiKeyUseCase;
 use Core\Identity\Application\UseCase\ListApiKeys as ListApiKeysUseCase;
@@ -26,13 +27,14 @@ use Core\Identity\Application\UseCase\RotateApiKey as RotateApiKeyUseCase;
 use Core\Identity\Application\UseCase\UpdateOperator as UpdateOperatorUseCase;
 use Core\Identity\Application\UseCase\UpdateOrganization as UpdateOrganizationUseCase;
 use Core\Identity\Application\UseCase\UpdateProject as UpdateProjectUseCase;
+use Core\Identity\Contracts\AcceptOperatorInvitation;
 use Core\Identity\Contracts\AcceptOrganizationInvitation;
 use Core\Identity\Contracts\ChangeOrganizationMemberRole;
-use Core\Identity\Contracts\CreateOperator;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateProject;
 use Core\Identity\Contracts\GetOrganization;
 use Core\Identity\Contracts\GetProject;
+use Core\Identity\Contracts\InviteOperator;
 use Core\Identity\Contracts\InviteOrganizationMember;
 use Core\Identity\Contracts\IssueApiKey;
 use Core\Identity\Contracts\ListApiKeys;
@@ -51,6 +53,7 @@ use Core\Identity\Contracts\UpdateProject;
 use Core\Identity\Domain\Port\ApiKeyRepository;
 use Core\Identity\Domain\Port\ApiKeySecretGenerator;
 use Core\Identity\Domain\Port\LoginChallengeCodec;
+use Core\Identity\Domain\Port\OperatorInvitationRepository;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Identity\Domain\Port\OperatorTokenIssuer;
 use Core\Identity\Domain\Port\OperatorTokenResolver;
@@ -61,6 +64,7 @@ use Core\Identity\Domain\Port\OrganizationRepository;
 use Core\Identity\Domain\Port\ProjectRepository;
 use Core\Identity\Domain\Port\TotpProvider;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentApiKeyRepository;
+use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOperatorInvitationRepository;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOperatorRepository;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOrganizationInvitationRepository;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOrganizationMembershipRepository;
@@ -73,9 +77,9 @@ use Core\Identity\Infrastructure\Security\RandomApiKeySecretGenerator;
 use Core\Identity\Infrastructure\Security\SanctumOperatorTokenIssuer;
 use Core\Identity\Infrastructure\Security\SanctumOperatorTokenResolver;
 use Core\Identity\Infrastructure\Security\SanctumOperatorTokenRevoker;
-use Core\Identity\Presentation\Console\Commands\CreateOperatorCommand;
 use Core\Identity\Presentation\Console\Commands\CreateOrganizationCommand;
 use Core\Identity\Presentation\Console\Commands\CreateProjectCommand;
+use Core\Identity\Presentation\Console\Commands\InviteOperatorCommand;
 use Core\Identity\Presentation\Console\Commands\IssueApiKeyCommand;
 use Core\Identity\Presentation\Console\Commands\RevokeApiKeyCommand;
 use Core\Identity\Presentation\Console\Commands\RotateApiKeyCommand;
@@ -101,7 +105,7 @@ final class IdentityServiceProvider extends ServiceProvider
         $this->app->bind(ListOrganizations::class, ListOrganizationsUseCase::class);
         $this->app->bind(GetProject::class, GetProjectUseCase::class);
         $this->app->bind(GetOrganization::class, GetOrganizationUseCase::class);
-        $this->app->bind(CreateOperator::class, CreateOperatorUseCase::class);
+        $this->app->bind(InviteOperator::class, InviteOperatorUseCase::class);
         $this->app->bind(ListOperators::class, ListOperatorsUseCase::class);
         $this->app->bind(RevokeOperator::class, RevokeOperatorUseCase::class);
         $this->app->bind(UpdateOperator::class, UpdateOperatorUseCase::class);
@@ -128,11 +132,13 @@ final class IdentityServiceProvider extends ServiceProvider
         $this->app->bind(ResolveAccessScope::class, ResolveAccessScopeUseCase::class);
         // ADR-0069 §4 — the invitations, and the operations that manage
         // the members of an organization.
+        $this->app->bind(OperatorInvitationRepository::class, EloquentOperatorInvitationRepository::class);
         $this->app->bind(OrganizationInvitationRepository::class, EloquentOrganizationInvitationRepository::class);
         $this->app->bind(InviteOrganizationMember::class, InviteOrganizationMemberUseCase::class);
         $this->app->bind(ListOrganizationMembers::class, ListOrganizationMembersUseCase::class);
         $this->app->bind(RevokeOrganizationMember::class, RevokeOrganizationMemberUseCase::class);
         $this->app->bind(ChangeOrganizationMemberRole::class, ChangeOrganizationMemberRoleUseCase::class);
+        $this->app->bind(AcceptOperatorInvitation::class, AcceptOperatorInvitationUseCase::class);
         $this->app->bind(AcceptOrganizationInvitation::class, AcceptOrganizationInvitationUseCase::class);
         $this->app->bind(TotpProvider::class, function (Application $app): TotpProvider {
             // Both checks are required, deliberately — the environment
@@ -164,7 +170,7 @@ final class IdentityServiceProvider extends ServiceProvider
                 IssueApiKeyCommand::class,
                 RevokeApiKeyCommand::class,
                 RotateApiKeyCommand::class,
-                CreateOperatorCommand::class,
+                InviteOperatorCommand::class,
             ]);
         }
     }

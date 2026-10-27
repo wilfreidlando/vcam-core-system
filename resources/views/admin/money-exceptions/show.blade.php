@@ -12,6 +12,7 @@
         $resolutionLabels = [
             'refunded_outside' => 'Remboursé hors plateforme',
             'recognized_as_revenue' => 'Passé en revenu du projet',
+            'allocated_to_wallet' => 'Imputé à un wallet',
             'no_action' => "Aucun mouvement (rien n'était écrit)",
         ];
     @endphp

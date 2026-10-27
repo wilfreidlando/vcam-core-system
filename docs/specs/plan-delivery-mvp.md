@@ -424,15 +424,33 @@ direction).
 | **18 — Rapprochement prestataire** | capacités `listTransactions` et `balance` des adaptateurs, niveaux B et C, `reconciliation_runs`, écrans | 0078 | 9 | 10 j |
 | **19 — Versements sortants** | module `payout`, port et adaptateur avec environnement de test du prestataire, callback dédié, balayage, plafonds, double validation, destination chiffrée | 0079 | 9 | 15 j |
 
-**État au 2026-10-27** : le **lot 8 est livré** — code conforme à ses ADR,
-`make ci` et `make guard-test` verts. La série d'ADR qu'il réalise a été
-**ratifiée par le comité le 2026-10-27**, après vérification de la conformité
-du code livré (la décision a suivi le code, et non l'inverse — c'est tracé
-dans ADR-0068 §6 et dans ADR-0091). Le lot 9, qui ne dépend de rien, est
-ouvert ; le lot 10 démarre en parallèle.
+**État au 2026-10-27** : les **lots 8 et 9 sont livrés** — code conforme à
+leurs ADR, `make ci` et `make guard-test` verts. La série d'ADR qui les
+réalise a été **ratifiée par le comité le 2026-10-27**, après vérification de
+la conformité du code livré (la décision a suivi le code, et non l'inverse —
+c'est tracé dans ADR-0068 §6 et dans ADR-0091). Le lot 10 démarre en
+parallèle ; le lot 9, qui ne dépend de rien, est terminé.
 
-**Total estimé** : 130 jours de travail (lots 8 à 19), dont **12 j déjà
-consommés** (lot 8) — **reste 118 j** (lots 9 à 19).
+**État du lot 9** : il est **livré** (le 2026-10-27). L'écriture de tout
+paiement confirmé, la vérification du montant confirmé, la file
+`money_exceptions` et sa résolution à quatre yeux (ADR-0076 §3, ADR-0077),
+le trigger d'isolation inter-projets et l'immuabilité des transactions
+(ADR-0076 §5), les lectures par période, la balance et le relevé de compte
+(`ListLedgerTransactions`, `TrialBalance`, `AccountStatement`, ADR-0076 §4),
+les corrections d'exploitation à quatre vues et leur contre-passation
+obligatoire (ADR-0076 §6), le compte `clearing` **par prestataire** et son
+reclassement motivé (ADR-0076 §2 — sans lui, le rapprochement par
+prestataire et les versements sont impossibles), le contrôle horaire des
+invariants (`invariants:check`, ADR-0078 §2) et le registre des
+rapprochements (`reconciliation_runs`, ADR-0078 §5) sont en place et testés.
+
+Le lot 9 livre aussi la **clôture de S-07** (ADR-0081) : un compte console
+n'est plus ouvert par un mot de passe choisi par le système, mais par un
+jeton d'activation à usage unique — l'invitation est révocable, expirante,
+et le mot de passe est choisi par l'invité, à l'activation.
+
+**Total estimé** : 130 jours de travail (lots 8 à 19), dont **22 j déjà
+consommés** (lot 8 : 12 j, lot 9 : 10 j) — **reste 108 j** (lots 10 à 19).
 
 ## P4. Chemin critique et parallélisation
 
@@ -449,8 +467,8 @@ Lot 15 (dès la fin du lot 8)       Lot 16 (dès la fin du lot 10)
 - **Chemin critique** : 8 → 10 → 11 → 13 → 17 = 12 + 14 + 12 + 13 + 8 =
   **59 jours** de travail, puis 4 semaines de bascule. Le lot 8 étant livré,
   il reste **47 jours** sur ce chemin.
-- **Seconde personne** : lot 9 dès le départ (indépendant du lot 8), puis 12,
-  15, 16.
+- **Seconde personne** : lot 15 dès le départ (le lot 9 est terminé), puis 12,
+  16, 14.
 - Les lots 18 et 19 ne conditionnent pas la bascule.
 
 ## P5. Critères de sortie communs
@@ -477,25 +495,26 @@ Lot 15 (dès la fin du lot 8)       Lot 16 (dès la fin du lot 10)
 
 Hypothèses : deux développeurs seniors (A sur le chemin critique, B en
 parallèle), jours ouvrés, hors 25 décembre, 1ᵉʳ janvier et 11 février. Le
-comité a ratifié la série le 2026-10-27 et le lot 8 est livré : le plan
-démarre le **2026-10-28**, avec les durées inchangées et la même
-parallélisation. Les dates glissent d'autant qu'un lot déborde ; chaque lot
+comité a ratifié la série le 2026-10-27 et les **lots 8 et 9 sont
+livrés** : le plan démarre le **2026-10-28**, avec les durées inchangées. Le
+lot 9 ayant été terminé en avance, B enchaîne sans interruption sur le lot
+15 ; les dates du chemin critique (A) sont inchangées. Les dates glissent d'autant qu'un lot déborde ; chaque lot
 reste conditionné à l'acceptation de ses ADR.
 
 | Étape | Qui | Début | Fin |
 |---|---|---|---|
 | Ratification de la série ADR-0068 à ADR-0091 par le comité | direction + comité | 2026-10-26 | 2026-10-27 |
 | Lot 8 — Fondations de sécurité et d'identité | A | — | 2026-10-27 (**livré**) |
-| Lot 9 — Grand livre complet | B | 2026-10-28 | 2026-11-10 |
+| Lot 9 — Grand livre complet | B | — | 2026-10-27 (**livré**) |
 | Lot 10 — Commerce I (clients, catalogue, abonnements) | A | 2026-10-28 | 2026-11-16 |
-| Lot 15 — Exploitation | B | 2026-11-11 | 2026-11-24 |
+| Lot 15 — Exploitation | B | 2026-10-28 | 2026-11-10 |
 | Lot 11 — Commerce II (factures, encaissement) | A | 2026-11-17 | 2026-12-02 |
-| *Marge de B (revue de sécurité des lots 8–9, harnais de tests IDOR)* | B | 2026-11-25 | 2026-11-30 |
-| Lot 12 — Usage et quotas | B | 2026-12-01 | 2026-12-11 |
+| *Marge de B (revue de sécurité des lots 8–9, harnais de tests IDOR)* | B | 2026-11-11 | 2026-11-16 |
+| Lot 12 — Usage et quotas | B | 2026-11-17 | 2026-11-27 |
 | Lot 13 — Portail client | A | 2026-12-03 | 2026-12-21 |
-| Lot 16 — Contrat et expérience développeur | B | 2026-12-14 | 2026-12-22 |
+| Lot 16 — Contrat et expérience développeur | B | 2026-11-30 | 2026-12-10 |
 | Lot 17 — Bascule (préparation, recette bout-en-bout) | A | 2026-12-22 | 2027-01-04 |
-| Lot 14 — Console de portefeuille | B | 2026-12-23 | 2027-01-07 |
+| Lot 14 — Console de portefeuille | B | 2026-12-11 | 2026-12-24 |
 | Lot 19 — Versements sortants | A | 2027-01-05 | 2027-01-25 |
 | Lot 18 — Rapprochement prestataire | B | 2027-01-08 | 2027-01-21 |
 | Bascule, coexistence 14 j, coupure, retrait | A + exploitation | 2027-01-05 | 2027-02-01 |

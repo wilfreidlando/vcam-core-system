@@ -2,7 +2,8 @@
 
 **Bounded context:** `payment`
 **Responsibility:** Payment intents, orchestration state machine, provider adapters (MTN MoMo, Orange Money), refunds.
-**Delivery lot:** Lot 3 — see [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
+**Delivery lot:** Lot 3 (orchestration) and Lot 9 (settlements, money exceptions, invariants) — see
+[the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## Internal structure
 
@@ -47,3 +48,37 @@ Any other cross-module dependency fails CI.
   `correlation_id`), never by a database join across contexts.
 - Every monetary mutation is idempotent and every state change that others care about is
   published through the transactional outbox, inside the same transaction.
+
+## Settlements and the money pool (ADR-0076 §2, ADR-0077)
+
+A settlement is what the provider has paid us. It is written by
+`LedgerSettlementLedger`, in the `payment` module because **only this module knows what
+a provider is**: the account it debits is `clearing:<prestataire>` — one per provider, per
+project.
+
+- **A settlement is recognized by its idempotency key**, which is the payment's
+  identifier — not by its transaction type. A settlement of type `wallet_credit` is
+  therefore seen by the reconciliation, where a filter on the type would have let it pass.
+- **The money pool** (`payment_exceptions`) holds what arrived but cannot be attributed:
+  one pool per project and per currency. Opening an exception writes nothing to the
+  ledger — it is the settlement that deposits the sum (or nothing, if the currency is
+  not supported).
+- **A resolution can only move what the pool holds.** The balance is read under the same
+  transaction as the movement (advisory lock on the project), and resolving an exception
+  whose pool is empty is refused (`409`). Without that check, allocating an exception to a
+  wallet would credit a sum never collected.
+- **The reclassification is a decision, not a guess.** Moving a legacy balance to its
+  provider's account requires an explicit `--reason`, refuses to attribute a project that
+  has several providers, and refuses a residue the settlements do not explain.
+
+## The invariants (ADR-0078)
+
+`php artisan invariants:check` evaluates the invariants of the module and opens a
+`money_exception` for each violation it finds. Every run leaves a trace in
+`reconciliation_runs` — `completed` or `failed`, the number of invariants **actually**
+evaluated (not a theoretical count), and the identifiers of the exceptions opened. The
+trace holds counters and identifiers, never personal data.
+
+An exception can be re-opened: the uniqueness constraint covers the **open** exceptions
+only, so a violation closed without being corrected comes back in the queue at the next
+run.

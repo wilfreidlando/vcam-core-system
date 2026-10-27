@@ -6,6 +6,7 @@ use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Model\SettlementAccount;
 use Core\Payment\Domain\Model\SettlementException;
 use Core\Payment\PaymentStatus;
+use Core\Wallet\Contracts\WalletCreditSource;
 use Core\Wallet\Domain\Model\SystemAccount;
 
 function settlementPayment(?string $walletRecipient = 'customer-ext-1'): Payment
@@ -55,4 +56,11 @@ it('keeps the settlement facts across a later status change', function (): void 
 it('books settlements against the very clearing account a wallet credit uses', function (): void {
     expect(SettlementAccount::CLEARING)->toBe(SystemAccount::CLEARING)
         ->and(SettlementAccount::PROJECT_LEVEL)->toBe(SystemAccount::PROJECT_LEVEL);
+});
+
+it('keeps the wallet credit sources aligned with the settlement accounts', function (): void {
+    // Neither module may import the other's Domain (G3c): the strings are
+    // pinned together instead.
+    expect(WalletCreditSource::Clearing->value)->toBe(SettlementAccount::CLEARING)
+        ->and(WalletCreditSource::PaymentExceptions->value)->toBe(SettlementAccount::PAYMENT_EXCEPTIONS);
 });

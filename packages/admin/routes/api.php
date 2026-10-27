@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
+use Core\Admin\Presentation\Http\Controllers\AcceptOperatorInvitationController;
 use Core\Admin\Presentation\Http\Controllers\AcceptOrganizationInvitationController;
 use Core\Admin\Presentation\Http\Controllers\ChangeOrganizationMemberRoleController;
-use Core\Admin\Presentation\Http\Controllers\CreateOperatorController;
 use Core\Admin\Presentation\Http\Controllers\CreateOrganizationController;
 use Core\Admin\Presentation\Http\Controllers\CreateProjectController;
+use Core\Admin\Presentation\Http\Controllers\InviteOperatorController;
 use Core\Admin\Presentation\Http\Controllers\InviteOrganizationMemberController;
 use Core\Admin\Presentation\Http\Controllers\ListDeadWebhookDeliveriesController;
 use Core\Admin\Presentation\Http\Controllers\ListOperatorsController;
@@ -93,7 +94,7 @@ Route::middleware([
         // ADR-0050: operator self-service — create/list/revoke over HTTP,
         // the last CLI-only gap in the RBAC foundation (ADR-0044).
         Route::get('/operators', ListOperatorsController::class)->name('admin.operators');
-        Route::post('/operators', CreateOperatorController::class)->name('admin.operators.create');
+        Route::post('/operators', InviteOperatorController::class)->name('admin.operators.create');
         Route::put('/operators/{operatorId}', UpdateOperatorController::class)->name('admin.operators.update');
         Route::post('/operators/{operatorId}/revoke', RevokeOperatorController::class)->name('admin.operators.revoke');
 
@@ -119,4 +120,12 @@ Route::middleware(['throttle:invitation-accept'])
     ->group(function (): void {
         Route::post('/organization-invitations/accept', AcceptOrganizationInvitationController::class)
             ->name('admin.organization-invitations.accept');
+
+        // ADR-0081 S-07 — the activation of a console account invitation:
+        // the invitee chooses their own password here. Same shape, same
+        // throttle, same reasoning: the token is the only thing that
+        // grants access, and the request carries no credential to key a
+        // per-account bucket on.
+        Route::post('/operator-invitations/accept', AcceptOperatorInvitationController::class)
+            ->name('admin.operator-invitations.accept');
     });

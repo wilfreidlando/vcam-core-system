@@ -28,10 +28,20 @@ use Core\Wallet\Domain\Port\WalletBalanceRepository;
 use Core\Wallet\Domain\Port\WalletRepository;
 
 /**
- * The mirror of `CreditWalletUseCase`: credits the project's clearing
- * account, debits the wallet's own account. Never creates a wallet lazily
- * — a debit against a wallet that was never credited is a bug in the
- * caller, not a case to paper over.
+ * The mirror of `CreditWalletUseCase`: debits the wallet's own account
+ * and credits its counterparty. Never creates a wallet lazily — a debit
+ * against a wallet that was never credited is a bug in the caller, not a
+ * case to paper over.
+ *
+ * ADR-0076 §2 — the counterparty of a wallet debit is the project's
+ * `withdrawal` account, the one that carries the recorded exits: the
+ * money that leaves a wallet leaves the books with it. It is NOT
+ * `clearing`: `clearing` is what the provider holds for the project, and
+ * a wallet debit does not make the provider hold anything. Booking it
+ * there would inflate the provider's account with money it never held,
+ * and leave the historical project-level account with a balance that no
+ * settlement explains — `payment:reclassify-clearing` would then refuse
+ * to move it, and the residue would have to be settled by hand.
  */
 final readonly class DebitWalletUseCase implements DebitWallet
 {
@@ -86,9 +96,9 @@ final readonly class DebitWalletUseCase implements DebitWallet
                 $wallet->currency,
             ));
 
-            $clearingAccount = $this->accountResolver->resolveOrCreate(new ResolveOrCreateAccountCommand(
+            $withdrawalAccount = $this->accountResolver->resolveOrCreate(new ResolveOrCreateAccountCommand(
                 $wallet->projectId,
-                SystemAccount::CLEARING,
+                SystemAccount::WITHDRAWAL,
                 SystemAccount::PROJECT_LEVEL,
                 $wallet->currency,
             ));
@@ -100,7 +110,7 @@ final readonly class DebitWalletUseCase implements DebitWallet
                 $command->idempotencyKey,
                 [
                     new LedgerEntryInput($walletAccount->id, Direction::Debit, $command->amountMinor, $wallet->currency),
-                    new LedgerEntryInput($clearingAccount->id, Direction::Credit, $command->amountMinor, $wallet->currency),
+                    new LedgerEntryInput($withdrawalAccount->id, Direction::Credit, $command->amountMinor, $wallet->currency),
                 ],
             ));
 

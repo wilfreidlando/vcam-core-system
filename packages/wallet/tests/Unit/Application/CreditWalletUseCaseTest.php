@@ -3,9 +3,13 @@
 declare(strict_types=1);
 
 use Core\Ledger\Contracts\Direction;
+use Core\Ledger\Contracts\ResolveOrCreateAccountCommand;
 use Core\Wallet\Application\UseCase\CreditWalletUseCase;
 use Core\Wallet\Contracts\CreditWalletCommand;
+use Core\Wallet\Contracts\WalletCreditOrigin;
+use Core\Wallet\Contracts\WalletCreditSource;
 use Core\Wallet\Domain\Exception\WalletProjectMismatch;
+use Core\Wallet\Domain\Model\SystemAccount;
 use Core\Wallet\Tests\Unit\Fakes\FakeAccountResolver;
 use Core\Wallet\Tests\Unit\Fakes\FakeLedgerPoster;
 use Core\Wallet\Tests\Unit\Fakes\FixedClock;
@@ -16,7 +20,7 @@ use Core\Wallet\Tests\Unit\Fakes\PassthroughUnitOfWork;
 use Core\Wallet\Tests\Unit\Fakes\SequentialIdentifier;
 
 /**
- * @return array{0: CreditWalletUseCase, 1: InMemoryWalletRepository, 2: InMemoryWalletBalanceRepository, 3: FakeLedgerPoster, 4: InMemoryEventOutbox}
+ * @return array{0: CreditWalletUseCase, 1: InMemoryWalletRepository, 2: InMemoryWalletBalanceRepository, 3: FakeLedgerPoster, 4: InMemoryEventOutbox, 5: FakeAccountResolver}
  */
 function makeCreditUseCase(): array
 {
@@ -24,19 +28,35 @@ function makeCreditUseCase(): array
     $balances = new InMemoryWalletBalanceRepository;
     $ledgerPoster = new FakeLedgerPoster;
     $outbox = new InMemoryEventOutbox;
+    $accounts = new FakeAccountResolver;
 
     $useCase = new CreditWalletUseCase(
         new PassthroughUnitOfWork,
         $wallets,
         $balances,
-        new FakeAccountResolver,
+        $accounts,
         $ledgerPoster,
         $outbox,
         new SequentialIdentifier,
         new FixedClock,
     );
 
-    return [$useCase, $wallets, $balances, $ledgerPoster, $outbox];
+    return [$useCase, $wallets, $balances, $ledgerPoster, $outbox, $accounts];
+}
+
+/**
+ * The account the credit DEBITS — the one that is not the wallet's own
+ * account, as the ledger resolver was asked for it.
+ */
+function debitedAccount(FakeAccountResolver $accounts): ResolveOrCreateAccountCommand
+{
+    foreach ($accounts->calls as $call) {
+        if ($call->kind !== SystemAccount::WALLET) {
+            return $call;
+        }
+    }
+
+    throw new RuntimeException('No source account was resolved.');
 }
 
 it('lazily creates the wallet on its first credit', function (): void {
@@ -73,6 +93,52 @@ it('posts a balanced double-entry transaction: debit clearing, credit wallet', f
         ->and($entries[0]->direction)->toBe(Direction::Debit)
         ->and($entries[1]->direction)->toBe(Direction::Credit)
         ->and($entries[0]->amountMinor)->toBe($entries[1]->amountMinor);
+});
+
+it('debits the historical project-level clearing account when no origin is given', function (): void {
+    [$useCase, , , , , $accounts] = makeCreditUseCase();
+
+    $useCase->credit(new CreditWalletCommand('project-1', 'party-1', 1_000, 'XAF', null, 'idem-1'));
+
+    $source = debitedAccount($accounts);
+    expect($source->kind)->toBe('clearing')
+        ->and($source->reference)->toBe('');
+});
+
+it('debits the provider own clearing account when the origin names the provider (ADR-0076 §2)', function (): void {
+    [$useCase, , , , , $accounts] = makeCreditUseCase();
+
+    $useCase->credit(new CreditWalletCommand(
+        projectId: 'project-1',
+        partyId: 'party-1',
+        amountMinor: 1_000,
+        currency: 'XAF',
+        externalRef: null,
+        idempotencyKey: 'idem-1',
+        origin: new WalletCreditOrigin(WalletCreditSource::Clearing, 'my-coolpay'),
+    ));
+
+    $source = debitedAccount($accounts);
+    expect($source->kind)->toBe('clearing')
+        ->and($source->reference)->toBe('my-coolpay');
+});
+
+it('debits the exception pool when the money comes from an exception (ADR-0077 §4)', function (): void {
+    [$useCase, , , , , $accounts] = makeCreditUseCase();
+
+    $useCase->credit(new CreditWalletCommand(
+        projectId: 'project-1',
+        partyId: 'party-1',
+        amountMinor: 1_000,
+        currency: 'XAF',
+        externalRef: null,
+        idempotencyKey: 'idem-1',
+        origin: new WalletCreditOrigin(WalletCreditSource::PaymentExceptions),
+    ));
+
+    $source = debitedAccount($accounts);
+    expect($source->kind)->toBe('payment_exceptions')
+        ->and($source->reference)->toBe('');
 });
 
 it('appends a wallet.credited event to the outbox', function (): void {

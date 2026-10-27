@@ -11,6 +11,7 @@ use Core\Ledger\Contracts\LedgerEntryInput;
 use Core\Ledger\Contracts\LedgerPoster;
 use Core\Ledger\Contracts\PostLedgerTransactionCommand;
 use Core\Ledger\Contracts\ResolveOrCreateAccountCommand;
+use Core\Payment\Domain\Model\ClearingReclassificationOutcome;
 use Core\Payment\Domain\Model\MoneyException;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Model\SettlementAccount;
@@ -25,6 +26,12 @@ use Psr\Log\LoggerInterface;
  * uses for a wallet credit (ADR-0033 §2): exactly one settlement
  * transaction per payment, whichever path booked it. `external_ref` = the
  * payment id too, the join key reconciliation uses (ADR-0078 §3).
+ *
+ * ADR-0076 §2 — the DEBIT of a settlement lands on the provider's own
+ * account (`clearing` with the provider's code as its reference), while the
+ * CREDIT stays project-level (`revenue`, `payment_exceptions`,
+ * `withdrawal`): the money the provider holds is the provider's, the
+ * revenue is the project's.
  */
 final readonly class LedgerSettlementLedger implements SettlementLedger
 {
@@ -76,10 +83,90 @@ final readonly class LedgerSettlementLedger implements SettlementLedger
             externalRef: $exception->paymentId ?? $exception->id,
             idempotencyKey: 'money_exception:'.$exception->id.':resolution',
             debitKind: SettlementAccount::PAYMENT_EXCEPTIONS,
+            debitReference: SettlementAccount::PROJECT_LEVEL,
             creditKind: $creditKind,
+            creditReference: SettlementAccount::PROJECT_LEVEL,
             amountMinor: $exception->bookedAmount,
             currency: $exception->currency,
         );
+    }
+
+    public function recordClearingReclassification(
+        string $projectId,
+        string $providerCode,
+        string $currency,
+        int $amountMinor,
+        string $reason,
+    ): ClearingReclassificationOutcome {
+        if ($amountMinor === 0) {
+            return ClearingReclassificationOutcome::Unbookable;
+        }
+
+        $currency = strtoupper($currency);
+
+        if (! $this->currencies->isSupported($currency)) {
+            $this->logger->critical('payment.reclassification.unbookable_currency', [
+                'project_id' => $projectId,
+                'provider_code' => $providerCode,
+                'currency' => $currency,
+            ]);
+
+            return ClearingReclassificationOutcome::Unbookable;
+        }
+
+        $reference = SettlementAccount::clearingReferenceFor($providerCode);
+
+        // A positive net means the historical account holds money the
+        // provider has: it moves to the provider's own account. A negative
+        // net means the project is owed money: it moves back.
+        $providerIsDebited = $amountMinor > 0;
+        $moved = abs($amountMinor);
+
+        $provider = $this->accounts->resolveOrCreate(new ResolveOrCreateAccountCommand(
+            $projectId,
+            SettlementAccount::CLEARING,
+            $reference,
+            $currency,
+        ));
+
+        $historical = $this->accounts->resolveOrCreate(new ResolveOrCreateAccountCommand(
+            $projectId,
+            SettlementAccount::CLEARING,
+            SettlementAccount::PROJECT_LEVEL,
+            $currency,
+        ));
+
+        $posted = $this->poster->post(new PostLedgerTransactionCommand(
+            $projectId,
+            'clearing_reclassement',
+            // The MOTIVE of the reclassification (ADR-0076 §2: « une
+            // écriture de reclassement unique, motivée et auditée »).
+            // The project it reclasses is already on the transaction
+            // (`project_id`); the free field is for the reason.
+            $reason,
+            // One move per (project, currency, provider) — running the
+            // command again finds this key already posted and moves
+            // nothing.
+            sprintf('clearing_reclassement:%s:%s:%s', $projectId, $currency, $reference),
+            [
+                new LedgerEntryInput(
+                    $providerIsDebited ? $provider->id : $historical->id,
+                    Direction::Debit,
+                    $moved,
+                    $currency,
+                ),
+                new LedgerEntryInput(
+                    $providerIsDebited ? $historical->id : $provider->id,
+                    Direction::Credit,
+                    $moved,
+                    $currency,
+                ),
+            ],
+        ));
+
+        return $posted->wasAlreadyPosted
+            ? ClearingReclassificationOutcome::AlreadyPosted
+            : ClearingReclassificationOutcome::Moved;
     }
 
     private function book(Payment $payment, string $type, string $creditKind, int $amountMinor, string $currency): void
@@ -90,7 +177,9 @@ final readonly class LedgerSettlementLedger implements SettlementLedger
             externalRef: $payment->id,
             idempotencyKey: $payment->id,
             debitKind: SettlementAccount::CLEARING,
+            debitReference: SettlementAccount::clearingReferenceFor($payment->providerCode),
             creditKind: $creditKind,
+            creditReference: SettlementAccount::PROJECT_LEVEL,
             amountMinor: $amountMinor,
             currency: $currency,
         );
@@ -102,21 +191,23 @@ final readonly class LedgerSettlementLedger implements SettlementLedger
         string $externalRef,
         string $idempotencyKey,
         string $debitKind,
+        string $debitReference,
         string $creditKind,
+        string $creditReference,
         int $amountMinor,
         string $currency,
     ): void {
         $debit = $this->accounts->resolveOrCreate(new ResolveOrCreateAccountCommand(
             $projectId,
             $debitKind,
-            SettlementAccount::PROJECT_LEVEL,
+            $debitReference,
             $currency,
         ));
 
         $credit = $this->accounts->resolveOrCreate(new ResolveOrCreateAccountCommand(
             $projectId,
             $creditKind,
-            SettlementAccount::PROJECT_LEVEL,
+            $creditReference,
             $currency,
         ));
 

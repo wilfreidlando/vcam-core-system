@@ -72,17 +72,33 @@ final readonly class MoneyException
 
     /**
      * The resolutions a person may choose for this exception. Money on
-     * `payment_exceptions` must leave it (refund or revenue); with
-     * nothing booked, the only honest resolution is "no movement".
+     * `payment_exceptions` must leave it (refund, revenue, or a wallet);
+     * with nothing booked, the only honest resolution is "no movement".
      * `Allocated` is reserved to the module that owns the invoice.
+     *
+     * Imputing the money to a wallet (ADR-0077 §4) needs a party to
+     * impute it TO: the exception's `subjectRef` is the wallet recipient
+     * the payment carried. Without one, the resolution is not offered —
+     * there would be no wallet to credit.
      *
      * @return list<MoneyExceptionResolution>
      */
     public function allowedResolutions(): array
     {
-        return $this->bookedAmount > 0
-            ? [MoneyExceptionResolution::RefundedOutside, MoneyExceptionResolution::RecognizedAsRevenue]
-            : [MoneyExceptionResolution::NoAction];
+        if ($this->bookedAmount <= 0) {
+            return [MoneyExceptionResolution::NoAction];
+        }
+
+        $resolutions = [
+            MoneyExceptionResolution::RefundedOutside,
+            MoneyExceptionResolution::RecognizedAsRevenue,
+        ];
+
+        if ($this->subjectRef !== null && trim($this->subjectRef) !== '') {
+            $resolutions[] = MoneyExceptionResolution::AllocatedToWallet;
+        }
+
+        return $resolutions;
     }
 
     /**

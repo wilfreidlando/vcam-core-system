@@ -27,6 +27,8 @@ use Core\Support\Identifier;
 use Core\Support\UnitOfWork;
 use Core\Wallet\Contracts\CreditWallet;
 use Core\Wallet\Contracts\CreditWalletCommand;
+use Core\Wallet\Contracts\WalletCreditOrigin;
+use Core\Wallet\Contracts\WalletCreditSource;
 use DateTimeZone;
 use LogicException;
 use Psr\Log\LoggerInterface;
@@ -411,6 +413,11 @@ final readonly class HandlePaymentStatusChangedUseCase implements PaymentStatusC
             // ledger-level idempotency key (ADR-0033 §2).
             $payment->id,
             $externalRef,
+            // ADR-0076 §2 — the money is debited from the provider's own
+            // account (`clearing:<prestataire>`), not from the historical
+            // project-level one, so the reconciliation can isolate a
+            // provider.
+            new WalletCreditOrigin(WalletCreditSource::Clearing, $payment->providerCode),
         ));
 
         $this->journey->record(

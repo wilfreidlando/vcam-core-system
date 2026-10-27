@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Payment\Tests\Unit\Fakes;
 
+use Core\Payment\Domain\Model\ClearingReclassificationOutcome;
 use Core\Payment\Domain\Model\MoneyException;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Port\SettlementLedger;
@@ -20,6 +21,9 @@ final class RecordingSettlementLedger implements SettlementLedger
 
     /** @var list<array{exceptionId: string, amount: int, credit: string}> */
     public array $resolutions = [];
+
+    /** @var list<array{projectId: string, providerCode: string, currency: string, amount: int, reason: string}> */
+    public array $reclassifications = [];
 
     public function recordDirectSettlement(Payment $payment): void
     {
@@ -43,5 +47,23 @@ final class RecordingSettlementLedger implements SettlementLedger
         if ($exception->movesMoney() && $credit !== null) {
             $this->resolutions[] = ['exceptionId' => $exception->id, 'amount' => $exception->bookedAmount, 'credit' => $credit];
         }
+    }
+
+    public function recordClearingReclassification(
+        string $projectId,
+        string $providerCode,
+        string $currency,
+        int $amountMinor,
+        string $reason,
+    ): ClearingReclassificationOutcome {
+        $this->reclassifications[] = [
+            'projectId' => $projectId,
+            'providerCode' => $providerCode,
+            'currency' => $currency,
+            'amount' => $amountMinor,
+            'reason' => $reason,
+        ];
+
+        return ClearingReclassificationOutcome::Moved;
     }
 }

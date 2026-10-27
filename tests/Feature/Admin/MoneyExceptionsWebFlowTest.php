@@ -4,19 +4,25 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
-use Core\Identity\Contracts\CreateOperator;
-use Core\Identity\Contracts\CreateOperatorCommand;
 use Core\Identity\Domain\Model\Operator;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Identity\OperatorRole;
+use Core\Ledger\Contracts\AccountResolver;
+use Core\Ledger\Contracts\Direction;
+use Core\Ledger\Contracts\LedgerEntryInput;
+use Core\Ledger\Contracts\LedgerPoster;
+use Core\Ledger\Contracts\PostLedgerTransactionCommand;
+use Core\Ledger\Contracts\ResolveOrCreateAccountCommand;
 use Core\Payment\Contracts\RecordMoneyException;
 use Core\Payment\Contracts\RecordMoneyExceptionCommand;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
+use Tests\Support\OperatorFactory;
 use Tests\TestCase;
 
 /**
@@ -129,7 +135,69 @@ final class MoneyExceptionsWebFlowTest extends TestCase
         $this->get(route('admin.money-exceptions.index'))->assertForbidden();
     }
 
-    private function openException(int $bookedAmount): string
+    #[Test]
+    public function the_console_offers_to_impute_the_money_to_a_wallet_and_credits_it(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        config(['payment.exceptions.approval_threshold_minor' => 50_000]);
+        $exceptionId = $this->openException(bookedAmount: 1_000, subjectRef: 'customer-ext-1');
+
+        $this->loginAndEnrollMfa(OperatorRole::FinanceOperator);
+
+        // The resolution is offered, with its label.
+        $this->get(route('admin.money-exceptions.show', $exceptionId))
+            ->assertOk()
+            ->assertSee('Imputé à un wallet');
+
+        $this->post(route('admin.money-exceptions.resolve', $exceptionId), [
+            'resolution' => 'allocated_to_wallet',
+            'note' => 'Le trop-perçu revient au client.',
+        ])->assertRedirect(route('admin.money-exceptions.show', $exceptionId));
+
+        self::assertSame('resolved', DB::table('money_exceptions')->where('id', $exceptionId)->value('status'));
+
+        $walletId = DB::table('wallets')->where('project_id', self::PROJECT_ID)->value('id');
+        self::assertIsString($walletId);
+        self::assertEquals(
+            1_000,
+            DB::table('wallet_balances')->where('wallet_id', $walletId)->value('available_minor'),
+        );
+
+        // The money left the exception pool and landed on the wallet — and
+        // the payment module's own ledger booking wrote nothing.
+        self::assertSame(1, DB::table('ledger_transactions')
+            ->where('project_id', self::PROJECT_ID)
+            ->where('idempotency_key', 'money_exception:'.$exceptionId.':wallet')
+            ->count());
+        self::assertSame(0, $this->resolutionTransactions($exceptionId));
+    }
+
+    /**
+     * ADR-0077 §4 — a resolution may only move what the exception pool
+     * really holds. An exception whose money was never written to the
+     * grand livre holds nothing: the console refuses with a conflict,
+     * and nothing moves.
+     */
+    #[Test]
+    public function a_resolution_the_pool_cannot_honour_is_refused_with_a_conflict(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        $exceptionId = $this->openException(5_000, 'customer-ext-1', pooled: false);
+
+        $this->loginAndEnrollMfa(OperatorRole::FinanceOperator);
+
+        $this->post(route('admin.money-exceptions.resolve', $exceptionId), [
+            'resolution' => 'allocated_to_wallet',
+            'note' => 'Le trop-perçu revient au client.',
+        ])->assertStatus(409);
+
+        // Nothing moved: no wallet, and the exception is still open.
+        self::assertSame('open', DB::table('money_exceptions')->where('id', $exceptionId)->value('status'));
+        self::assertSame(0, DB::table('wallets')->where('project_id', self::PROJECT_ID)->count());
+        self::assertSame(0, $this->resolutionTransactions($exceptionId));
+    }
+
+    private function openException(int $bookedAmount, ?string $subjectRef = null, bool $pooled = true): string
     {
         $id = app(RecordMoneyException::class)->record(new RecordMoneyExceptionCommand(
             projectId: self::PROJECT_ID,
@@ -139,12 +207,43 @@ final class MoneyExceptionsWebFlowTest extends TestCase
             currency: 'XAF',
             bookedAmountMinor: $bookedAmount,
             paymentId: null,
-            subjectRef: null,
+            subjectRef: $subjectRef,
             summary: 'Paiement order-42 : demandé 5 000 XAF, le prestataire confirme un autre montant.',
         ));
         self::assertIsString($id);
 
+        if ($pooled) {
+            $this->fundExceptionPool($bookedAmount);
+        }
+
         return $id;
+    }
+
+    /**
+     * What the provider confirmed and the Core could not allocate lands
+     * on the exception pool — as an unallocated settlement does. A
+     * resolution may only move what the pool really holds.
+     */
+    private function fundExceptionPool(int $amount): void
+    {
+        if ($amount <= 0) {
+            return;
+        }
+
+        $accounts = app(AccountResolver::class);
+        $clearing = $accounts->resolveOrCreate(new ResolveOrCreateAccountCommand(self::PROJECT_ID, 'clearing', 'my-coolpay', 'XAF'));
+        $pool = $accounts->resolveOrCreate(new ResolveOrCreateAccountCommand(self::PROJECT_ID, 'payment_exceptions', '', 'XAF'));
+
+        app(LedgerPoster::class)->post(new PostLedgerTransactionCommand(
+            self::PROJECT_ID,
+            'payment_unallocated',
+            (string) Str::uuid(),
+            'pool-'.Str::random(8),
+            [
+                new LedgerEntryInput($clearing->id, Direction::Debit, $amount, 'XAF'),
+                new LedgerEntryInput($pool->id, Direction::Credit, $amount, 'XAF'),
+            ],
+        ));
     }
 
     private function resolutionTransactions(string $exceptionId): int
@@ -157,18 +256,14 @@ final class MoneyExceptionsWebFlowTest extends TestCase
 
     private function loginAndEnrollMfa(OperatorRole $role): void
     {
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand(uniqid('op-', true).'@example.com', 'Ops', $role->value),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = OperatorFactory::create(uniqid('op-', true).'@example.com', $role);
 
-        $operator = app(OperatorRepository::class)->find($created->operatorId);
+        $operator = app(OperatorRepository::class)->find($created);
         self::assertInstanceOf(Operator::class, $operator);
 
         $this->post('/admin/login', [
             'email' => $operator->email,
-            'password' => $created->plaintextPassword,
+            'password' => OperatorFactory::PASSWORD,
         ])->assertRedirect(route('admin.mfa.enroll.show'));
 
         $enroll = $this->get('/admin/mfa/enroll');

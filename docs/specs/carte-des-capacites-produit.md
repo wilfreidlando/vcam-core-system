@@ -1,6 +1,6 @@
 # Carte des capacités — la plateforme de projets SaaS, état par capacité
 
-- **Date** : 2026-10-27 · **Version** : 2.1 · **Statut** : référence produit
+- **Date** : 2026-10-27 · **Version** : 2.2 · **Statut** : référence produit
   (ne construit rien)
 - **Réf.** : ADR-0068 à ADR-0091 · plan de delivery, addendum du 2026-10-24
 
@@ -8,8 +8,8 @@ Légende : **●** livré · **◐** décidé (ADR accepté), lot à construire 
 d'extension prévu (ADR-0090), non planifié · **✗** refusé (liste négative).
 
 La série ADR-0068 à ADR-0090 a été **ratifiée le 2026-10-27** ; ADR-0091 consigne
-les décisions que le code avait introduites sans ADR. Le lot 8 est **livré** : ses
-lignes sont passées de **◐** à **●**.
+les décisions que le code avait introduites sans ADR. Les lots 8 et 9 sont
+**livrés** : leurs lignes sont passées de **◐** à **●**.
 
 ## 1. Services de plateforme
 
@@ -18,10 +18,11 @@ lignes sont passées de **◐** à **●**.
 | Organisations, projets | ● | `identity` |
 | Cycle de vie d'un projet (`active` / `suspended` / `archived`) | ● (lot 8) | ADR-0069 |
 | Console scopée par organisation, rôles `org_*`, invitations | ● (lot 8) | ADR-0069 |
+| Comptes console ouverts par jeton d'activation, jamais par un mot de passe choisi par le système | ● (lot 9) | ADR-0081 S-07 |
 | Clés d'API (une par projet, toutes portées) | ● | ADR-0066 |
 | Clés multiples à portée, rotation, restriction réseau | ● (lot 8) | ADR-0082 |
 | Paiement : canal, routage, MyCoolPay, idempotence, réconciliation de statut | ● | ADR-0038, ADR-0051, ADR-0067 |
-| Vérification du montant confirmé | ◐ lot 9 | ADR-0077 |
+| Vérification du montant confirmé | ● (lot 9) | ADR-0077 |
 | Notifications multicanal, WhatsApp (WAHA) | ● | ADR-0041, ADR-0057 |
 | Adaptateurs SMS, e-mail | ○ | ADR-0090 |
 | Webhooks signés, retry, DLQ, rejeu, test | ● | ADR-0040, ADR-0063 |
@@ -64,11 +65,14 @@ lignes sont passées de **◐** à **●**.
 |---|---|---|
 | Double entrée, somme nulle et immuabilité en base, soldes matérialisés | ● | ADR-0005, ADR-0033 |
 | Wallets, transferts à somme nulle, sorties enregistrées | ● | ADR-0065 |
-| Toute somme écrite, plan de comptes par projet | ◐ lot 9 | ADR-0076 |
-| Isolation inter-projets en base (G13) | ◐ lot 9 | ADR-0076 §5 |
-| Lectures par période, balance de vérification, relevés | ◐ lot 9 | ADR-0076 §4 |
-| Exceptions d'argent, résolution à quatre yeux | ◐ lot 9 | ADR-0077 |
-| Contrôles d'invariants horaires | ◐ lot 9 | ADR-0078 |
+| Toute somme écrite, plan de comptes par projet | ● (lot 9) | ADR-0076 |
+| Compte de règlement par prestataire et reclassement motivé | ● (lot 9) | ADR-0076 §2 |
+| Isolation inter-projets en base (G13) | ● (lot 9) | ADR-0076 §5 |
+| Lectures par période, balance de vérification, relevés | ● (lot 9) | ADR-0076 §4 |
+| Corrections d'exploitation à quatre vues (contre-passation) | ● (lot 9) | ADR-0076 §6 |
+| Exceptions d'argent, résolution à quatre yeux | ● (lot 9) | ADR-0077 |
+| Contrôles d'invariants horaires | ● (lot 9) | ADR-0078 |
+| Registre des rapprochements (niveau A) | ● (lot 9) | ADR-0078 §5 |
 | Rapprochement relevé et solde du prestataire | ◐ lot 18 | ADR-0078 |
 | Versements sortants | ◐ lot 19 | ADR-0079 |
 | Commissions et barèmes (`fees`) | ○ | ADR-0090 |

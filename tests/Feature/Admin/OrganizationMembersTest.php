@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
-use Core\Identity\Contracts\CreateOperator;
-use Core\Identity\Contracts\CreateOperatorCommand;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Domain\Model\OrganizationMembership;
@@ -24,6 +22,7 @@ use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
+use Tests\Support\OperatorFactory;
 use Tests\TestCase;
 
 /**
@@ -162,11 +161,7 @@ final class OrganizationMembersTest extends TestCase
         $platform = $this->platformAccount('root@platform.test');
         $organizationId = $this->organization('Acme');
 
-        $consultant = app(CreateOperator::class)->create(
-            new CreateOperatorCommand('consultant@example.test', 'Consultant', ''),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $consultant = OperatorFactory::create('consultant@example.test', null);
 
         $token = $this->api($platform['token'])
             ->postJson("/v1/admin/organizations/{$organizationId}/invitations", ['email' => 'consultant@example.test', 'role' => 'org_viewer'])
@@ -179,14 +174,14 @@ final class OrganizationMembersTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('type', 'https://errors.core-system.internal/invitation-account-password-invalid');
 
-        $this->postJson('/v1/admin/organization-invitations/accept', ['token' => $token, 'password' => $consultant->plaintextPassword])
+        $this->postJson('/v1/admin/organization-invitations/accept', ['token' => $token, 'password' => OperatorFactory::PASSWORD])
             ->assertCreated()
-            ->assertJsonPath('operator_id', $consultant->operatorId)
+            ->assertJsonPath('operator_id', $consultant)
             ->assertJsonPath('account_created', false)
             ->assertJsonPath('purpose', 'mfa_enrollment');
 
         // The original password still signs in; the attempted one does not.
-        $this->postJson('/v1/operators/login', ['email' => 'consultant@example.test', 'password' => $consultant->plaintextPassword])->assertOk();
+        $this->postJson('/v1/operators/login', ['email' => 'consultant@example.test', 'password' => OperatorFactory::PASSWORD])->assertOk();
         $this->postJson('/v1/operators/login', ['email' => 'consultant@example.test', 'password' => 'attacker picked this'])->assertUnauthorized();
     }
 
@@ -366,13 +361,9 @@ final class OrganizationMembersTest extends TestCase
      */
     private function platformAccount(string $email): array
     {
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand($email, 'Platform', OperatorRole::PlatformAdmin->value),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = OperatorFactory::create($email, OperatorRole::PlatformAdmin);
 
-        return ['id' => $created->operatorId, 'token' => app(OperatorTokenIssuer::class)->issue($created->operatorId, 'test')];
+        return ['id' => $created, 'token' => app(OperatorTokenIssuer::class)->issue($created, 'test')];
     }
 
     /**
@@ -382,21 +373,17 @@ final class OrganizationMembersTest extends TestCase
      */
     private function organizationAccount(string $email, string $organizationId, OrganizationRole $role): array
     {
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand($email, $email, ''),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = OperatorFactory::create($email, null);
 
         app(OrganizationMembershipRepository::class)->save(new OrganizationMembership(
             id: (string) Str::uuid(),
             organizationId: $organizationId,
-            operatorId: $created->operatorId,
+            operatorId: $created,
             role: $role,
             createdAt: new DateTimeImmutable,
         ));
 
-        return ['id' => $created->operatorId, 'token' => app(OperatorTokenIssuer::class)->issue($created->operatorId, 'test')];
+        return ['id' => $created, 'token' => app(OperatorTokenIssuer::class)->issue($created, 'test')];
     }
 
     private function organization(string $name): string

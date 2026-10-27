@@ -10,8 +10,13 @@ use Core\Payment\Domain\Model\MoneyExceptionStatus;
 interface MoneyExceptionRepository
 {
     /**
-     * Stores a new exception. Returns `false`, without writing, when one
-     * already exists for the same payment and kind (a replay).
+     * Stores a new exception. Returns `false`, without writing, when an
+     * OPEN exception already exists for the same payment and kind (a
+     * replay, or a control that has already reported the violation).
+     *
+     * A RESOLVED exception never blocks: the invariant it carried may
+     * break again, and the next pass of the control must be able to
+     * open a new one (ADR-0078 §2).
      */
     public function create(MoneyException $exception): bool;
 

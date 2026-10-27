@@ -12,6 +12,7 @@ use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Payment\Contracts\ListMoneyExceptions;
 use Core\Payment\Contracts\ListMoneyExceptionsCommand;
+use Core\Payment\Contracts\MoneyExceptionPoolInsufficient;
 use Core\Payment\Contracts\MoneyExceptionView;
 use Core\Payment\Contracts\ResolveMoneyException;
 use Core\Payment\Contracts\ResolveMoneyExceptionCommand;
@@ -103,7 +104,7 @@ final class MoneyExceptionsController
         /** @var array{resolution: string, reference?: string|null, note: string} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
-            'resolution' => ['required', 'string', 'in:refunded_outside,recognized_as_revenue,no_action'],
+            'resolution' => ['required', 'string', 'in:refunded_outside,recognized_as_revenue,allocated_to_wallet,no_action'],
             'reference' => ['nullable', 'string', 'max:200'],
             'note' => ['required', 'string', 'min:5', 'max:1000'],
         ]);
@@ -121,6 +122,11 @@ final class MoneyExceptionsController
             ), $scope);
         } catch (MoneyExceptionNotFound) {
             abort(404);
+        } catch (MoneyExceptionPoolInsufficient $e) {
+            // ADR-0077 §4 — the pool does not hold the money the
+            // resolution wants to move: nothing was written, and the
+            // operator has to know the request could not be honoured.
+            abort(409, $e->getMessage());
         } catch (MoneyExceptionTransitionRefused $e) {
             return back()->withInput()->withErrors(['resolution' => $e->getMessage()]);
         }
@@ -153,6 +159,10 @@ final class MoneyExceptionsController
                 : $this->resolver->reject($exception, $operator->operatorId, $scope);
         } catch (MoneyExceptionNotFound) {
             abort(404);
+        } catch (MoneyExceptionPoolInsufficient $e) {
+            // ADR-0077 §4 — the approval moves money: the pool must hold
+            // it. Nothing was written.
+            abort(409, $e->getMessage());
         } catch (MoneyExceptionTransitionRefused $e) {
             return back()->withErrors(['resolution' => $e->getMessage()]);
         }

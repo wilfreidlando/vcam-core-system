@@ -16,7 +16,12 @@ final class InMemoryMoneyExceptionRepository implements MoneyExceptionRepository
     public function create(MoneyException $exception): bool
     {
         foreach ($this->exceptions as $existing) {
-            if ($exception->paymentId !== null && $existing->paymentId === $exception->paymentId && $existing->kind === $exception->kind) {
+            // Only an OPEN exception blocks — the same rule the partial
+            // unique index enforces in PostgreSQL.
+            if ($existing->status !== MoneyExceptionStatus::Resolved
+                && $exception->paymentId !== null
+                && $existing->paymentId === $exception->paymentId
+                && $existing->kind === $exception->kind) {
                 return false;
             }
         }

@@ -114,6 +114,24 @@ Rapport et exceptions : console uniquement, permission
 `reconciliation:read` / `reconciliation:write`, portée par organisation
 (ADR-0069). Aucune route publique.
 
+### Mise en œuvre (lot 9)
+
+Précisions apportées en réalisant la décision ; elles ne changent pas son
+sens.
+
+- **Un règlement se rattache à son paiement par sa clé d'idempotence**, pas
+  par son type de transaction : la clé d'un règlement est l'identifiant du
+  paiement. Les clés qui ne sont pas des identifiants de paiement
+  (exception, reclassement, correction, transfert) ne sont pas des
+  règlements et sont exclues du rapprochement — un règlement de type
+  `wallet_credit` est donc vu, là où un filtre par type l'aurait laissé
+  passer.
+- **Chaque passage du niveau A laisse une trace** dans
+  `reconciliation_runs` : `completed` ou `failed`, avec le nombre
+  d'invariants **réellement** évalués (et non un nombre théorique) et les
+  identifiants des exceptions ouvertes. La trace ne contient aucune valeur
+  personnelle : des compteurs et des identifiants.
+
 ## Alternatives écartées
 
 - **Attendre que tous les prestataires exposent relevé et solde.** Rejeté : les

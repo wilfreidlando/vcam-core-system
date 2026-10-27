@@ -47,6 +47,11 @@ final readonly class AdminSidebarComposer
 
         $canWebhooks = $anywhere('webhooks:read');
         $canMoneyExceptions = $anywhere('money-exceptions:read');
+        // ADR-0076 §6 — the operating corrections are the other half of
+        // the same question as the money exceptions ("this money is not
+        // where it should be, what do we do?"): the same permission
+        // opens the queue and the corrections.
+        $canLedgerAdjustments = $anywhere('money-exceptions:read');
         $canReconciliation = $anywhere('payments:reconcile:write');
 
         $view->with([
@@ -59,6 +64,7 @@ final readonly class AdminSidebarComposer
             'canWallets' => self::holdsTogether($operator, 'wallets:read', 'projects:read'),
             'canReconciliation' => $canReconciliation,
             'canMoneyExceptions' => $canMoneyExceptions,
+            'canLedgerAdjustments' => $canLedgerAdjustments,
             'canWebhooks' => $canWebhooks,
             // ADR-0067 — Horizon can retry and delete jobs: platform only.
             'canQueues' => $operator->hasPermission('queues:manage'),

@@ -154,7 +154,21 @@ données personnelles dans `core/support` (`privacy:generate-key`, ADR-0083)
 ([ADR-0069](docs/adr/0069-organisations-projets-et-acces-console-scopes.md),
 [ADR-0081](docs/adr/0081-modele-de-menace-et-exigences-de-securite.md),
 [ADR-0082](docs/adr/0082-cles-d-api-portees-rotation-et-secrets-de-webhook.md),
-[ADR-0083](docs/adr/0083-donnees-personnelles-chiffrement-conservation-effacement.md)).
+[ADR-0083](docs/adr/0083-donnees-personnelles-chiffrement-conservation-effacement.md))
+→ **Lot 9 — Grand livre complet — livré** : toute somme confirmée est
+écrite au grand livre (plan de comptes par projet), compte de règlement
+**par prestataire** (`clearing:<prestataire>`, avec reclassement motivé
+et refus de deviner), isolation inter-projets en base (**G13**),
+immuabilité des transactions, lectures par période et balance
+(`ListLedgerTransactions`, `TrialBalance`, `AccountStatement`),
+corrections d'exploitation à quatre vues (contre-passation obligatoire,
+invariants revérifiés au moment où l'argent bouge), exceptions d'argent
+avec **bassin vérifié avant tout mouvement** et résolution à quatre yeux,
+contrôle horaire des invariants (`invariants:check`) et registre des
+rapprochements (`reconciliation_runs`)
+([ADR-0076](docs/adr/0076-grand-livre-complet-plan-de-comptes.md),
+[ADR-0077](docs/adr/0077-confirmation-des-encaissements-et-exceptions.md),
+[ADR-0078](docs/adr/0078-rapprochement-et-controles-d-invariants.md)).
 `billing`, `storage`, `fees`, `developer-platform`
 sont **encore** des scaffolds Lot 0 vides. **ADR-0068 amends ADR-0048** :
 `billing` et `developer-platform` **entrent en production** (`billing` au lot 10,
@@ -285,9 +299,13 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   la première connexion via `pragmarx/google2fa` (pas de rendu QR serveur
   — plateforme API-only). Flux : `POST /v1/operators/login` →
   `mfa/enroll` (1ère connexion) ou `mfa/verify` (connexions suivantes) →
-  jeton Sanctum ; création d'opérateur possible en CLI
-  (`identity:create-operator`) **ou** en self-service depuis le Lot 6,
-  troisième tranche (ADR-0050 — voir plus bas). Quatre capacités
+  jeton Sanctum ; **un compte console n'est jamais ouvert par un mot de
+  passe choisi par le système** (ADR-0081 S-07) : il s'ouvre par une
+  invitation à jeton d'activation à usage unique — en CLI
+  (`identity:invite-operator`, pour le tout premier compte d'un
+  environnement) **ou** en self-service depuis le Lot 6, troisième
+  tranche (ADR-0050 — voir plus bas) ; l'invité choisit son mot de passe
+  à l'activation. Quatre capacités
   exposées sous `/v1/admin/*` (middleware `operator.auth`, jamais
   `project.auth` — et donc jamais `idempotency`, câblée sur
   `ProjectContext`) : `GET /audit-log` (nouveau port
@@ -314,11 +332,16 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   route `POST`, donc hors du champ G7/`idempotency`. Convention de
   pagination (`page`/`per_page`, `{data, meta}`) reprise telle quelle
   d'`AuditQuery` (ADR-0044). Troisième
-  tranche (ADR-0050) : gestion self-service des opérateurs — créer/lister/
+  tranche (ADR-0050) : gestion self-service des opérateurs — inviter/lister/
   révoquer via `POST/GET /v1/admin/operators`,
   `POST /v1/admin/operators/{id}/revoke`, réservé à `operators:read`/
   `operators:write` (seul `PlatformAdmin` les porte) ; même capacité côté
-  console web (`/admin/operators`). Quatrième tranche (ADR-0052) : CRUD
+  console web (`/admin/operators`). Depuis le **lot 9**, `POST /v1/admin/
+  operators` n'est plus une création : c'est une **invitation** — la
+  réponse porte `invitation_id` et le jeton d'activation **une seule
+  fois**, et le compte n'existe qu'à l'activation
+  (`POST /v1/admin/operator-invitations/accept`, route publique — c'est
+  l'invitation qui donne accès, et l'invité y choisit son mot de passe). Quatrième tranche (ADR-0052) : CRUD
   opérateur complet (`PUT /v1/admin/operators/{id}` + `/admin/operators/{id}/edit`
   en plus de create/list/revoke), création self-service Organizations/Projects
   (`POST /v1/admin/organizations`, `POST /v1/admin/projects`, permission
@@ -335,7 +358,11 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   règles de frais (module hors périmètre de production, ADR-0048), billing
   (idem), monitoring opérationnel/OTel, détail des écritures ledger par
   wallet (aucun port de lecture correspondant dans `packages/ledger` à ce
-  jour).
+  jour). Depuis le **lot 9**, la console porte aussi les **corrections
+  d'exploitation** (`/admin/ledger-adjustments`) : proposition, approbation
+  par un **autre** compte console, puis écriture au grand livre — la
+  console n'écrit jamais au grand livre elle-même, elle passe par le port
+  `Core\Ledger\Contracts\LedgerAdjustments`.
 - Identity/Audit sont livrés (Lot 1) : Organization/Project/ApiKey, middleware
   d'auth Project, `GET /v1/whoami`, module Audit minimal. Voir
   `packages/identity/README.md`. Depuis le Lot 6 (ADR-0044), `identity`

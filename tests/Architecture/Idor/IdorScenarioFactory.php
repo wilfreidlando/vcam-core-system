@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Architecture\Idor;
 
-use Core\Identity\Contracts\CreateOperator;
-use Core\Identity\Contracts\CreateOperatorCommand;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Contracts\CreateProject;
@@ -17,6 +15,14 @@ use Core\Identity\Domain\Model\OrganizationRole;
 use Core\Identity\Domain\Port\OperatorTokenIssuer;
 use Core\Identity\Domain\Port\OrganizationMembershipRepository;
 use Core\Identity\OperatorRole;
+use Core\Ledger\Contracts\AccountResolver;
+use Core\Ledger\Contracts\Direction;
+use Core\Ledger\Contracts\LedgerAdjustments;
+use Core\Ledger\Contracts\LedgerEntryInput;
+use Core\Ledger\Contracts\LedgerPoster;
+use Core\Ledger\Contracts\PostLedgerTransactionCommand;
+use Core\Ledger\Contracts\ProposeLedgerAdjustmentCommand;
+use Core\Ledger\Contracts\ResolveOrCreateAccountCommand;
 use Core\Notification\Domain\Model\ChannelSession;
 use Core\Notification\Domain\Model\Notification;
 use Core\Notification\Domain\Port\ChannelSessionRepository;
@@ -29,6 +35,7 @@ use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Payment\PaymentStatus;
+use Core\Support\Access\AccessScope;
 use Core\Support\Money\Money;
 use Core\Wallet\Domain\Model\Wallet;
 use Core\Wallet\Domain\Model\WalletBalance;
@@ -43,6 +50,7 @@ use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Tests\Support\OperatorFactory;
 
 /**
  * Two organizations, A and B, one project each, and the account under
@@ -62,6 +70,7 @@ final class IdorScenarioFactory
     private const PROJECT_TABLES = [
         'api_keys', 'payment_provider_applications', 'webhook_endpoints', 'webhook_deliveries',
         'notification_channel_sessions', 'notifications', 'payments', 'wallets', 'money_exceptions', 'event_outbox',
+        'ledger_adjustments', 'ledger_transactions', 'ledger_accounts',
     ];
 
     private const ORGANIZATION_TABLES = ['projects', 'organization_memberships', 'organization_invitations'];
@@ -241,13 +250,27 @@ final class IdorScenarioFactory
 
                 return new ResourceRequest(['exception' => $exceptionId], markers: [$exceptionId, $summary]);
 
+            case ResourceNature::LedgerAdjustment:
+                $reason = 'Correction d\'exploitation '.$owner->secret;
+                $reversed = $this->settlement($owner);
+                $adjustment = app(LedgerAdjustments::class)->propose(new ProposeLedgerAdjustmentCommand(
+                    projectId: $owner->project->id,
+                    sourceKind: 'clearing',
+                    sourceReference: '',
+                    destinationKind: 'revenue',
+                    destinationReference: '',
+                    amountMinor: 1_000,
+                    currency: 'XAF',
+                    reason: $reason,
+                    proposedBy: (string) Str::uuid(),
+                    reversesTransactionId: $reversed,
+                ), AccessScope::forProject($owner->project->id));
+
+                return new ResourceRequest(['adjustment' => $adjustment->id], markers: [$adjustment->id, $reason]);
+
             case ResourceNature::Operator:
                 $email = 'idor-platform-'.Str::lower(Str::random(10)).'@example.com';
-                $operatorId = app(CreateOperator::class)->create(
-                    new CreateOperatorCommand($email, 'Compte plateforme', OperatorRole::PlatformAdmin->value),
-                    actor: 'test:idor',
-                    correlationId: null,
-                )->operatorId;
+                $operatorId = OperatorFactory::create($email, OperatorRole::PlatformAdmin);
 
                 return new ResourceRequest(['operatorId' => $operatorId], markers: [$email]);
 
@@ -324,11 +347,7 @@ final class IdorScenarioFactory
      */
     private static function account(string $name, Tenant $tenant, OrganizationRole $role, ?string $email = null): string
     {
-        $operatorId = app(CreateOperator::class)->create(
-            new CreateOperatorCommand($email ?? $name.'-'.Str::lower(Str::random(8)).'@example.com', $name, ''),
-            actor: 'test:idor',
-            correlationId: null,
-        )->operatorId;
+        $operatorId = OperatorFactory::create($email ?? $name.'-'.Str::lower(Str::random(8)).'@example.com', null);
 
         app(OrganizationMembershipRepository::class)->save(new OrganizationMembership(
             id: (string) Str::uuid(),
@@ -339,6 +358,30 @@ final class IdorScenarioFactory
         ));
 
         return $operatorId;
+    }
+
+    /**
+     * A settled transaction of the tenant's project — the transaction an
+     * operating correction counter-passes (ADR-0076 §5).
+     */
+    private function settlement(Tenant $owner): string
+    {
+        $accounts = app(AccountResolver::class);
+        $clearing = $accounts->resolveOrCreate(new ResolveOrCreateAccountCommand($owner->project->id, 'clearing', '', 'XAF'));
+        $revenue = $accounts->resolveOrCreate(new ResolveOrCreateAccountCommand($owner->project->id, 'revenue', '', 'XAF'));
+
+        $ref = app(LedgerPoster::class)->post(new PostLedgerTransactionCommand(
+            projectId: $owner->project->id,
+            type: 'payment_settlement',
+            externalRef: null,
+            idempotencyKey: 'idor:'.Str::uuid(),
+            entries: [
+                new LedgerEntryInput($clearing->id, Direction::Debit, 1_000, 'XAF'),
+                new LedgerEntryInput($revenue->id, Direction::Credit, 1_000, 'XAF'),
+            ],
+        ));
+
+        return $ref->id;
     }
 
     /**

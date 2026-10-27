@@ -110,6 +110,29 @@ Le callback authentifié (IP + signature, ADR-0051) est en plus :
 - **confronté** : en cas de doute (statut final reçu pour un paiement inconnu
   ou d'un autre projet), aucune écriture, alerte `critical`.
 
+### Mise en œuvre (lot 9)
+
+Précisions apportées en réalisant la décision ; elles ne changent pas son
+sens.
+
+- **Le bassin doit porter la somme avant qu'on la déplace.** Ouvrir une
+  exception n'écrit rien au grand livre : c'est l'écriture de règlement qui
+  y dépose la somme (ou rien, si la devise n'est pas supportée). Une
+  résolution ne peut donc déplacer que ce que le bassin porte réellement :
+  le solde est relu sous la même transaction que le mouvement, et la
+  résolution d'une exception sans dépôt est refusée. Sans cette
+  vérification, imputer une exception à un wallet créditait une somme
+  jamais encaissée.
+- **Le bassin est un compte unique par projet et par devise**, pas une
+  réserve par exception : deux exceptions du même projet et de la même
+  devise se partagent le même solde. Le refus le dit.
+- **Une exception résolue peut être rouverte.** L'unicité porte sur les
+  exceptions **ouvertes** : une violation d'invariant close et non
+  corrigée revient dans la file au passage suivant du contrôle horaire.
+- **Une exception peut être imputée à un wallet** : le débit du bassin et
+  le crédit du wallet sont écrits par le module `wallet`, le seul à
+  connaître le compte du wallet et le seul à tenir son solde.
+
 ## Alternatives écartées
 
 - **Faire confiance au montant demandé (état actuel).** Rejeté : le grand

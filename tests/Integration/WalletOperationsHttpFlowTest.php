@@ -186,7 +186,11 @@ final class WalletOperationsHttpFlowTest extends TestCase
             'legs' => [['from' => 'escrow', 'to' => 'merchant', 'amount' => 1_000]],
         ], $this->auth($otherToken) + ['Idempotency-Key' => (string) Str::uuid()])->assertStatus(409);
 
-        self::assertSame(1, DB::table('ledger_accounts')->where('project_id', $projectId)->where('kind', 'clearing')->where('reference', '')->count());
+        // ADR-0076 §2: the money a provider holds now sits on the
+        // provider's own account (`clearing:<prestataire>`), so this
+        // project's only clearing account is that one — and the failed
+        // transfer of the other project created none here.
+        self::assertSame(1, DB::table('ledger_accounts')->where('project_id', $projectId)->where('kind', 'clearing')->count());
     }
 
     protected function setUp(): void

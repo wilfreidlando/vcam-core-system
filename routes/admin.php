@@ -263,6 +263,30 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->name('money-exceptions.reject');
         });
 
+        // ADR-0076 §6 — the operating corrections of the ledger (console
+        // only, no JSON twin yet): propose, then approve or refuse.
+        Route::prefix('ledger-adjustments')->group(function (): void {
+            Route::get('/', [App\Http\Controllers\Admin\LedgerAdjustmentsController::class, 'index'])
+                ->name('ledger-adjustments.index');
+            // Named `ledger-adjustments.new`, not `.create` — the JSON
+            // plane owns no `admin.ledger-adjustments.create`, but the
+            // same "no two planes share a final name" convention the rest
+            // of this file follows.
+            Route::get('create', [App\Http\Controllers\Admin\LedgerAdjustmentsController::class, 'create'])
+                ->name('ledger-adjustments.new');
+            Route::post('/', [App\Http\Controllers\Admin\LedgerAdjustmentsController::class, 'store'])
+                ->name('ledger-adjustments.store');
+            Route::get('{adjustment}', [App\Http\Controllers\Admin\LedgerAdjustmentsController::class, 'show'])
+                ->whereUuid('adjustment')
+                ->name('ledger-adjustments.show');
+            Route::post('{adjustment}/approve', [App\Http\Controllers\Admin\LedgerAdjustmentsController::class, 'approve'])
+                ->whereUuid('adjustment')
+                ->name('ledger-adjustments.approve');
+            Route::post('{adjustment}/reject', [App\Http\Controllers\Admin\LedgerAdjustmentsController::class, 'reject'])
+                ->whereUuid('adjustment')
+                ->name('ledger-adjustments.reject');
+        });
+
         // ADR-0050: operator self-service — mirrors packages/admin's JSON
         // /v1/admin/operators endpoints for the console web plane.
         // WhatsApp sessions of the PLATFORM (no owner Project): usable by

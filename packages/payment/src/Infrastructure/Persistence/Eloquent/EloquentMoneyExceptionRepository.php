@@ -26,6 +26,12 @@ final class EloquentMoneyExceptionRepository implements MoneyExceptionRepository
                 MoneyExceptionRecord::query()->create($this->toAttributes($exception));
             });
         } catch (UniqueConstraintViolationException) {
+            // The violation is the partial unique index
+            // `money_exceptions_payment_kind_unique` speaking: an OPEN
+            // exception already exists for this (payment, kind). A
+            // RESOLVED one does not block — the index only covers the
+            // open rows — so a closed invariant violation can open again
+            // on the next pass of the control.
             return false;
         }
 

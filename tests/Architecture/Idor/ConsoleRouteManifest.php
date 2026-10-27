@@ -151,6 +151,16 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.money-exceptions.approve', Nature::MoneyException, Outcome::NotFound),
             Entry::isolated('admin.money-exceptions.reject', Nature::MoneyException, Outcome::NotFound),
 
+            // ── Ledger adjustments (ADR-0076 §6) ─────────────────────────
+            // `approve` and `reject` MOVE MONEY (or close the door on it):
+            // like `admin.money-exceptions.resolve`, they carry a positive
+            // control, so a route that refuses everything — a scope
+            // inverted, a systematic refusal — cannot pass the isolation
+            // case unnoticed.
+            Entry::isolated('admin.ledger-adjustments.show', Nature::LedgerAdjustment, Outcome::NotFound, control: true),
+            Entry::isolated('admin.ledger-adjustments.approve', Nature::LedgerAdjustment, Outcome::NotFound, control: true),
+            Entry::isolated('admin.ledger-adjustments.reject', Nature::LedgerAdjustment, Outcome::NotFound, control: true),
+
             // ── Platform resources ─────────────────────────────────────────
             Entry::platformReserved('admin.operators.edit', Nature::Operator, self::OPERATORS_REASON),
             Entry::platformReserved('admin.operators.update.web', Nature::Operator, self::OPERATORS_REASON),

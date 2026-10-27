@@ -14,13 +14,13 @@ use Core\Identity\Application\Dto\OperatorLoginChallenge;
 use Core\Identity\Application\Dto\OperatorMfaEnrollment;
 use Core\Identity\Application\Dto\OperatorSession;
 use Core\Identity\Application\Dto\VerifyOperatorMfaCommand;
+use Core\Identity\Contracts\AcceptedOperatorInvitation;
 use Core\Identity\Contracts\AcceptedOrganizationInvitation;
+use Core\Identity\Contracts\AcceptOperatorInvitationCommand;
 use Core\Identity\Contracts\AcceptOrganizationInvitationCommand;
 use Core\Identity\Contracts\ApiKeySummaryView;
-use Core\Identity\Contracts\CreatedOperatorView;
+use Core\Identity\Contracts\CreatedOperatorInvitation;
 use Core\Identity\Contracts\CreatedOrganizationInvitation;
-use Core\Identity\Contracts\CreateOperator;
-use Core\Identity\Contracts\CreateOperatorCommand;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Contracts\CreateProject;
@@ -61,6 +61,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\Architecture\SecretLeak\ApiDtoInventory;
 use Tests\Architecture\SecretLeak\SecretLeakDetector;
+use Tests\Support\OperatorFactory;
 use Tests\TestCase;
 
 /**
@@ -111,6 +112,19 @@ final class SecretLeakGuardTest extends TestCase
             'fields' => [CreatedOrganizationInvitation::class.'::$token'],
             'why' => 'Activation token of an invitation (ADR-0069 §4): the account is created by this token, '
                 .'shown once to the inviter, stored hashed, usable once.',
+        ],
+        'admin.operators.create' => [
+            'keys' => ['token'],
+            'fields' => [CreatedOperatorInvitation::class.'::$token'],
+            'why' => 'Activation token of a console account invitation (ADR-0081 S-07): the account does not '
+                .'exist yet, it is created by this token, shown once to the inviter, stored hashed, usable once. '
+                .'No password is chosen by the system.',
+        ],
+        'admin.operator-invitations.accept' => [
+            'keys' => ['challenge_token'],
+            'fields' => [AcceptedOperatorInvitation::class.'::$challengeToken'],
+            'why' => 'Accepting the invitation creates the account and its single-use, 5-minute login challenge '
+                .'(the one login would return): no session, no password chosen by the system.',
         ],
         'admin.organization-invitations.accept' => [
             'keys' => ['challenge_token'],
@@ -173,24 +187,6 @@ final class SecretLeakGuardTest extends TestCase
     ];
 
     /**
-     * KNOWN S-07 VIOLATIONS — tolerated so the guard can be active today,
-     * listed apart so nobody mistakes them for legitimate "shown once"
-     * secrets. This list may only shrink.
-     *
-     * @var array<string, array{keys: list<string>, fields: list<string>, why: string}>
-     */
-    private const KNOWN_S07_VIOLATIONS = [
-        'admin.operators.create' => [
-            'keys' => ['plaintext_password'],
-            'fields' => [CreatedOperatorView::class.'::$plaintextPassword'],
-            'why' => 'VIOLATES S-07 "aucun mot de passe choisi par le système ; comptes créés par jeton '
-                .'d\'activation": the Core generates the operator\'s password and returns it (ADR-0050). '
-                .'Remove this entry when operator creation moves to the activation-token flow invitations '
-                .'already use (ADR-0069 §4).',
-        ],
-    ];
-
-    /**
      * DTO properties whose name looks like a secret but whose value is not
      * a usable one: identifiers, prefixes, dates.
      *
@@ -229,7 +225,9 @@ final class SecretLeakGuardTest extends TestCase
         ConfirmOperatorMfaEnrollmentCommand::class.'::$challengeToken' => 'Challenge received at enrollment, sent back.',
         VerifyOperatorMfaCommand::class.'::$challengeToken' => 'Challenge received at login, sent back.',
         AcceptOrganizationInvitationCommand::class.'::$token' => 'The activation token, consumed.',
+        AcceptOperatorInvitationCommand::class.'::$token' => 'The activation token, consumed.',
         AcceptOrganizationInvitationCommand::class.'::$password' => 'The password the invitee chooses.',
+        AcceptOperatorInvitationCommand::class.'::$password' => 'The password the invitee chooses.',
         RevokeApiKeyCommand::class.'::$apiKeyId' => 'UUID of the key to revoke.',
         RotateApiKeyCommand::class.'::$apiKeyId' => 'UUID of the key to rotate.',
         RegisterProviderApplicationCommand::class.'::$privateKey' => 'Write-only provider key (ADR-0060).',
@@ -381,7 +379,7 @@ final class SecretLeakGuardTest extends TestCase
      */
     private static function allowances(): array
     {
-        return self::SHOWN_ONCE_AT_CREATION + self::KNOWN_S07_VIOLATIONS;
+        return self::SHOWN_ONCE_AT_CREATION;
     }
 
     /**
@@ -435,11 +433,10 @@ final class SecretLeakGuardTest extends TestCase
 
         // ── the operator plane: login → enroll → confirm, then login → verify
         $email = Str::uuid().'@example.com';
-        $password = app(CreateOperator::class)->create(
-            new CreateOperatorCommand($email, 'G14 Operator', OperatorRole::PlatformAdmin->value),
-            actor: 'service:test',
-            correlationId: null,
-        )->plaintextPassword;
+        // ADR-0081 S-07 — the account is created by an activation token;
+        // the test chooses the password it will sign in with.
+        OperatorFactory::create($email, OperatorRole::PlatformAdmin);
+        $password = OperatorFactory::PASSWORD;
 
         $responses[] = $login = $this->postJson('/v1/operators/login', ['email' => $email, 'password' => $password]);
         $responses[] = $enroll = $this->postJson('/v1/operators/mfa/enroll', ['challenge_token' => self::jsonString($login, 'challenge_token')]);
@@ -461,6 +458,17 @@ final class SecretLeakGuardTest extends TestCase
         $responses[] = $this->postJson('/v1/admin/organization-invitations/accept', [
             'token' => self::jsonString($invitation, 'token'),
             'name' => 'G14 Invitee',
+            'password' => 'a-long-enough-passphrase-g14',
+        ]);
+
+        // ── console account invitation: issued by a platform admin, accepted by the invitee
+        $responses[] = $operatorInvitation = $this->postJson('/v1/admin/operators', [
+            'email' => Str::uuid().'@example.com',
+            'role' => 'support_operator',
+        ], $operator);
+        $responses[] = $this->postJson('/v1/admin/operator-invitations/accept', [
+            'token' => self::jsonString($operatorInvitation, 'token'),
+            'name' => 'G14 Invited',
             'password' => 'a-long-enough-passphrase-g14',
         ]);
 

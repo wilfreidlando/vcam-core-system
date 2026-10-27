@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use Core\Identity\Contracts\CreateOperator;
-use Core\Identity\Contracts\CreateOperatorCommand;
+use Core\Identity\Contracts\InviteOperator;
+use Core\Identity\Contracts\InviteOperatorCommand;
 use Core\Identity\Contracts\ListOperators;
 use Core\Identity\Contracts\ListOperatorsCommand;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Identity\Contracts\OperatorEmailAlreadyTaken;
+use Core\Identity\Contracts\OperatorInvitationAlreadyExists;
 use Core\Identity\Contracts\OperatorSummaryView;
 use Core\Identity\Contracts\RevokeOperator;
 use Core\Identity\Contracts\RevokeOperatorCommand;
@@ -44,7 +45,7 @@ final class OperatorsController
 
     public function __construct(
         private readonly ListOperators $listOperators,
-        private readonly CreateOperator $createOperator,
+        private readonly InviteOperator $inviteOperator,
         private readonly RevokeOperator $revokeOperator,
         private readonly UpdateOperator $updateOperator,
     ) {}
@@ -94,17 +95,18 @@ final class OperatorsController
             abort(403, 'La permission operators:write est requise.');
         }
 
-        /** @var array{email: string, name: string, role: string} $data */
+        /** @var array{email: string, role: string} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
             'email' => ['required', 'email'],
-            'name' => ['required', 'string', 'max:255'],
-            'role' => ['required', 'string'],
+            // ADR-0069 §1 — an empty role means an account without a
+            // platform role, living in its organizations only.
+            'role' => ['present', 'nullable', 'string', 'max:64'],
         ]);
 
         try {
-            $created = $this->createOperator->create(
-                new CreateOperatorCommand($data['email'], $data['name'], $data['role']),
+            $invitation = $this->inviteOperator->invite(
+                new InviteOperatorCommand($data['email'], $data['role'], $operator->operatorId),
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
             );
@@ -112,17 +114,21 @@ final class OperatorsController
             // ADR-0069 §1 — one console account per mailbox: the refusal
             // belongs to the address, not to the role.
             return back()->withInput()->withErrors(['email' => $e->getMessage()]);
+        } catch (OperatorInvitationAlreadyExists $e) {
+            return back()->withInput()->withErrors(['email' => $e->getMessage()]);
         } catch (RuntimeException $e) {
             return back()->withInput()->withErrors(['role' => $e->getMessage()]);
         }
 
-        // The plaintext password is shown exactly once, on this
-        // redirect — same one-shot-secret pattern as API key issuance and
-        // the JSON endpoint, never persisted or logged.
+        // The activation token is shown exactly once, on this redirect —
+        // same one-shot-secret pattern as API key issuance, never
+        // persisted or logged. The invitee chooses their own password
+        // when they activate the invitation (ADR-0081 S-07).
         // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
         session()->flash('admin.operators.created', [
-            'email' => $data['email'],
-            'plaintext_password' => $created->plaintextPassword,
+            'email' => $invitation->email,
+            'token' => $invitation->token,
+            'expires_at' => $invitation->expiresAt->format('Y-m-d H:i'),
         ]);
 
         return redirect()->route('admin.operators.index');

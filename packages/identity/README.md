@@ -61,26 +61,39 @@ Allowed (via their `Contracts/` only):
   audit, metrics); `last_used_at` / `last_used_ip` are refreshed at most once
   a minute, or when the address changes.
 
-## Operators (Plan 1) — bootstrap vs. self-service
+## Operators (Plan 1) — invitation, not creation
 
-A real operator never touches a CLI. Two distinct paths create an
-`Operator`, and only one of them is CLI:
+A real operator never touches a CLI, and **the system never chooses a
+password** (ADR-0081 S-07). Two paths open a console account, and only
+one of them is CLI:
 
 - **Bootstrap (ops/deployment only, happens once per environment):**
-  `php artisan identity:create-operator {email} {name} {role}` — run by
-  whoever deploys the stack, before any operator exists. It exists solely
-  to solve the chicken-and-egg problem: `POST /v1/admin/operators`
-  requires an authenticated `PlatformAdmin` (`operators:write`), so
-  *something* has to create the very first one out of band. This is the
-  same pattern as `php artisan make:admin`-style commands in most admin
-  panels, or a one-time seeded superuser — it is ops tooling, not a
-  product feature, and is never exposed over HTTP.
+  `php artisan identity:invite-operator {email} {role}` — run by whoever
+  deploys the stack, before any operator exists. It exists solely to
+  solve the chicken-and-egg problem: `POST /v1/admin/operators` requires
+  an authenticated `PlatformAdmin` (`operators:write`), so *something* has
+  to open the very first invitation out of band. This is ops tooling, not
+  a product feature, and is never exposed over HTTP. Like the
+  self-service path, it prints the activation token **once**.
 - **Self-service (every operator after the first, ADR-0050):**
   `POST /v1/admin/operators` (JSON) or `/admin/operators/create` (web
-  console) — any existing `PlatformAdmin` creates the next operator
+  console) — any existing `PlatformAdmin` invites the next operator
   through the same UI/API everything else in the console uses. This is
   the only path a real end user (an operator managing other operators)
   ever exercises.
+
+**An invitation is not an account.** `POST /v1/admin/operators` answers
+with an `invitation_id` and a **one-shot activation token** (32 random
+bytes, hashed at rest, 72 h, never retrievable again — the same
+one-shot-secret pattern as the API keys). The account exists only once
+the invitee **activates** the invitation:
+`POST /v1/admin/operator-invitations/accept`, a public route — the
+invitation is the only thing that grants access — where the invitee
+chooses their own password. The account is created at that moment, with
+the role the invitation carries. The system never generates, never stores
+and never transmits a password. The activation consumes the invitation:
+it is usable once, and a second activation of the same token is refused
+(`409`).
 
 MFA is TOTP (`pragmarx/google2fa`), not email/SMS-delivered OTP: on first
 login the operator is shown a secret/QR code to scan into an authenticator

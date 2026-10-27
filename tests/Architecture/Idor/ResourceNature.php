@@ -47,6 +47,9 @@ enum ResourceNature: string
     /** A money exception, owned by a Project. */
     case MoneyException = 'money-exception';
 
+    /** An operating correction of the ledger (ADR-0076 §6), owned by a Project. */
+    case LedgerAdjustment = 'ledger-adjustment';
+
     /** A console account — owned by the platform, by no organization. */
     case Operator = 'operator';
 

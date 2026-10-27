@@ -4,35 +4,33 @@ declare(strict_types=1);
 
 namespace Core\Identity\Presentation\Console\Commands;
 
-use Core\Identity\Contracts\CreateOperator;
-use Core\Identity\Contracts\CreateOperatorCommand as Command;
+use Core\Identity\Contracts\InviteOperator;
+use Core\Identity\Contracts\InviteOperatorCommand as Command;
 use Core\Identity\Contracts\OperatorEmailAlreadyTaken;
+use Core\Identity\Contracts\OperatorInvitationAlreadyExists;
 use Core\Identity\Domain\Exception\InvalidOperatorRole;
 use Core\Identity\OperatorRole;
 use Illuminate\Console\Command as ConsoleCommand;
 use Illuminate\Support\Str;
 
-final class CreateOperatorCommand extends ConsoleCommand
+final class InviteOperatorCommand extends ConsoleCommand
 {
-    protected $signature = 'identity:create-operator
-        {email : The operator\'s email address}
-        {name : The operator\'s display name}
+    protected $signature = 'identity:invite-operator
+        {email : The email address to invite}
         {role : platform_admin, finance_operator, support_operator, provider_manager, or read_only_auditor}';
 
-    protected $description = 'Create a platform operator. The plaintext password is shown once and never stored.';
+    protected $description = 'Invite a console account. The activation token is shown once; the invitee chooses their own password.';
 
-    public function handle(CreateOperator $createOperator): int
+    public function handle(InviteOperator $inviteOperator): int
     {
         /** @var string $email */
         $email = $this->argument('email');
-        /** @var string $name */
-        $name = $this->argument('name');
         /** @var string $role */
         $role = $this->argument('role');
 
         try {
-            $created = $createOperator->create(
-                new Command(email: $email, name: $name, role: $role),
+            $invitation = $inviteOperator->invite(
+                new Command(email: $email, role: $role),
                 actor: 'service:cli',
                 correlationId: (string) Str::uuid(),
             );
@@ -45,14 +43,19 @@ final class CreateOperatorCommand extends ConsoleCommand
             $this->error('A console account already exists for this email address.');
 
             return self::FAILURE;
+        } catch (OperatorInvitationAlreadyExists) {
+            $this->error('An invitation for this email address is already pending.');
+
+            return self::FAILURE;
         }
 
-        $this->info("Operator created: {$created->operatorId}");
+        $this->info("Invitation created: {$invitation->id}");
         $this->newLine();
-        $this->warn('This password is shown once and cannot be retrieved again:');
-        $this->line($created->plaintextPassword);
+        $this->warn('This activation token is shown once and cannot be retrieved again:');
+        $this->line((string) $invitation->token);
         $this->newLine();
-        $this->line('MFA enrollment happens on first login (POST /v1/operators/login).');
+        $this->line('It is valid for 72 hours. The invitee chooses their own password and enrols their MFA at:');
+        $this->line('  POST /v1/admin/operator-invitations/accept');
 
         return self::SUCCESS;
     }

@@ -19,6 +19,18 @@ enum MoneyExceptionResolution: string
     /** Allocated to an invoice by the module that owns it (billing). */
     case Allocated = 'allocated';
 
+    /**
+     * Imputed to a wallet: debit `payment_exceptions`, credit
+     * `wallet:<partie>` (ADR-0077 §4).
+     *
+     * The wallet module posts that pair itself — it is the only one that
+     * knows the wallet's ledger account — so this resolution names NO
+     * ledger account of its own: `creditAccount()` returns `null` and
+     * `LedgerSettlementLedger::recordExceptionResolution()` writes
+     * nothing.
+     */
+    case AllocatedToWallet = 'allocated_to_wallet';
+
     /** Nothing to move: no money was booked for this exception (a control failure, an unbookable currency). */
     case NoAction = 'no_action';
 
@@ -28,7 +40,7 @@ enum MoneyExceptionResolution: string
         return match ($this) {
             self::RefundedOutside => SettlementAccount::WITHDRAWAL,
             self::RecognizedAsRevenue => SettlementAccount::REVENUE,
-            self::Allocated, self::NoAction => null,
+            self::Allocated, self::AllocatedToWallet, self::NoAction => null,
         };
     }
 
@@ -38,6 +50,7 @@ enum MoneyExceptionResolution: string
             self::RefundedOutside => 'Remboursé hors plateforme',
             self::RecognizedAsRevenue => 'Passé en revenu du projet',
             self::Allocated => 'Imputé',
+            self::AllocatedToWallet => 'Imputé à un wallet',
             self::NoAction => 'Aucun mouvement (rien n\'était écrit)',
         };
     }

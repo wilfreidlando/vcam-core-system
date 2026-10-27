@@ -16,4 +16,12 @@ interface LedgerTransactionRepository
     public function save(LedgerTransaction $transaction): void;
 
     public function findByIdempotencyKey(string $projectId, string $idempotencyKey): ?LedgerTransaction;
+
+    /**
+     * The transaction of this id, whatever its project — the caller
+     * checks the project itself (a correction may only counter-pass a
+     * transaction of its own project, and saying so is the caller's
+     * rule, not the repository's).
+     */
+    public function findById(string $id): ?LedgerTransaction;
 }

@@ -13,6 +13,10 @@ use Illuminate\Console\Command as ConsoleCommand;
  * when a violation is found, so a scheduler or a person running it by hand
  * sees it at once. The commerce module's own checks join this command when
  * it exists (ADR-0078 §2).
+ *
+ * Every pass leaves a trace in the reconciliation register (ADR-0078 §5);
+ * the identifier of that trace is displayed, so a person can prove the
+ * check ran and passed.
  */
 final class CheckInvariantsCommand extends ConsoleCommand
 {
@@ -36,6 +40,10 @@ final class CheckInvariantsCommand extends ConsoleCommand
             count($report->violations),
             $report->exceptionsOpened,
         ));
+
+        foreach ($report->runIds as $runId) {
+            $this->line('  · passage de contrôle enregistré : '.$runId);
+        }
 
         foreach ($report->violations as $violation) {
             $this->error('  · '.$violation);
