@@ -18,18 +18,31 @@ use Exception;
  */
 final readonly class BillingSettings
 {
+    /**
+     * @param array<string, mixed> $documentBranding the free marks of the printed documents
+     */
     public function __construct(
         public string $projectId,
         public string $timezone,
         public string $defaultCurrency,
         public int $renewalLeadDays,
         public int $incompleteExpiryHours,
+        public string $invoicePrefix = 'FACT',
+        public int $defaultTaxRateBps = 0,
+        public int $manualReceiptApprovalThresholdMinor = 0,
+        public bool $retainInvoiceIdentity = true,
+        public array $documentBranding = [],
     ) {}
 
     /**
      * The settings of a project that has not changed anything: Douala for
      * the timezone, XAF for the currency, seven days of lead and
      * seventy-two hours of incomplete expiry.
+     *
+     * The settings of the invoices (ADR-0094 §4) have their defaults too:
+     * `FACT` as the prefix of the number, no tax, no threshold of
+     * approval, and the identity frozen on the invoices **kept** at the
+     * erasure of a customer.
      */
     public static function defaultsFor(string $projectId): self
     {
@@ -39,6 +52,11 @@ final readonly class BillingSettings
             defaultCurrency: 'XAF',
             renewalLeadDays: 7,
             incompleteExpiryHours: 72,
+            invoicePrefix: 'FACT',
+            defaultTaxRateBps: 0,
+            manualReceiptApprovalThresholdMinor: 0,
+            retainInvoiceIdentity: true,
+            documentBranding: [],
         );
     }
 

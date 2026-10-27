@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Architecture;
 
+use App\Http\Middleware\ResolveOperatorSession;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Route as RouteFacade;
 use PHPUnit\Framework\Attributes\Group;
@@ -29,8 +30,13 @@ final class IdempotencyTest extends TestCase
     /**
      * Routes whose URI matches this are treated as monetary mutations.
      * A route may also opt in explicitly via the MonetaryMutation attribute.
+     *
+     * `invoices` is here since Lot 11 (ADR-0094 §8): the issuance books
+     * the receivable in the ledger and the cancellation counter-passes
+     * it — both of them move money, and a replayed issuance would book a
+     * second receivable against the same number.
      */
-    private const MONETARY_URI_PATTERN = '#(payments|refunds|payouts|transfers|charges|deposits|withdrawals|wallets/[^/]+/(debit|credit|hold)|ledger/transactions)#i';
+    private const MONETARY_URI_PATTERN = '#(payments|refunds|payouts|transfers|charges|deposits|withdrawals|invoices|wallets/[^/]+/(debit|credit|hold)|ledger/transactions)#i';
 
     private const MUTATING_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
@@ -88,7 +94,28 @@ final class IdempotencyTest extends TestCase
             return false;
         }
 
+        // The **web console** (`/admin/*`, session + cookie + CSRF) is
+        // not part of this guard: a browser form does not carry an
+        // `Idempotency-Key` header. Its gestures are protected by the
+        // CSRF token, by the audit trail and by the domain's own
+        // refusals — issuing an invoice twice is refused the second
+        // time, because it is no longer a draft.
+        if ($this->isWebConsole($route)) {
+            return false;
+        }
+
         return preg_match(self::MONETARY_URI_PATTERN, $route->uri()) === 1;
+    }
+
+    /**
+     * The route belongs to the HTML console: it is guarded by the
+     * operator's session, not by a bearer token.
+     */
+    private function isWebConsole(Route $route): bool
+    {
+        $middleware = array_values(array_filter($route->gatherMiddleware(), is_string(...)));
+
+        return array_intersect(['operator.session', ResolveOperatorSession::class], $middleware) !== [];
     }
 
     /**

@@ -282,6 +282,30 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                     ->whereUuid('subscriptionId')
                     ->name('projects.subscriptions.pay.web');
             });
+
+            // Les factures — ADR-0073. La console appelle les mêmes
+            // contrats publiés que l'API : une facture qu'elle refuse
+            // est une facture que l'API refuse aussi.
+            Route::prefix('{projectId}/invoices')->group(function (): void {
+                Route::get('/', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'index'])
+                    ->name('projects.invoices.index');
+                Route::get('create', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'create'])
+                    ->name('projects.invoices.new');
+                Route::post('/', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'store'])
+                    ->name('projects.invoices.store');
+                Route::get('{invoiceId}', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'show'])
+                    ->whereUuid('invoiceId')
+                    ->name('projects.invoices.show');
+                Route::post('{invoiceId}/issue', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'issue'])
+                    ->whereUuid('invoiceId')
+                    ->name('projects.invoices.issue.web');
+                Route::post('{invoiceId}/void', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'void'])
+                    ->whereUuid('invoiceId')
+                    ->name('projects.invoices.void.web');
+                Route::post('{invoiceId}/uncollectible', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'uncollectible'])
+                    ->whereUuid('invoiceId')
+                    ->name('projects.invoices.uncollectible.web');
+            });
         });
 
         Route::prefix('payments')->group(function (): void {

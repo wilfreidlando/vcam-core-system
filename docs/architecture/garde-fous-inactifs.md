@@ -30,6 +30,7 @@ garde-fou** (une porte qui échoue pour une autre raison ne compte pas).
 | G5  | Montants en `bigint` minor units, jamais en flottant ni décimal | Pest + PostgreSQL |
 | G4  | Aucune colonne PII sur `parties` — actif depuis la migration Lot 2 | Pest + PostgreSQL |
 | G4b | La table `customers` n'a aucune colonne hors de sa liste blanche, et ses valeurs personnelles (email, téléphone) sont chiffrées au repos — actif depuis le lot 10 (ADR-0070 §1, ADR-0083) | Pest + PostgreSQL |
+| G4c | Les tables de facture n'ont aucune colonne hors de leur liste blanche, et le client figé sur une facture est chiffré au repos — actif depuis le lot 11 (ADR-0073 §1, ADR-0094 §2) | Pest + PostgreSQL |
 | G6  | Statuts bruts provider cantonnés à leur adaptateur | Règle PHPStan |
 | G6b | Enums de statuts canoniques conformes à la gouvernance — actif depuis `PaymentStatus` (Lot 3) et `NotificationStatus` (Lot 5, ADR-0041) | Pest |
 | G6c | Seul l'appelant d'intégration partagé ouvre des connexions HTTP sortantes | PHPat |

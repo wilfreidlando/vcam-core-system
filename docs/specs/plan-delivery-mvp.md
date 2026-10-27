@@ -461,13 +461,17 @@ périodes qui se chevauchent, verrou optimiste — ADR-0072), l'ordonnanceur
 (`billing_settings`), l'**API publique** (16 routes `/v1`, un
 `FormRequest` par mutation, un corps documenté) et la **console** (les
 clients, les offres et les abonnements d'un projet ; chaque geste est
-audité — ADR-0092 §2 et §4). La **facture reste au lot 11** : la
+audité — ADR-0092 §2 et §4). Le **lot 11a** ajoute la **facture**
+(ADR-0073, ADR-0094) : un document figé à l'émission, numéroté sans trou,
+taxé par ligne, dont l'émission inscrit la créance au grand livre et dont
+l'annulation la contre-passe. **L'encaissement reste au lot 11b** : la
 déclaration du paiement d'une période écrit le fait et **ne bouge pas
-d'argent** (ADR-0092 §2).
+d'argent** (ADR-0092 §2) tant que le paiement en ligne et l'encaissement
+hors ligne ne sont pas livrés.
 
-**Total estimé** : 130 jours de travail (lots 8 à 19), dont **36 j déjà
-consommés** (lot 8 : 12 j, lot 9 : 10 j, lot 10 : 14 j) — **reste 94 j**
-(lots 11 à 19).
+**Total estimé** : 130 jours de travail (lots 8 à 19), dont **44 j déjà
+consommés** (lot 8 : 12 j, lot 9 : 10 j, lot 10 : 14 j, lot 11 : 8 j sur
+12) — **reste 86 j** (le solde du lot 11 et les lots 12 à 19).
 
 ## P4. Chemin critique et parallélisation
 
@@ -526,7 +530,7 @@ reste conditionné à l'acceptation de ses ADR.
 | Lot 9 — Grand livre complet | B | — | 2026-10-27 (**livré**) |
 | Lot 10 — Commerce I (clients, catalogue, abonnements) | A | — | 2026-10-27 (**livré**) |
 | Lot 15 — Exploitation | B | 2026-10-28 | 2026-11-11 |
-| Lot 11 — Commerce II (factures, encaissement) | A | 2026-10-28 | 2026-11-13 |
+| Lot 11 — Commerce II (factures, encaissement) | A | 2026-10-28 (**11a livré**) | 2026-11-13 |
 | *Marge de B (revue de sécurité des lots 8–10, harnais de tests IDOR)* | B | 2026-11-12 | 2026-11-17 |
 | Lot 12 — Usage et quotas | B | 2026-11-18 | 2026-12-01 |
 | Lot 13 — Portail client | A | 2026-11-16 | 2026-12-03 |

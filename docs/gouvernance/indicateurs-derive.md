@@ -8,7 +8,7 @@ tendance défavorable déclenche une revue du comité d'architecture.
 | Dette de frontières (violations Deptrac) | Zéro | `make arch` | 0 violation (2026-10-27) |
 | Colonnes PII dans `parties` | Zéro | `tests/Schema/PartiesPiiTest.php` (G4) | 0 (2026-10-27) |
 | Nombre d'exceptions actives | Tend vers zéro | `docs/gouvernance/registre-exceptions.md` | 0 |
-| Capacités dans le Core vs valeur démontrée | Croissance justifiée, pas mécanique | `docs/adr/README.md` | 12 modules portés (hors les 3 scaffolds hors périmètre : `fees`, `storage`, `developer-platform` — ADR-0048 amendé par ADR-0068) ; carte des capacités : 33 **●** / 16 **◐** / 9 **○** / 3 **✗** (2026-10-27) |
+| Capacités dans le Core vs valeur démontrée | Croissance justifiée, pas mécanique | `docs/adr/README.md` | 12 modules portés (hors les 3 scaffolds hors périmètre : `fees`, `storage`, `developer-platform` — ADR-0048 amendé par ADR-0068) ; carte des capacités : 34 **●** / 15 **◐** / 9 **○** / 3 **✗** (2026-10-27) |
 | Versions de contrat en vol | Maîtrisées, dates de dépréciation connues | `openapi/v1.json` (G9, ADR-0086) | 1 version publiée (`/v1`), 0 en dépréciation ; fenêtre de 12 mois après la majeure suivante (2026-10-27) |
 | Écarts de réconciliation financière | Tendent vers zéro | Réconciliation `checkStatus()` (ADR-0067) ; bascule (Lot 17) | — (pas encore de flux réel) |
 | Taux d'accès au catalogue des capacités | Signe de réutilisation, pas de reconstruction | Catalogue des capacités (ADR-0087, lot 16) | — (catalogue non construit) |

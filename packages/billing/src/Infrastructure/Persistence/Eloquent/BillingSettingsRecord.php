@@ -20,6 +20,11 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $default_currency
  * @property int $renewal_lead_days
  * @property int $incomplete_expiry_hours
+ * @property string $invoice_prefix
+ * @property int $default_tax_rate_bps
+ * @property int $manual_receipt_approval_threshold_minor
+ * @property bool $retain_invoice_identity
+ * @property string $document_branding the JSON **object** of the document branding
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  */
@@ -41,11 +46,24 @@ final class BillingSettingsRecord extends Model
         'default_currency',
         'renewal_lead_days',
         'incomplete_expiry_hours',
+        'invoice_prefix',
+        'default_tax_rate_bps',
+        'manual_receipt_approval_threshold_minor',
+        'retain_invoice_identity',
+        'document_branding',
     ];
 
     protected $casts = [
         'renewal_lead_days' => 'int',
         'incomplete_expiry_hours' => 'int',
+        'default_tax_rate_bps' => 'int',
+        'manual_receipt_approval_threshold_minor' => 'int',
+        'retain_invoice_identity' => 'bool',
+        // `document_branding` is deliberately NOT cast to `array`: the
+        // column is a jsonb **object**
+        // (`billing_settings_document_branding_check`), and the cast
+        // would encode an empty map as `[]` — which the column refuses.
+        // The repository serialises it as an object instead.
     ];
 
     /**

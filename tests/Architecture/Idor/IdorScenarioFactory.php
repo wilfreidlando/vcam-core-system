@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Architecture\Idor;
 
+use Core\Billing\Contracts\CreateInvoice;
+use Core\Billing\Contracts\CreateInvoiceCommand;
 use Core\Billing\Contracts\CreatePlan;
 use Core\Billing\Contracts\CreatePlanCommand;
 use Core\Billing\Contracts\CreatePlanVersion;
 use Core\Billing\Contracts\CreatePlanVersionCommand;
 use Core\Billing\Contracts\CreateSubscription;
 use Core\Billing\Contracts\CreateSubscriptionCommand;
+use Core\Billing\Contracts\InvoiceLineInput;
 use Core\Billing\Contracts\PublishPlanVersion;
 use Core\Billing\Contracts\PublishPlanVersionCommand;
 use Core\Billing\Contracts\UpsertCustomer;
@@ -81,6 +84,7 @@ final class IdorScenarioFactory
         'api_keys', 'payment_provider_applications', 'webhook_endpoints', 'webhook_deliveries',
         'notification_channel_sessions', 'notifications', 'payments', 'wallets', 'money_exceptions', 'event_outbox',
         'ledger_adjustments', 'ledger_transactions', 'ledger_accounts',
+        'invoices', 'invoice_lines', 'invoice_number_sequences',
     ];
 
     private const ORGANIZATION_TABLES = ['projects', 'organization_memberships', 'organization_invitations'];
@@ -397,6 +401,41 @@ final class IdorScenarioFactory
                 return new ResourceRequest(
                     ['projectId' => $projectId, 'subscriptionId' => $subscription->id],
                     markers: [$subscription->id, $externalRef, $code],
+                );
+
+            case ResourceNature::Invoice:
+                // An invoice needs a customer to be billed to; it is
+                // created in draft, the state a console gesture starts
+                // from (ADR-0073 §1).
+                $externalRef = 'idor-customer-'.Str::lower(Str::random(8));
+                app(UpsertCustomer::class)->upsert(new UpsertCustomerCommand(
+                    projectId: $owner->project->id,
+                    externalRef: $externalRef,
+                    displayName: 'Client '.$owner->secret,
+                    email: null,
+                    phone: null,
+                    locale: 'fr',
+                    metadata: [],
+                    expectedVersion: null,
+                    actor: 'test:idor',
+                    correlationId: null,
+                ));
+
+                $invoice = app(CreateInvoice::class)->create(new CreateInvoiceCommand(
+                    projectId: $owner->project->id,
+                    customerRef: $externalRef,
+                    lines: [new InvoiceLineInput(
+                        description: 'Prestation '.$owner->secret,
+                        quantity: 1,
+                        unitAmountMinor: 5_000,
+                    )],
+                    actor: 'test:idor',
+                    correlationId: null,
+                ));
+
+                return new ResourceRequest(
+                    ['projectId' => $projectId, 'invoiceId' => $invoice->id],
+                    markers: [$invoice->id, $externalRef],
                 );
 
             case ResourceNature::Operator:

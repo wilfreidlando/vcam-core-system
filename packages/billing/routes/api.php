@@ -5,19 +5,25 @@ declare(strict_types=1);
 use Core\Billing\Presentation\Http\Controllers\ArchivePlanController;
 use Core\Billing\Presentation\Http\Controllers\CancelSubscriptionController;
 use Core\Billing\Presentation\Http\Controllers\ChangeSubscriptionPlanController;
+use Core\Billing\Presentation\Http\Controllers\CreateInvoiceController;
 use Core\Billing\Presentation\Http\Controllers\CreatePlanController;
 use Core\Billing\Presentation\Http\Controllers\CreatePlanVersionController;
 use Core\Billing\Presentation\Http\Controllers\CreateSubscriptionController;
 use Core\Billing\Presentation\Http\Controllers\EraseCustomerController;
 use Core\Billing\Presentation\Http\Controllers\GetCustomerController;
+use Core\Billing\Presentation\Http\Controllers\GetInvoiceController;
+use Core\Billing\Presentation\Http\Controllers\GetInvoiceDocumentController;
 use Core\Billing\Presentation\Http\Controllers\GetSubscriptionController;
+use Core\Billing\Presentation\Http\Controllers\IssueInvoiceController;
 use Core\Billing\Presentation\Http\Controllers\ListCustomersController;
+use Core\Billing\Presentation\Http\Controllers\ListInvoicesController;
 use Core\Billing\Presentation\Http\Controllers\ListPlansController;
 use Core\Billing\Presentation\Http\Controllers\ListSubscriptionsController;
 use Core\Billing\Presentation\Http\Controllers\PublishPlanVersionController;
 use Core\Billing\Presentation\Http\Controllers\ReactivateCustomerController;
 use Core\Billing\Presentation\Http\Controllers\SuspendCustomerController;
 use Core\Billing\Presentation\Http\Controllers\UpsertCustomerController;
+use Core\Billing\Presentation\Http\Controllers\VoidInvoiceController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -81,4 +87,30 @@ Route::middleware(['project.auth'])
             ->middleware('idempotency')
             ->whereUuid('subscriptionId')
             ->name('subscriptions.change-plan');
+
+        // factures — ADR-0073 §6
+        //
+        // The three mutations carry the `idempotency` middleware (G7):
+        // each of them **writes to the ledger** — the issuance books the
+        // receivable, the cancellation counter-passes it — and a
+        // replayed issuance would book a second receivable against the
+        // same number.
+        Route::get('/invoices', ListInvoicesController::class)->name('invoices.list');
+        Route::post('/invoices', CreateInvoiceController::class)
+            ->middleware('idempotency')
+            ->name('invoices.create');
+        Route::get('/invoices/{invoiceId}', GetInvoiceController::class)
+            ->whereUuid('invoiceId')
+            ->name('invoices.get');
+        Route::get('/invoices/{invoiceId}/document', GetInvoiceDocumentController::class)
+            ->whereUuid('invoiceId')
+            ->name('invoices.document');
+        Route::post('/invoices/{invoiceId}/issue', IssueInvoiceController::class)
+            ->middleware('idempotency')
+            ->whereUuid('invoiceId')
+            ->name('invoices.issue');
+        Route::post('/invoices/{invoiceId}/void', VoidInvoiceController::class)
+            ->middleware('idempotency')
+            ->whereUuid('invoiceId')
+            ->name('invoices.void');
     });

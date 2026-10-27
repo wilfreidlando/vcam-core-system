@@ -114,6 +114,55 @@ final class BillingResponses
         .'}';
 
     /**
+     * A line of an invoice — the tax is **stored** on the line, rounded
+     * half-up on that line (ADR-0094 §1), and the amounts are in minor
+     * units (G5).
+     */
+    public const INVOICE_LINE = 'array{'
+        .'id: string, '
+        .'invoice_id: string, '
+        .'kind: string, '
+        .'description: string, '
+        .'quantity: int, '
+        .'unit_amount_minor: int, '
+        .'amount_minor: int, '
+        .'tax_rate_bps: int, '
+        .'tax_amount_minor: int, '
+        .'period_start: string|null, '
+        .'period_end: string|null'
+        .'}';
+
+    /**
+     * An invoice — ADR-0073 §1. The frozen contact of the customer is
+     * **not** in the wire: it is the internal material of the printed
+     * document, and the API hands out the project's own reference.
+     */
+    public const INVOICE = 'array{'
+        .'id: string, '
+        .'project_id: string, '
+        .'customer_id: string, '
+        .'customer_ref: string, '
+        .'subscription_id: string|null, '
+        .'period_id: string|null, '
+        .'number: string|null, '
+        .'status: string, '
+        .'currency: string, '
+        .'subtotal_minor: int, '
+        .'tax_minor: int, '
+        .'total_minor: int, '
+        .'amount_paid_minor: int, '
+        .'lines: list<'.self::INVOICE_LINE.'>, '
+        .'due_at: string|null, '
+        .'issued_at: string|null, '
+        .'paid_at: string|null, '
+        .'voided_at: string|null, '
+        .'void_reason: string|null, '
+        .'version: int, '
+        .'created_at: string, '
+        .'updated_at: string'
+        .'}';
+
+    /**
      * A page of customers — the cursor is passed back to read the next
      * page (ADR-0088).
      */
@@ -135,6 +184,14 @@ final class BillingResponses
      */
     public const SUBSCRIPTION_PAGE = 'array{'
         .'data: list<'.self::SUBSCRIPTION.'>, '
+        .'next_cursor: string|null'
+        .'}';
+
+    /**
+     * A page of invoices.
+     */
+    public const INVOICE_PAGE = 'array{'
+        .'data: list<'.self::INVOICE.'>, '
         .'next_cursor: string|null'
         .'}';
 }

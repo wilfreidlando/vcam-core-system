@@ -341,6 +341,15 @@ final class ConsoleIdorTest extends TestCase
             'admin.projects.subscriptions.change-plan.web' => ['plan_code' => 'idor-plan', 'effective' => 'period_end'],
             'admin.projects.subscriptions.complimentary.web' => ['days' => 30, 'reason' => 'Offre IDOR'],
             'admin.projects.subscriptions.pay.web' => ['seq' => 1, 'reference' => 'virement-idor'],
+            // The invoices (ADR-0073) — the body matters: without it the
+            // request would be refused by the **validation** and the case
+            // would prove nothing about the isolation.
+            'admin.projects.invoices.store' => [
+                'customer_ref' => 'idor-client',
+                'lines' => [['description' => 'Prestation IDOR', 'quantity' => 1, 'unit_amount_minor' => 5000]],
+            ],
+            'admin.projects.invoices.void.web' => ['reason' => 'Annulation IDOR'],
+            'admin.projects.invoices.uncollectible.web' => ['reason' => 'Irrécouvrable IDOR'],
             default => [],
         };
     }

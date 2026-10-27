@@ -63,7 +63,8 @@ final readonly class AdminSidebarComposer
         // without it would land on a page it cannot open.
         $canBilling = self::holdsTogether($operator, 'projects:read', 'customers:read')
             || self::holdsTogether($operator, 'projects:read', 'plans:read')
-            || self::holdsTogether($operator, 'projects:read', 'subscriptions:read');
+            || self::holdsTogether($operator, 'projects:read', 'subscriptions:read')
+            || self::holdsTogether($operator, 'projects:read', 'invoices:read');
 
         $view->with([
             'operator' => $operator,
@@ -81,6 +82,7 @@ final readonly class AdminSidebarComposer
             'canBillingCustomers' => $anywhere('customers:read'),
             'canBillingPlans' => $anywhere('plans:read'),
             'canBillingSubscriptions' => $anywhere('subscriptions:read'),
+            'canBillingInvoices' => $anywhere('invoices:read'),
             // ADR-0067 — Horizon can retry and delete jobs: platform only.
             'canQueues' => $operator->hasPermission('queues:manage'),
             // The sidebar entry opens the global sessions, reserved to the

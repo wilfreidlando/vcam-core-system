@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Core\Billing\Presentation\Http\Controllers\Concerns;
 
 use Core\Billing\Contracts\CustomerView;
+use Core\Billing\Contracts\InvoiceLineView;
+use Core\Billing\Contracts\InvoiceView;
 use Core\Billing\Contracts\PlanVersionView;
 use Core\Billing\Contracts\PlanView;
 use Core\Billing\Contracts\SubscriptionView;
@@ -133,6 +135,67 @@ trait SerializesBillingViews
             'version' => $view->version,
             'created_at' => $view->createdAt,
             'updated_at' => $view->updatedAt,
+        ];
+    }
+
+    /**
+     * An invoice, its lines and what has been paid of it (ADR-0073 §1).
+     *
+     * The **frozen contact of the customer is not in the wire**: it is
+     * the internal material of the printed document, and the API hands
+     * out the project's own reference — the only key that says anything
+     * (ADR-0070 §1, ADR-0083 §3).
+     *
+     * @return array<string, mixed>
+     */
+    protected function invoiceView(InvoiceView $view): array
+    {
+        return [
+            'id' => $view->id,
+            'project_id' => $view->projectId,
+            'customer_id' => $view->customerId,
+            'customer_ref' => $view->customerRef,
+            'subscription_id' => $view->subscriptionId,
+            'period_id' => $view->periodId,
+            'number' => $view->number,
+            'status' => $view->status,
+            'currency' => $view->currency,
+            'subtotal_minor' => $view->subtotalMinor,
+            'tax_minor' => $view->taxMinor,
+            'total_minor' => $view->totalMinor,
+            'amount_paid_minor' => $view->amountPaidMinor,
+            'lines' => array_map($this->invoiceLineView(...), $view->lines),
+            'due_at' => $view->dueAt,
+            'issued_at' => $view->issuedAt,
+            'paid_at' => $view->paidAt,
+            'voided_at' => $view->voidedAt,
+            'void_reason' => $view->voidReason,
+            'version' => $view->version,
+            'created_at' => $view->createdAt,
+            'updated_at' => $view->updatedAt,
+        ];
+    }
+
+    /**
+     * A line of an invoice — the tax is the one of the line, rounded
+     * half-up on that line (ADR-0094 §1).
+     *
+     * @return array<string, mixed>
+     */
+    protected function invoiceLineView(InvoiceLineView $view): array
+    {
+        return [
+            'id' => $view->id,
+            'invoice_id' => $view->invoiceId,
+            'kind' => $view->kind,
+            'description' => $view->description,
+            'quantity' => $view->quantity,
+            'unit_amount_minor' => $view->unitAmountMinor,
+            'amount_minor' => $view->amountMinor,
+            'tax_rate_bps' => $view->taxRateBps,
+            'tax_amount_minor' => $view->taxAmountMinor,
+            'period_start' => $view->periodStart,
+            'period_end' => $view->periodEnd,
         ];
     }
 }

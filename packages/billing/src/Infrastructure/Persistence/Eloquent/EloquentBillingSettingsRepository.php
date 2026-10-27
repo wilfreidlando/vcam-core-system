@@ -6,6 +6,7 @@ namespace Core\Billing\Infrastructure\Persistence\Eloquent;
 
 use Core\Billing\Domain\Model\BillingSettings;
 use Core\Billing\Domain\Port\BillingSettingsRepository;
+use stdClass;
 
 /**
  * ADR-0071 §4 — the billing settings of a project.
@@ -33,6 +34,11 @@ final class EloquentBillingSettingsRepository implements BillingSettingsReposito
             defaultCurrency: $record->default_currency,
             renewalLeadDays: $record->renewal_lead_days,
             incompleteExpiryHours: $record->incomplete_expiry_hours,
+            invoicePrefix: $record->invoice_prefix,
+            defaultTaxRateBps: $record->default_tax_rate_bps,
+            manualReceiptApprovalThresholdMinor: $record->manual_receipt_approval_threshold_minor,
+            retainInvoiceIdentity: $record->retain_invoice_identity,
+            documentBranding: $this->brandingOf($record->document_branding),
         );
     }
 
@@ -67,6 +73,38 @@ final class EloquentBillingSettingsRepository implements BillingSettingsReposito
             'default_currency' => $settings->defaultCurrency,
             'renewal_lead_days' => $settings->renewalLeadDays,
             'incomplete_expiry_hours' => $settings->incompleteExpiryHours,
+            'invoice_prefix' => $settings->invoicePrefix,
+            'default_tax_rate_bps' => $settings->defaultTaxRateBps,
+            'manual_receipt_approval_threshold_minor' => $settings->manualReceiptApprovalThresholdMinor,
+            'retain_invoice_identity' => $settings->retainInvoiceIdentity,
+            'document_branding' => $this->branding($settings->documentBranding),
         ];
+    }
+
+    /**
+     * The branding of the documents is a **map** — and the column refuses
+     * anything else (`billing_settings_document_branding_check`). An empty
+     * PHP array would be stored as a JSON array: it is written as an empty
+     * object instead (the same idiom as the metadata of a customer).
+     *
+     * @param array<string, mixed> $branding
+     */
+    private function branding(array $branding): string
+    {
+        return (string) json_encode($branding === [] ? new stdClass : $branding);
+    }
+
+    /**
+     * The branding as a map — the column holds a JSON **object**.
+     *
+     * @return array<string, mixed>
+     */
+    private function brandingOf(string $json): array
+    {
+        $decoded = json_decode($json, true);
+        /** @var array<string, mixed> $branding */
+        $branding = is_array($decoded) ? $decoded : [];
+
+        return $branding;
     }
 }

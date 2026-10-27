@@ -268,6 +268,37 @@ expect_rejection "G4b" "a migration adds a column to the customers table" \
     'Unexpected column\(s\) on `customers`' \
     $DC_DB vendor/bin/pest --group=schema
 
+# ── G4c — a column added to the white-listed invoices table ──────────────────
+probe packages/billing/database/migrations/2026_10_27_999999_guard_probe_invoice_column.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('invoices', function (Blueprint $table): void {
+            $table->text('notes')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('invoices', function (Blueprint $table): void {
+            $table->dropColumn('notes');
+        });
+    }
+};
+PHP
+expect_rejection "G4c" "a migration adds a column to the invoices table" \
+    'Unexpected column\(s\) on `invoices`' \
+    $DC_DB vendor/bin/pest --group=schema
+
 # ── G5 — money stored as a decimal column ───────────────────────────────────
 probe packages/ledger/database/migrations/2026_09_14_999999_guard_probe.php <<'PHP'
 <?php

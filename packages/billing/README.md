@@ -2,9 +2,10 @@
 
 **Bounded context:** `billing`
 **Responsibility:** Commerce — the customers of a project, the versioned plan
-catalogue, and the subscription contracts with their periods.
-**Delivery lot:** Lot 10 — Commerce I (ADR-0070, ADR-0071, ADR-0072; ADR-0092
-for what this lot may do before the invoice exists) — see
+catalogue, the subscription contracts with their periods, and the invoices
+that carry the receivables.
+**Delivery lot:** Lot 10 — Commerce I (ADR-0070, ADR-0071, ADR-0072) and
+Lot 11a — the invoice (ADR-0073, ADR-0094) — see
 [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## Internal structure
@@ -59,18 +60,37 @@ depend on `core/audit`: the operator's acts are audited by the console controlle
   upcoming period instead of creating a second one. The state machine is one
   table, and every transition is an optimistic-locked `UPDATE`.
 
-## What this lot does NOT deliver (ADR-0092)
+## The invoice (ADR-0073, ADR-0094)
 
-**The invoice belongs to Lot 11** (ADR-0073). A paid period exists before its
-invoice does: `subscription_periods.invoice_id` stays null. Two consequences:
+An invoice is a **document**: a receivable that carries a number, a customer
+frozen on it, and lines that are **immutable once issued** — the database
+refuses the change, not a convention.
 
-- a paid subscription cannot become `active` by a payment in this lot — the
-  public path to `active` is a **complimentary** period (an operator's act,
-  free, with a mandatory reason, no invoice);
+- it is created **draft** and issued later: the number is attributed at the
+  issuance, under the lock of the (project, year) sequence — **no gap**, ever
+  (`FACT-2026-000042`);
+- the tax is a **rate per line**, rounded half-up on that line, and it is
+  **stored** on the line: the tax of an invoice is the sum of its lines'
+  taxes, never a rate applied to the subtotal;
+- the issuance **books the receivable** in the ledger — Débit
+  `customer_receivable:<client>` / Crédit `revenue` — and the cancellation
+  **counter-passes** it; a write-off moves it to `bad_debt`;
+- the customer frozen on it is **encrypted at rest**: the printed document
+  decrypts the name at the moment of printing, and nothing else ever does.
+
+### What this lot does NOT deliver yet (ADR-0094)
+
+The **collection** arrives with Lot 11b: the payment in line
+(`POST /v1/invoices/{id}/pay`) and the offline receipt with four eyes. Until
+then:
+
+- a paid subscription cannot become `active` by a payment — the public path
+  to `active` is a **complimentary** period (an operator's act, free, with a
+  mandatory reason);
 - the payment declaration (`ConfirmSubscriptionPeriodPayment`) writes
-  `paid_at` and **moves no money**. It is the seam Lot 11 replaces with the
-  real collection, which posts to the ledger and asks for a second pair of
-  eyes.
+  `paid_at` and **moves no money** (ADR-0092 §2). Lot 11b makes it refuse a
+  period whose invoice is not settled, and replaces it with the real
+  collection, which posts to the ledger and asks for a second pair of eyes.
 
 ## The period arithmetic
 
@@ -97,22 +117,29 @@ arithmetic is explicit in `Domain/Model/BillingInterval.php`.
 | `POST /v1/subscriptions` | `subscriptions:write` + `Idempotency-Key` | Creates the contract, its first period |
 | `GET /v1/subscriptions/{id}` · `GET /v1/subscriptions?customer_ref=&status=` | `subscriptions:read` | The contract and its current period |
 | `POST /v1/subscriptions/{id}/cancel` · `/change-plan` | `subscriptions:write` | The operator's gestures |
+| `GET /v1/invoices/{id}` · `GET /v1/invoices?customer_ref=&status=` | `invoices:read` | The document, its lines and what has been paid of it |
+| `GET /v1/invoices/{id}/document` | `invoices:read` | The printable invoice, as HTML |
+| `POST /v1/invoices` | `invoices:write` + `Idempotency-Key` | Creates a **draft** manual invoice |
+| `POST /v1/invoices/{id}/issue` | `invoices:write` + `Idempotency-Key` | Issues it: the number, the freeze, the receivable in the ledger |
+| `POST /v1/invoices/{id}/void` | `invoices:write` + `Idempotency-Key` | Cancels it before any payment — the counter-passation |
 
 The console (`/admin/projects/{projectId}/…`) mirrors them, with the operator's
 scope and an audit entry for each act.
 
 ### The console
 
-A customer, a plan and a contract belong to a **project**: there is no global
-list of them. The console is therefore reached from the project's page — the
-sidebar's "Facturation" entry sends the operator to the project list first,
-and the project page carries the three links (clients, offers, subscriptions).
+A customer, a plan, a contract and an invoice belong to a **project**: there is
+no global list of them. The console is therefore reached from the project's
+page — the sidebar's "Facturation" entry sends the operator to the project
+list first, and the project page carries the four links (clients, offers,
+subscriptions, invoices).
 
 | Console route | Permission | Does |
 | ------------- | ---------- | ---- |
 | `/admin/projects/{id}/customers` (+ `/create`, `/{ref}/edit`) | `customers:read` · `customers:write` | The customers of the project; the contact is masked in the listing |
 | `/admin/projects/{id}/plans` (+ `/create`, `/{code}/versions`) | `plans:read` · `plans:write` | The catalogue: a plan, a draft version, its publication, the archive |
 | `/admin/projects/{id}/subscriptions` (+ `/{id}`) | `subscriptions:read` · `subscriptions:write` | The contracts, their periods, and the operator's gestures (pause, resume, cancel, plan change, free period, payment declaration) |
+| `/admin/projects/{id}/invoices` (+ `/create`, `/{id}`) | `invoices:read` · `invoices:write` | The invoices, and the operator's gestures (issue, cancel, write-off). No personal value is ever shown in clear |
 
 A resource that does not exist — or that belongs to another organization — is
 answered like a missing one: a **read** answers 404, a **gesture** answers

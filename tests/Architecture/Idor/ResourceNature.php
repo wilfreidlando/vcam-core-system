@@ -59,6 +59,9 @@ enum ResourceNature: string
     /** A subscription contract of a Project (ADR-0072). */
     case Subscription = 'subscription';
 
+    /** An invoice of a Project (ADR-0073) — the document that carries the receivable. */
+    case Invoice = 'invoice';
+
     /** A console account — owned by the platform, by no organization. */
     case Operator = 'operator';
 

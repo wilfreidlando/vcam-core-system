@@ -160,6 +160,17 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.subscriptions.complimentary.web', Nature::Subscription, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.subscriptions.pay.web', Nature::Subscription, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
 
+            // The invoices (ADR-0073) follow the same rule: a **read**
+            // answers 404, a **mutation** answers the console's
+            // "introuvable" redirect.
+            Entry::isolated('admin.projects.invoices.index', Nature::Invoice, Outcome::NotFound, control: true),
+            Entry::isolated('admin.projects.invoices.new', Nature::Invoice, Outcome::NotFound),
+            Entry::isolated('admin.projects.invoices.store', Nature::Invoice, Outcome::NotFound),
+            Entry::isolated('admin.projects.invoices.show', Nature::Invoice, Outcome::NotFound, ownParent: Outcome::NotFound),
+            Entry::isolated('admin.projects.invoices.issue.web', Nature::Invoice, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.invoices.void.web', Nature::Invoice, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.invoices.uncollectible.web', Nature::Invoice, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+
             // ── Wallets, notifications, payments of a project (JSON) ───────
             Entry::isolated('admin.projects.wallets', Nature::Wallet, Outcome::NotFound, control: true),
             Entry::isolated('admin.projects.notifications', Nature::Notification, Outcome::NotFound, control: true),

@@ -10,10 +10,12 @@ use Core\Billing\Domain\Exception\CustomerVersionConflict;
 use Core\Billing\Domain\Exception\InvalidBillingInterval;
 use Core\Billing\Domain\Exception\InvalidBillingSettings;
 use Core\Billing\Domain\Exception\InvalidCustomerTransition;
+use Core\Billing\Domain\Exception\InvalidInvoiceTransition;
 use Core\Billing\Domain\Exception\InvalidPlan;
 use Core\Billing\Domain\Exception\InvalidPlanFeature;
 use Core\Billing\Domain\Exception\InvalidSubscriptionStart;
 use Core\Billing\Domain\Exception\InvalidSubscriptionTransition;
+use Core\Billing\Domain\Exception\InvoiceNotFound;
 use Core\Billing\Domain\Exception\PlanCodeAlreadyTaken;
 use Core\Billing\Domain\Exception\PlanNotFound;
 use Core\Billing\Domain\Exception\PlanVersionNotEditable;
@@ -169,6 +171,11 @@ final class ExceptionProblemMapping
         // a transition, and the answer is the same one.
         InvalidCustomerTransition::class => ['type' => 'invalid-state-transition', 'title' => 'The state transition is not allowed', 'status' => 409],
         InvalidSubscriptionTransition::class => ['type' => 'invalid-state-transition', 'title' => 'The state transition is not allowed', 'status' => 409],
+        // ADR-0073 / ADR-0094 — the invoice and its life cycle. The
+        // transition shares the type of the other two: the caller asked
+        // for a transition, and the answer is the same one.
+        InvoiceNotFound::class => ['type' => 'invoice-not-found', 'title' => 'Invoice not found', 'status' => 404],
+        InvalidInvoiceTransition::class => ['type' => 'invalid-state-transition', 'title' => 'The state transition is not allowed', 'status' => 409],
         PlanVersionNotEditable::class => ['type' => 'plan-version-not-editable', 'title' => 'The plan version is not editable', 'status' => 409],
         PlanVersionNotFound::class => ['type' => 'plan-version-not-found', 'title' => 'Plan version not found', 'status' => 404],
         // ADR-0070 §2 — the optimistic lock of a customer: the caller

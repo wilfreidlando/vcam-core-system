@@ -5031,6 +5031,1896 @@
                 ]
             }
         },
+        "/invoices": {
+            "get": {
+                "operationId": "invoices.list",
+                "description": "The listing is paginated by an opaque cursor: pass `next_cursor`\nback as `cursor` to read the next page, and `null` when there is\nno more. `customer_ref` narrows it to one customer and `status`\nto one status \u2014 `draft`, `open`, `paid`, `void` or\n`uncollectible`.\n\nRequires the `invoices:read` scope.",
+                "summary": "List the calling Project's invoices",
+                "tags": [
+                    "Billing"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of invoices, and the cursor of the next one.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "project_id": {
+                                                        "type": "string"
+                                                    },
+                                                    "customer_id": {
+                                                        "type": "string"
+                                                    },
+                                                    "customer_ref": {
+                                                        "type": "string"
+                                                    },
+                                                    "subscription_id": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "period_id": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "number": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "status": {
+                                                        "type": "string"
+                                                    },
+                                                    "currency": {
+                                                        "type": "string"
+                                                    },
+                                                    "subtotal_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "tax_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "total_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "amount_paid_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "lines": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "id": {
+                                                                    "type": "string"
+                                                                },
+                                                                "invoice_id": {
+                                                                    "type": "string"
+                                                                },
+                                                                "kind": {
+                                                                    "type": "string"
+                                                                },
+                                                                "description": {
+                                                                    "type": "string"
+                                                                },
+                                                                "quantity": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "unit_amount_minor": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "amount_minor": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "tax_rate_bps": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "tax_amount_minor": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "period_start": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "period_end": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "id",
+                                                                "invoice_id",
+                                                                "kind",
+                                                                "description",
+                                                                "quantity",
+                                                                "unit_amount_minor",
+                                                                "amount_minor",
+                                                                "tax_rate_bps",
+                                                                "tax_amount_minor",
+                                                                "period_start",
+                                                                "period_end"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "due_at": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "issued_at": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "paid_at": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "voided_at": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "void_reason": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "version": {
+                                                        "type": "integer"
+                                                    },
+                                                    "created_at": {
+                                                        "type": "string"
+                                                    },
+                                                    "updated_at": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "id",
+                                                    "project_id",
+                                                    "customer_id",
+                                                    "customer_ref",
+                                                    "subscription_id",
+                                                    "period_id",
+                                                    "number",
+                                                    "status",
+                                                    "currency",
+                                                    "subtotal_minor",
+                                                    "tax_minor",
+                                                    "total_minor",
+                                                    "amount_paid_minor",
+                                                    "lines",
+                                                    "due_at",
+                                                    "issued_at",
+                                                    "paid_at",
+                                                    "voided_at",
+                                                    "void_reason",
+                                                    "version",
+                                                    "created_at",
+                                                    "updated_at"
+                                                ]
+                                            }
+                                        },
+                                        "next_cursor": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "next_cursor"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "invoices:read"
+                ]
+            },
+            "post": {
+                "operationId": "invoices.create",
+                "description": "Answers the draft invoice, its lines and the totals it carries.\nRequires the `invoices:write` scope.\n\nThe amounts are in **minor units** and the tax is a rate, never a\ntax regime: the Core computes what it is given, and rounds it half\nup on each line (ADR-0094 \u00a71).",
+                "summary": "Create a manual invoice for a customer of the calling Project",
+                "tags": [
+                    "Billing"
+                ],
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. Mandatory on every route that moves money.",
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 255
+                        },
+                        "example": "01HMZ9XK3P-9XK3P-9XK3P"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateInvoiceRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The draft invoice, its lines and its totals.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "project_id": {
+                                            "type": "string"
+                                        },
+                                        "customer_id": {
+                                            "type": "string"
+                                        },
+                                        "customer_ref": {
+                                            "type": "string"
+                                        },
+                                        "subscription_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "period_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "number": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "currency": {
+                                            "type": "string"
+                                        },
+                                        "subtotal_minor": {
+                                            "type": "integer"
+                                        },
+                                        "tax_minor": {
+                                            "type": "integer"
+                                        },
+                                        "total_minor": {
+                                            "type": "integer"
+                                        },
+                                        "amount_paid_minor": {
+                                            "type": "integer"
+                                        },
+                                        "lines": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "invoice_id": {
+                                                        "type": "string"
+                                                    },
+                                                    "kind": {
+                                                        "type": "string"
+                                                    },
+                                                    "description": {
+                                                        "type": "string"
+                                                    },
+                                                    "quantity": {
+                                                        "type": "integer"
+                                                    },
+                                                    "unit_amount_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "amount_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "tax_rate_bps": {
+                                                        "type": "integer"
+                                                    },
+                                                    "tax_amount_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "period_start": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "period_end": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                },
+                                                "required": [
+                                                    "id",
+                                                    "invoice_id",
+                                                    "kind",
+                                                    "description",
+                                                    "quantity",
+                                                    "unit_amount_minor",
+                                                    "amount_minor",
+                                                    "tax_rate_bps",
+                                                    "tax_amount_minor",
+                                                    "period_start",
+                                                    "period_end"
+                                                ]
+                                            }
+                                        },
+                                        "due_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "issued_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "paid_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "voided_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "void_reason": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "version": {
+                                            "type": "integer"
+                                        },
+                                        "created_at": {
+                                            "type": "string"
+                                        },
+                                        "updated_at": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "project_id",
+                                        "customer_id",
+                                        "customer_ref",
+                                        "subscription_id",
+                                        "period_id",
+                                        "number",
+                                        "status",
+                                        "currency",
+                                        "subtotal_minor",
+                                        "tax_minor",
+                                        "total_minor",
+                                        "amount_paid_minor",
+                                        "lines",
+                                        "due_at",
+                                        "issued_at",
+                                        "paid_at",
+                                        "voided_at",
+                                        "void_reason",
+                                        "version",
+                                        "created_at",
+                                        "updated_at"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Idempotency-Key header is required",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-required"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key header is required"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 400
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "This route mutates state and must be called with an Idempotency-Key header."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Idempotency-Key was reused",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-conflict"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key was reused"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 409
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "Either a concurrent request with this Idempotency-Key is still in flight, or the key was reused with a different request body."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "invoices:write"
+                ]
+            }
+        },
+        "/invoices/{invoiceId}": {
+            "get": {
+                "operationId": "invoices.get",
+                "description": "Answers the document, its lines, its totals and what has been\npaid of it. Requires the `invoices:read` scope.",
+                "summary": "Get an invoice of the calling Project",
+                "tags": [
+                    "Billing"
+                ],
+                "parameters": [
+                    {
+                        "name": "invoiceId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The invoice, its lines and what has been paid of it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "project_id": {
+                                            "type": "string"
+                                        },
+                                        "customer_id": {
+                                            "type": "string"
+                                        },
+                                        "customer_ref": {
+                                            "type": "string"
+                                        },
+                                        "subscription_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "period_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "number": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "currency": {
+                                            "type": "string"
+                                        },
+                                        "subtotal_minor": {
+                                            "type": "integer"
+                                        },
+                                        "tax_minor": {
+                                            "type": "integer"
+                                        },
+                                        "total_minor": {
+                                            "type": "integer"
+                                        },
+                                        "amount_paid_minor": {
+                                            "type": "integer"
+                                        },
+                                        "lines": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "invoice_id": {
+                                                        "type": "string"
+                                                    },
+                                                    "kind": {
+                                                        "type": "string"
+                                                    },
+                                                    "description": {
+                                                        "type": "string"
+                                                    },
+                                                    "quantity": {
+                                                        "type": "integer"
+                                                    },
+                                                    "unit_amount_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "amount_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "tax_rate_bps": {
+                                                        "type": "integer"
+                                                    },
+                                                    "tax_amount_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "period_start": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "period_end": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                },
+                                                "required": [
+                                                    "id",
+                                                    "invoice_id",
+                                                    "kind",
+                                                    "description",
+                                                    "quantity",
+                                                    "unit_amount_minor",
+                                                    "amount_minor",
+                                                    "tax_rate_bps",
+                                                    "tax_amount_minor",
+                                                    "period_start",
+                                                    "period_end"
+                                                ]
+                                            }
+                                        },
+                                        "due_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "issued_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "paid_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "voided_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "void_reason": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "version": {
+                                            "type": "integer"
+                                        },
+                                        "created_at": {
+                                            "type": "string"
+                                        },
+                                        "updated_at": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "project_id",
+                                        "customer_id",
+                                        "customer_ref",
+                                        "subscription_id",
+                                        "period_id",
+                                        "number",
+                                        "status",
+                                        "currency",
+                                        "subtotal_minor",
+                                        "tax_minor",
+                                        "total_minor",
+                                        "amount_paid_minor",
+                                        "lines",
+                                        "due_at",
+                                        "issued_at",
+                                        "paid_at",
+                                        "voided_at",
+                                        "void_reason",
+                                        "version",
+                                        "created_at",
+                                        "updated_at"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/invoice-not-found"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Invoice not found"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "invoices:read"
+                ]
+            }
+        },
+        "/invoices/{invoiceId}/document": {
+            "get": {
+                "operationId": "invoices.document",
+                "description": "Answers the HTML document, ready to print. Requires the\n`invoices:read` scope.",
+                "summary": "Get the printable invoice of the calling Project",
+                "tags": [
+                    "Billing"
+                ],
+                "parameters": [
+                    {
+                        "name": "invoiceId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The printable invoice, as HTML.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/invoice-not-found"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Invoice not found"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "invoices:read"
+                ]
+            }
+        },
+        "/invoices/{invoiceId}/issue": {
+            "post": {
+                "operationId": "invoices.issue",
+                "description": "Answers the issued invoice, with its number and the instant it was\nissued. From this instant the document is frozen: only its status\nand what has been paid of it move.\n\nRequires the `invoices:write` scope.",
+                "summary": "Issue an invoice of the calling Project",
+                "tags": [
+                    "Billing"
+                ],
+                "parameters": [
+                    {
+                        "name": "invoiceId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. Mandatory on every route that moves money.",
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 255
+                        },
+                        "example": "01HMZ9XK3P-9XK3P-9XK3P"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The issued invoice, with its number.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "project_id": {
+                                            "type": "string"
+                                        },
+                                        "customer_id": {
+                                            "type": "string"
+                                        },
+                                        "customer_ref": {
+                                            "type": "string"
+                                        },
+                                        "subscription_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "period_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "number": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "currency": {
+                                            "type": "string"
+                                        },
+                                        "subtotal_minor": {
+                                            "type": "integer"
+                                        },
+                                        "tax_minor": {
+                                            "type": "integer"
+                                        },
+                                        "total_minor": {
+                                            "type": "integer"
+                                        },
+                                        "amount_paid_minor": {
+                                            "type": "integer"
+                                        },
+                                        "lines": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "invoice_id": {
+                                                        "type": "string"
+                                                    },
+                                                    "kind": {
+                                                        "type": "string"
+                                                    },
+                                                    "description": {
+                                                        "type": "string"
+                                                    },
+                                                    "quantity": {
+                                                        "type": "integer"
+                                                    },
+                                                    "unit_amount_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "amount_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "tax_rate_bps": {
+                                                        "type": "integer"
+                                                    },
+                                                    "tax_amount_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "period_start": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "period_end": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                },
+                                                "required": [
+                                                    "id",
+                                                    "invoice_id",
+                                                    "kind",
+                                                    "description",
+                                                    "quantity",
+                                                    "unit_amount_minor",
+                                                    "amount_minor",
+                                                    "tax_rate_bps",
+                                                    "tax_amount_minor",
+                                                    "period_start",
+                                                    "period_end"
+                                                ]
+                                            }
+                                        },
+                                        "due_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "issued_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "paid_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "voided_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "void_reason": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "version": {
+                                            "type": "integer"
+                                        },
+                                        "created_at": {
+                                            "type": "string"
+                                        },
+                                        "updated_at": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "project_id",
+                                        "customer_id",
+                                        "customer_ref",
+                                        "subscription_id",
+                                        "period_id",
+                                        "number",
+                                        "status",
+                                        "currency",
+                                        "subtotal_minor",
+                                        "tax_minor",
+                                        "total_minor",
+                                        "amount_paid_minor",
+                                        "lines",
+                                        "due_at",
+                                        "issued_at",
+                                        "paid_at",
+                                        "voided_at",
+                                        "void_reason",
+                                        "version",
+                                        "created_at",
+                                        "updated_at"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Invoice not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/invoice-not-found"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Invoice not found"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error."
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Idempotency-Key was reused",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-conflict"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key was reused"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 409
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "Either a concurrent request with this Idempotency-Key is still in flight, or the key was reused with a different request body."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Idempotency-Key header is required",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-required"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key header is required"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 400
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "This route mutates state and must be called with an Idempotency-Key header."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "invoices:write"
+                ]
+            }
+        },
+        "/invoices/{invoiceId}/void": {
+            "post": {
+                "operationId": "invoices.void",
+                "description": "Answers the cancelled invoice, with the motive of the\ncancellation. An invoice that has already been paid is **refused**\n(`409`): the money would have to be given back, and that is a\nrefund, not a void.\n\nRequires the `invoices:write` scope.",
+                "summary": "Void an invoice of the calling Project",
+                "tags": [
+                    "Billing"
+                ],
+                "parameters": [
+                    {
+                        "name": "invoiceId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. Mandatory on every route that moves money.",
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 255
+                        },
+                        "example": "01HMZ9XK3P-9XK3P-9XK3P"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VoidInvoiceRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The cancelled invoice, with the motive of the cancellation.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "project_id": {
+                                            "type": "string"
+                                        },
+                                        "customer_id": {
+                                            "type": "string"
+                                        },
+                                        "customer_ref": {
+                                            "type": "string"
+                                        },
+                                        "subscription_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "period_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "number": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "currency": {
+                                            "type": "string"
+                                        },
+                                        "subtotal_minor": {
+                                            "type": "integer"
+                                        },
+                                        "tax_minor": {
+                                            "type": "integer"
+                                        },
+                                        "total_minor": {
+                                            "type": "integer"
+                                        },
+                                        "amount_paid_minor": {
+                                            "type": "integer"
+                                        },
+                                        "lines": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "invoice_id": {
+                                                        "type": "string"
+                                                    },
+                                                    "kind": {
+                                                        "type": "string"
+                                                    },
+                                                    "description": {
+                                                        "type": "string"
+                                                    },
+                                                    "quantity": {
+                                                        "type": "integer"
+                                                    },
+                                                    "unit_amount_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "amount_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "tax_rate_bps": {
+                                                        "type": "integer"
+                                                    },
+                                                    "tax_amount_minor": {
+                                                        "type": "integer"
+                                                    },
+                                                    "period_start": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "period_end": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                },
+                                                "required": [
+                                                    "id",
+                                                    "invoice_id",
+                                                    "kind",
+                                                    "description",
+                                                    "quantity",
+                                                    "unit_amount_minor",
+                                                    "amount_minor",
+                                                    "tax_rate_bps",
+                                                    "tax_amount_minor",
+                                                    "period_start",
+                                                    "period_end"
+                                                ]
+                                            }
+                                        },
+                                        "due_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "issued_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "paid_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "voided_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "void_reason": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "version": {
+                                            "type": "integer"
+                                        },
+                                        "created_at": {
+                                            "type": "string"
+                                        },
+                                        "updated_at": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "project_id",
+                                        "customer_id",
+                                        "customer_ref",
+                                        "subscription_id",
+                                        "period_id",
+                                        "number",
+                                        "status",
+                                        "currency",
+                                        "subtotal_minor",
+                                        "tax_minor",
+                                        "total_minor",
+                                        "amount_paid_minor",
+                                        "lines",
+                                        "due_at",
+                                        "issued_at",
+                                        "paid_at",
+                                        "voided_at",
+                                        "void_reason",
+                                        "version",
+                                        "created_at",
+                                        "updated_at"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Invoice not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/invoice-not-found"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Invoice not found"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error."
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Idempotency-Key was reused",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-conflict"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key was reused"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 409
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "Either a concurrent request with this Idempotency-Key is still in flight, or the key was reused with a different request body."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Idempotency-Key header is required",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-required"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key header is required"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 400
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "This route mutates state and must be called with an Idempotency-Key header."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "invoices:write"
+                ]
+            }
+        },
         "/whoami": {
             "get": {
                 "operationId": "identity.whoami",
@@ -10434,6 +12324,117 @@
                 ],
                 "title": "ChangeSubscriptionPlanRequest"
             },
+            "CreateInvoiceRequest": {
+                "type": "object",
+                "description": "`POST /v1/invoices` \u2014 ADR-0073 \u00a71, a manual invoice.\n\nThe customer is named by the reference the project knows it by (the\ncorrelation key of ADR-0070 \u00a71): the reference is format-checked so it\ncan never be injected into a URL, a log or a cache key.",
+                "properties": {
+                    "customer_ref": {
+                        "type": "string",
+                        "description": "The reference the project knows this customer by.",
+                        "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+                        "examples": [
+                            "acme-42"
+                        ],
+                        "maxLength": 128
+                    },
+                    "currency": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The currency of the amounts \u2014 the default of the project\nwhen omitted.",
+                        "examples": [
+                            "XAF"
+                        ],
+                        "minLength": 3,
+                        "maxLength": 3
+                    },
+                    "tax_rate_bps": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "description": "The tax rate of the lines that name none, in basis points\n\u2014 the default of the project when omitted.",
+                        "examples": [
+                            1925
+                        ],
+                        "minimum": 0,
+                        "maximum": 10000
+                    },
+                    "due_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time",
+                        "description": "The instant the invoice falls due \u2014 optional: an invoice\nwithout a due date is payable as soon as it is received.",
+                        "examples": [
+                            "2026-12-01T00:00:00Z"
+                        ]
+                    },
+                    "lines": {
+                        "type": "array",
+                        "description": "The lines of the invoice \u2014 at least one.",
+                        "examples": [
+                            "[[\"description\" => \"Mise en service\", \"quantity\" => 1, \"unit_amount_minor\" => 50000]]"
+                        ],
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "description": {
+                                    "type": "string",
+                                    "description": "What the line is.",
+                                    "examples": [
+                                        "Mise en service"
+                                    ],
+                                    "maxLength": 500
+                                },
+                                "quantity": {
+                                    "type": "integer",
+                                    "description": "How many times the line counts.",
+                                    "examples": [
+                                        2
+                                    ],
+                                    "minimum": 1,
+                                    "maximum": 1000000
+                                },
+                                "unit_amount_minor": {
+                                    "type": "integer",
+                                    "description": "The price of one unit, in minor units.",
+                                    "examples": [
+                                        50000
+                                    ],
+                                    "minimum": 0
+                                },
+                                "tax_rate_bps": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "description": "The tax rate of this line, in basis points \u2014 the default\nof the project when omitted.",
+                                    "examples": [
+                                        1925
+                                    ],
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                }
+                            },
+                            "required": [
+                                "description",
+                                "quantity",
+                                "unit_amount_minor"
+                            ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 100
+                    }
+                },
+                "required": [
+                    "customer_ref",
+                    "lines"
+                ],
+                "title": "CreateInvoiceRequest"
+            },
             "CreatePlanRequest": {
                 "type": "object",
                 "description": "`POST /v1/plans` \u2014 ADR-0071 \u00a75.\n\nThe plan is created `draft`: it enters the catalogue only once a\nversion is published (ADR-0071 \u00a72).",
@@ -11616,6 +13617,24 @@
                     "display_name"
                 ],
                 "title": "UpsertCustomerRequest"
+            },
+            "VoidInvoiceRequest": {
+                "type": "object",
+                "description": "`POST /v1/invoices/{id}/void` \u2014 ADR-0073 \u00a73, the cancellation of an\ninvoice that has not been paid.",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "The motive of the cancellation \u2014 mandatory: a cancellation\nis an accounting act, and an accounting act leaves a trace.",
+                        "examples": [
+                            "Erreur de facturation"
+                        ],
+                        "maxLength": 500
+                    }
+                },
+                "required": [
+                    "reason"
+                ],
+                "title": "VoidInvoiceRequest"
             },
             "WebhookEndpointView": {
                 "type": "object",

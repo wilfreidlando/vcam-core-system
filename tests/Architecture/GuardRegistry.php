@@ -84,6 +84,12 @@ final class GuardRegistry
             'enforced_by' => 'tests/Schema/CustomersColumnsTest.php',
             'status' => self::ACTIVE,
         ],
+        'G4c' => [
+            'rule' => 'The invoice tables hold no column outside their white-list, and the customer frozen on an invoice is encrypted at rest',
+            'tool' => 'Pest + PostgreSQL',
+            'enforced_by' => 'tests/Schema/InvoicesColumnsTest.php',
+            'status' => self::ACTIVE,
+        ],
         'G5' => [
             'rule' => 'Money is stored as bigint minor units, never float or decimal',
             'tool' => 'Pest + PostgreSQL',

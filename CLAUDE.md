@@ -182,6 +182,10 @@ par mutation) ; **console** (clients, offres et abonnements d'un projet,
 chaque geste audité) — **la facture reste au lot 11** : la déclaration du
 paiement d'une période écrit le fait et **ne bouge pas d'argent**
 ([ADR-0092](docs/adr/0092-lot-10-lAbonnement-et-la-facture-au-lot-11.md)).
+Le **lot 11a** ajoute la **facture** (ADR-0073, ADR-0094) : un document
+figé à l'émission, numéroté sans trou (`FACT-2026-000042`), taxé par ligne
+(arrondi demi-supérieur, stocké), dont l'émission inscrit la créance au
+grand livre et dont l'annulation la contre-passe.
 `storage`, `fees`, `developer-platform`
 sont **encore** des scaffolds Lot 0 vides. **ADR-0068 amends ADR-0048** :
 `billing` et `developer-platform` **entrent en production** (`billing` au lot 10,
@@ -424,12 +428,15 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   exclusion des périodes qui se chevauchent, verrou optimiste — ADR-0072),
   l'ordonnanceur `billing:advance-subscriptions`, les réglages par projet
   (`billing_settings`), l'API publique `/v1/customers`, `/v1/plans`,
-  `/v1/subscriptions` et la console (clients, offres et abonnements d'un
-  projet ; chaque geste est audité). **Ce qui n'existe pas encore** : la
-  **facture** (lot 11), l'usage et les quotas (lot 12), le portail client
+  `/v1/subscriptions`, `/v1/invoices` et la console (clients, offres,
+  abonnements et factures d'un projet ; chaque geste est audité).
+  **Ce qui n'existe pas encore** : l'**encaissement** de la facture — le
+  paiement en ligne et l'encaissement hors ligne à quatre vues (lot 11b),
+  l'usage et les quotas (lot 12), le portail client
   (lot 13), la console de portefeuille (lot 14). Ne pas supposer qu'un
-  abonnement produit une facture : dans ce lot, une période déclarée payée
-  est un **fait enregistré**, jamais une somme encaissée (ADR-0092 §2).
+  abonnement est encaissé : dans ce lot, une période déclarée payée
+  est un **fait enregistré**, jamais une somme encaissée (ADR-0092 §2) —
+  et une facture émise porte une créance, pas un encaissement.
   Voir `packages/billing/README.md`.
 - Module `payment` : **orchestration Lot 3 livrée** — voir
   [ADR-0038](docs/adr/0038-conception-lot-3-payment-channel-routage-etat-callback.md)
