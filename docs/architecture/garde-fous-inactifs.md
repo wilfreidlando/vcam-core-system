@@ -38,6 +38,7 @@ garde-fou** (une porte qui échoue pour une autre raison ne compte pas).
 | G8  | Aucun événement dispatché hors de l'outbox | PHPat + règle PHPStan |
 | G8c | L'écriture outbox et le changement d'état partagent une transaction — actif depuis `CreditWalletUseCase` (Lot 2, ADR-0032) | Pest + PostgreSQL |
 | G9  | Aucune rupture OpenAPI sans montée de version — actif depuis l'installation de Scramble et le premier snapshot commité (`openapi/v1.json`) | oasdiff + Spectral |
+| G9b | Le document d'API n'expose que les **intégrations externes** : le plan opérateur (`/v1/admin`, `/v1/operators`) appartient à la console et ne doit jamais apparaître dans le document d'un intégrateur ; les deux documents ne se recouvrent pas, et chaque route documentée existe (ADR-0049) | Pest |
 | G11 | Invariants ledger (somme nulle, solde dérivé, concurrence, rejeu) — actif depuis le ledger et le wallet (Lot 2) | Pest + PostgreSQL |
 | G13 | Isolation financière : aucune écriture du grand livre ne traverse deux projets — trigger PostgreSQL, actif depuis le lot 9 (ADR-0076 §5) | Trigger PostgreSQL + Pest |
 | G14 | Aucun secret utilisable dans une réponse d'API, sauf une fois dans la réponse qui le crée — inventaire des champs « secrets » des DTO de réponse et contrôle des réponses réelles, liste blanche des créations justifiée route par route (ADR-0081 S-07) | Pest (analyse + application bootée) |

@@ -138,6 +138,12 @@ final class GuardRegistry
             'enforced_by' => '.github/workflows/ci.yml',
             'status' => self::ACTIVE,
         ],
+        'G9b' => [
+            'rule' => 'The API documentation carries only the external integrations: the operator plane belongs to the console, never to an integrator\'s document (ADR-0049)',
+            'tool' => 'Pest',
+            'enforced_by' => 'tests/Architecture/OpenApiSurfaceTest.php',
+            'status' => self::ACTIVE,
+        ],
         'G10' => [
             'rule' => 'No consumer contract regression',
             'tool' => 'Pest fixtures (Pact deferred until a second consumer exists)',

@@ -455,6 +455,25 @@ expect_rejection "G9" "the /whoami endpoint is silently removed, no version bump
     breaking /specs/guard-g9-base.json /head/v1.json --fail-on ERR
 rm -f /tmp/guard-g9-base.json
 
+# ── G9b — the operator plane leaks into the API documentation ──────────────
+# ADR-0049: the integration document carries only the external surfaces — the
+# operator plane belongs to the console. The whole exclusion lives in one
+# line of config/scramble.php, so this probe removes it: the regenerated
+# document must then carry the admin paths, and the test must say so.
+backup config/scramble.php
+backup openapi/v1.json
+python3 - <<'PY'
+path = 'config/scramble.php'
+content = open(path).read()
+needle = "        'exclude' => ['v1/admin', 'v1/operators'],"
+assert needle in content, 'scramble exclusion not found — probe out of date'
+open(path, 'w').write(content.replace(needle, "        'exclude' => ['v1/admin'],", 1))
+PY
+$DC_DB php artisan scramble:export --path=openapi/v1.json > /dev/null 2>&1
+expect_rejection "G9b" "the operator plane leaks into the API documentation" \
+    'exposes the operator plane' \
+    $DC_DB vendor/bin/pest tests/Architecture/OpenApiSurfaceTest.php --no-progress
+
 # ── G11 — the ledger's own deferred balance trigger, disabled ──────────────
 # Unlike the other probes, this one breaks REAL migrated schema rather than
 # adding harmless residue: the trigger install call is commented out, the
