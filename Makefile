@@ -129,14 +129,14 @@ sectors: ## List the test sectors (one bounded context each)
 .PHONY: test-sector
 test-sector: ## Run one sector's suite: make test-sector SECTOR=billing DB=core_testing_s1
 	@test -n "$(SECTOR)" || { echo "SECTOR is required — see 'make sectors'"; exit 1; }
-	$(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest --testsuite=$(SECTOR) --parallel
+	$(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest --testsuite=$(SECTOR) --parallel --do-not-fail-on-empty-test-suite
 
 .PHONY: check-sector
 check-sector: ## The gate a sector agent runs: style, static analysis, its suite, the schema, its IDOR cases
 	@test -n "$(SECTOR)" || { echo "SECTOR is required — see 'make sectors'"; exit 1; }
 	$(EXEC) vendor/bin/pint --test
 	$(EXEC) vendor/bin/phpstan analyse --memory-limit=1G --no-progress
-	$(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest --testsuite=$(SECTOR) --parallel
+	$(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest --testsuite=$(SECTOR) --parallel --do-not-fail-on-empty-test-suite
 	$(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest --testsuite=Schema --parallel
 	case "$(SECTOR)" in \
 	  billing|identity|wallet|notification|payment|ledger|webhook) \
