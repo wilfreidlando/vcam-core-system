@@ -1,6 +1,6 @@
 # Carte des capacités — la plateforme de projets SaaS, état par capacité
 
-- **Date** : 2026-10-27 · **Version** : 2.3 · **Statut** : référence produit
+- **Date** : 2026-10-28 · **Version** : 2.4 · **Statut** : référence produit
   (ne construit rien)
 - **Réf.** : ADR-0068 à ADR-0092 · plan de delivery, addendum du 2026-10-24
 
@@ -8,8 +8,8 @@ Légende : **●** livré · **◐** décidé (ADR accepté), lot à construire 
 d'extension prévu (ADR-0090), non planifié · **✗** refusé (liste négative).
 
 La série ADR-0068 à ADR-0090 a été **ratifiée le 2026-10-27** ; ADR-0091 consigne
-les décisions que le code avait introduites sans ADR. Les lots 8, 9 et 10 sont
-**livrés** : leurs lignes sont passées de **◐** à **●**.
+les décisions que le code avait introduites sans ADR. Les lots 8, 9, 10 et 11
+sont **livrés** : leurs lignes sont passées de **◐** à **●**.
 
 ## 1. Services de plateforme
 
@@ -47,13 +47,13 @@ les décisions que le code avait introduites sans ADR. Les lots 8, 9 et 10 sont
 | Changement de plan à l'échéance ou immédiat (sans prorata) | ● (lot 10) | ADR-0072 §5 |
 | Console de facturation : clients, offres, abonnements d'un projet | ● (lot 10) | ADR-0092 §4 |
 | Renouvellement des périodes par ordonnanceur (`billing:advance-subscriptions`) | ● (lot 10) | ADR-0072 §4 |
-| Déclaration du paiement d'une période (constat, **aucun mouvement d'argent**) | ● (lot 10) | ADR-0092 §2 |
+| Déclaration du paiement d'une période (constat, **aucun mouvement d'argent**) | ● (lot 10) ; refuse une période dont la facture n'est pas soldée ● (lot 11b) | ADR-0092 §2, ADR-0094 §8 |
 | Prorata | ○ | ADR-0090 |
 | Remises, codes promo | ○ (en v1 : plan privé remisé) | ADR-0071 §6 |
 | Factures, numérotation, documents HTML | ● (lot 11a) — le PDF attend sa bibliothèque (ADR-0094 §14) | ADR-0073, ADR-0094 |
 | Paiement d'une facture en ligne, tentatives multiples | ● (lot 11b) | ADR-0073 §2 |
 | Encaissement hors ligne, validation explicite | ● (lot 11b) — ADR-0095 a retiré les quatre yeux | ADR-0073 §4, ADR-0095 |
-| Reçus | ◐ lot 11 — le rendu du reçu reste à écrire | ADR-0073 §5 |
+| Reçus | ◐ — le lot est livré, le **rendu** du reçu reste à écrire | ADR-0073 §5 |
 | Prélèvement récurrent | ○ | ADR-0090 |
 | Usage idempotent, quotas atomiques, seuils | ◐ lot 12 | ADR-0074 |
 | Décompte automatique des notifications | ◐ lot 12 | ADR-0074 §5 |

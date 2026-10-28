@@ -424,13 +424,13 @@ direction).
 | **18 — Rapprochement prestataire** | capacités `listTransactions` et `balance` des adaptateurs, niveaux B et C, `reconciliation_runs`, écrans | 0078 | 9 | 10 j |
 | **19 — Versements sortants** | module `payout`, port et adaptateur avec environnement de test du prestataire, callback dédié, balayage, plafonds, double validation, destination chiffrée | 0079 | 9 | 15 j |
 
-**État au 2026-10-27** : les **lots 8, 9 et 10 sont livrés** — code conforme à
+**État au 2026-10-28** : les **lots 8, 9, 10 et 11 sont livrés** — code conforme à
 leurs ADR, `make ci` et `make guard-test` verts. La série d'ADR qui les
 réalise a été **ratifiée par le comité le 2026-10-27**, après vérification de
 la conformité du code livré (la décision a suivi le code, et non l'inverse —
-c'est tracé dans ADR-0068 §6 et dans ADR-0091). Le lot 11 démarre en
-parallèle ; les lots 9 et 10, qui ne dépendent de rien d'autre, sont
-terminés.
+c'est tracé dans ADR-0068 §6 et dans ADR-0091). Les lots 9 et 10, qui ne
+dépendent de rien d'autre, sont terminés ; le lot 11 — la facture et son
+encaissement (ADR-0073, ADR-0094, ADR-0095) — l'est également.
 
 **État du lot 9** : il est **livré** (le 2026-10-27). L'écriture de tout
 paiement confirmé, la vérification du montant confirmé, la file
@@ -493,8 +493,8 @@ Lot 15 (dès la fin du lot 8)       Lot 16 (dès la fin du lot 10)
 ```
 
 - **Chemin critique** : 8 → 10 → 11 → 13 → 17 = 12 + 14 + 12 + 13 + 8 =
-  **59 jours** de travail, puis 4 semaines de bascule. Les lots 8 et 10
-  étant livrés, il reste **33 jours** sur ce chemin.
+  **59 jours** de travail, puis 4 semaines de bascule. Les lots 8, 10 et 11
+  étant livrés, il reste **21 jours** sur ce chemin (13 + 8).
 - **Seconde personne** : lot 15 dès le départ (les lots 9 et 10 sont
   terminés), puis 12, 16, 14.
 - Les lots 18 et 19 ne conditionnent pas la bascule.
@@ -523,34 +523,43 @@ Lot 15 (dès la fin du lot 8)       Lot 16 (dès la fin du lot 10)
 
 Hypothèses : deux développeurs seniors (A sur le chemin critique, B en
 parallèle), jours ouvrés, hors 25 décembre, 1ᵉʳ janvier et 11 février. Le
-comité a ratifié la série le 2026-10-27 et les **lots 8, 9 et 10 sont
-livrés** : le plan démarre le **2026-10-28**, avec les durées inchangées. Les
-lots 9 et 10 ayant été terminés en avance, A enchaîne sans interruption sur
-le lot 11 et B sur le lot 15 — toute la chaîne du chemin critique avance de
-quatorze jours. Les dates glissent d'autant qu'un lot déborde ; chaque lot
-reste conditionné à l'acceptation de ses ADR.
+comité a ratifié la série le 2026-10-27 et les **lots 8, 9, 10 et 11 sont
+livrés**.
+
+**Rebasage du 2026-10-28.** Le lot 11 a été livré le 2026-10-28, **treize
+jours avant** sa date planifiée, et a dépassé son estimation de **33 % en
+charge** (16 j pour 12 j estimés). Le plan prévoit sa propre règle : « un lot
+en retard de plus de 20 % sur son estimation déclenche une replanification
+écrite dans cet addendum ». La règle s'applique : **la voie critique de A
+est rebasée sur la date réelle du lot 11** — A attaque le lot 13 le
+2026-10-29 au lieu d'attendre le 2026-11-16. **La voie de B est inchangée**
+(lot 15, marge, lots 12, 16 et 14) ; ses dates étaient déjà au plus tôt
+possible. Les jalons d'extinction avancent de **20 jours** : le 29 décembre
+2026 au lieu du 18 janvier 2027. Les dates glissent d'autant qu'un lot
+déborde ; chaque lot reste conditionné à l'acceptation de ses ADR.
 
 | Étape | Qui | Début | Fin |
 |---|---|---|---|
 | Ratification de la série ADR-0068 à ADR-0091 par le comité | direction + comité | 2026-10-26 | 2026-10-27 |
-| Lot 8 — Fondations de sécurité et d'identité | A | — | 2026-10-27 (**livré**) |
-| Lot 9 — Grand livre complet | B | — | 2026-10-27 (**livré**) |
-| Lot 10 — Commerce I (clients, catalogue, abonnements) | A | — | 2026-10-27 (**livré**) |
+| Lot 8 — Fondations de sécurité et d'identité | A | 2026-10-24 | 2026-10-27 (**livré**) |
+| Lot 9 — Grand livre complet | B | 2026-10-24 | 2026-10-27 (**livré**) |
+| Lot 10 — Commerce I (clients, catalogue, abonnements) | A | 2026-10-24 | 2026-10-27 (**livré**) |
+| Lot 11 — Commerce II (factures, encaissement) | A | 2026-10-24 | 2026-10-28 (**livré**) |
 | Lot 15 — Exploitation | B | 2026-10-28 | 2026-11-11 |
-| Lot 11 — Commerce II (factures, encaissement) | A | 2026-10-28 (**livré**) | 2026-11-13 |
-| *Marge de B (revue de sécurité des lots 8–10, harnais de tests IDOR)* | B | 2026-11-12 | 2026-11-17 |
-| Lot 12 — Usage et quotas | B | 2026-11-18 | 2026-12-01 |
-| Lot 13 — Portail client | A | 2026-11-16 | 2026-12-03 |
-| Lot 16 — Contrat et expérience développeur | B | 2026-11-30 | 2026-12-10 |
-| Lot 17 — Bascule (préparation, recette bout-en-bout) | A | 2026-12-04 | 2026-12-16 |
-| Lot 14 — Console de portefeuille | B | 2026-12-11 | 2026-12-24 |
-| Lot 19 — Versements sortants | A | 2026-12-17 | 2027-01-11 |
-| Lot 18 — Rapprochement prestataire | B | 2027-01-08 | 2027-01-21 |
-| Bascule, coexistence 14 j, coupure, retrait | A + exploitation | 2026-12-17 | 2027-01-18 |
+| *Marge de B (revue de sécurité des lots 8–11, harnais de tests IDOR)* | B | 2026-11-12 | 2026-11-17 |
+| Lot 13 — Portail client | A | 2026-10-29 | 2026-11-16 |
+| Lot 17 — Bascule (préparation, recette bout-en-bout) | A | 2026-11-17 | 2026-11-26 |
+| Lot 12 — Usage et quotas | B | 2026-11-18 | 2026-11-30 |
+| Lot 16 — Contrat et expérience développeur | B | 2026-12-01 | 2026-12-09 |
+| Lot 14 — Console de portefeuille | B | 2026-12-10 | 2026-12-23 |
+| Lot 19 — Versements sortants | A | 2026-11-27 | 2026-12-17 |
+| Lot 18 — Rapprochement prestataire | B | 2027-01-04 | 2027-01-15 |
+| Bascule, coexistence 14 j, coupure, retrait | A + exploitation | 2026-11-27 | 2026-12-29 |
 
 **Jalons** : socle sécurisé le 27 octobre · commerce complet (abonnements +
-factures) le 13 novembre · portail client le 3 décembre · début de bascule le
-17 décembre · **extinction de la plateforme transitoire le 18 janvier 2027**.
+factures) le **28 octobre** · portail client le **16 novembre** · début de
+bascule le **27 novembre** · **extinction de la plateforme transitoire le
+29 décembre 2026**.
 
 Revue d'avancement chaque vendredi ; un lot en retard de plus de 20 % sur son
 estimation déclenche une replanification écrite dans cet addendum.
