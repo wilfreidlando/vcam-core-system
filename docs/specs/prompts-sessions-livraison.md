@@ -60,18 +60,27 @@ RÈGLES DURES (jamais d'exception sans ADR) :
   - Ne pousse jamais. Commite sur ta branche, un seul commit, message
     conventionnel : feat(...)/fix(...)/docs(...) — une ligne, puis le corps.
 
-COMMANDES (tout est Docker-first, Docker rootless → passe par sg docker) :
-  sg docker -c "make lint-check"      # Pint
-  sg docker -c "make stan"            # PHPStan niveau 10
-  sg docker -c "make arch"            # Deptrac + tests d'architecture
-  sg docker -c "make guard-test"      # les garde-fous doivent mordre
-  sg docker -c "make openapi"         # regénère openapi/v1.json et admin.json
-  sg docker -c "docker compose exec -T -e DB_DATABASE=core_testing_<suffixe> \
-      app vendor/bin/pest --parallel"
+TON SECTEUR : <billing|payment|identity|ledger|wallet|parties|notification|
+webhook|events|audit|admin|support>   TA BRANCHE : <nom>   TA BASE : core_testing_<suffixe>
 
-AVANT DE COMMITER : pint --test, phpstan, deptrac, la suite complète verte,
-guard-test vert, openapi régénéré sans rupture (oasdiff), et la suite de
-tests de ton lot verte. Une suite rouge n'est jamais « known » : corrige-la.
+COMMANDES (tout est Docker-first, Docker rootless → passe par sg docker) :
+  sg docker -c "make sectors"                      # la liste des secteurs
+  sg docker -c "make test-sector SECTOR=<ton> DB=core_testing_<suffixe>"
+        # la suite de TON secteur seule (~5 s), quand tu itères
+  sg docker -c "make check-sector SECTOR=<ton> DB=core_testing_<suffixe>"
+        # LE GATE QUE TU DOIS PASSER : style, PHPStan niveau 10, la suite de
+        # TON secteur, la suite Schema, et les cas IDOR de TON secteur (~38 s)
+  sg docker -c "make lint-check stan"              # si tu touches hors module
+
+AVANT DE COMMITER : `make check-sector` vert. C'est TOUT ce que tu as à
+passer : la suite complète (99 s) et `make guard-test` sont le gate
+d'INTÉGRATION, pas le tien — une session unique les rejoue à la fin de la
+vague, pour prouver que les secteurs se tiennent ensemble. Une suite rouge
+n'est jamais « known » : corrige-la.
+
+Si tu touches le graphe de modules, un `Contracts/` partagé, ou une migration
+d'un AUTRE secteur : dis-le dans ton rapport, et passe la suite complète.
+Le protocole : docs/specs/parallelisation-livraison.md
 
 Tu écris le code toi-même. N'utilise un sous-agent que pour une revue ou un
 balayage, pas pour écrire la fonctionnalité.
@@ -85,6 +94,8 @@ test, ce qui reste, et le SHA du commit.
 ## S1 — Sécurité : ADR-0081 S-11 (CSP, HSTS, cookies `__Host-`)
 
 ```
+SECTEUR : transversal (app/, config/) — pas de secteur module
+
 TÂCHE : livrer l'exigence S-11 d'ADR-0081 — « Protection navigateur (console,
 portail) : CSP stricte, frame-ancestors 'none', HSTS, cookies __Host- Secure
 HttpOnly SameSite, CSRF synchronisé » — et son test des en-têtes en CI.
@@ -120,6 +131,8 @@ LIVRE : la contrainte S-11 est satisfaite et prouvée par un test.
 ## S2 — Sécurité : ADR-0081 S-19 (OWASP ZAP dans le pipeline)
 
 ```
+SECTEUR : transversal (CI) — pas de secteur module
+
 TÂCHE : livrer l'exigence S-19 d'ADR-0081 — « analyse de base OWASP ZAP sur le
 staging à chaque déploiement » — sous forme d'étape de pipeline.
 
@@ -151,6 +164,8 @@ comment on l'exploite.
 ## S3 — Revue de sécurité du lot 11
 
 ```
+SECTEUR : billing + payment
+
 TÂCHE : passer le lot 11 (facture + encaissement) en revue de sécurité, et
 corriger ce que la revue trouve.
 
@@ -183,6 +198,8 @@ ici, écris-le dans un ADR ou une note explicite — ne le laisse pas implicite.
 ## L12 — Lot 12 : usage et quotas (chemin critique)
 
 ```
+SECTEUR : billing (et notification pour le port QuotaGuard)
+
 TÂCHE : livrer le lot 12 — « Usage et quotas ».
 
 LIS : docs/specs/plan-delivery-mvp.md §P3 (la ligne du lot 12),
@@ -208,6 +225,8 @@ DÉPENDANCE : le lot 17 (bascule) dépend du lot 12. Commence par lui.
 ## L13 — Lot 13 : portail client (chemin critique, le plus gros)
 
 ```
+SECTEUR : portal — nouveau module : ajoute sa <testsuite name="portal"> dans phpunit.xml, puis SECTOR=portal
+
 TÂCHE : livrer le lot 13 — « Portail client ».
 
 LIS : docs/specs/plan-delivery-mvp.md §P3 (la ligne du lot 13),
@@ -238,6 +257,8 @@ facture et les reçus d'un client, sans jamais voir la donnée d'un autre.
 ## L15 — Lot 15 : exploitation
 
 ```
+SECTEUR : transversal (app/ : middleware de debit) + ledger pour les metriques
+
 TÂCHE : livrer le lot 15 — « Exploitation ».
 
 LIS : docs/specs/plan-delivery-mvp.md §P3 (ligne du lot 15), docs/adr/0085-*.md,
@@ -263,6 +284,8 @@ la dimension projet.
 ## L14 — Lot 14 : console de portefeuille
 
 ```
+SECTEUR : billing (lecture) + admin (console)
+
 TÂCHE : livrer le lot 14 — « Console de portefeuille ».
 
 LIS : docs/specs/plan-delivery-mvp.md §P3 (ligne du lot 14), docs/adr/0080-*.md.
@@ -282,6 +305,8 @@ DÉPENDANCE : le lot 14 dépend du lot 12 (usage). Commence par le lot 12.
 ## R1 — Le rendu du reçu (ADR-0073 §5) et le PDF (ADR-0094 §14)
 
 ```
+SECTEUR : billing
+
 TÂCHE : écrire le rendu du reçu (ADR-0073 §5) et trancher le PDF
 (ADR-0094 §14).
 
@@ -312,6 +337,8 @@ PDF/HTML est prise et écrite.
 ## R2 — Le guide d'intégration (ADR-0084)
 
 ```
+SECTEUR : transversal (documentation) — pas de secteur module
+
 TÂCHE : compléter le guide d'intégration pour qu'il couvre le commerce.
 
 CONTEXTE : ADR-0084 fait du guide d'intégration LE document unique de
@@ -337,6 +364,8 @@ en ne lisant que le guide.
 ## L16 — Lot 16 : contrat et expérience développeur
 
 ```
+SECTEUR : developer-platform — nouveau module : ajoute sa <testsuite name="developer-platform"> dans phpunit.xml
+
 TÂCHE : livrer le lot 16 — « Contrat et expérience développeur ».
 
 LIS : docs/specs/plan-delivery-mvp.md §P3 (ligne du lot 16),
@@ -362,6 +391,8 @@ une documentation.
 ## L18 — Lot 18 : rapprochement prestataire
 
 ```
+SECTEUR : payment + ledger
+
 TÂCHE : livrer le lot 18 — « Rapprochement prestataire » (niveaux B et C).
 
 LIS : docs/specs/plan-delivery-mvp.md §P3 (ligne du lot 18), docs/adr/0078-*.md,
@@ -380,6 +411,8 @@ MyCoolPay et trace ce qui reste.
 ## L19 — Lot 19 : versements sortants
 
 ```
+SECTEUR : payout — nouveau module : ajoute sa <testsuite name="payout"> dans phpunit.xml
+
 TÂCHE : livrer le lot 19 — « Versements sortants ».
 
 LIS : docs/specs/plan-delivery-mvp.md §P3 (ligne du lot 19), docs/adr/0079-*.md.
@@ -401,6 +434,8 @@ report.
 ## H1 — Hygiène : les en-têtes d'ADR (le sweep qui a échoué)
 
 ```
+SECTEUR : transversal (docs) — pas de secteur module
+
 TÂCHE : aligner les en-têtes des ADR sur le modèle docs/adr/0000-modele.md.
 
 CONTEXTE : l'audit de livraison a trouvé que 45 ADR n'ont pas de champ

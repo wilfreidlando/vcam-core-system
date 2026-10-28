@@ -54,10 +54,10 @@ final class ConsoleIdorTest extends TestCase
         $cases = [];
 
         foreach (ConsoleRouteManifest::withCoverage(IdorCoverage::Isolated) as $entry) {
-            $cases[$entry->route] = [$entry, false];
+            $cases[IdorSector::label($entry->route)] = [$entry, false];
 
             if ($entry->ownParent !== null) {
-                $cases[$entry->route.' [B\'s resource under A\'s parent]'] = [$entry, true];
+                $cases[IdorSector::label($entry->route).' [B\'s resource under A\'s parent]'] = [$entry, true];
             }
         }
 
@@ -73,7 +73,7 @@ final class ConsoleIdorTest extends TestCase
 
         foreach (ConsoleRouteManifest::entries() as $entry) {
             if ($entry->control) {
-                $cases[$entry->route] = [$entry];
+                $cases[IdorSector::label($entry->route)] = [$entry];
             }
         }
 
@@ -88,7 +88,7 @@ final class ConsoleIdorTest extends TestCase
         $cases = [];
 
         foreach (ConsoleRouteManifest::withCoverage(IdorCoverage::PlatformReserved) as $entry) {
-            $cases[$entry->route] = [$entry];
+            $cases[IdorSector::label($entry->route)] = [$entry];
         }
 
         return $cases;

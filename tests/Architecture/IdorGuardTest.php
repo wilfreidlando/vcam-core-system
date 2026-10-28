@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Architecture\Idor\ConsoleRouteManifest;
 use Tests\Architecture\Idor\IdorCoverage;
+use Tests\Architecture\Idor\IdorSector;
 use Tests\Architecture\Idor\ResourceNature;
 use Tests\TestCase;
 
@@ -159,6 +160,45 @@ final class IdorGuardTest extends TestCase
 
         self::assertArrayHasKey('web', $planes, 'G15 — no web console route with an identifier found: the discovery is broken.');
         self::assertArrayHasKey('json', $planes, 'G15 — no JSON console route with an identifier found: the discovery is broken.');
+    }
+
+    /**
+     * The sector map is what lets a sector be tested alone: the IDOR suite
+     * is eighty seconds for the whole console, and a few seconds for one
+     * bounded context. That only works if the map covers every route and
+     * names no sector that owns nothing — a route nobody claimed would
+     * silently stop being checked by anyone.
+     */
+    #[Test]
+    public function every_console_route_belongs_to_a_sector_and_every_sector_owns_a_route(): void
+    {
+        $unmapped = [];
+        $owned = [];
+
+        foreach (ConsoleRouteManifest::entries() as $entry) {
+            $sector = IdorSector::of($entry->route);
+
+            if ($sector === 'unmapped') {
+                $unmapped[] = $entry->route;
+
+                continue;
+            }
+
+            $owned[$sector] = true;
+        }
+
+        self::assertSame([], $unmapped, sprintf(
+            "G15 — these console routes belong to no sector, so no sector run covers them:\n  - %s\n\n"
+            .'Add them to the map in tests/Architecture/Idor/IdorSector.php.',
+            implode("\n  - ", $unmapped),
+        ));
+
+        $empty = array_values(array_diff(IdorSector::sectors(), array_keys($owned)));
+
+        self::assertSame([], $empty, sprintf(
+            "G15 — these sectors own no console route: they would run an empty selection:\n  - %s",
+            implode("\n  - ", $empty),
+        ));
     }
 
     /**

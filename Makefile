@@ -97,6 +97,53 @@ schema: ## Schema guardrails: anti-PII, money columns (CI job: schema)
 test: ## Run the test suite in parallel (CI job: tests)
 	$(EXEC) vendor/bin/pest --parallel
 
+# ─── Sectors (parallel work) ────────────────────────────────────────────────
+# One sector = one bounded context = one agent = one test database. A sector
+# agent runs its OWN suite and the gates its own change can break — never the
+# whole ninety-nine seconds. The integration gate (`make ci`) runs everything,
+# once, at the end.
+#
+# Each session MUST pass its own database: the suite is shared otherwise.
+DB      ?= core_testing
+SECTOR  ?=
+
+.PHONY: sectors
+sectors: ## List the test sectors (one bounded context each)
+	@printf '  %-22s %s\n' \
+	  'billing' 'clients, catalogue, abonnements, factures, encaissement' \
+	  'payment' 'paiements, prestataires, callbacks, refunds' \
+	  'identity' 'organisations, projets, cles, operateurs, MFA' \
+	  'ledger' 'grand livre, invariants, exceptions d argent' \
+	  'wallet' 'portefeuilles, transferts, sorties' \
+	  'parties' 'tiers sans identite' \
+	  'notification' 'notifications, cascade de secours, WAHA' \
+	  'webhook' 'endpoints, livraisons, DLQ, rejeu' \
+	  'events' 'outbox transactionnelle, relais' \
+	  'audit' 'journal infalsifiable, lecture scopee' \
+	  'admin' 'console operateur' \
+	  'support' 'socle partage' \
+	  'fees' 'moteur de frais (scaffold)' \
+	  'storage' 'fichiers (scaffold)' \
+	  'developer-platform' 'registre de capacites (scaffold)'
+
+.PHONY: test-sector
+test-sector: ## Run one sector's suite: make test-sector SECTOR=billing DB=core_testing_s1
+	@test -n "$(SECTOR)" || { echo "SECTOR is required — see 'make sectors'"; exit 1; }
+	$(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest --testsuite=$(SECTOR) --parallel
+
+.PHONY: check-sector
+check-sector: ## The gate a sector agent runs: style, static analysis, its suite, the schema, its IDOR cases
+	@test -n "$(SECTOR)" || { echo "SECTOR is required — see 'make sectors'"; exit 1; }
+	$(EXEC) vendor/bin/pint --test
+	$(EXEC) vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+	$(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest --testsuite=$(SECTOR) --parallel
+	$(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest --testsuite=Schema --parallel
+	case "$(SECTOR)" in \
+	  billing|identity|wallet|notification|payment|ledger|webhook) \
+	    $(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest \
+	      tests/Architecture/Idor/ConsoleIdorTest.php --filter='$(SECTOR)::' --parallel ;; \
+	esac
+
 .PHONY: coverage
 coverage: ## Run the test suite with coverage
 	$(EXEC) vendor/bin/pest --coverage --min=80
