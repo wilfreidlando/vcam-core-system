@@ -13,8 +13,8 @@ modulaire, paquets `core/*` sous `packages/`.
 | Module | État | Ce qui est livré |
 |---|---|---|
 | `support` | livré | `Money`, `Clock` (+ horloges de test), `Identifier` UUID v7, `UnitOfWork`, RFC 7807, idempotence HTTP `(project_id, clé)`, `Integration` = unique sortie HTTP (G6c) |
-| `audit` | livré | journal append-only **par convention** (aucun trigger en base), `AuditQuery` |
-| `identity` | livré | organisations et projets (`status` texte, défaut `active`, sans contrainte), **une** clé par projet (`api_keys_one_per_project`), 10 portées toutes attribuées à chaque clé (`ApiKeyScopes::ALL`), opérateurs avec 5 rôles fixes, MFA TOTP |
+| `audit` | livré | journal append-only **par trigger** (`UPDATE`/`DELETE` refusés, chaîne d'empreintes SHA-256 quotidienne — ADR-0081 S-16), `AuditQuery` |
+| `identity` | livré | organisations et projets (`status` texte, défaut `active`, sans contrainte), **clés multiples et nommées** à portée (10 au plus par projet, rotation guidée, CIDR et expiration facultatives — ADR-0082 ; la contrainte `api_keys_one_per_project` a été supprimée par la migration `2026_10_24_150000`), 10 portées, opérateurs avec 5 rôles fixes, MFA TOTP |
 | `parties` | livré | tiers sans identité, création paresseuse, garde-fou anti-PII (G4) |
 | `ledger` | livré | double entrée, somme nulle par trigger différé, écritures immuables par trigger, soldes matérialisés ; comptes système `clearing` (niveau projet), `wallet`, `withdrawal` ; lecture **par compte** uniquement |
 | `wallet` | livré | crédit (débit `clearing` / crédit `wallet`), débit, transferts multi-jambes à somme nulle, sorties enregistrées |
@@ -22,8 +22,9 @@ modulaire, paquets `core/*` sous `packages/`.
 | `events` | livré | outbox transactionnelle, relais unique **chaque minute** |
 | `webhook` | livré | endpoints par projet, HMAC de `timestamp.corps`, tolérance 5 min documentée, retry/backoff, DLQ, rejeu ; **un** secret par endpoint |
 | `notification` | livré | cascade de secours, WAHA, sessions enregistrées par projet, `client_reference` ; la notification est créée `queued` **avant** l'appel au prestataire |
-| `admin` | livré | console opérateur : audit, DLQ, réconciliation de statut, listings, organisations, projets, applications prestataire, opérateurs ; **aucun cloisonnement par organisation** |
-| `billing`, `developer-platform`, `fees`, `storage` | scaffolds | hors production (ADR-0048) |
+| `admin` | livré | console opérateur : audit, DLQ, réconciliation de statut, listings, organisations, projets, applications prestataire, opérateurs ; **cloisonnement par organisation** (console scopée, ADR-0069) |
+| `billing` | livré | module en production depuis le lot 10 (ADR-0068) : clients, catalogue, abonnements, factures et leur encaissement (lots 10 et 11) |
+| `developer-platform`, `fees`, `storage` | scaffolds | hors production (ADR-0048) |
 
 ## 2. La plateforme transitoire (`v_cam-services-center`)
 

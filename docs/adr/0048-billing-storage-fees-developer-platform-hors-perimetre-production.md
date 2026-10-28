@@ -1,6 +1,6 @@
 # ADR-0048 — billing, storage, fees, developer-platform hors périmètre de la version de production
 
-- **Statut** : Accepté — amendé par [ADR-0068](0068-cible-plateforme-saas-trois-piliers.md) (`billing` et `developer-platform` entrent en production ; `fees` et `storage` restent des scaffolds)
+- **Statut** : Accepté — amendé par [ADR-0068](0068-cible-plateforme-saas-trois-piliers.md) (`billing` et `developer-platform` entrent en production ; `fees` et `storage` restent des scaffolds), puis par [ADR-0096](0096-developer-platform-reste-un-scaffold-jusqu-au-lot-16.md) (`developer-platform` reste un scaffold jusqu'au lot 16)
 - **Date** : 2026-09-19
 - **Décideurs** : décision de l'utilisateur, précisée par investigation factuelle
 - **Dérives concernées** : D1 périmètre · D7 organisationnelle

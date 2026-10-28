@@ -2,17 +2,19 @@
 
 **Bounded context:** `admin`
 **Responsibility:** Core Admin: operator console for projects, credentials, transactions, wallets, fee rules, providers, webhooks, audit and reconciliation.
-**Delivery lot:** Lot 6, two slices delivered — see
+**Delivery lot:** Lot 6, **four slices delivered** — see
 [ADR-0044](../../docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md),
 [ADR-0045](../../docs/adr/0045-lot-6-listing-generique-admin.md),
-[ADR-0046](../../docs/adr/0046-lot-6-revue-de-code-correctifs.md)
+[ADR-0046](../../docs/adr/0046-lot-6-revue-de-code-correctifs.md),
+[ADR-0050](../../docs/adr/0050-gestion-self-service-des-operateurs.md) and
+[ADR-0052](../../docs/adr/0052-admin-crud-organizations-projects-operateurs-applications-provider-reconciliation-wallets.md),
 and [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## What's delivered so far
 
-Eight capabilities, all under `/v1/admin/*`, gated by `operator.auth` (the
+**Twenty-two routes under `/v1/admin/*`**, gated by `operator.auth` (the
 platform operator plane — `Core\Identity\OperatorRole` — lives in `identity`,
-not here):
+not here). The first eight are the ones of the first slice:
 
 | Endpoint | Permission | Composes |
 | -------- | ---------- | -------- |
@@ -37,7 +39,10 @@ This module has no `Domain/`/`Application/` of its own yet — every
 capability above is a controller composing another module's `Contracts/`
 port directly (ADR-0027: "Admin compose, il n'interroge pas directement").
 Not yet built: fee-rule administration (the `fees` module itself is
-paused), billing administration, operational monitoring.
+paused), operational monitoring. Billing administration **is** delivered —
+the console carries customers, plans, subscriptions, invoices and the
+offline receipts of a project (`routes/admin.php`), with every operator
+gesture audited.
 
 ## Internal structure
 

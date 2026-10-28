@@ -19,7 +19,7 @@ sont **livrés** : leurs lignes sont passées de **◐** à **●**.
 | Cycle de vie d'un projet (`active` / `suspended` / `archived`) | ● (lot 8) | ADR-0069 |
 | Console scopée par organisation, rôles `org_*`, invitations | ● (lot 8) | ADR-0069 |
 | Comptes console ouverts par jeton d'activation, jamais par un mot de passe choisi par le système | ● (lot 9) | ADR-0081 S-07 |
-| Clés d'API (une par projet, toutes portées) | ● | ADR-0066 |
+| Clés d'API — environnement unique (pas de sandbox/live), chaque clé portée | ● | ADR-0066 |
 | Clés multiples à portée, rotation, restriction réseau | ● (lot 8) | ADR-0082 |
 | Paiement : canal, routage, MyCoolPay, idempotence, réconciliation de statut | ● | ADR-0038, ADR-0051, ADR-0067 |
 | Vérification du montant confirmé | ● (lot 9) | ADR-0077 |

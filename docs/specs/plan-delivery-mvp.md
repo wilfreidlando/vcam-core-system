@@ -388,10 +388,12 @@ Fin du Plan de Delivery du MVP — Version 1.0
 
 ## P1. Situation de départ
 
-Lots 0 à 6 livrés, **lot 8 livré le 2026-10-27**. Le lot 7 (« migration
-pilote ») est remplacé par le lot 17 (bascule et extinction), puisqu'aucune
-donnée n'est à reprendre (ADR-0089, sous réserve de confirmation par la
-direction).
+Lots 0, 1, 2, 4, 5 et 6 livrés ; le **lot 3 livré pour son orchestration
+seulement** — le moteur de frais et les adaptateurs MTN/Orange directs
+restent absents, hors périmètre de production (ADR-0048) ; les **lots 8, 9,
+10 et 11 livrés**, le 11 le 2026-10-28. Le lot 7 (« migration pilote ») est
+remplacé par le lot 17 (bascule et extinction), puisqu'aucune donnée n'est à
+reprendre (ADR-0089, sous réserve de confirmation par la direction).
 
 ## P2. Principes
 
@@ -414,7 +416,7 @@ direction).
 | **8 — Fondations de sécurité et d'identité** | appartenances d'organisation, `AccessScope` obligatoire dans tous les ports console (migration des ports existants), invitations par jeton, cycle de vie des projets ; clés multiples à portée, rotation, CIDR ; service de chiffrement et d'index aveugle dans `support` ; trigger d'immuabilité et empreinte de `audit_log` ; garde-fous **G14** et **G15** | 0069, 0081, 0082, 0083 (socle) | — | 12 j |
 | **9 — Grand livre complet** | `purpose` des paiements, écriture de tout paiement confirmé, `clearing:<prestataire>` et reclassement, vérification du montant confirmé, `payment_exceptions` et file `money_exceptions`, trigger inter-projets (**G13**), immuabilité des transactions, ports de lecture par période et balance, contrôles d'invariants de `payment` (`invariants:check`) | 0076, 0077, 0078 (niveau A) | — | 10 j |
 | **10 — Commerce I : clients, catalogue, abonnements** | module `billing` en production ; `customers` (PII chiffrée), `plans`/`plan_versions`, `subscriptions`/`subscription_periods`, machine d'états, planificateur sur `Clock`, `billing_settings`, événements, API publique, écrans console de base | 0070, 0071, 0072 | 8 | 14 j |
-| **11 — Commerce II : factures et encaissement** | factures, numérotation, documents HTML (le PDF attend sa bibliothèque — ADR-0094 §14), `invoice_payments`, imputation au grand livre, encaissement hors ligne validé à un compte (ADR-0095), surpaiements en exception, reçus | 0073, 0094, 0095 | 9, 10 | 12 j |
+| **11 — Commerce II : factures et encaissement** | factures, numérotation, documents HTML (le PDF attend sa bibliothèque — ADR-0094 §14), `invoice_payments`, imputation au grand livre, encaissement hors ligne validé à un compte (ADR-0095), surpaiements en exception, **enregistrement** des reçus (le rendu du reçu reste à écrire — ADR-0073 §5) | 0073, 0094, 0095 | 9, 10 | 12 j |
 | **12 — Usage et quotas** | `usage_records` partitionné, `usage_idempotency`, `usage_counters`, `POST /v1/usage`, `entitlements`, port `QuotaGuard` de `notification` (arête `notification → billing`), seuils dans la transaction, compensation des échecs | 0074 | 10 | 9 j |
 | **13 — Portail client** | module `portal` : sessions créées par le projet, échange et cookie, personnalisation, écrans (abonnements, factures, paiement, reçus, usage, profil), connexion directe par code (désactivée par défaut), en-têtes de sécurité testés | 0075 | 8, 11 | 13 j |
 | **14 — Console de portefeuille** | écrans Portefeuille / Projet / Client / Créances / Exceptions, indicateurs, `billing_daily_metrics`, liste de contrôle d'onboarding, gestes d'exploitation d'abonnement | 0080, 0072 §6 | 11, 12 | 10 j |
@@ -475,10 +477,20 @@ paiement tardif sur une facture déjà soldée part en **surpaiement** plutôt
 que de disparaître. La déclaration du paiement d'une période refuse
 désormais une période dont la facture n'est pas soldée (ADR-0094 §8).
 
-**Total estimé** : 130 jours de travail (lots 8 à 19), dont **52 j déjà
-consommés** (lot 8 : 12 j, lot 9 : 10 j, lot 10 : 14 j, lot 11 : 16 j sur
-12 — le lot 11 a dépassé son estimation) — **reste 78 j** (les lots 12 à
-19).
+**Charge**. Les lots 8 à 19 pèsent **130 jours de travail** au total. Les
+lots 12 à 19 — ceux qui restent — pèsent **82 j** (9 + 13 + 10 + 10 + 7 + 8
++ 10 + 15). C'est **plus que le budget que ce plan s'était fixé** : le plan
+imputait le dépassement du lot 11 sur l'avenir, ce qui n'est pas une réserve
+mais un trou. Il faut absorber 4 j, ou réduire la charge.
+
+**Ce qui est mesurable, et ce qui ne l'est pas.** Les lots 8 à 11 sont
+livrés en **4 jours calendaires** (3 jours ouvrés, du 26 au 28 octobre 2026),
+en 15 commits et 71 055 lignes ajoutées sur 949 fichiers. Il n'existe
+**aucune trace d'effort** dans le dépôt : les « 52 j déjà consommés » que ce
+plan annonçait étaient une estimation rebadigotée, pas une mesure, et le
+« 16 j sur 12 » du lot 11 n'a rien derrière lui non plus. Les estimations
+par lot sont donc **non contraignantes** : le calendrier se pilote sur les
+dates réelles, la charge se pilote sur le nombre de personnes.
 
 ## P4. Chemin critique et parallélisation
 
@@ -495,9 +507,13 @@ Lot 15 (dès la fin du lot 8)       Lot 16 (dès la fin du lot 10)
 - **Chemin critique** : 8 → 10 → 11 → 13 → 17 = 12 + 14 + 12 + 13 + 8 =
   **59 jours** de travail, puis 4 semaines de bascule. Les lots 8, 10 et 11
   étant livrés, il reste **21 jours** sur ce chemin (13 + 8).
-- **Seconde personne** : lot 15 dès le départ (les lots 9 et 10 sont
-  terminés), puis 12, 16, 14.
-- Les lots 18 et 19 ne conditionnent pas la bascule.
+- **Second chemin critique** : 8 → 10 → 11 → 12 → 14 = 12 + 14 + 12 + 9 + 10
+  = **57 jours** — à deux jours du premier. Les deux voies se tiennent **sans
+  marge** : le lot 17 dépend du lot 12 (§P3), et le lot 14 en dépend
+  aussi. C'est la voie de B qui est tendue, pas celle de A.
+- **Seconde personne** : le lot **12 d'abord** — c'est lui qui contraint le
+  lot 17 — puis 15, 14 et 16. Voir §P7.
+- Les lots 18 et 19 ne conditionnent pas la bascule : ils sont reportables.
 
 ## P5. Critères de sortie communs
 
@@ -526,17 +542,26 @@ parallèle), jours ouvrés, hors 25 décembre, 1ᵉʳ janvier et 11 février. Le
 comité a ratifié la série le 2026-10-27 et les **lots 8, 9, 10 et 11 sont
 livrés**.
 
-**Rebasage du 2026-10-28.** Le lot 11 a été livré le 2026-10-28, **treize
-jours avant** sa date planifiée, et a dépassé son estimation de **33 % en
-charge** (16 j pour 12 j estimés). Le plan prévoit sa propre règle : « un lot
-en retard de plus de 20 % sur son estimation déclenche une replanification
-écrite dans cet addendum ». La règle s'applique : **la voie critique de A
-est rebasée sur la date réelle du lot 11** — A attaque le lot 13 le
-2026-10-29 au lieu d'attendre le 2026-11-16. **La voie de B est inchangée**
-(lot 15, marge, lots 12, 16 et 14) ; ses dates étaient déjà au plus tôt
-possible. Les jalons d'extinction avancent de **20 jours** : le 29 décembre
-2026 au lieu du 18 janvier 2027. Les dates glissent d'autant qu'un lot
-déborde ; chaque lot reste conditionné à l'acceptation de ses ADR.
+**Rebasage du 2026-10-28.** Le lot 11 a été livré le 2026-10-28, **seize
+jours calendaires avant** sa date planifiée (le 13 novembre). Le plan
+prévoyait sa propre règle : « un lot en retard de plus de 20 % sur son
+estimation déclenche une replanification écrite dans cet addendum ». La
+règle s'applique, mais sur un autre fondement : il n'existe **aucune mesure
+d'effort** dans le dépôt, donc le calendrier se rebase sur la **date réelle**
+du lot 11, pas sur une charge estimée.
+
+Ce rebasage fait deux choses :
+
+- il **libère A** : le lot 13 démarre le 2026-10-29 au lieu du 2026-11-16 ;
+- il **corrige la voie de B** : le lot 12 passe **en tête**, parce que le lot
+  17 en dépend (§P3) et qu'il était le vrai facteur bloquant de la bascule.
+  Le plan d'origine faisait commencer le lot 17 avant la fin du lot 12 — une
+  incohérence qu'un premier rebasage avait reprise sans la voir.
+
+Résultat : **extinction le 29 décembre 2026**, vingt jours avant la date
+publiée. A est engagée **sans interruption** du 2026-10-29 au 2026-12-29,
+sans marge ; B aussi, jusqu'au 2026-12-22. Les dates glissent d'autant qu'un
+lot déborde ; chaque lot reste conditionné à l'acceptation de ses ADR.
 
 | Étape | Qui | Début | Fin |
 |---|---|---|---|
@@ -545,16 +570,16 @@ déborde ; chaque lot reste conditionné à l'acceptation de ses ADR.
 | Lot 9 — Grand livre complet | B | 2026-10-24 | 2026-10-27 (**livré**) |
 | Lot 10 — Commerce I (clients, catalogue, abonnements) | A | 2026-10-24 | 2026-10-27 (**livré**) |
 | Lot 11 — Commerce II (factures, encaissement) | A | 2026-10-24 | 2026-10-28 (**livré**) |
-| Lot 15 — Exploitation | B | 2026-10-28 | 2026-11-11 |
-| *Marge de B (revue de sécurité des lots 8–11, harnais de tests IDOR)* | B | 2026-11-12 | 2026-11-17 |
+| Lot 12 — Usage et quotas | B | 2026-10-28 | 2026-11-09 |
 | Lot 13 — Portail client | A | 2026-10-29 | 2026-11-16 |
+| Lot 15 — Exploitation | B | 2026-11-10 | 2026-11-23 |
+| *Marge de B (revue de sécurité des lots 8–11, harnais de tests IDOR)* | B | 2026-11-24 | 2026-11-27 |
 | Lot 17 — Bascule (préparation, recette bout-en-bout) | A | 2026-11-17 | 2026-11-26 |
-| Lot 12 — Usage et quotas | B | 2026-11-18 | 2026-11-30 |
-| Lot 16 — Contrat et expérience développeur | B | 2026-12-01 | 2026-12-09 |
-| Lot 14 — Console de portefeuille | B | 2026-12-10 | 2026-12-23 |
-| Lot 19 — Versements sortants | A | 2026-11-27 | 2026-12-17 |
-| Lot 18 — Rapprochement prestataire | B | 2027-01-04 | 2027-01-15 |
+| Lot 14 — Console de portefeuille | B | 2026-11-28 | 2026-12-11 |
 | Bascule, coexistence 14 j, coupure, retrait | A + exploitation | 2026-11-27 | 2026-12-29 |
+| Lot 16 — Contrat et expérience développeur | B | 2026-12-14 | 2026-12-22 |
+| Lot 19 — Versements sortants | B | 2026-12-23 | 2027-01-14 |
+| Lot 18 — Rapprochement prestataire | B | 2027-01-15 | 2027-01-28 |
 
 **Jalons** : socle sécurisé le 27 octobre · commerce complet (abonnements +
 factures) le **28 octobre** · portail client le **16 novembre** · début de

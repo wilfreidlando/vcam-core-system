@@ -318,8 +318,10 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   via `POST /v1/admin/webhook-deliveries/{id}/replay` (ADR-0044) — les deux
   convergent sur le même `Contracts\ReplayWebhookDelivery` +
   `Contracts\QueueWebhookDelivery`. Ce qui reste hors périmètre :
-  `notification`/`billing` ne consomment pas encore `OutboxEventPublished`
-  (Lot 5+).
+  `notification` ne consomme pas encore `OutboxEventPublished` (Lot 5+) —
+  `payment` le consomme depuis le lot 3 (la livraison du callback) et
+  `billing` depuis le lot 11b (`InvoicePaymentStatusListener` : l'imputation
+  d'un règlement de facture sur sa créance).
 - Module `admin` : **trois tranches du Lot 6 livrées** — voir
   [ADR-0044](docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md),
   [ADR-0045](docs/adr/0045-lot-6-listing-generique-admin.md) et

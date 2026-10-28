@@ -1,9 +1,12 @@
 # ADR-0095 — L'encaissement hors ligne se valide à un compte
 
-- **Statut** : Accepté
+- **Statut** : Accepté — ratification par le comité d'architecture à venir
 - **Date** : 2026-10-28
-- **Décideurs** : le responsable du produit
-- **Amende** : ADR-0073 §4 (le reçu hors ligne), ADR-0094 §13 (l'approbation)
+- **Décideurs** : le responsable du produit (décision du 2026-10-28) —
+  **à confirmer par le comité d'architecture** : elle touche D6 et amends
+  ADR-0081 §S-15
+- **Amende** : ADR-0073 §4 (le reçu hors ligne), ADR-0094 §13 (l'approbation),
+  ADR-0081 §S-15 (quatre mains sur les opérations financières manuelles)
 - **Dérives concernées** : D6 intégrité financière
 
 ## Contexte

@@ -1,8 +1,12 @@
 # ADR-0081 — Modèle de menace et exigences de sécurité transverses
 
-- **Statut** : Accepté
+- **Statut** : Accepté — amendé par ADR-0095 (§S-15)
 - **Date** : 2026-10-24
 - **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
+- **Amendé par** : ADR-0095 — §S-15 ne s'applique plus à l'**encaissement
+  hors ligne**, qui se valide à un compte ; la correction d'exploitation
+  (ADR-0076 §6) et la résolution d'exception d'argent (ADR-0077) restent à
+  quatre mains
 - **Dérives concernées** : D2 couplage · D3 données/PII · D5 contrat · D6 intégrité financière
 
 ## Contexte
@@ -57,7 +61,7 @@ vérifiés en CI pour les nouvelles surfaces.
 | **S-12** | Limites de débit par projet, par clé, par IP ; limites dédiées pour la connexion, les codes et les envois de messages | ADR-0085 |
 | **S-13** | Sorties HTTP uniquement par `Core\Support\Integration`, garde SSRF sur les URL fournies par un projet | G6c, ADR-0058 |
 | **S-14** | Entrées bornées : taille du corps, profondeur JSON, longueur des champs, pagination maximale, formats de référence | validation de requête ; tests de limites |
-| **S-15** | Quatre yeux sur les opérations financières manuelles au-delà d'un seuil (encaissement hors ligne, correction, résolution d'exception, versement) | contraintes en base `approved_by <> auteur` |
+| **S-15** | Quatre yeux sur les opérations financières manuelles au-delà d'un seuil (correction, résolution d'exception, versement). **L'encaissement hors ligne en est exempt depuis ADR-0095** : il se valide à un compte, l'auteur compris, et reste un acte délibéré, daté et audité | contraintes en base `approved_by <> auteur` (hors encaissement hors ligne) |
 | **S-16** | Journal d'audit infalsifiable par l'application : `UPDATE`/`DELETE` refusés par trigger ; chaînage par empreinte quotidienne | trigger + job de vérification de la chaîne |
 | **S-17** | Journaux techniques expurgés : aucun secret, numéro de téléphone, email ou contenu de message en clair | `PayloadRedactor` étendu ; test de rédaction |
 | **S-18** | Chaîne logicielle : `composer audit` et détection de secrets (gitleaks) bloquants en CI ; dépendances épinglées | CI |

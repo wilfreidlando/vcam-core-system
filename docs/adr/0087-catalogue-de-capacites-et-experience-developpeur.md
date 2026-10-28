@@ -1,6 +1,6 @@
 # ADR-0087 — Catalogue de capacités, démarrage par capacité, horloges de test
 
-- **Statut** : Accepté
+- **Statut** : Accepté — amendé par ADR-0096 (`developer-platform` reste un scaffold jusqu'au lot 16 : le registre, la route et la page sont livrés par le lot 16 lui-même)
 - **Date** : 2026-10-24
 - **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D5 contrat · D7 organisationnelle

@@ -15,11 +15,13 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * ADR-0073 §4 — the offline receipts, on the disk.
+ * ADR-0073 §4, ADR-0095 — the offline receipts, on the disk.
  *
- * The four eyes are enforced by the database
- * (`manual_receipts_four_eyes`): the repository never has to police
- * them, and a receipt written by hand in SQL would be refused too.
+ * ADR-0095 withdrew the four eyes: the constraint
+ * `manual_receipts_four_eyes` no longer exists, so a receipt written by
+ * hand in SQL is not refused for being self-approved. The repository still
+ * never polices the four eyes — there are none to police; it writes what
+ * the use case decided.
  */
 final class EloquentManualReceiptRepository implements ManualReceiptRepository
 {

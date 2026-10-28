@@ -8,11 +8,13 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * ADR-0073 §4 — the offline receipt, as it lies on the disk.
+ * ADR-0073 §4, ADR-0095 — the offline receipt, as it lies on the disk.
  *
- * `recorded_by` and `approved_by` are **console accounts** (uuids), and
- * the database refuses the self-approval: `manual_receipts_four_eyes`
- * (ADR-0073 §4).
+ * `recorded_by` and `approved_by` are **console accounts** (uuids). ADR-0095
+ * withdrew the four eyes of ADR-0073 §4: the constraint
+ * `manual_receipts_four_eyes` no longer exists, so the author **may**
+ * validate their own entry. What remains is the deliberate, dated, audited
+ * act — and the refusal, which is always possible.
  *
  * @property string $id
  * @property string $project_id
