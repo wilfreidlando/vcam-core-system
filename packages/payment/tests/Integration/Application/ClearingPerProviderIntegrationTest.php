@@ -14,11 +14,13 @@ use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\MoneyExceptionPoolInsufficient;
 use Core\Payment\Contracts\PaymentChannel;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
+use Core\Payment\Contracts\PaymentPurpose;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\ResolveMoneyException;
 use Core\Payment\Contracts\ResolveMoneyExceptionCommand;
 use Core\Payment\Contracts\StartPayment;
 use Core\Payment\Contracts\StartPaymentCommand;
+use Core\Payment\Domain\Exception\UnsupportedPaymentPurpose;
 use Core\Payment\Domain\Model\MoneyException;
 use Core\Payment\Domain\Model\MoneyExceptionKind;
 use Core\Payment\Domain\Model\MoneyExceptionSeverity;
@@ -160,6 +162,74 @@ final class ClearingPerProviderIntegrationTest extends TestCase
         }
     }
 
+    /**
+     * ADR-0076 §3, ADR-0094 §9 — the INTENTION decides the account the
+     * money is booked on.
+     */
+    #[Test]
+    public function an_invoice_settlement_is_credited_to_the_collections_account_and_not_to_the_revenue(): void
+    {
+        $view = app(StartPayment::class)->start($this->command(
+            walletRecipientExternalRef: null,
+            purpose: PaymentPurpose::INVOICE,
+        ));
+
+        $this->confirmSuccess($view->id);
+
+        self::assertSame([
+            ['clearing', 'my-coolpay', 'debit', 1_000],
+            ['collections', '', 'credit', 1_000],
+        ], $this->entriesOf($view->id));
+
+        // The revenue was not touched: `billing` will allocate the
+        // collection onto the receivable, and crediting the revenue here
+        // would count the same money twice.
+        self::assertSame(0, DB::table('ledger_entries')
+            ->join('ledger_accounts', 'ledger_accounts.id', '=', 'ledger_entries.account_id')
+            ->where('ledger_accounts.kind', 'revenue')
+            ->count());
+    }
+
+    #[Test]
+    public function a_payment_without_a_wallet_is_a_plain_collection(): void
+    {
+        $view = app(StartPayment::class)->start($this->command(walletRecipientExternalRef: null));
+
+        self::assertSame(PaymentPurpose::DIRECT, $view->purpose);
+    }
+
+    #[Test]
+    public function a_payment_with_a_wallet_is_a_wallet_credit(): void
+    {
+        $view = app(StartPayment::class)->start($this->command(
+            walletRecipientExternalRef: (string) Str::uuid(),
+        ));
+
+        self::assertSame(PaymentPurpose::WALLET_CREDIT, $view->purpose);
+    }
+
+    #[Test]
+    public function an_unknown_purpose_is_refused(): void
+    {
+        $this->expectException(UnsupportedPaymentPurpose::class);
+
+        app(StartPayment::class)->start($this->command(
+            walletRecipientExternalRef: null,
+            purpose: 'facture',
+        ));
+    }
+
+    #[Test]
+    public function a_wallet_credit_cannot_be_claimed_without_a_wallet(): void
+    {
+        $this->expectException(UnsupportedPaymentPurpose::class);
+
+        app(StartPayment::class)->start($this->command(
+            walletRecipientExternalRef: null,
+            purpose: PaymentPurpose::WALLET_CREDIT,
+        ));
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -170,7 +240,7 @@ final class ClearingPerProviderIntegrationTest extends TestCase
         $this->app->instance(PaymentGatewayRegistry::class, $registry);
     }
 
-    private function command(?string $walletRecipientExternalRef): StartPaymentCommand
+    private function command(?string $walletRecipientExternalRef, ?string $purpose = null): StartPaymentCommand
     {
         return new StartPaymentCommand(
             projectId: self::PROJECT_ID,
@@ -180,6 +250,7 @@ final class ClearingPerProviderIntegrationTest extends TestCase
             reason: 'Order #42',
             idempotencyKey: (string) Str::uuid(),
             walletRecipientExternalRef: $walletRecipientExternalRef,
+            purpose: $purpose,
         );
     }
 

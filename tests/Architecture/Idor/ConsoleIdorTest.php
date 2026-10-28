@@ -350,6 +350,14 @@ final class ConsoleIdorTest extends TestCase
             ],
             'admin.projects.invoices.void.web' => ['reason' => 'Annulation IDOR'],
             'admin.projects.invoices.uncollectible.web' => ['reason' => 'Irrécouvrable IDOR'],
+            // The offline collection (ADR-0073 §4) — the body matters:
+            // without it the request would be refused by the
+            // **validation** and the case would prove nothing.
+            'admin.projects.invoices.receipts.store' => [
+                'method' => 'bank_transfer', 'reference' => 'VIR-IDOR', 'amount_minor' => 5000,
+                'currency' => 'XAF', 'received_at' => '2026-10-28T08:00:00Z',
+            ],
+            'admin.projects.receipts.approve.web' => ['decision' => 'approve'],
             default => [],
         };
     }

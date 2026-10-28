@@ -171,6 +171,13 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.invoices.void.web', Nature::Invoice, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.invoices.uncollectible.web', Nature::Invoice, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
 
+            // The offline collection (ADR-0073 §4, ADR-0095) follows the
+            // same rule: a **read** answers 404, a **mutation** answers
+            // the console's "introuvable" redirect.
+            Entry::isolated('admin.projects.invoices.receipts.store', Nature::Invoice, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.receipts.index', Nature::ManualReceipt, Outcome::NotFound, control: true),
+            Entry::isolated('admin.projects.receipts.approve.web', Nature::ManualReceipt, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+
             // ── Wallets, notifications, payments of a project (JSON) ───────
             Entry::isolated('admin.projects.wallets', Nature::Wallet, Outcome::NotFound, control: true),
             Entry::isolated('admin.projects.notifications', Nature::Notification, Outcome::NotFound, control: true),

@@ -182,10 +182,17 @@ par mutation) ; **console** (clients, offres et abonnements d'un projet,
 chaque geste audité) — **la facture reste au lot 11** : la déclaration du
 paiement d'une période écrit le fait et **ne bouge pas d'argent**
 ([ADR-0092](docs/adr/0092-lot-10-lAbonnement-et-la-facture-au-lot-11.md)).
-Le **lot 11a** ajoute la **facture** (ADR-0073, ADR-0094) : un document
-figé à l'émission, numéroté sans trou (`FACT-2026-000042`), taxé par ligne
-(arrondi demi-supérieur, stocké), dont l'émission inscrit la créance au
-grand livre et dont l'annulation la contre-passe.
+Le **lot 11** ajoute la **facture** et son **encaissement** (ADR-0073,
+ADR-0094, ADR-0095) : un document figé à l'émission, numéroté sans trou
+(`FACT-2026-000042`), taxé par ligne (arrondi demi-supérieur, stocké), dont
+l'émission inscrit la créance au grand livre et dont l'annulation la
+contre-passe ; puis le paiement **en ligne** (`POST /v1/invoices/{id}/pay`),
+l'imputation sur la créance par le `payment.status_changed` — jamais
+partielle, un surpaiement part en exception — et l'**encaissement hors
+ligne** dans la console (un reçu qui porte sa méthode, sa référence et son
+montant ; ADR-0095 a retiré les quatre vues : **un** compte valide). Le
+`purpose` du paiement existe enfin (ADR-0094 §9) : un règlement de facture
+est crédité `collections`, jamais `revenue`.
 `storage`, `fees`, `developer-platform`
 sont **encore** des scaffolds Lot 0 vides. **ADR-0068 amends ADR-0048** :
 `billing` et `developer-platform` **entrent en production** (`billing` au lot 10,
@@ -430,13 +437,13 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   (`billing_settings`), l'API publique `/v1/customers`, `/v1/plans`,
   `/v1/subscriptions`, `/v1/invoices` et la console (clients, offres,
   abonnements et factures d'un projet ; chaque geste est audité).
-  **Ce qui n'existe pas encore** : l'**encaissement** de la facture — le
-  paiement en ligne et l'encaissement hors ligne à quatre vues (lot 11b),
-  l'usage et les quotas (lot 12), le portail client
-  (lot 13), la console de portefeuille (lot 14). Ne pas supposer qu'un
-  abonnement est encaissé : dans ce lot, une période déclarée payée
-  est un **fait enregistré**, jamais une somme encaissée (ADR-0092 §2) —
-  et une facture émise porte une créance, pas un encaissement.
+  **Ce qui n'existe pas encore** : l'usage et les quotas (lot 12), le portail
+  client (lot 13), la console de portefeuille (lot 14) et le **rendu du
+  reçu** (ADR-0073 §5 — le reçu est une projection de la facture et de ses
+  encaissements, rien n'est stocké).
+  Ne pas supposer qu'un abonnement est encaissé : une période déclarée
+  payée est un **fait enregistré**, et le chemin qui **bouge l'argent** est
+  l'encaissement — `POST /v1/invoices/{id}/pay` ou un reçu hors ligne.
   Voir `packages/billing/README.md`.
 - Module `payment` : **orchestration Lot 3 livrée** — voir
   [ADR-0038](docs/adr/0038-conception-lot-3-payment-channel-routage-etat-callback.md)

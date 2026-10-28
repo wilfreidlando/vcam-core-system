@@ -305,7 +305,19 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 Route::post('{invoiceId}/uncollectible', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'uncollectible'])
                     ->whereUuid('invoiceId')
                     ->name('projects.invoices.uncollectible.web');
+
+                // L'encaissement hors ligne — ADR-0073 §4, ADR-0095.
+                Route::post('{invoiceId}/receipts', [App\Http\Controllers\Admin\BillingInvoiceReceiptsController::class, 'store'])
+                    ->whereUuid('invoiceId')
+                    ->name('projects.invoices.receipts.store');
             });
+
+            // Les encaissements hors ligne du projet — ADR-0073 §4.
+            Route::get('{projectId}/receipts', [App\Http\Controllers\Admin\BillingInvoiceReceiptsController::class, 'index'])
+                ->name('projects.receipts.index');
+            Route::post('{projectId}/receipts/{receiptId}/approve', [App\Http\Controllers\Admin\BillingInvoiceReceiptsController::class, 'approve'])
+                ->whereUuid('receiptId')
+                ->name('projects.receipts.approve.web');
         });
 
         Route::prefix('payments')->group(function (): void {

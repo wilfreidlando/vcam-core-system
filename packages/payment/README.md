@@ -67,6 +67,14 @@ project.
   transaction as the movement (advisory lock on the project), and resolving an exception
   whose pool is empty is refused (`409`). Without that check, allocating an exception to a
   wallet would credit a sum never collected.
+- **The intention decides the account.** A payment carries a `purpose`
+  (ADR-0076 §3, amended by ADR-0094 §9): `direct` (the default — the project
+  is paid, the money lands on `revenue`), `wallet_credit` (the caller opted
+  into a wallet credit) or `invoice` (the money lands on `collections`, where
+  `billing` allocates it onto a receivable). The parameter is **optional** and
+  its default is the historical behaviour: no published contract is broken
+  (ADR-0086). An intention nobody honours is **refused**, never ignored — a
+  payment of an invoice counted as plain revenue would be counted twice.
 - **The reclassification is a decision, not a guess.** Moving a legacy balance to its
   provider's account requires an explicit `--reason`, refuses to attribute a project that
   has several providers, and refuses a residue the settlements do not explain.

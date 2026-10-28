@@ -13,6 +13,7 @@ use Core\Billing\Domain\Exception\InvalidSubscriptionTransition;
 use Core\Billing\Domain\Exception\SubscriptionNotFound;
 use Core\Billing\Domain\Model\PeriodKind;
 use Core\Billing\Domain\Model\SubscriptionStatus;
+use Core\Billing\Domain\Port\InvoiceRepository;
 use Core\Billing\Domain\Port\SubscriptionPeriodRepository;
 use Core\Billing\Domain\Port\SubscriptionRepository;
 use Core\Events\Contracts\DomainEvent;
@@ -32,6 +33,10 @@ use Core\Support\UnitOfWork;
  * act is a *declaration* — the console declares that a period has been
  * settled. The money is Lot 11's business (ADR-0092 §2, ADR-0073).
  *
+ * Since ADR-0094 §8 the declaration is **stricter**: it refuses a period
+ * whose invoice is not settled. It no longer creates the fact — it
+ * constates the one the encaissement wrote (ADR-0073 §2, §4).
+ *
  * The reference of the payment is kept on the period, in the only
  * free-text field a period carries; it is the operator's own reference,
  * never a credential.
@@ -42,6 +47,7 @@ final readonly class ConfirmSubscriptionPeriodPaymentUseCase implements ConfirmS
         private UnitOfWork $unitOfWork,
         private SubscriptionRepository $subscriptions,
         private SubscriptionPeriodRepository $periods,
+        private InvoiceRepository $invoices,
         private EventOutbox $outbox,
         private SubscriptionViewBuilder $views,
         private Identifier $identifier,
@@ -90,6 +96,20 @@ final readonly class ConfirmSubscriptionPeriodPaymentUseCase implements ConfirmS
             if ($period->isPaid()) {
                 throw new InvalidSubscriptionTransition(
                     "The period {$command->seq} of this contract is already settled (ADR-0092 §2).",
+                );
+            }
+
+            // ADR-0094 §8 — the declaration no longer creates the fact:
+            // it **constates** it. A period whose invoice is not settled
+            // cannot be declared settled — the money has to have arrived
+            // first, through an encaissement (ADR-0073 §2, §4).
+            $invoice = $period->invoiceId === null
+                ? null
+                : $this->invoices->findById($period->invoiceId);
+
+            if ($invoice !== null && ! $invoice->isSettled()) {
+                throw new InvalidSubscriptionTransition(
+                    "The invoice of the period {$command->seq} is not settled: the money has to arrive first (ADR-0094 §8).",
                 );
             }
 

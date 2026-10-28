@@ -27,6 +27,8 @@ final readonly class CreateInvoiceCommand
      * @param string|null $currency the ISO-4217 code of the amounts
      * @param int|null $taxRateBps the default rate of the lines that name none
      * @param string $actor "operator:<uuid>", "project:<uuid>" or "service:<name>" — who asked for the write
+     * @param string|null $subscriptionId the contract the invoice bills — ADR-0073 §1
+     * @param string|null $periodId the period of the contract the invoice bills — ADR-0073 §1
      */
     public function __construct(
         public string $projectId,
@@ -37,5 +39,7 @@ final readonly class CreateInvoiceCommand
         public ?int $taxRateBps = null,
         public string $actor = 'project:unknown',
         public ?string $correlationId = null,
+        public ?string $subscriptionId = null,
+        public ?string $periodId = null,
     ) {}
 }

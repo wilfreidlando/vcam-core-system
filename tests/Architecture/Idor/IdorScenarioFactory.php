@@ -13,8 +13,12 @@ use Core\Billing\Contracts\CreatePlanVersionCommand;
 use Core\Billing\Contracts\CreateSubscription;
 use Core\Billing\Contracts\CreateSubscriptionCommand;
 use Core\Billing\Contracts\InvoiceLineInput;
+use Core\Billing\Contracts\IssueInvoice;
+use Core\Billing\Contracts\IssueInvoiceCommand;
 use Core\Billing\Contracts\PublishPlanVersion;
 use Core\Billing\Contracts\PublishPlanVersionCommand;
+use Core\Billing\Contracts\RecordManualReceipt;
+use Core\Billing\Contracts\RecordManualReceiptCommand;
 use Core\Billing\Contracts\UpsertCustomer;
 use Core\Billing\Contracts\UpsertCustomerCommand;
 use Core\Identity\Contracts\CreateOrganization;
@@ -84,7 +88,7 @@ final class IdorScenarioFactory
         'api_keys', 'payment_provider_applications', 'webhook_endpoints', 'webhook_deliveries',
         'notification_channel_sessions', 'notifications', 'payments', 'wallets', 'money_exceptions', 'event_outbox',
         'ledger_adjustments', 'ledger_transactions', 'ledger_accounts',
-        'invoices', 'invoice_lines', 'invoice_number_sequences',
+        'invoices', 'invoice_lines', 'invoice_number_sequences', 'invoice_payments', 'manual_receipts',
     ];
 
     private const ORGANIZATION_TABLES = ['projects', 'organization_memberships', 'organization_invitations'];
@@ -436,6 +440,61 @@ final class IdorScenarioFactory
                 return new ResourceRequest(
                     ['projectId' => $projectId, 'invoiceId' => $invoice->id],
                     markers: [$invoice->id, $externalRef],
+                );
+
+            case ResourceNature::ManualReceipt:
+                // An offline receipt (ADR-0073 §4) needs an **open**
+                // invoice to sit on: the customer, the invoice and its
+                // issuance are made first.
+                $externalRef = 'idor-receipt-customer-'.Str::lower(Str::random(8));
+                app(UpsertCustomer::class)->upsert(new UpsertCustomerCommand(
+                    projectId: $owner->project->id,
+                    externalRef: $externalRef,
+                    displayName: 'Client '.$owner->secret,
+                    email: null,
+                    phone: null,
+                    locale: 'fr',
+                    metadata: [],
+                    expectedVersion: null,
+                    actor: 'test:idor',
+                    correlationId: null,
+                ));
+
+                $invoice = app(CreateInvoice::class)->create(new CreateInvoiceCommand(
+                    projectId: $owner->project->id,
+                    customerRef: $externalRef,
+                    lines: [new InvoiceLineInput(
+                        description: 'Prestation '.$owner->secret,
+                        quantity: 1,
+                        unitAmountMinor: 5_000,
+                    )],
+                    actor: 'test:idor',
+                    correlationId: null,
+                ));
+
+                app(IssueInvoice::class)->issue(new IssueInvoiceCommand(
+                    projectId: $owner->project->id,
+                    invoiceId: $invoice->id,
+                    actor: 'test:idor',
+                    correlationId: null,
+                ));
+
+                $receipt = app(RecordManualReceipt::class)->record(new RecordManualReceiptCommand(
+                    projectId: $owner->project->id,
+                    invoiceId: $invoice->id,
+                    method: 'bank_transfer',
+                    reference: 'VIR-IDOR',
+                    amountMinor: 1_000,
+                    currency: 'XAF',
+                    receivedAt: '2026-10-28T08:00:00Z',
+                    recordedBy: '00000000-0000-4000-8000-000000000000',
+                    actor: 'test:idor',
+                    correlationId: null,
+                ));
+
+                return new ResourceRequest(
+                    ['projectId' => $projectId, 'receiptId' => $receipt->id],
+                    markers: [$receipt->id, $externalRef],
                 );
 
             case ResourceNature::Operator:

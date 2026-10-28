@@ -279,6 +279,7 @@ final class EloquentPaymentRepository implements PaymentRepository
             'confirmed_amount_minor' => $payment->confirmedAmount,
             'confirmed_currency' => $payment->confirmedCurrency,
             'settlement_exception' => $payment->settlementException?->value,
+            'purpose' => $payment->purpose,
         ];
     }
 
@@ -315,6 +316,7 @@ final class EloquentPaymentRepository implements PaymentRepository
             confirmedAmount: $record->confirmed_amount_minor,
             confirmedCurrency: $record->confirmed_currency,
             settlementException: $record->settlement_exception === null ? null : SettlementException::from($record->settlement_exception),
+            purpose: $record->purpose,
         );
     }
 }

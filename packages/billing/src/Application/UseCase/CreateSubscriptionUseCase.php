@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Billing\Application\UseCase;
 
+use Core\Billing\Application\Service\PeriodInvoiceIssuer;
 use Core\Billing\Application\Service\SubscriptionViewBuilder;
 use Core\Billing\Application\Support\SubscriptionEvents;
 use Core\Billing\Contracts\CreateSubscription;
@@ -69,6 +70,7 @@ final readonly class CreateSubscriptionUseCase implements CreateSubscription
         private BillingSettingsRepository $settings,
         private EventOutbox $outbox,
         private SubscriptionViewBuilder $views,
+        private PeriodInvoiceIssuer $invoices,
         private Identifier $identifier,
         private Clock $clock,
     ) {}
@@ -134,7 +136,8 @@ final readonly class CreateSubscriptionUseCase implements CreateSubscription
                 startsAt: $anchor,
                 endsAt: $endsAt,
                 state: PeriodState::Current,
-                // ADR-0092 §1 — the invoice of a period belongs to Lot 11.
+                // ADR-0073 §1 — a **billed** period carries its invoice;
+                // a trial is free and carries none (ADR-0072 §1).
                 invoiceId: null,
                 reason: null,
                 paidAt: null,
@@ -175,6 +178,16 @@ final readonly class CreateSubscriptionUseCase implements CreateSubscription
 
             $this->periods->save($period);
             $this->subscriptions->save($subscription);
+
+            // ADR-0073 §1, ADR-0094 §6 — the invoice of the first
+            // period is created **and issued** in this very
+            // transaction: the contract is born waiting for a payment it
+            // can actually receive.
+            if ($period->kind === PeriodKind::Paid) {
+                $period->invoiceId = $this->invoices->issue($subscription, $period);
+
+                $this->periods->save($period);
+            }
 
             $this->outbox->append(new DomainEvent(
                 $this->identifier->generate(),

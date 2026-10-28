@@ -51,9 +51,9 @@ les décisions que le code avait introduites sans ADR. Les lots 8, 9 et 10 sont
 | Prorata | ○ | ADR-0090 |
 | Remises, codes promo | ○ (en v1 : plan privé remisé) | ADR-0071 §6 |
 | Factures, numérotation, documents HTML | ● (lot 11a) — le PDF attend sa bibliothèque (ADR-0094 §14) | ADR-0073, ADR-0094 |
-| Paiement d'une facture en ligne, tentatives multiples | ◐ lot 11 (11b) | ADR-0073 |
-| Encaissement hors ligne à quatre yeux | ◐ lot 11 | ADR-0073 |
-| Reçus | ◐ lot 11 | ADR-0073 §5 |
+| Paiement d'une facture en ligne, tentatives multiples | ● (lot 11b) | ADR-0073 §2 |
+| Encaissement hors ligne, validation explicite | ● (lot 11b) — ADR-0095 a retiré les quatre yeux | ADR-0073 §4, ADR-0095 |
+| Reçus | ◐ lot 11 — le rendu du reçu reste à écrire | ADR-0073 §5 |
 | Prélèvement récurrent | ○ | ADR-0090 |
 | Usage idempotent, quotas atomiques, seuils | ◐ lot 12 | ADR-0074 |
 | Décompte automatique des notifications | ◐ lot 12 | ADR-0074 §5 |

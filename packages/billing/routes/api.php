@@ -16,9 +16,11 @@ use Core\Billing\Presentation\Http\Controllers\GetInvoiceDocumentController;
 use Core\Billing\Presentation\Http\Controllers\GetSubscriptionController;
 use Core\Billing\Presentation\Http\Controllers\IssueInvoiceController;
 use Core\Billing\Presentation\Http\Controllers\ListCustomersController;
+use Core\Billing\Presentation\Http\Controllers\ListInvoicePaymentsController;
 use Core\Billing\Presentation\Http\Controllers\ListInvoicesController;
 use Core\Billing\Presentation\Http\Controllers\ListPlansController;
 use Core\Billing\Presentation\Http\Controllers\ListSubscriptionsController;
+use Core\Billing\Presentation\Http\Controllers\PayInvoiceController;
 use Core\Billing\Presentation\Http\Controllers\PublishPlanVersionController;
 use Core\Billing\Presentation\Http\Controllers\ReactivateCustomerController;
 use Core\Billing\Presentation\Http\Controllers\SuspendCustomerController;
@@ -113,4 +115,17 @@ Route::middleware(['project.auth'])
             ->middleware('idempotency')
             ->whereUuid('invoiceId')
             ->name('invoices.void');
+
+        // The collection of an invoice — ADR-0073 §2, §6.
+        //
+        // `POST /v1/invoices/{id}/pay` carries the `idempotency`
+        // middleware (G7): the same key is handed to the `payment`
+        // module, which never charges the customer twice for it.
+        Route::get('/invoices/{invoiceId}/payments', ListInvoicePaymentsController::class)
+            ->whereUuid('invoiceId')
+            ->name('invoices.payments.list');
+        Route::post('/invoices/{invoiceId}/pay', PayInvoiceController::class)
+            ->middleware('idempotency')
+            ->whereUuid('invoiceId')
+            ->name('invoices.pay');
     });

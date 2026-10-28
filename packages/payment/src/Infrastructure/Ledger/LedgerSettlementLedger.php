@@ -11,6 +11,7 @@ use Core\Ledger\Contracts\LedgerEntryInput;
 use Core\Ledger\Contracts\LedgerPoster;
 use Core\Ledger\Contracts\PostLedgerTransactionCommand;
 use Core\Ledger\Contracts\ResolveOrCreateAccountCommand;
+use Core\Payment\Contracts\PaymentPurpose;
 use Core\Payment\Domain\Model\ClearingReclassificationOutcome;
 use Core\Payment\Domain\Model\MoneyException;
 use Core\Payment\Domain\Model\Payment;
@@ -44,7 +45,17 @@ final readonly class LedgerSettlementLedger implements SettlementLedger
 
     public function recordDirectSettlement(Payment $payment): void
     {
-        $this->book($payment, 'payment_settlement', SettlementAccount::REVENUE, $payment->amount, $payment->currency);
+        // ADR-0076 §3 (amended by ADR-0094 §9) — the INTENTION of the
+        // collection decides the credit account: a plain collection is
+        // revenue, a payment of an invoice lands on `collections`, where
+        // `billing` will allocate it onto the customer's receivable.
+        // Crediting `revenue` for an invoice payment would count the
+        // same money twice.
+        $creditKind = $payment->purpose === PaymentPurpose::INVOICE
+            ? SettlementAccount::COLLECTIONS
+            : SettlementAccount::REVENUE;
+
+        $this->book($payment, 'payment_settlement', $creditKind, $payment->amount, $payment->currency);
     }
 
     public function recordUnallocatedSettlement(Payment $payment, int $amountMinor, string $currency): bool

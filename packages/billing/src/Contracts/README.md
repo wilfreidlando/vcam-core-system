@@ -21,12 +21,16 @@ is a contract decision: it is the surface you must keep stable.
   `GrantComplimentaryPeriod`, `ConfirmSubscriptionPeriodPayment`.
 - **Invoices** (ADR-0073, ADR-0094) — `CreateInvoice`, `IssueInvoice`,
   `VoidInvoice`, `MarkInvoiceUncollectible`, `GetInvoice`, `ListInvoices`.
+- **The collection of an invoice** (ADR-0073 §2, §4; ADR-0094 §§8-13;
+  ADR-0095) — `PayInvoice`, `ListInvoicePayments`, `RecordManualReceipt`,
+  `ApproveManualReceipt`, `ListManualReceipts`.
 
 ## Rules the surface follows
 
 - A status is a plain string, never an enum: `CustomerStatus`, `PlanStatus`,
   `PlanVisibility`, `PlanVersionStatus`, `SubscriptionStatus`, `PeriodKind`,
-  `PeriodState`, `InvoiceStatus` and `InvoiceLineKind` live in `Domain/Model/`
+  `PeriodState`, `InvoiceStatus`, `InvoiceLineKind`, `InvoicePaymentStatus`,
+  `ManualReceiptMethod` and `ManualReceiptStatus` live in `Domain/Model/`
   and must not escape the module (G3c).
 - Money is an `int` of minor units plus a `string` currency — never a float (G5),
   never a `Money` object (ADR-0021).

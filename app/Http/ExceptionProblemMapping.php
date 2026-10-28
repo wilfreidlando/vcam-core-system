@@ -16,6 +16,10 @@ use Core\Billing\Domain\Exception\InvalidPlanFeature;
 use Core\Billing\Domain\Exception\InvalidSubscriptionStart;
 use Core\Billing\Domain\Exception\InvalidSubscriptionTransition;
 use Core\Billing\Domain\Exception\InvoiceNotFound;
+use Core\Billing\Domain\Exception\InvoiceNotPayable;
+use Core\Billing\Domain\Exception\InvoicePaymentNotFound;
+use Core\Billing\Domain\Exception\ManualReceiptApprovalRefused;
+use Core\Billing\Domain\Exception\ManualReceiptNotFound;
 use Core\Billing\Domain\Exception\PlanCodeAlreadyTaken;
 use Core\Billing\Domain\Exception\PlanNotFound;
 use Core\Billing\Domain\Exception\PlanVersionNotEditable;
@@ -55,6 +59,7 @@ use Core\Payment\Domain\Exception\PaymentNotFound;
 use Core\Payment\Domain\Exception\PaymentNotSimulable;
 use Core\Payment\Domain\Exception\ProviderApplicationNotFound;
 use Core\Payment\Domain\Exception\UnsupportedCurrency;
+use Core\Payment\Domain\Exception\UnsupportedPaymentPurpose;
 use Core\Support\Http\ProblemDetails;
 use Core\Support\Integration\CircuitBreaker\CircuitOpenException;
 use Core\Support\Integration\Exception\ProviderAuthError;
@@ -110,6 +115,7 @@ final class ExceptionProblemMapping
         ProviderApplicationNotFound::class => ['type' => 'no-provider-application', 'title' => 'No provider application is registered for this project', 'status' => 422],
         NoProviderForNotificationChannelException::class => ['type' => 'no-provider-for-notification-channel', 'title' => 'No provider is configured for this notification channel', 'status' => 422],
         UnsupportedCurrency::class => ['type' => 'unsupported-currency', 'title' => 'Unsupported currency', 'status' => 422],
+        UnsupportedPaymentPurpose::class => ['type' => 'unsupported-payment-purpose', 'title' => 'Unsupported payment purpose', 'status' => 422],
         WebhookEndpointNotFound::class => ['type' => 'webhook-endpoint-not-found', 'title' => 'Webhook endpoint not found', 'status' => 404],
         InvalidWebhookSecretRotation::class => ['type' => 'invalid-webhook-secret-rotation', 'title' => 'Invalid webhook secret rotation', 'status' => 422],
         WebhookDeliveryNotFound::class => ['type' => 'webhook-delivery-not-found', 'title' => 'Webhook delivery not found', 'status' => 404],
@@ -196,6 +202,19 @@ final class ExceptionProblemMapping
         // only the currencies the ledger supports. Same type as the
         // payment module's own refusal of the same kind.
         BillingUnsupportedCurrency::class => ['type' => 'unsupported-currency', 'title' => 'Unsupported currency', 'status' => 422],
+        // ADR-0094 §8 — an invoice that is not due cannot be collected:
+        // the caller has to know whether it is already settled or
+        // simply not payable any more.
+        InvoiceNotPayable::class => ['type' => 'invoice-not-payable', 'title' => 'The invoice is not payable', 'status' => 409],
+        // ADR-0073 §2 — the collection attempt is not one of the
+        // project's.
+        InvoicePaymentNotFound::class => ['type' => 'invoice-payment-not-found', 'title' => 'Collection attempt not found', 'status' => 404],
+        // ADR-0073 §4 — the offline receipt is not one of the
+        // project's.
+        ManualReceiptNotFound::class => ['type' => 'manual-receipt-not-found', 'title' => 'Offline receipt not found', 'status' => 404],
+        // ADR-0094 §13 — the receipt is not waiting for a validation any
+        // more.
+        ManualReceiptApprovalRefused::class => ['type' => 'manual-receipt-approval-refused', 'title' => 'The offline receipt cannot be validated', 'status' => 409],
     ];
 
     public static function toResponse(Throwable $e): ?JsonResponse

@@ -6,6 +6,8 @@ namespace Core\Billing\Infrastructure\Ledger;
 
 use Core\Billing\Application\Port\InvoiceLedger;
 use Core\Billing\Domain\Model\Invoice;
+use Core\Billing\Domain\Model\InvoicePayment;
+use Core\Billing\Domain\Model\ManualReceipt;
 use Core\Ledger\Contracts\AccountResolver;
 use Core\Ledger\Contracts\Direction;
 use Core\Ledger\Contracts\LedgerEntryInput;
@@ -39,6 +41,20 @@ final readonly class InvoiceLedgerWriter implements InvoiceLedger
 
     /** What will never be collected. */
     private const BAD_DEBT = 'bad_debt';
+
+    /** Money collected, waiting to be imputed on a receivable (ADR-0076 §3). */
+    private const COLLECTIONS = 'collections';
+
+    /** Money collected offline, per method (ADR-0073 §3). */
+    private const MANUAL_RECEIPTS = 'manual_receipts';
+
+    /**
+     * Money that arrived and cannot be imputed — the account the
+     * `payment` module owns (`SettlementAccount::PAYMENT_EXCEPTIONS`).
+     * The two modules share the literal, never the class: neither may
+     * reach into the other's Domain (G3c).
+     */
+    private const PAYMENT_EXCEPTIONS = 'payment_exceptions';
 
     /** The reference of a project-level account — the one with no instance. */
     private const PROJECT_LEVEL = '';
@@ -146,6 +162,113 @@ final readonly class InvoiceLedgerWriter implements InvoiceLedger
             [
                 new LedgerEntryInput($badDebt->id, Direction::Debit, $invoice->totalMinor, $invoice->currency),
                 new LedgerEntryInput($receivable->id, Direction::Credit, $invoice->totalMinor, $invoice->currency),
+            ],
+        ));
+
+        return $posted->id;
+    }
+
+    /**
+     * The imputation of a collection onto the receivable: Débit
+     * `collections` / Crédit `customer_receivable:<client>`
+     * (ADR-0073 §3).
+     *
+     * The key of idempotence is derived from the **attempt**, not from
+     * the invoice: an invoice may have several attempts, and each one
+     * is imputed at most once (ADR-0073 §3).
+     */
+    public function postAllocation(InvoicePayment $payment, Invoice $invoice, int $amountMinor): string
+    {
+        $collections = $this->accounts->resolveOrCreate(new ResolveOrCreateAccountCommand(
+            $payment->projectId,
+            self::COLLECTIONS,
+            self::PROJECT_LEVEL,
+            $payment->currency,
+        ));
+
+        $receivable = $this->accounts->resolveOrCreate(new ResolveOrCreateAccountCommand(
+            $payment->projectId,
+            self::CUSTOMER_RECEIVABLE,
+            $invoice->customerId,
+            $payment->currency,
+        ));
+
+        $posted = $this->poster->post(new PostLedgerTransactionCommand(
+            $payment->projectId,
+            'invoice_payment_allocation',
+            'invoice:'.$invoice->number,
+            'invoice_payment:'.$payment->id.':allocate',
+            [
+                new LedgerEntryInput($collections->id, Direction::Debit, $amountMinor, $payment->currency),
+                new LedgerEntryInput($receivable->id, Direction::Credit, $amountMinor, $payment->currency),
+            ],
+        ));
+
+        return $posted->id;
+    }
+
+    /**
+     * The money that arrived and cannot be imputed: Débit `collections`
+     * / Crédit `payment_exceptions` (ADR-0073 §2).
+     */
+    public function postOverpayment(InvoicePayment $payment, int $amountMinor): string
+    {
+        $collections = $this->accounts->resolveOrCreate(new ResolveOrCreateAccountCommand(
+            $payment->projectId,
+            self::COLLECTIONS,
+            self::PROJECT_LEVEL,
+            $payment->currency,
+        ));
+
+        $exceptions = $this->accounts->resolveOrCreate(new ResolveOrCreateAccountCommand(
+            $payment->projectId,
+            self::PAYMENT_EXCEPTIONS,
+            self::PROJECT_LEVEL,
+            $payment->currency,
+        ));
+
+        $posted = $this->poster->post(new PostLedgerTransactionCommand(
+            $payment->projectId,
+            'invoice_payment_overpayment',
+            $payment->paymentId,
+            'invoice_payment:'.$payment->id.':overpayment',
+            [
+                new LedgerEntryInput($collections->id, Direction::Debit, $amountMinor, $payment->currency),
+                new LedgerEntryInput($exceptions->id, Direction::Credit, $amountMinor, $payment->currency),
+            ],
+        ));
+
+        return $posted->id;
+    }
+
+    /**
+     * The offline collection: Débit `manual_receipts:<moyen>` / Crédit
+     * `customer_receivable:<client>` (ADR-0073 §3).
+     */
+    public function postManualReceipt(ManualReceipt $receipt, Invoice $invoice): string
+    {
+        $method = $this->accounts->resolveOrCreate(new ResolveOrCreateAccountCommand(
+            $receipt->projectId,
+            self::MANUAL_RECEIPTS,
+            $receipt->method->value,
+            $receipt->currency,
+        ));
+
+        $receivable = $this->accounts->resolveOrCreate(new ResolveOrCreateAccountCommand(
+            $receipt->projectId,
+            self::CUSTOMER_RECEIVABLE,
+            $invoice->customerId,
+            $receipt->currency,
+        ));
+
+        $posted = $this->poster->post(new PostLedgerTransactionCommand(
+            $receipt->projectId,
+            'invoice_manual_receipt',
+            'invoice:'.$invoice->number,
+            'manual_receipt:'.$receipt->id.':allocate',
+            [
+                new LedgerEntryInput($method->id, Direction::Debit, $receipt->amountMinor, $receipt->currency),
+                new LedgerEntryInput($receivable->id, Direction::Credit, $receipt->amountMinor, $receipt->currency),
             ],
         ));
 

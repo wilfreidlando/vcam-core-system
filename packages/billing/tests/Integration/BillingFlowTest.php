@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Billing\Tests\Integration;
 
+use Core\Billing\Contracts\ApproveManualReceipt;
+use Core\Billing\Contracts\ApproveManualReceiptCommand;
 use Core\Billing\Contracts\ConfirmSubscriptionPeriodPayment;
 use Core\Billing\Contracts\ConfirmSubscriptionPeriodPaymentCommand;
 use Core\Billing\Contracts\CreatePlan;
@@ -20,10 +22,13 @@ use Core\Billing\Contracts\GrantComplimentaryPeriod;
 use Core\Billing\Contracts\GrantComplimentaryPeriodCommand;
 use Core\Billing\Contracts\PublishPlanVersion;
 use Core\Billing\Contracts\PublishPlanVersionCommand;
+use Core\Billing\Contracts\RecordManualReceipt;
+use Core\Billing\Contracts\RecordManualReceiptCommand;
 use Core\Billing\Contracts\SuspendCustomer;
 use Core\Billing\Contracts\SuspendCustomerCommand;
 use Core\Billing\Contracts\UpsertCustomer;
 use Core\Billing\Contracts\UpsertCustomerCommand;
+use Core\Billing\Domain\Exception\InvalidSubscriptionTransition;
 use Core\Support\Access\AccessScope;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -283,20 +288,92 @@ final class BillingFlowTest extends TestCase
 
         self::assertSame('incomplete', $subscription->status);
 
-        // The paid period has **no invoice** yet (ADR-0092 §1).
+        // ADR-0073 §1 — the first **billed** period carries its invoice.
         $period = DB::table('subscription_periods')->where('subscription_id', $subscription->id)->first();
 
         self::assertNotNull($period);
         self::assertIsInt($period->seq);
         self::assertSame('paid', $period->kind);
-        self::assertNull($period->invoice_id);
+        self::assertNotNull($period->invoice_id);
+
+        // The invoice is open: the contract waits for the money.
+        $invoice = DB::table('invoices')->where('id', $period->invoice_id)->first();
+
+        self::assertNotNull($invoice);
+        self::assertSame('open', $invoice->status);
+
+        // ADR-0094 §8 — the declaration refuses a period whose invoice
+        // is not settled: it no longer creates the fact, it constates
+        // the one the encaissement wrote.
+        $this->expectException(InvalidSubscriptionTransition::class);
+
+        app(ConfirmSubscriptionPeriodPayment::class)->confirm(new ConfirmSubscriptionPeriodPaymentCommand(
+            projectId: self::PROJECT,
+            subscriptionId: $subscription->id,
+            seq: $period->seq,
+            reference: 'virement-2026-10-27',
+            actor: 'test:billing',
+            correlationId: null,
+        ));
+    }
+
+    #[Test]
+    public function the_declaration_constates_the_money_that_arrived_and_moves_none(): void
+    {
+        $this->publishPlan('pro', 5_000);
+        $this->declareCustomer('acme');
+
+        $subscription = app(CreateSubscription::class)->create(new CreateSubscriptionCommand(
+            projectId: self::PROJECT,
+            customerRef: 'acme',
+            planCode: 'pro',
+            trialDays: null,
+            startAt: null,
+            idempotencyKey: 'key-3',
+            actor: 'test:billing',
+            correlationId: null,
+        ));
+
+        $period = DB::table('subscription_periods')->where('subscription_id', $subscription->id)->first();
+
+        self::assertNotNull($period);
+        self::assertIsString($period->invoice_id);
+        self::assertIsInt($period->seq);
+
+        $invoiceId = $period->invoice_id;
+        $seq = $period->seq;
+
+        // The money arrives: an offline receipt settles the invoice. The
+        // default threshold is zero (ADR-0094 §4), so the receipt waits
+        // for a validation — and **one** account is enough (ADR-0095).
+        $receipt = app(RecordManualReceipt::class)->record(new RecordManualReceiptCommand(
+            projectId: self::PROJECT,
+            invoiceId: $invoiceId,
+            method: 'bank_transfer',
+            reference: 'virement-2026-10-27',
+            amountMinor: 5_000,
+            currency: 'XAF',
+            receivedAt: '2026-10-27T08:00:00Z',
+            recordedBy: '00000000-0000-4000-8000-000000000000',
+            actor: 'test:billing',
+            correlationId: null,
+        ));
+
+        app(ApproveManualReceipt::class)->approve(new ApproveManualReceiptCommand(
+            projectId: self::PROJECT,
+            receiptId: $receipt->id,
+            approver: '00000000-0000-4000-8000-000000000000',
+            approved: true,
+            actor: 'test:billing',
+            correlationId: null,
+        ));
 
         $entriesBefore = DB::table('ledger_entries')->count();
 
         $confirmed = app(ConfirmSubscriptionPeriodPayment::class)->confirm(new ConfirmSubscriptionPeriodPaymentCommand(
             projectId: self::PROJECT,
             subscriptionId: $subscription->id,
-            seq: $period->seq,
+            seq: $seq,
             reference: 'virement-2026-10-27',
             actor: 'test:billing',
             correlationId: null,
@@ -310,7 +387,7 @@ final class BillingFlowTest extends TestCase
         self::assertNotNull($settled->paid_at);
 
         // ADR-0092 §2 — the declaration moves no money: the ledger is
-        // untouched.
+        // untouched (the receipt already wrote it).
         self::assertSame($entriesBefore, DB::table('ledger_entries')->count());
     }
 

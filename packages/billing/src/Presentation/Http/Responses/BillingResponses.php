@@ -163,6 +163,43 @@ final class BillingResponses
         .'}';
 
     /**
+     * A collection attempt — ADR-0073 §2. The amount is in **minor
+     * units** (G5), never a float.
+     */
+    public const INVOICE_PAYMENT = 'array{'
+        .'id: string, '
+        .'invoice_id: string, '
+        .'project_id: string, '
+        .'payment_id: string, '
+        .'status: string, '
+        .'amount_minor: int, '
+        .'currency: string, '
+        .'confirmed_amount_minor: int|null, '
+        .'failure_reason: string|null, '
+        .'settled_at: string|null, '
+        .'created_at: string'
+        .'}';
+
+    /**
+     * What a started collection answers — ADR-0073 §2: the attempt, and
+     * what the payer must do next.
+     */
+    public const PAY_INVOICE = 'array{'
+        .'payment: '.self::INVOICE_PAYMENT.', '
+        .'requires_action: bool, '
+        .'payment_url: string|null, '
+        .'action_hint: string|null'
+        .'}';
+
+    /**
+     * A page of collection attempts.
+     */
+    public const INVOICE_PAYMENT_PAGE = 'array{'
+        .'data: list<'.self::INVOICE_PAYMENT.'>, '
+        .'next_cursor: string|null'
+        .'}';
+
+    /**
      * A page of customers — the cursor is passed back to read the next
      * page (ADR-0088).
      */

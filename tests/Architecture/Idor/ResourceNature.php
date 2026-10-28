@@ -62,6 +62,9 @@ enum ResourceNature: string
     /** An invoice of a Project (ADR-0073) — the document that carries the receivable. */
     case Invoice = 'invoice';
 
+    /** An offline receipt of a Project (ADR-0073 §4) — money that arrived outside a payment. */
+    case ManualReceipt = 'manual-receipt';
+
     /** A console account — owned by the platform, by no organization. */
     case Operator = 'operator';
 

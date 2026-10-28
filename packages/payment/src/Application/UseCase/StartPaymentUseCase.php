@@ -11,11 +11,13 @@ use Core\Payment\Application\Support\PaymentViews;
 use Core\Payment\Contracts\InitiatePaymentCommand;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Contracts\PaymentProviderRouter;
+use Core\Payment\Contracts\PaymentPurpose;
 use Core\Payment\Contracts\PaymentView;
 use Core\Payment\Contracts\StartPayment;
 use Core\Payment\Contracts\StartPaymentCommand;
 use Core\Payment\Domain\Exception\PaymentAlreadyExists;
 use Core\Payment\Domain\Exception\UnsupportedCurrency;
+use Core\Payment\Domain\Exception\UnsupportedPaymentPurpose;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Model\PaymentTimelineEntryType;
 use Core\Payment\Domain\Port\PaymentCallbackSecretGenerator;
@@ -78,6 +80,12 @@ final readonly class StartPaymentUseCase implements StartPayment
         if (! $this->currencies->isSupported($command->currency)) {
             throw UnsupportedCurrency::withCode($command->currency);
         }
+
+        // ADR-0076 §3 — the INTENTION of the collection, resolved before
+        // anything else: it decides where the money will be booked when
+        // the payment settles, so a contradiction in the command is
+        // refused rather than reinterpreted.
+        $purpose = $this->resolvePurpose($command);
 
         $existing = $this->payments->findByIdempotencyKey($command->projectId, $command->idempotencyKey);
         if ($existing !== null) {
@@ -142,6 +150,7 @@ final readonly class StartPaymentUseCase implements StartPayment
             walletRecipientExternalRef: $command->walletRecipientExternalRef,
             callbackUrl: $command->callbackUrl,
             callbackSecret: $command->callbackUrl === null ? null : $this->callbackSecrets->generate(),
+            purpose: $purpose,
         );
 
         try {
@@ -193,6 +202,7 @@ final readonly class StartPaymentUseCase implements StartPayment
                 'return_url' => $payment->returnUrl,
                 'callback_url' => $payment->callbackUrl,
                 'wallet_recipient_external_ref' => $payment->walletRecipientExternalRef,
+                'purpose' => $payment->purpose,
                 'provider_transaction_ref' => $payment->providerTransactionRef,
                 'status' => $payment->status->value,
                 'requires_action' => $payment->requiresAction,
@@ -212,5 +222,49 @@ final readonly class StartPaymentUseCase implements StartPayment
     private function toView(Payment $payment, bool $includeCallbackSecret = false): PaymentView
     {
         return PaymentViews::from($payment, $includeCallbackSecret);
+    }
+
+    /**
+     * ADR-0076 §3 (amended by ADR-0094 §9) — the INTENTION of the
+     * collection, which decides the ledger entry written at the
+     * confirmation.
+     *
+     * `null` means "no explicit intention": the purpose is then derived
+     * from the rest of the command — a wallet credit when the caller
+     * opted into one (ADR-0037), a plain collection otherwise. An
+     * explicit intention that contradicts the command is **refused**,
+     * never reinterpreted: a payment that both settles an invoice and
+     * credits a wallet would be counted twice, and a wallet credit
+     * without a wallet would credit nothing.
+     */
+    private function resolvePurpose(StartPaymentCommand $command): string
+    {
+        $explicit = $command->purpose;
+
+        if ($explicit !== null && ! PaymentPurpose::isKnown($explicit)) {
+            throw UnsupportedPaymentPurpose::withPurpose($explicit);
+        }
+
+        $hasWallet = $command->walletRecipientExternalRef !== null;
+
+        if ($explicit === null) {
+            return $hasWallet ? PaymentPurpose::WALLET_CREDIT : PaymentPurpose::DIRECT;
+        }
+
+        if ($explicit === PaymentPurpose::WALLET_CREDIT && ! $hasWallet) {
+            throw UnsupportedPaymentPurpose::contradictory(
+                $explicit,
+                'aucun portefeuille destinataire n\'a été fourni, le crédit ne porterait sur rien'
+            );
+        }
+
+        if ($explicit !== PaymentPurpose::WALLET_CREDIT && $hasWallet) {
+            throw UnsupportedPaymentPurpose::contradictory(
+                $explicit,
+                'un portefeuille destinataire a été fourni, ce règlement serait compté deux fois'
+            );
+        }
+
+        return $explicit;
     }
 }

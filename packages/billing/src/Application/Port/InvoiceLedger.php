@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Core\Billing\Application\Port;
 
 use Core\Billing\Domain\Model\Invoice;
+use Core\Billing\Domain\Model\InvoicePayment;
+use Core\Billing\Domain\Model\ManualReceipt;
 
 /**
  * ADR-0073 §3 — the writes of the invoice in the ledger.
@@ -36,4 +38,36 @@ interface InvoiceLedger
      * `customer_receivable:<client>`.
      */
     public function postUncollectible(Invoice $invoice): string;
+
+    /**
+     * The imputation of a collection onto the receivable: Débit
+     * `collections` / Crédit `customer_receivable:<client>`
+     * (ADR-0073 §3).
+     *
+     * The `payment` module has already booked Débit `clearing` / Crédit
+     * `collections` (ADR-0076 §3): this is the second half of the
+     * movement, the one that gives the money back to the customer it
+     * belongs to.
+     *
+     * @param int $amountMinor the part of the payment that is due on
+     *                         the invoice — the whole attempt, unless
+     *                         the invoice was settled in the meantime
+     */
+    public function postAllocation(InvoicePayment $payment, Invoice $invoice, int $amountMinor): string;
+
+    /**
+     * The money that arrived and cannot be imputed: Débit `collections`
+     * / Crédit `payment_exceptions` (ADR-0073 §2).
+     *
+     * A late payment on an invoice that is already settled is **not
+     * lost**: it waits on the exceptions account, where an operator
+     * settles it.
+     */
+    public function postOverpayment(InvoicePayment $payment, int $amountMinor): string;
+
+    /**
+     * The offline collection: Débit `manual_receipts:<moyen>` / Crédit
+     * `customer_receivable:<client>` (ADR-0073 §3).
+     */
+    public function postManualReceipt(ManualReceipt $receipt, Invoice $invoice): string;
 }

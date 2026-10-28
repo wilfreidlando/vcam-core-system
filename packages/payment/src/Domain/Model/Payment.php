@@ -83,6 +83,20 @@ final readonly class Payment
         public ?string $confirmedCurrency = null,
         /** Set when the settlement could not be allocated automatically. */
         public ?SettlementException $settlementException = null,
+        /**
+         * ADR-0076 §3 (amended by ADR-0094 §9) — the INTENTION of the
+         * collection, which decides the ledger entry written at the
+         * confirmation: `direct` (the project is paid), `wallet_credit`
+         * (the caller opted into a wallet credit, ADR-0037) or `invoice`
+         * (`billing` allocates the collection onto a receivable, ADR-0073).
+         *
+         * A plain, pre-validated string, like `channel` — the vocabulary
+         * is canonical and published in `Contracts\PaymentPurpose`, and
+         * the database constrains it too (the `payments_purpose_check`
+         * constraint). The Domain layer stays framework-free (G3b), so it
+         * does not repeat the check.
+         */
+        public string $purpose = 'direct',
     ) {
         if (trim($providerTransactionRef) === '') {
             throw new InvalidArgumentException('A Payment must carry a non-blank provider transaction reference.');
@@ -128,6 +142,7 @@ final readonly class Payment
             confirmedAmount: $this->confirmedAmount,
             confirmedCurrency: $this->confirmedCurrency,
             settlementException: $this->settlementException,
+            purpose: $this->purpose,
         );
     }
 
@@ -180,6 +195,7 @@ final readonly class Payment
             confirmedAmount: $confirmedAmount,
             confirmedCurrency: $confirmedCurrency === null ? null : strtoupper($confirmedCurrency),
             settlementException: $exception,
+            purpose: $this->purpose,
         );
     }
 

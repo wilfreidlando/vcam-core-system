@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Core\Billing\Tests\Integration;
 
 use Core\Billing\Application\UseCase\AdvanceSubscriptionsUseCase;
+use Core\Billing\Contracts\ApproveManualReceipt;
+use Core\Billing\Contracts\ApproveManualReceiptCommand;
 use Core\Billing\Contracts\ChangeSubscriptionPlan;
 use Core\Billing\Contracts\ChangeSubscriptionPlanCommand;
 use Core\Billing\Contracts\ConfirmSubscriptionPeriodPayment;
@@ -23,6 +25,8 @@ use Core\Billing\Contracts\PauseSubscription;
 use Core\Billing\Contracts\PauseSubscriptionCommand;
 use Core\Billing\Contracts\PublishPlanVersion;
 use Core\Billing\Contracts\PublishPlanVersionCommand;
+use Core\Billing\Contracts\RecordManualReceipt;
+use Core\Billing\Contracts\RecordManualReceiptCommand;
 use Core\Billing\Contracts\ResumeSubscription;
 use Core\Billing\Contracts\ResumeSubscriptionCommand;
 use Core\Billing\Contracts\SubscriptionView;
@@ -30,6 +34,7 @@ use Core\Billing\Contracts\UpsertCustomer;
 use Core\Billing\Contracts\UpsertCustomerCommand;
 use Core\Billing\Domain\Exception\InvalidCustomerTransition;
 use Core\Billing\Domain\Exception\InvalidSubscriptionTransition;
+use Core\Billing\Domain\Model\SubscriptionPeriod;
 use Core\Billing\Domain\Port\SubscriptionPeriodRepository;
 use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
@@ -57,6 +62,9 @@ final class BillingReviewFixesTest extends TestCase
     use RefreshDatabase;
 
     private const PROJECT = '22222222-2222-4222-8222-222222222222';
+
+    /** The console account that records — and validates — the receipts. */
+    private const OPERATOR = '00000000-0000-4000-8000-000000000000';
 
     private DateTimeImmutable $now;
 
@@ -305,6 +313,50 @@ final class BillingReviewFixesTest extends TestCase
     }
 
     /**
+     * ADR-0094 §8 — the invoice of a period is settled by an offline
+     * receipt, the way the product does it. The declaration that
+     * follows moves no money: it only constates the fact.
+     */
+    private function settleInvoiceOf(SubscriptionPeriod $period): void
+    {
+        if ($period->invoiceId === null) {
+            return;
+        }
+
+        $invoice = DB::table('invoices')->where('id', $period->invoiceId)->first();
+
+        self::assertNotNull($invoice);
+
+        $totalMinor = $invoice->total_minor;
+
+        self::assertIsNumeric($totalMinor);
+
+        $receipt = app(RecordManualReceipt::class)->record(new RecordManualReceiptCommand(
+            projectId: self::PROJECT,
+            invoiceId: $period->invoiceId,
+            method: 'bank_transfer',
+            reference: 'virement-test',
+            amountMinor: (int) $totalMinor,
+            currency: 'XAF',
+            receivedAt: '2026-10-27T08:00:00Z',
+            recordedBy: self::OPERATOR,
+            actor: 'test:billing',
+            correlationId: null,
+        ));
+
+        // The default threshold is zero (ADR-0094 §4): the receipt waits
+        // for a validation, and **one** account is enough (ADR-0095).
+        app(ApproveManualReceipt::class)->approve(new ApproveManualReceiptCommand(
+            projectId: self::PROJECT,
+            receiptId: $receipt->id,
+            approver: self::OPERATOR,
+            approved: true,
+            actor: 'test:billing',
+            correlationId: null,
+        ));
+    }
+
+    /**
      * A customer, a plan, a published version and a **live** contract:
      * the first period is paid and settled, so the contract runs.
      */
@@ -327,6 +379,11 @@ final class BillingReviewFixesTest extends TestCase
         $periods = app(SubscriptionPeriodRepository::class);
         $current = $periods->findCurrent($subscription->id);
         self::assertNotNull($current);
+
+        // ADR-0094 §8 — the money arrives first: the invoice of the
+        // period is settled by an offline receipt, and only then may
+        // the period be declared settled.
+        $this->settleInvoiceOf($current);
 
         // The first period is declared settled: the contract runs.
         app(ConfirmSubscriptionPeriodPayment::class)->confirm(new ConfirmSubscriptionPeriodPaymentCommand(

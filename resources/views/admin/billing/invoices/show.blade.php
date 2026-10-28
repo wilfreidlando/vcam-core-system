@@ -102,6 +102,141 @@
         @endif
     </x-admin.table>
 
+    {{-- L'historique d'encaissement — ADR-0073 §2, §4 --}}
+    <x-admin.table :headers="['Origine', 'Montant', 'Référence', 'Date', 'État']" empty="Cette facture n'a encore aucun encaissement.">
+        @if (count($payments) > 0 || count($receipts) > 0)
+            <tbody class="divide-y divide-slate-100 bg-white">
+            @foreach ($payments as $payment)
+                @php
+                    $labels = [
+                        'pending' => 'En cours',
+                        'succeeded' => 'Comptabilisé',
+                        'failed' => 'Échec',
+                        'canceled' => 'Annulé',
+                    ];
+                    $classes = [
+                        'pending' => 'bg-amber-100 text-amber-700',
+                        'succeeded' => 'bg-emerald-100 text-emerald-700',
+                        'failed' => 'bg-rose-100 text-rose-700',
+                        'canceled' => 'bg-slate-200 text-slate-700',
+                    ];
+                @endphp
+                <tr>
+                    <td class="px-4 py-2 text-sm text-slate-700">Paiement en ligne</td>
+                    <td class="px-4 py-2 text-sm text-slate-900 tabular-nums whitespace-nowrap">
+                        {{ \Core\Support\Money\Money::ofMinor($payment->amountMinor, $payment->currency)->formattedAmount() }}
+                        {{ $payment->currency }}
+                    </td>
+                    <td class="px-4 py-2 text-sm font-mono text-slate-700">{{ $payment->paymentId }}</td>
+                    <td class="px-4 py-2 text-sm text-slate-700 tabular-nums whitespace-nowrap">
+                        {{ $payment->settledAt !== null ? \Illuminate\Support\Carbon::parse($payment->settledAt)->format('d/m/Y') : '—' }}
+                    </td>
+                    <td class="px-4 py-2 text-sm whitespace-nowrap">
+                        <span class="inline-flex rounded-md px-2 py-0.5 text-xs font-medium {{ $classes[$payment->status] ?? 'bg-slate-100 text-slate-700' }}">
+                            {{ $labels[$payment->status] ?? $payment->status }}
+                        </span>
+                    </td>
+                </tr>
+            @endforeach
+            @foreach ($receipts as $receipt)
+                @php
+                    $labels = [
+                        'pending' => 'En attente',
+                        'approved' => 'Comptabilisé',
+                        'rejected' => 'Refusé',
+                    ];
+                    $classes = [
+                        'pending' => 'bg-amber-100 text-amber-700',
+                        'approved' => 'bg-emerald-100 text-emerald-700',
+                        'rejected' => 'bg-rose-100 text-rose-700',
+                    ];
+                    $methods = [
+                        'bank_transfer' => 'Virement',
+                        'cash' => 'Espèces',
+                        'cheque' => 'Chèque',
+                        'other' => 'Autre',
+                    ];
+                @endphp
+                <tr>
+                    <td class="px-4 py-2 text-sm text-slate-700">Hors ligne — {{ $methods[$receipt->method] ?? $receipt->method }}</td>
+                    <td class="px-4 py-2 text-sm text-slate-900 tabular-nums whitespace-nowrap">
+                        {{ \Core\Support\Money\Money::ofMinor($receipt->amountMinor, $receipt->currency)->formattedAmount() }}
+                        {{ $receipt->currency }}
+                    </td>
+                    <td class="px-4 py-2 text-sm font-mono text-slate-700">{{ $receipt->reference }}</td>
+                    <td class="px-4 py-2 text-sm text-slate-700 tabular-nums whitespace-nowrap">
+                        {{ \Illuminate\Support\Carbon::parse($receipt->receivedAt)->format('d/m/Y') }}
+                    </td>
+                    <td class="px-4 py-2 text-sm whitespace-nowrap">
+                        <span class="inline-flex rounded-md px-2 py-0.5 text-xs font-medium {{ $classes[$receipt->status] ?? 'bg-slate-100 text-slate-700' }}">
+                            {{ $labels[$receipt->status] ?? $receipt->status }}
+                        </span>
+                    </td>
+                </tr>
+            @endforeach
+            </tbody>
+        @endif
+    </x-admin.table>
+
+    @if ($invoice->status === 'open')
+        <div class="rounded-lg border border-slate-200 bg-white p-5">
+            <div class="flex items-center justify-between">
+                <p class="font-semibold text-slate-900">Encaissement hors ligne</p>
+                <a href="{{ route('admin.projects.receipts.index', $projectId) }}"
+                   class="text-sm font-medium text-indigo-700 hover:text-indigo-900">Tous les encaissements du projet</a>
+            </div>
+            <p class="mt-1 text-sm text-slate-600">
+                L'encaissement hors ligne porte une méthode, une référence et un montant : il
+                est inscrit au grand livre du client. Au-dessus du seuil du projet, il
+                attend une validation explicite avant de compter.
+            </p>
+            <form method="POST" action="{{ route('admin.projects.invoices.receipts.store', [$projectId, $invoice->id]) }}"
+                  class="mt-3 grid gap-3 sm:grid-cols-2">
+                @csrf
+                <label class="block text-sm">
+                    <span class="text-slate-600">Méthode</span>
+                    <select name="method" required
+                            class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                        <option value="bank_transfer">Virement</option>
+                        <option value="cash">Espèces</option>
+                        <option value="cheque">Chèque</option>
+                        <option value="other">Autre</option>
+                    </select>
+                </label>
+                <label class="block text-sm">
+                    <span class="text-slate-600">Référence</span>
+                    <input name="reference" required maxlength="200" placeholder="Référence du virement"
+                           class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                </label>
+                <label class="block text-sm">
+                    <span class="text-slate-600">Montant (unités mineures)</span>
+                    <input name="amount_minor" required type="number" min="1" step="1" placeholder="50000"
+                           class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                </label>
+                <label class="block text-sm">
+                    <span class="text-slate-600">Devise</span>
+                    <input name="currency" required maxlength="3" value="{{ $invoice->currency }}"
+                           class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono uppercase">
+                </label>
+                <label class="block text-sm">
+                    <span class="text-slate-600">Reçu le</span>
+                    <input name="received_at" required type="datetime-local"
+                           class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                </label>
+                <label class="block text-sm">
+                    <span class="text-slate-600">Note</span>
+                    <input name="note" maxlength="1000"
+                           class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                </label>
+                <div class="sm:col-span-2">
+                    <button type="submit" class="rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700">
+                        Enregistrer l'encaissement
+                    </button>
+                </div>
+            </form>
+        </div>
+    @endif
+
     @if ($invoice->status === 'draft')
         <div class="rounded-lg border border-slate-200 bg-white p-5">
             <p class="font-semibold text-slate-900">Émettre la facture</p>

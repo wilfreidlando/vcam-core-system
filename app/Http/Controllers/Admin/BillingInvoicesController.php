@@ -15,8 +15,12 @@ use Core\Billing\Contracts\GetInvoiceCommand;
 use Core\Billing\Contracts\InvoiceLineInput;
 use Core\Billing\Contracts\IssueInvoice;
 use Core\Billing\Contracts\IssueInvoiceCommand;
+use Core\Billing\Contracts\ListInvoicePayments;
+use Core\Billing\Contracts\ListInvoicePaymentsCommand;
 use Core\Billing\Contracts\ListInvoices;
 use Core\Billing\Contracts\ListInvoicesCommand;
+use Core\Billing\Contracts\ListManualReceipts;
+use Core\Billing\Contracts\ListManualReceiptsCommand;
 use Core\Billing\Contracts\MarkInvoiceUncollectible;
 use Core\Billing\Contracts\MarkInvoiceUncollectibleCommand;
 use Core\Billing\Contracts\VoidInvoice;
@@ -60,6 +64,8 @@ final class BillingInvoicesController
         private readonly GetProject $getProject,
         private readonly ListInvoices $listInvoices,
         private readonly GetInvoice $getInvoice,
+        private readonly ListInvoicePayments $listInvoicePayments,
+        private readonly ListManualReceipts $listManualReceipts,
         private readonly CreateInvoice $createInvoice,
         private readonly IssueInvoice $issueInvoice,
         private readonly VoidInvoice $voidInvoice,
@@ -108,6 +114,18 @@ final class BillingInvoicesController
             'title' => sprintf('Facture %s', $invoice->number ?? 'brouillon'),
             'projectId' => $projectId,
             'invoice' => $invoice,
+            // ADR-0073 §2, §4 — the collection history of the invoice:
+            // the online attempts and the offline receipts.
+            'payments' => $this->listInvoicePayments->list(new ListInvoicePaymentsCommand(
+                projectId: $projectId,
+                invoiceId: $invoice->id,
+                limit: 50,
+            ), $scope)->items,
+            'receipts' => $this->listManualReceipts->list(new ListManualReceiptsCommand(
+                projectId: $projectId,
+                invoiceId: $invoice->id,
+                limit: 50,
+            ), $scope)->items,
         ]);
     }
 

@@ -48,4 +48,14 @@ final class InvalidInvoiceTransition extends RuntimeException
     {
         return new self('An invoice carries at least one line.');
     }
+
+    /**
+     * ADR-0073 §1 — the kind of a line decides the nature of its
+     * accounting: a typo in that field would book a subscription period
+     * as a free line.
+     */
+    public static function becauseUnknownLineKind(string $kind): self
+    {
+        return new self("The line kind \"{$kind}\" is not one of the known ones.");
+    }
 }

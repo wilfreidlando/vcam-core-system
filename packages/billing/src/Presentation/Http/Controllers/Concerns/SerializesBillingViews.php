@@ -6,6 +6,7 @@ namespace Core\Billing\Presentation\Http\Controllers\Concerns;
 
 use Core\Billing\Contracts\CustomerView;
 use Core\Billing\Contracts\InvoiceLineView;
+use Core\Billing\Contracts\InvoicePaymentView;
 use Core\Billing\Contracts\InvoiceView;
 use Core\Billing\Contracts\PlanVersionView;
 use Core\Billing\Contracts\PlanView;
@@ -173,6 +174,29 @@ trait SerializesBillingViews
             'version' => $view->version,
             'created_at' => $view->createdAt,
             'updated_at' => $view->updatedAt,
+        ];
+    }
+
+    /**
+     * A collection attempt — ADR-0073 §2. The amount is in minor units
+     * (G5) and the dates are ISO 8601 strings.
+     *
+     * @return array<string, mixed>
+     */
+    protected function invoicePaymentView(InvoicePaymentView $view): array
+    {
+        return [
+            'id' => $view->id,
+            'invoice_id' => $view->invoiceId,
+            'project_id' => $view->projectId,
+            'payment_id' => $view->paymentId,
+            'status' => $view->status,
+            'amount_minor' => $view->amountMinor,
+            'currency' => $view->currency,
+            'confirmed_amount_minor' => $view->confirmedAmountMinor,
+            'failure_reason' => $view->failureReason,
+            'settled_at' => $view->settledAt,
+            'created_at' => $view->createdAt,
         ];
     }
 

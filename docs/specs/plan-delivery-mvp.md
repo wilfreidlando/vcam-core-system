@@ -414,7 +414,7 @@ direction).
 | **8 — Fondations de sécurité et d'identité** | appartenances d'organisation, `AccessScope` obligatoire dans tous les ports console (migration des ports existants), invitations par jeton, cycle de vie des projets ; clés multiples à portée, rotation, CIDR ; service de chiffrement et d'index aveugle dans `support` ; trigger d'immuabilité et empreinte de `audit_log` ; garde-fous **G14** et **G15** | 0069, 0081, 0082, 0083 (socle) | — | 12 j |
 | **9 — Grand livre complet** | `purpose` des paiements, écriture de tout paiement confirmé, `clearing:<prestataire>` et reclassement, vérification du montant confirmé, `payment_exceptions` et file `money_exceptions`, trigger inter-projets (**G13**), immuabilité des transactions, ports de lecture par période et balance, contrôles d'invariants de `payment` (`invariants:check`) | 0076, 0077, 0078 (niveau A) | — | 10 j |
 | **10 — Commerce I : clients, catalogue, abonnements** | module `billing` en production ; `customers` (PII chiffrée), `plans`/`plan_versions`, `subscriptions`/`subscription_periods`, machine d'états, planificateur sur `Clock`, `billing_settings`, événements, API publique, écrans console de base | 0070, 0071, 0072 | 8 | 14 j |
-| **11 — Commerce II : factures et encaissement** | factures, numérotation, documents HTML/PDF, `invoice_payments`, imputation au grand livre, encaissement hors ligne à quatre yeux, surpaiements en exception, reçus | 0073 | 9, 10 | 12 j |
+| **11 — Commerce II : factures et encaissement** | factures, numérotation, documents HTML (le PDF attend sa bibliothèque — ADR-0094 §14), `invoice_payments`, imputation au grand livre, encaissement hors ligne validé à un compte (ADR-0095), surpaiements en exception, reçus | 0073, 0094, 0095 | 9, 10 | 12 j |
 | **12 — Usage et quotas** | `usage_records` partitionné, `usage_idempotency`, `usage_counters`, `POST /v1/usage`, `entitlements`, port `QuotaGuard` de `notification` (arête `notification → billing`), seuils dans la transaction, compensation des échecs | 0074 | 10 | 9 j |
 | **13 — Portail client** | module `portal` : sessions créées par le projet, échange et cookie, personnalisation, écrans (abonnements, factures, paiement, reçus, usage, profil), connexion directe par code (désactivée par défaut), en-têtes de sécurité testés | 0075 | 8, 11 | 13 j |
 | **14 — Console de portefeuille** | écrans Portefeuille / Projet / Client / Créances / Exceptions, indicateurs, `billing_daily_metrics`, liste de contrôle d'onboarding, gestes d'exploitation d'abonnement | 0080, 0072 §6 | 11, 12 | 10 j |
@@ -461,17 +461,24 @@ périodes qui se chevauchent, verrou optimiste — ADR-0072), l'ordonnanceur
 (`billing_settings`), l'**API publique** (16 routes `/v1`, un
 `FormRequest` par mutation, un corps documenté) et la **console** (les
 clients, les offres et les abonnements d'un projet ; chaque geste est
-audité — ADR-0092 §2 et §4). Le **lot 11a** ajoute la **facture**
-(ADR-0073, ADR-0094) : un document figé à l'émission, numéroté sans trou,
-taxé par ligne, dont l'émission inscrit la créance au grand livre et dont
-l'annulation la contre-passe. **L'encaissement reste au lot 11b** : la
-déclaration du paiement d'une période écrit le fait et **ne bouge pas
-d'argent** (ADR-0092 §2) tant que le paiement en ligne et l'encaissement
-hors ligne ne sont pas livrés.
+audité — ADR-0092 §2 et §4). Le **lot 11** ajoute la **facture** et son
+**encaissement** (ADR-0073, ADR-0094, ADR-0095) : un document figé à
+l'émission, numéroté sans trou, taxé par ligne, dont l'émission inscrit la
+créance au grand livre et dont l'annulation la contre-passe ; puis le
+paiement **en ligne** (`POST /v1/invoices/{id}/pay`, l'intention `invoice`
+qui écarte le double comptage, ADR-0094 §9) et l'**encaissement hors
+ligne** — un reçu qui porte sa méthode, sa référence et son montant, et
+qui attend une validation explicite au-dessus du seuil du projet
+(ADR-0094 §13 ; ADR-0095 a retiré les quatre yeux : un seul compte
+valide). Un règlement partiel n'est **jamais** imputé (ADR-0094 §10) et un
+paiement tardif sur une facture déjà soldée part en **surpaiement** plutôt
+que de disparaître. La déclaration du paiement d'une période refuse
+désormais une période dont la facture n'est pas soldée (ADR-0094 §8).
 
-**Total estimé** : 130 jours de travail (lots 8 à 19), dont **44 j déjà
-consommés** (lot 8 : 12 j, lot 9 : 10 j, lot 10 : 14 j, lot 11 : 8 j sur
-12) — **reste 86 j** (le solde du lot 11 et les lots 12 à 19).
+**Total estimé** : 130 jours de travail (lots 8 à 19), dont **52 j déjà
+consommés** (lot 8 : 12 j, lot 9 : 10 j, lot 10 : 14 j, lot 11 : 16 j sur
+12 — le lot 11 a dépassé son estimation) — **reste 78 j** (les lots 12 à
+19).
 
 ## P4. Chemin critique et parallélisation
 
@@ -530,7 +537,7 @@ reste conditionné à l'acceptation de ses ADR.
 | Lot 9 — Grand livre complet | B | — | 2026-10-27 (**livré**) |
 | Lot 10 — Commerce I (clients, catalogue, abonnements) | A | — | 2026-10-27 (**livré**) |
 | Lot 15 — Exploitation | B | 2026-10-28 | 2026-11-11 |
-| Lot 11 — Commerce II (factures, encaissement) | A | 2026-10-28 (**11a livré**) | 2026-11-13 |
+| Lot 11 — Commerce II (factures, encaissement) | A | 2026-10-28 (**livré**) | 2026-11-13 |
 | *Marge de B (revue de sécurité des lots 8–10, harnais de tests IDOR)* | B | 2026-11-12 | 2026-11-17 |
 | Lot 12 — Usage et quotas | B | 2026-11-18 | 2026-12-01 |
 | Lot 13 — Portail client | A | 2026-11-16 | 2026-12-03 |

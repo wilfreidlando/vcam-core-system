@@ -56,17 +56,43 @@ final class InvoicesColumnsTest extends TestCase
     ];
 
     /**
+     * The complete permitted shape of `invoice_payments` — the attempts
+     * to collect an invoice online (ADR-0073 §2).
+     */
+    private const ALLOWED_PAYMENT_COLUMNS = [
+        'id', 'invoice_id', 'project_id', 'payment_id', 'amount_minor', 'currency', 'status',
+        'confirmed_amount_minor', 'failure_reason', 'settled_at', 'ledger_transaction_id',
+        'created_at', 'updated_at',
+    ];
+
+    /**
+     * The complete permitted shape of `manual_receipts` — the offline
+     * collection (ADR-0073 §4, ADR-0095).
+     */
+    private const ALLOWED_RECEIPT_COLUMNS = [
+        'id', 'project_id', 'invoice_id', 'method', 'reference', 'amount_minor', 'currency',
+        'received_at', 'recorded_by', 'approved_by', 'approved_at', 'status', 'evidence_ref',
+        'note', 'ledger_transaction_id', 'created_at', 'updated_at',
+    ];
+
+    /**
      * The columns that hold a money amount: they are `bigint` minor
-     * units, never a float (G5).
+     * units, never a float (G5). A pair, not a map: the same column
+     * name lives on several tables.
+     *
+     * @var list<array{0: string, 1: string}>
      */
     private const MONEY_COLUMNS = [
-        'subtotal_minor' => 'invoices',
-        'tax_minor' => 'invoices',
-        'total_minor' => 'invoices',
-        'amount_paid_minor' => 'invoices',
-        'unit_amount_minor' => 'invoice_lines',
-        'amount_minor' => 'invoice_lines',
-        'tax_amount_minor' => 'invoice_lines',
+        ['subtotal_minor', 'invoices'],
+        ['tax_minor', 'invoices'],
+        ['total_minor', 'invoices'],
+        ['amount_paid_minor', 'invoices'],
+        ['unit_amount_minor', 'invoice_lines'],
+        ['amount_minor', 'invoice_lines'],
+        ['tax_amount_minor', 'invoice_lines'],
+        ['amount_minor', 'invoice_payments'],
+        ['confirmed_amount_minor', 'invoice_payments'],
+        ['amount_minor', 'manual_receipts'],
     ];
 
     #[Test]
@@ -80,6 +106,8 @@ final class InvoicesColumnsTest extends TestCase
             'invoices' => self::ALLOWED_COLUMNS,
             'invoice_lines' => self::ALLOWED_LINE_COLUMNS,
             'invoice_number_sequences' => self::ALLOWED_SEQUENCE_COLUMNS,
+            'invoice_payments' => self::ALLOWED_PAYMENT_COLUMNS,
+            'manual_receipts' => self::ALLOWED_RECEIPT_COLUMNS,
         ];
 
         foreach ($tables as $table => $allowed) {
@@ -102,7 +130,7 @@ final class InvoicesColumnsTest extends TestCase
             self::markTestSkipped('The invoices table does not exist yet (Lot 11).');
         }
 
-        foreach (self::MONEY_COLUMNS as $column => $table) {
+        foreach (self::MONEY_COLUMNS as [$column, $table]) {
             $columns = $this->columns($table);
 
             self::assertArrayHasKey($column, $columns, sprintf('`%s.%s` is missing.', $table, $column));
@@ -123,7 +151,7 @@ final class InvoicesColumnsTest extends TestCase
 
         $problems = [];
 
-        foreach (['invoices', 'invoice_lines'] as $table) {
+        foreach (['invoices', 'invoice_lines', 'invoice_payments', 'manual_receipts'] as $table) {
             foreach (array_keys($this->columns($table)) as $column) {
                 if (preg_match('/^(email|phone|name|display_name|full_name|first_name|last_name)$/', $column) === 1) {
                     $problems[] = sprintf('`%s.%s` holds a personal value in clear', $table, $column);

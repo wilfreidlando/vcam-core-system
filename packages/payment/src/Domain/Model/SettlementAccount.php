@@ -34,6 +34,17 @@ final class SettlementAccount
     /** Project revenue: a direct collection, with no wallet nor invoice to credit. */
     public const REVENUE = 'revenue';
 
+    /**
+     * Money collected for a customer, waiting to be allocated onto its
+     * receivable (ADR-0076 §3, amended by ADR-0094 §9): the CREDIT of an
+     * invoice payment lands here, and `billing` later moves it onto the
+     * customer's receivable account.
+     *
+     * Project-level (reference `''`): the money is not attributed to a
+     * customer until `billing` allocates it.
+     */
+    public const COLLECTIONS = 'collections';
+
     /** Money collected that cannot be allocated automatically (ADR-0077). */
     public const PAYMENT_EXCEPTIONS = 'payment_exceptions';
 

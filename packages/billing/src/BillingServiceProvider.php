@@ -9,6 +9,8 @@ use Core\Billing\Application\Port\InvoiceLedger;
 use Core\Billing\Application\Port\PlanDirectory;
 use Core\Billing\Application\Port\PlanVersionDirectory;
 use Core\Billing\Application\Port\SubscriptionDirectory;
+use Core\Billing\Application\UseCase\AllocateInvoicePaymentUseCase;
+use Core\Billing\Application\UseCase\ApproveManualReceiptUseCase;
 use Core\Billing\Application\UseCase\ArchivePlanUseCase;
 use Core\Billing\Application\UseCase\CancelSubscriptionUseCase;
 use Core\Billing\Application\UseCase\ChangeSubscriptionPlanUseCase;
@@ -18,24 +20,30 @@ use Core\Billing\Application\UseCase\CreatePlanUseCase;
 use Core\Billing\Application\UseCase\CreatePlanVersionUseCase;
 use Core\Billing\Application\UseCase\CreateSubscriptionUseCase;
 use Core\Billing\Application\UseCase\EraseCustomerUseCase;
+use Core\Billing\Application\UseCase\FailInvoicePaymentUseCase;
 use Core\Billing\Application\UseCase\GetCustomerUseCase;
 use Core\Billing\Application\UseCase\GetInvoiceUseCase;
 use Core\Billing\Application\UseCase\GetSubscriptionUseCase;
 use Core\Billing\Application\UseCase\GrantComplimentaryPeriodUseCase;
 use Core\Billing\Application\UseCase\IssueInvoiceUseCase;
 use Core\Billing\Application\UseCase\ListCustomersUseCase;
+use Core\Billing\Application\UseCase\ListInvoicePaymentsUseCase;
 use Core\Billing\Application\UseCase\ListInvoicesUseCase;
+use Core\Billing\Application\UseCase\ListManualReceiptsUseCase;
 use Core\Billing\Application\UseCase\ListPlansUseCase;
 use Core\Billing\Application\UseCase\ListSubscriptionPeriodsUseCase;
 use Core\Billing\Application\UseCase\ListSubscriptionsUseCase;
 use Core\Billing\Application\UseCase\MarkInvoiceUncollectibleUseCase;
 use Core\Billing\Application\UseCase\PauseSubscriptionUseCase;
+use Core\Billing\Application\UseCase\PayInvoiceUseCase;
 use Core\Billing\Application\UseCase\PublishPlanVersionUseCase;
 use Core\Billing\Application\UseCase\ReactivateCustomerUseCase;
+use Core\Billing\Application\UseCase\RecordManualReceiptUseCase;
 use Core\Billing\Application\UseCase\ResumeSubscriptionUseCase;
 use Core\Billing\Application\UseCase\SuspendCustomerUseCase;
 use Core\Billing\Application\UseCase\UpsertCustomerUseCase;
 use Core\Billing\Application\UseCase\VoidInvoiceUseCase;
+use Core\Billing\Contracts\ApproveManualReceipt;
 use Core\Billing\Contracts\ArchivePlan;
 use Core\Billing\Contracts\CancelSubscription;
 use Core\Billing\Contracts\ChangeSubscriptionPlan;
@@ -51,14 +59,18 @@ use Core\Billing\Contracts\GetSubscription;
 use Core\Billing\Contracts\GrantComplimentaryPeriod;
 use Core\Billing\Contracts\IssueInvoice;
 use Core\Billing\Contracts\ListCustomers;
+use Core\Billing\Contracts\ListInvoicePayments;
 use Core\Billing\Contracts\ListInvoices;
+use Core\Billing\Contracts\ListManualReceipts;
 use Core\Billing\Contracts\ListPlans;
 use Core\Billing\Contracts\ListSubscriptionPeriods;
 use Core\Billing\Contracts\ListSubscriptions;
 use Core\Billing\Contracts\MarkInvoiceUncollectible;
 use Core\Billing\Contracts\PauseSubscription;
+use Core\Billing\Contracts\PayInvoice;
 use Core\Billing\Contracts\PublishPlanVersion;
 use Core\Billing\Contracts\ReactivateCustomer;
+use Core\Billing\Contracts\RecordManualReceipt;
 use Core\Billing\Contracts\ResumeSubscription;
 use Core\Billing\Contracts\SuspendCustomer;
 use Core\Billing\Contracts\UpsertCustomer;
@@ -67,7 +79,9 @@ use Core\Billing\Domain\Port\BillingSettingsRepository;
 use Core\Billing\Domain\Port\CustomerRepository;
 use Core\Billing\Domain\Port\InvoiceLineRepository;
 use Core\Billing\Domain\Port\InvoiceNumberSequenceRepository;
+use Core\Billing\Domain\Port\InvoicePaymentRepository;
 use Core\Billing\Domain\Port\InvoiceRepository;
+use Core\Billing\Domain\Port\ManualReceiptRepository;
 use Core\Billing\Domain\Port\PlanRepository;
 use Core\Billing\Domain\Port\PlanVersionRepository;
 use Core\Billing\Domain\Port\SubscriptionPeriodRepository;
@@ -77,12 +91,17 @@ use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentBillingSettingsRepo
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentCustomerRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentInvoiceLineRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentInvoiceNumberSequenceRepository;
+use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentInvoicePaymentRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentInvoiceRepository;
+use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentManualReceiptRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentPlanRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentPlanVersionRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentSubscriptionPeriodRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentSubscriptionRepository;
 use Core\Billing\Presentation\Console\Commands\AdvanceSubscriptionsCommand;
+use Core\Billing\Presentation\Listeners\InvoicePaymentStatusListener;
+use Core\Events\Contracts\OutboxEventPublished;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -111,6 +130,8 @@ final class BillingServiceProvider extends ServiceProvider
         $this->app->bind(InvoiceRepository::class, EloquentInvoiceRepository::class);
         $this->app->bind(InvoiceLineRepository::class, EloquentInvoiceLineRepository::class);
         $this->app->bind(InvoiceNumberSequenceRepository::class, EloquentInvoiceNumberSequenceRepository::class);
+        $this->app->bind(InvoicePaymentRepository::class, EloquentInvoicePaymentRepository::class);
+        $this->app->bind(ManualReceiptRepository::class, EloquentManualReceiptRepository::class);
 
         // The Application port of the ledger — `billing` says what
         // happened, the adapter says how it is booked (ADR-0073 §3).
@@ -155,6 +176,20 @@ final class BillingServiceProvider extends ServiceProvider
         $this->app->bind(MarkInvoiceUncollectible::class, MarkInvoiceUncollectibleUseCase::class);
         $this->app->bind(GetInvoice::class, GetInvoiceUseCase::class);
         $this->app->bind(ListInvoices::class, ListInvoicesUseCase::class);
+
+        // The collection of an invoice — the online attempt and the
+        // offline receipt (ADR-0073 §2, §4; ADR-0094 §§8-13).
+        $this->app->bind(PayInvoice::class, PayInvoiceUseCase::class);
+        $this->app->bind(ListInvoicePayments::class, ListInvoicePaymentsUseCase::class);
+        $this->app->bind(ListManualReceipts::class, ListManualReceiptsUseCase::class);
+        $this->app->bind(RecordManualReceipt::class, RecordManualReceiptUseCase::class);
+        $this->app->bind(ApproveManualReceipt::class, ApproveManualReceiptUseCase::class);
+
+        // The two use cases the listener of the outbox calls. They are
+        // bound so that the listener, resolved by the container, gets
+        // the same instances the application would.
+        $this->app->bind(AllocateInvoicePaymentUseCase::class);
+        $this->app->bind(FailInvoicePaymentUseCase::class);
     }
 
     public function boot(): void
@@ -163,6 +198,12 @@ final class BillingServiceProvider extends ServiceProvider
 
         // ADR-0018 — a module owns its routes.
         Route::middleware('api')->group(__DIR__.'/../routes/api.php');
+
+        // ADR-0073 §2 — `billing` learns that a payment settled by
+        // consuming the `payment.status_changed` event of the outbox.
+        // The relay is the only physical reader of the outbox
+        // (ADR-0040 §1): the module subscribes to the republication.
+        Event::listen(OutboxEventPublished::class, InvoicePaymentStatusListener::class);
 
         if ($this->app->runningInConsole()) {
             $this->commands([AdvanceSubscriptionsCommand::class]);

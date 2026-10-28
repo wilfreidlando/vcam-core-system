@@ -5,7 +5,7 @@
 catalogue, the subscription contracts with their periods, and the invoices
 that carry the receivables.
 **Delivery lot:** Lot 10 — Commerce I (ADR-0070, ADR-0071, ADR-0072) and
-Lot 11a — the invoice (ADR-0073, ADR-0094) — see
+Lot 11 — the invoice and its collection (ADR-0073, ADR-0094, ADR-0095) — see
 [the delivery plan](../../docs/specs/plan-delivery-mvp.md)
 
 ## Internal structure
@@ -80,17 +80,62 @@ refuses the change, not a convention.
 
 ### What this lot does NOT deliver yet (ADR-0094)
 
-The **collection** arrives with Lot 11b: the payment in line
-(`POST /v1/invoices/{id}/pay`) and the offline receipt with four eyes. Until
-then:
+Only the **rendering of the receipt** is missing: ADR-0073 §5 wants a
+receipt for every collected amount (the amount, the date, the reference of
+the transfer or of the offline receipt, the invoice it settles). Nothing is
+stored for it — a receipt is a **projection** of the invoice and of its
+collections (ADR-0094 §11), and the collection history the console already
+shows carries everything it needs.
 
-- a paid subscription cannot become `active` by a payment — the public path
-  to `active` is a **complimentary** period (an operator's act, free, with a
-  mandatory reason);
-- the payment declaration (`ConfirmSubscriptionPeriodPayment`) writes
-  `paid_at` and **moves no money** (ADR-0092 §2). Lot 11b makes it refuse a
-  period whose invoice is not settled, and replaces it with the real
-  collection, which posts to the ledger and asks for a second pair of eyes.
+The PDF is the other thing: no rendering library is in `composer.json`, and
+ADR-0094 §14 chooses it in a dedicated ADR. The printable HTML is delivered.
+
+## The collection (ADR-0073 §2, §4; ADR-0094 §§8-13; ADR-0095)
+
+An invoice becomes **paid** when money is collected on it — and the Core
+never lets a sum be counted twice.
+
+**Online.** `POST /v1/invoices/{id}/pay` starts a payment on the rail the
+caller chose, with the intention `invoice`: the `payment` module books Débit
+`clearing:<prestataire>` / Crédit `collections`, and `billing` allocates it
+onto the receivable — Débit `collections` / Crédit `customer_receivable:<client>`.
+The attempt is a **row**, not a column: a failed attempt, a canceled one and
+a second one that succeeds all stay visible.
+
+- the allocation is **conditional** (`WHERE status = 'pending'`): a replayed
+  status change moves nothing;
+- a settlement whose **amount or currency differs** is **never** imputed
+  (ADR-0094 §10): the money goes to `payment_exceptions`;
+- a payment that lands on an invoice that is **already settled** is not
+  lost: it moves to `payment_exceptions` and opens an **overpayment**.
+
+**Offline.** The console records a **manual receipt** — a transfer, a cheque,
+cash — with its method, its reference and its amount. It is booked Débit
+`manual_receipts:<méthode>` / Crédit `customer_receivable:<client>`.
+
+- below the project's threshold, the receipt is accounted **at the
+  recording**;
+- above it, the receipt waits for an explicit **validation**, audited.
+  ADR-0095 withdrew the four eyes of ADR-0073 §4: **one** console account is
+  enough to validate a receipt, the author included. What remains is the
+  deliberate act — recorded, dated and audited.
+
+The public path to `active` is now the collection itself: the payment
+declaration (`ConfirmSubscriptionPeriodPayment`) **refuses** a period whose
+invoice is not settled (ADR-0094 §8).
+
+### The invoice of a period (ADR-0073 §1, ADR-0094 §6)
+
+A **billed** period carries its invoice, and it is born with it:
+
+- the first period of a contract gets its invoice in the transaction that
+  signs the contract;
+- the renewal period gets its invoice in the transaction that prepares it
+  (the scheduler, `billing:advance-subscriptions`).
+
+The invoice is created **draft** and issued in that very transaction: the
+observer sees an **open** invoice, and the number is attributed at the
+issuance (ADR-0094 §6). A trial is free and carries none (ADR-0072 §1).
 
 ## The period arithmetic
 
@@ -122,6 +167,8 @@ arithmetic is explicit in `Domain/Model/BillingInterval.php`.
 | `POST /v1/invoices` | `invoices:write` + `Idempotency-Key` | Creates a **draft** manual invoice |
 | `POST /v1/invoices/{id}/issue` | `invoices:write` + `Idempotency-Key` | Issues it: the number, the freeze, the receivable in the ledger |
 | `POST /v1/invoices/{id}/void` | `invoices:write` + `Idempotency-Key` | Cancels it before any payment — the counter-passation |
+| `GET /v1/invoices/{id}/payments` | `invoices:read` | The collection attempts of the invoice — every one of them |
+| `POST /v1/invoices/{id}/pay` | `invoices:write` + `Idempotency-Key` | Starts the collection: the payment, and the attempt that will carry the money onto the receivable |
 
 The console (`/admin/projects/{projectId}/…`) mirrors them, with the operator's
 scope and an audit entry for each act.
@@ -140,6 +187,7 @@ subscriptions, invoices).
 | `/admin/projects/{id}/plans` (+ `/create`, `/{code}/versions`) | `plans:read` · `plans:write` | The catalogue: a plan, a draft version, its publication, the archive |
 | `/admin/projects/{id}/subscriptions` (+ `/{id}`) | `subscriptions:read` · `subscriptions:write` | The contracts, their periods, and the operator's gestures (pause, resume, cancel, plan change, free period, payment declaration) |
 | `/admin/projects/{id}/invoices` (+ `/create`, `/{id}`) | `invoices:read` · `invoices:write` | The invoices, and the operator's gestures (issue, cancel, write-off). No personal value is ever shown in clear |
+| `/admin/projects/{id}/receipts` (+ `/invoices/{id}/receipts`) | `invoices:read` · `invoices:write` | The offline collection: the receipts waiting for a validation, the recording of a new one, and its validation |
 
 A resource that does not exist — or that belongs to another organization — is
 answered like a missing one: a **read** answers 404, a **gesture** answers

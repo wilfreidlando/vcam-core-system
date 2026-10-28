@@ -88,11 +88,16 @@ final readonly class CreateInvoiceUseCase implements CreateInvoice
             $invoiceLines = [];
 
             foreach ($command->lines as $input) {
+                $kind = $input->kind === null
+                    ? InvoiceLineKind::Manual
+                    : InvoiceLineKind::tryFrom($input->kind)
+                        ?? throw InvalidInvoiceTransition::becauseUnknownLineKind($input->kind);
+
                 $line = InvoiceLine::of(
                     id: $this->identifier->generate(),
                     invoiceId: $invoiceId,
                     projectId: $command->projectId,
-                    kind: InvoiceLineKind::Manual,
+                    kind: $kind,
                     description: $input->description,
                     quantity: $input->quantity,
                     unitAmountMinor: $input->unitAmountMinor,
@@ -110,8 +115,8 @@ final readonly class CreateInvoiceUseCase implements CreateInvoice
                 id: $invoiceId,
                 projectId: $command->projectId,
                 customerId: $customer->id,
-                subscriptionId: null,
-                periodId: null,
+                subscriptionId: $command->subscriptionId,
+                periodId: $command->periodId,
                 number: null,
                 status: InvoiceStatus::Draft,
                 currency: $currency,

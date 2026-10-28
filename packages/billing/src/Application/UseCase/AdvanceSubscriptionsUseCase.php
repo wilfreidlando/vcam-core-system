@@ -6,6 +6,7 @@ namespace Core\Billing\Application\UseCase;
 
 use Core\Billing\Application\Dto\AdvanceSubscriptionsReport;
 use Core\Billing\Application\Port\SubscriptionDirectory;
+use Core\Billing\Application\Service\PeriodInvoiceIssuer;
 use Core\Billing\Application\Support\SubscriptionEvents;
 use Core\Billing\Domain\Model\BillingSettings;
 use Core\Billing\Domain\Model\PeriodKind;
@@ -68,6 +69,7 @@ final readonly class AdvanceSubscriptionsUseCase
         private BillingSettingsRepository $settings,
         private CustomerRepository $customers,
         private EventOutbox $outbox,
+        private PeriodInvoiceIssuer $invoices,
         private Identifier $identifier,
         private Clock $clock,
         private LoggerInterface $logger,
@@ -355,12 +357,20 @@ final readonly class AdvanceSubscriptionsUseCase
             startsAt: $current->endsAt,
             endsAt: $this->nextPeriodEnd($subscription, $current, $zone),
             state: PeriodState::Upcoming,
-            // ADR-0092 §1 — the invoice of a period belongs to Lot 11.
+            // ADR-0073 §1 — a **billed** period carries its invoice.
             invoiceId: null,
             reason: null,
             paidAt: null,
             createdAt: $now,
         );
+
+        $this->periods->save($period);
+
+        // ADR-0094 §6 — the invoice of the renewal is created **and
+        // issued** in the very transaction that prepares the period: the
+        // observer sees an open invoice, and the number is attributed at
+        // the issuance.
+        $period->invoiceId = $this->invoices->issue($subscription, $period);
 
         $this->periods->save($period);
 

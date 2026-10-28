@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Admin\Concerns;
 
 use Core\Billing\Domain\Exception\CustomerNotFound;
 use Core\Billing\Domain\Exception\InvoiceNotFound;
+use Core\Billing\Domain\Exception\ManualReceiptNotFound;
 use Core\Billing\Domain\Exception\PlanNotFound;
 use Core\Billing\Domain\Exception\PlanVersionNotFound;
 use Core\Billing\Domain\Exception\SubscriptionNotFound;
@@ -34,6 +35,7 @@ trait HandlesBillingRefusals
             || $exception instanceof PlanVersionNotFound
             || $exception instanceof SubscriptionNotFound
             || $exception instanceof InvoiceNotFound
+            || $exception instanceof ManualReceiptNotFound
             ? 'Ressource introuvable.'
             : $exception->getMessage();
 

@@ -14,10 +14,15 @@ namespace Core\Billing\Contracts;
  */
 final readonly class InvoiceLineInput
 {
+    /**
+     * @param string $kind 'subscription' (a period of a contract) or 'manual' (a free line) — the plain
+     *                     string of the published vocabulary (G3c); `null` means 'manual'
+     */
     public function __construct(
         public string $description,
         public int $quantity = 1,
         public int $unitAmountMinor = 0,
         public ?int $taxRateBps = null,
+        public ?string $kind = null,
     ) {}
 }

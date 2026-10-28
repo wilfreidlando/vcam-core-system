@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int|null $confirmed_amount_minor
  * @property string|null $confirmed_currency
  * @property string|null $settlement_exception
+ * @property string $purpose
  * @property \Illuminate\Support\Carbon $updated_at
  * @property \Illuminate\Support\Carbon $created_at
  */
@@ -58,6 +59,7 @@ final class PaymentRecord extends Model
         'confirmed_amount_minor',
         'confirmed_currency',
         'settlement_exception',
+        'purpose',
     ];
 
     protected $casts = [
