@@ -49,8 +49,10 @@ enum OrganizationRole: string
                 // to open that project.
                 'projects:read',
                 'customers:read', 'customers:write',
+                'plans:read',
                 'subscriptions:read', 'subscriptions:write',
                 'invoices:read', 'invoices:write',
+                'usage:read',
                 'payments:read', 'payments:reconcile:write',
                 'wallets:read', 'money-exceptions:read', 'money-exceptions:write',
                 'audit:read',
@@ -63,6 +65,7 @@ enum OrganizationRole: string
                 'customers:read',
                 'subscriptions:read', 'subscriptions:write',
                 'invoices:read',
+                'usage:read',
                 'payments:read',
                 'notifications:read',
                 'webhooks:read', 'webhooks:replay', 'webhook-endpoints:read',

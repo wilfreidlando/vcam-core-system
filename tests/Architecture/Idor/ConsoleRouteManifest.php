@@ -151,6 +151,7 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.portal.save', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.commerce-settings', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.commerce-settings.save', Nature::Project, Outcome::NotFound),
+            Entry::isolated('admin.projects.indicators', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.usage', Nature::Project, Outcome::NotFound),
 
             Entry::isolated('admin.projects.plans.index', Nature::Plan, Outcome::NotFound, control: true),

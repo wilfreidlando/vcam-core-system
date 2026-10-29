@@ -31,8 +31,8 @@ ADR » — il n'existe pas d'autre état final.
 | `admin` | pilotage | 26 | 1 | 0 | 0 propres (couvert par `tests/Feature`) | **partiel** | lot 14 : instantanés + courbes, checklist d'onboarding, droits |
 | `developer-platform` | plateforme | 1 | 1 | 0 | 0 | **scaffold** | lot 16 (ADR-0096) |
 | `payout` | grand livre | — | — | — | — | **absent** | lot 19 (ADR-0079) |
-| `fees` | grand livre | 1 | 1 | 0 | 0 | **scaffold** | **décision requise** (§6, D1) |
-| `storage` | plateforme | 1 | 1 | 0 | 0 | **scaffold** | **décision requise** (§6, D1) |
+| `fees` | grand livre | 1 | 1 | 0 | 0 | **scaffold** | non nécessaire pour le moment (ADR-0099) |
+| `storage` | plateforme | 1 | 1 | 0 | 0 | **scaffold** | non nécessaire pour le moment (ADR-0099) |
 
 Planifié et vérifié : `events:relay`, `admin:reconcile-stuck-payments`, `invariants:check`,
 `audit:seal`/`audit:verify`, `webhooks:purge-expired-secrets`, `webhook:sweep`, `model:prune`,
@@ -90,7 +90,7 @@ en ◐ alors que le code est livré.
 
 | # | Décision | Position recommandée | Pourquoi |
 |---|---|---|---|
-| **D1** | `fees` et `storage` : construire ou retirer ? | **Retirer les scaffolds** (ou les marquer « refusé » dans la liste négative) tant qu'aucun produit réel n'en a besoin | ADR-0048/0068 les ont mis hors périmètre ; porte 1 de la gouvernance (≥ 2 produits réels) non franchie. Un module vide « livré » serait un mensonge |
+| **D1 ✔ tranché (ADR-0099)** | `fees` et `storage` : construire ou retirer ? | **Retirer les scaffolds** (ou les marquer « refusé » dans la liste négative) tant qu'aucun produit réel n'en a besoin | ADR-0048/0068 les ont mis hors périmètre ; porte 1 de la gouvernance (≥ 2 produits réels) non franchie. Un module vide « livré » serait un mensonge |
 | D2 | Relances d'impayés (dunning) | **Hors Core** : le projet notifie à partir de `subscription.renewal_due` / `past_due` (ADR-0089 §1) | Composition implicite entre modules interdite (ADR-0037/0041) ; la porte « générique » est discutable |
 | D3 | Codes promo / remises | Extension ADR-0090 **après** un cas d'usage réel ; en v1 : plan privé remisé (ADR-0071 §6) | Pas de besoin avéré |
 | D4 | Canal e-mail / SMS | Adaptateur + ADR **si** un projet le demande (la plateforme transitoire envoyait des e-mails d'expiration) | ADR-0090 : un adaptateur = une entrée de registre + ADR |

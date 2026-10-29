@@ -7,6 +7,7 @@ namespace Core\Billing;
 use Core\Billing\Application\Port\CustomerDirectory;
 use Core\Billing\Application\Port\InvoiceLedger;
 use Core\Billing\Application\Port\MetricsReader;
+use Core\Billing\Application\Port\MetricsSnapshotStore;
 use Core\Billing\Application\Port\PlanDirectory;
 use Core\Billing\Application\Port\PlanVersionDirectory;
 use Core\Billing\Application\Port\SubscriptionDirectory;
@@ -42,6 +43,7 @@ use Core\Billing\Application\UseCase\ListSubscriptionsUseCase;
 use Core\Billing\Application\UseCase\ListUsageUseCase;
 use Core\Billing\Application\UseCase\ManageBillingSettingsUseCase;
 use Core\Billing\Application\UseCase\MarkInvoiceUncollectibleUseCase;
+use Core\Billing\Application\UseCase\MetricsHistoryUseCase;
 use Core\Billing\Application\UseCase\PauseSubscriptionUseCase;
 use Core\Billing\Application\UseCase\PayInvoiceUseCase;
 use Core\Billing\Application\UseCase\ProjectMetricsUseCase;
@@ -81,6 +83,7 @@ use Core\Billing\Contracts\ListSubscriptions;
 use Core\Billing\Contracts\ListUsage;
 use Core\Billing\Contracts\ManageBillingSettings;
 use Core\Billing\Contracts\MarkInvoiceUncollectible;
+use Core\Billing\Contracts\MetricsHistory;
 use Core\Billing\Contracts\PauseSubscription;
 use Core\Billing\Contracts\PayInvoice;
 use Core\Billing\Contracts\ProjectMetrics;
@@ -105,6 +108,7 @@ use Core\Billing\Domain\Port\SubscriptionRepository;
 use Core\Billing\Domain\Port\UsageStore;
 use Core\Billing\Infrastructure\Ledger\InvoiceLedgerWriter;
 use Core\Billing\Infrastructure\Persistence\DatabaseMetricsReader;
+use Core\Billing\Infrastructure\Persistence\DatabaseMetricsSnapshotStore;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentBillingSettingsRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentCustomerRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentInvoiceLineRepository;
@@ -119,6 +123,7 @@ use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentSubscriptionReposit
 use Core\Billing\Infrastructure\Persistence\Usage\DatabaseUsageReader;
 use Core\Billing\Infrastructure\Persistence\Usage\PostgresUsageStore;
 use Core\Billing\Presentation\Console\Commands\AdvanceSubscriptionsCommand;
+use Core\Billing\Presentation\Console\Commands\SnapshotMetricsCommand;
 use Core\Billing\Presentation\Listeners\InvoicePaymentStatusListener;
 use Core\Events\Contracts\OutboxEventPublished;
 use Illuminate\Support\Facades\Event;
@@ -155,6 +160,7 @@ final class BillingServiceProvider extends ServiceProvider
         $this->app->bind(UsageStore::class, PostgresUsageStore::class);
         $this->app->bind(UsageReader::class, DatabaseUsageReader::class);
         $this->app->bind(MetricsReader::class, DatabaseMetricsReader::class);
+        $this->app->bind(MetricsSnapshotStore::class, DatabaseMetricsSnapshotStore::class);
 
         // The Application port of the ledger — `billing` says what
         // happened, the adapter says how it is booked (ADR-0073 §3).
@@ -185,6 +191,7 @@ final class BillingServiceProvider extends ServiceProvider
         $this->app->bind(ConsumeUsage::class, ConsumeUsageUseCase::class);
         $this->app->bind(ListUsage::class, ListUsageUseCase::class);
         $this->app->bind(ProjectMetrics::class, ProjectMetricsUseCase::class);
+        $this->app->bind(MetricsHistory::class, MetricsHistoryUseCase::class);
         $this->app->bind(ManageBillingSettings::class, ManageBillingSettingsUseCase::class);
         $this->app->bind(KeepSubscriptionRenewing::class, KeepSubscriptionRenewingUseCase::class);
         $this->app->bind(ConsumeCapabilityUsage::class, ConsumeCapabilityUsageUseCase::class);
@@ -236,7 +243,7 @@ final class BillingServiceProvider extends ServiceProvider
         Event::listen(OutboxEventPublished::class, InvoicePaymentStatusListener::class);
 
         if ($this->app->runningInConsole()) {
-            $this->commands([AdvanceSubscriptionsCommand::class]);
+            $this->commands([AdvanceSubscriptionsCommand::class, SnapshotMetricsCommand::class]);
         }
     }
 }

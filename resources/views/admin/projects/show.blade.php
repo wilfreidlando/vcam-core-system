@@ -137,6 +137,13 @@
                 <span class="text-indigo-600">→</span>
             </a>
         @endif
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('invoices:write')->allowsProject($project->id))
+            <a href="{{ route('admin.projects.indicators', ['projectId' => $project->id]) }}"
+               class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+                <span class="font-medium text-slate-900">Indicateurs et créances</span>
+                <span class="text-indigo-600">→</span>
+            </a>
+        @endif
         @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('usage:read')->allowsProject($project->id))
             <a href="{{ route('admin.projects.usage', ['projectId' => $project->id]) }}"
                class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">

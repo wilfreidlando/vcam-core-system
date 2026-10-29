@@ -50,6 +50,7 @@ final class IdorSector
         'admin.projects.portal' => 'billing',
         'admin.projects.commerce-settings' => 'billing',
         'admin.projects.usage' => 'billing',
+        'admin.projects.indicators' => 'billing',
         'admin.projects.wallets' => 'wallet',
         'admin.projects.notifications' => 'notification',
         'admin.projects.api-keys' => 'identity',

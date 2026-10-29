@@ -223,6 +223,7 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             Route::get('{projectId}/commerce-settings', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'settings'])->name('projects.commerce-settings');
             Route::post('{projectId}/commerce-settings', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'saveSettings'])->name('projects.commerce-settings.save');
             Route::get('{projectId}/usage', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'usage'])->name('projects.usage');
+            Route::get('{projectId}/indicators', [App\Http\Controllers\Admin\ProjectIndicatorsController::class, 'show'])->name('projects.indicators');
 
             Route::prefix('{projectId}/customers')->group(function (): void {
                 // The reference is format-checked in the route (the

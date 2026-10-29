@@ -132,6 +132,13 @@ return Application::configure(basePath: dirname(__DIR__))
             ->everyFiveMinutes()
             ->onOneServer()
             ->withoutOverlapping();
+
+        // ADR-0080 §2: the day's indicators are kept once a night, for the
+        // console curves. Idempotent: a replay overwrites the day.
+        $schedule->command('billing:snapshot-metrics')
+            ->dailyAt('00:10')
+            ->onOneServer()
+            ->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // One error format across the whole Core's JSON surface: RFC 7807
