@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Billing;
+namespace App\Core\Billing;
 
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,7 +26,7 @@ final class BillingController
         return redirect()->away($billing->portalUrl(
             $ref,
             tenant: ['name' => $tenant->name, 'email' => $tenant->email, 'phone' => $tenant->phone],
-            planCode: config('core_billing.default_plan'),
+            planCode: config('core.billing.default_plan'),
         ));
     }
 }

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Billing;
+namespace App\Core\Billing;
 
-use Illuminate\Http\Client\PendingRequest;
+use App\Core\CoreClient;
+use App\Core\CoreException;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 
 /**
  * The whole commerce integration of a SaaS, in one class.
@@ -22,6 +22,8 @@ use Illuminate\Support\Facades\Http;
  */
 final class CoreBilling
 {
+    public function __construct(private readonly CoreClient $core) {}
+
     /**
      * Declare the tenant and start its plan (a free trial by default).
      * Safe to call twice: the customer is an upsert and the subscription is
@@ -31,19 +33,19 @@ final class CoreBilling
      */
     public function provision(string $ref, array $tenant, ?string $planCode = null, ?int $trialDays = null): void
     {
-        $plan = $planCode ?? config('core_billing.default_plan');
+        $plan = $planCode ?? config('core.billing.default_plan');
 
-        $this->http()->put("/v1/customers/{$ref}", [
+        $this->core->put('customers/'.rawurlencode($ref), [
             'display_name' => $tenant['name'],
             'email' => $tenant['email'] ?? null,
             'phone' => $tenant['phone'] ?? null,
-        ])->throw();
+        ]);
 
-        $this->http()->withHeaders(['Idempotency-Key' => "provision:{$ref}:{$plan}"])->post('/v1/subscriptions', [
+        $this->core->post('subscriptions', [
             'customer_ref' => $ref,
             'plan_code' => $plan,
-            'trial_days' => $trialDays ?? config('core_billing.trial_days'),
-        ])->throw();
+            'trial_days' => $trialDays ?? config('core.billing.trial_days'),
+        ], "provision:{$ref}:{$plan}");
 
         Cache::forget($this->cacheKey($ref));
     }
@@ -64,17 +66,17 @@ final class CoreBilling
             'customer_ref' => $ref,
             'flow' => $flow,
             'invoice_id' => $invoiceId,
-            'return_url' => config('core_billing.return_url'),
+            'return_url' => config('core.billing.return_url'),
             'customer' => $tenant === null ? null : array_filter([
                 'display_name' => $tenant['name'] ?? null,
                 'email' => $tenant['email'] ?? null,
                 'phone' => $tenant['phone'] ?? null,
             ], static fn ($v): bool => $v !== null),
             'plan_code' => $planCode,
-            'trial_days' => $planCode === null ? null : config('core_billing.trial_days'),
+            'trial_days' => $planCode === null ? null : config('core.billing.trial_days'),
         ], static fn ($v): bool => $v !== null);
 
-        return (string) $this->http()->post('/v1/portal/sessions', $payload)->throw()->json('url');
+        return (string) ($this->core->post('portal/sessions', $payload)['url'] ?? '');
     }
 
     /**
@@ -85,15 +87,18 @@ final class CoreBilling
      */
     public function entitlements(string $ref): array
     {
-        return Cache::remember($this->cacheKey($ref), (int) config('core_billing.entitlements_ttl'), function () use ($ref): array {
-            $response = $this->http()->get("/v1/customers/{$ref}/entitlements");
+        return Cache::remember($this->cacheKey($ref), (int) config('core.billing.entitlements_ttl'), function () use ($ref): array {
+            try {
+                /** @var array{active: bool, plan_code: string|null, entitlements: list<array<string, mixed>>} */
+                return $this->core->get('customers/'.rawurlencode($ref).'/entitlements');
+            } catch (CoreException $e) {
+                // Fail closed: a tenant the Core does not know has no rights.
+                if ($e->status === 404) {
+                    return ['active' => false, 'plan_code' => null, 'entitlements' => []];
+                }
 
-            // Fail closed: a tenant the Core does not know has no rights.
-            if ($response->status() === 404) {
-                return ['active' => false, 'plan_code' => null, 'entitlements' => []];
+                throw $e;
             }
-
-            return $response->throw()->json();
         });
     }
 
@@ -128,35 +133,32 @@ final class CoreBilling
      */
     public function consume(string $ref, string $meter, string $key, int $quantity = 1): array
     {
-        $response = $this->http()->post('/v1/usage', [
-            'customer_ref' => $ref,
-            'meter' => $meter,
-            'quantity' => $quantity,
-            'idempotency_key' => $key,
-        ]);
+        try {
+            /** @var array{status: string, used: int, limit: int|null, remaining: int|null} $result */
+            $result = $this->core->post('usage', [
+                'customer_ref' => $ref,
+                'meter' => $meter,
+                'quantity' => $quantity,
+                'idempotency_key' => $key,
+            ]);
+        } catch (CoreException $e) {
+            // 429 `quota-exceeded` is the plan's limit (nothing was counted);
+            // a 429 `rate-limit-exceeded` is the platform asking you to slow down.
+            if ($e->status === 429 && $e->is('quota-exceeded')) {
+                throw new QuotaExceeded($meter, (int) ($e->body['used'] ?? 0), isset($e->body['limit']) ? (int) $e->body['limit'] : null);
+            }
 
-        if ($response->status() === 429) {
-            throw new QuotaExceeded($meter, (int) $response->json('used'), $response->json('limit'));
+            throw $e;
         }
 
         Cache::forget($this->cacheKey($ref));
 
-        return $response->throw()->json();
+        return $result;
     }
 
     public function forget(string $ref): void
     {
         Cache::forget($this->cacheKey($ref));
-    }
-
-    private function http(): PendingRequest
-    {
-        return Http::baseUrl((string) config('core_billing.base_url'))
-            ->withToken((string) config('core_billing.api_key'))
-            ->acceptJson()
-            ->asJson()
-            ->timeout(10)
-            ->retry(2, 200, throw: false);
     }
 
     private function cacheKey(string $ref): string

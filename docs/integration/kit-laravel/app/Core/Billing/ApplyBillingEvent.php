@@ -2,22 +2,21 @@
 
 declare(strict_types=1);
 
-namespace App\Billing;
+namespace App\Core\Billing;
 
-use Illuminate\Http\Request;
-use Illuminate\Http\Response;
+use App\Core\Webhooks\CoreEventReceived;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * Receives the Core's events (ADR-0084 §3): verified, deduplicated, ordered.
+ * Turns the Core's subscription events into the state of YOUR tenant
+ * (ADR-0084 §3). Register it once:
  *
- * Add the route OUTSIDE the `web` group (no CSRF, no session):
- *   Route::post('/webhooks/core', CoreWebhookController::class);
+ *   Event::listen(CoreEventReceived::class, ApplyBillingEvent::class);
+ *
+ * It ignores every event that is not about commerce.
  */
-final class CoreWebhookController
+final class ApplyBillingEvent
 {
-    private const TOLERANCE_SECONDS = 300;
-
     /** event type → [state to apply, reason] */
     private const EFFECTS = [
         'subscription.activated' => ['active', 'subscription activated'],
@@ -33,90 +32,45 @@ final class CoreWebhookController
         'customer.reactivated' => ['active', 'customer reactivated'],
     ];
 
-    public function __invoke(Request $request, CoreBilling $billing): Response
+    public function __construct(private readonly CoreBilling $billing) {}
+
+    public function __invoke(CoreEventReceived $event): void
     {
-        $raw = $request->getContent();   // the body as received, BEFORE any decoding
-
-        $signatures = array_filter([(string) $request->header('X-Signature'), (string) $request->header('X-Signature-Previous')]);
-
-        if (! $this->signatureIsValid($raw, (string) $request->header('X-Timestamp'), $signatures)) {
-            return response('invalid signature', 401);       // the only 4xx you should send
+        if (! $event->is('subscription') && ! $event->is('invoice') && ! $event->is('customer') && ! $event->is('usage')) {
+            return;
         }
 
-        $event = json_decode($raw, true);
-
-        if (! is_array($event) || ! isset($event['id'], $event['type'])) {
-            return response('', 204);
-        }
-
-        // At-least-once delivery: process each event id once — but mark it
-        // done only AFTER it was applied, so a failure is retried by the Core
-        // instead of being swallowed as a duplicate.
-        $seen = 'core_billing:event:'.$event['id'];
-
-        if (Cache::has($seen)) {
-            return response('', 204);
-        }
-
-        $data = is_array($event['data'] ?? null) ? $event['data'] : [];
+        $data = $event->data;
         $ref = $data['customer_ref'] ?? $data['external_ref'] ?? null;
 
-        if (is_string($ref)) {
-            $billing->forget($ref);                          // next read is fresh
-
-            // Delivery order is not guaranteed: ignore an event older than
-            // the last one applied for this tenant (`version` of the resource).
-            if ($this->isStale($data, $event['type'], $data['version'] ?? null)) {
-                return response('', 204);
-            }
-
-            if (isset(self::EFFECTS[$event['type']])) {
-                [$state, $reason] = self::EFFECTS[$event['type']];
-
-                // « Do not renew » is announced as `subscription.canceled` with
-                // `cancel_at_period_end = true`: the tenant keeps its rights until
-                // the period ends (then `subscription.expired` / a final
-                // `subscription.canceled` tells you). Never block on the request.
-                if ($event['type'] === 'subscription.canceled' && ($data['cancel_at_period_end'] ?? false) === true) {
-                    [$state, $reason] = ['warning', 'subscription will not renew'];
-                }
-
-                TenantAccess::apply($ref, $state, $reason);
-            }
-
-            // usage.threshold_reached / usage.limit_reached: warn your tenant
-            // here (banner, e-mail…) — `$data['meter']`, `$data['used']`, `$data['limit']`.
+        if (! is_string($ref)) {
+            return;
         }
 
-        Cache::put($seen, 1, now()->addDays(2));
+        $this->billing->forget($ref);                          // the next read is fresh
 
-        return response('', 204);
-    }
-
-    /**
-     * `X-Signature-Previous` is sent during a secret rotation (the old secret
-     * still signs for a while): either signature may match.
-     *
-     * @param list<string> $signatures
-     */
-    private function signatureIsValid(string $raw, string $timestamp, array $signatures): bool
-    {
-        $secret = (string) config('core_billing.webhook_secret');
-
-        // Fail closed: an unset secret would let anyone compute a valid HMAC.
-        if ($secret === '' || ! ctype_digit($timestamp) || abs(time() - (int) $timestamp) > self::TOLERANCE_SECONDS) {
-            return false;
+        // Delivery order is not guaranteed: ignore an event older than the last
+        // one applied for this resource (`version`).
+        if ($this->isStale($data, $event->type, $data['version'] ?? null)) {
+            return;
         }
 
-        $expected = hash_hmac('sha256', $timestamp.'.'.$raw, $secret);
+        if (isset(self::EFFECTS[$event->type])) {
+            [$state, $reason] = self::EFFECTS[$event->type];
 
-        foreach ($signatures as $signature) {
-            if (hash_equals($expected, $signature)) {
-                return true;
+            // « Do not renew » is announced as `subscription.canceled` with
+            // `cancel_at_period_end = true`: the tenant keeps its rights until the
+            // period ends (then `subscription.expired` tells you). Never block on the request.
+            if ($event->type === 'subscription.canceled' && ($data['cancel_at_period_end'] ?? false) === true) {
+                [$state, $reason] = ['warning', 'subscription will not renew'];
             }
+
+            TenantAccess::apply($ref, $state, $reason);
         }
 
-        return false;
+        // subscription.trial_will_end (3 days before), usage.threshold_reached,
+        // usage.limit_reached: warn your tenant here (banner, WhatsApp via
+        // CoreNotifications…) — `$data['meter']`, `$data['used']`, `$data['limit']`.
     }
 
     /**
@@ -136,7 +90,7 @@ final class CoreWebhookController
             return false;
         }
 
-        $key = 'core_billing:version:'.explode('.', $type)[0].':'.$resourceId;
+        $key = 'core:version:'.explode('.', $type)[0].':'.$resourceId;
         $known = (int) Cache::get($key, 0);
 
         if ($version < $known) {

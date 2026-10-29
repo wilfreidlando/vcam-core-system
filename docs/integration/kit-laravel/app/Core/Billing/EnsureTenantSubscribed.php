@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Billing;
+namespace App\Core\Billing;
 
 use Closure;
 use Illuminate\Http\Request;
@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
  *   Route::middleware('subscribed:whatsapp')->group(...);     // a feature of the plan
  *
  * Register the alias in bootstrap/app.php:
- *   $middleware->alias(['subscribed' => \App\Billing\EnsureTenantSubscribed::class]);
+ *   $middleware->alias(['subscribed' => \App\Core\Billing\EnsureTenantSubscribed::class]);
  *
  * The tenant of a request is resolved by YOUR code, in one place:
  * `CoreBilling::tenantRef()` below — adapt that single line.

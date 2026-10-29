@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Billing;
+namespace App\Core\Billing;
 
 use RuntimeException;
 

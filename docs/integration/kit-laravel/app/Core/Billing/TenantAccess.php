@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Billing;
+namespace App\Core\Billing;
 
 /**
  * THE ONLY BUSINESS CODE YOU WRITE: what happens in YOUR app when the state

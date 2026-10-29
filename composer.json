@@ -70,6 +70,7 @@
     "autoload-dev": {
         "psr-4": {
             "Tests\\": "tests/",
+            "App\\Core\\": "docs/integration/kit-laravel/app/Core/",
             "Core\\Tooling\\": "tools/",
             "Core\\Identity\\Tests\\": "packages/identity/tests/",
             "Core\\Parties\\Tests\\": "packages/parties/tests/",
