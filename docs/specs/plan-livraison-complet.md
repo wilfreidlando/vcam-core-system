@@ -115,3 +115,5 @@ en console.
 ## 8. Recette par navigateur
 
 Session de bout en bout depuis la console de toute la plateforme (26 scénarios, 17 défauts corrigés) : [recette-navigateur.md](recette-navigateur.md). `make e2e-seed` prépare un opérateur pour la rejouer.
+
+**Seconde session, le même jour** (après la livraison des lots 14, 15 et 17, jamais pilotés) : 193 écarts consignés — 4 bloquants fonctionnels (console inutilisable sur mobile, erreurs de validation jamais affichées, expression Alpine invalide, écran « Export des données » en 500), 15 écarts visuels, 119 d'accessibilité, 35 de robustesse, 20 de sécurité — dans [`docs/audit/ecarts-recette-2026-10-29.md`](../audit/ecarts-recette-2026-10-29.md) et ses trois annexes. Le lot 14 et le lot 17 ne peuvent pas être déclarés terminés avant que ces écarts soient soldés.

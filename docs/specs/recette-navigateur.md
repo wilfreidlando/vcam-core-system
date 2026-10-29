@@ -1,5 +1,13 @@
 # Recette de bout en bout par navigateur — 2026-10-29
 
+> **Session du soir (même jour) — à lire aussi.** Les lots 14, 15 et 17 ont été livrés **après**
+> cette session et n'avaient jamais été pilotés dans un navigateur. Une seconde passe a été menée le
+> même jour (console, portail, audits ECC en lecture seule) : elle a trouvé **4 bloquants
+> fonctionnels** — console inutilisable sur mobile, erreurs de validation jamais affichées,
+> expression Alpine invalide, écran « Export des données » en 500 — et **193 écarts** au total.
+> Registre complet : [`docs/audit/ecarts-recette-2026-10-29.md`](../audit/ecarts-recette-2026-10-29.md),
+> avec ses trois annexes (accessibilité, robustesse, sécurité).
+
 Session menée dans un vrai navigateur (Chrome, pilotage DevTools) contre la pile de développement,
 **en partant de la console de toute la plateforme** : on ne prépare aucune donnée à la main, on la crée
 par l'interface, puis on pilote l'API avec la clé émise dans l'interface, puis on vérifie ce que voit le
