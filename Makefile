@@ -245,3 +245,7 @@ prod-logs: ## Tail production container logs
 .PHONY: prod-shell
 prod-shell: ## Open a shell in the production app container
 	$(DC_PROD) exec app bash
+
+.PHONY: portal-demo
+portal-demo: ## Seed demo data and print a fresh one-time link to the customer portal (dev only)
+	@$(EXEC) php artisan tinker --execute="require 'tools/checks/portal-demo.php';" | grep -o 'LINK=.*' | sed "s/^LINK=//; s#localhost:8000#localhost:$${APP_PORT:-8010}#"

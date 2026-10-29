@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Architecture;
 
 use App\Http\Middleware\ResolveOperatorSession;
+use Core\Portal\Presentation\Http\Middleware\AuthenticatePortal;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Route as RouteFacade;
 use PHPUnit\Framework\Attributes\Group;
@@ -104,6 +105,15 @@ final class IdempotencyTest extends TestCase
             return false;
         }
 
+        // The **customer portal** (ADR-0075 §5, ADR-0097) is a browser
+        // plane too: its pay button cannot send a header. It does not skip
+        // idempotency, it moves it server-side — the key handed to
+        // `PayInvoice` is derived from the one-time nonce of the form, so a
+        // double click is one payment (tested in PortalFlowTest).
+        if ($this->isCustomerPortal($route)) {
+            return false;
+        }
+
         return preg_match(self::MONETARY_URI_PATTERN, $route->uri()) === 1;
     }
 
@@ -116,6 +126,18 @@ final class IdempotencyTest extends TestCase
         $middleware = array_values(array_filter($route->gatherMiddleware(), is_string(...)));
 
         return array_intersect(['operator.session', ResolveOperatorSession::class], $middleware) !== [];
+    }
+
+    /**
+     * The route is a page of the customer portal: guarded by the portal
+     * cookie and its anti-forgery token, with an idempotency key derived
+     * from the form.
+     */
+    private function isCustomerPortal(Route $route): bool
+    {
+        $middleware = array_values(array_filter($route->gatherMiddleware(), is_string(...)));
+
+        return in_array(AuthenticatePortal::class, $middleware, true);
     }
 
     /**

@@ -25,6 +25,7 @@
         "core/notification": "*@dev",
         "core/parties": "*@dev",
         "core/payment": "*@dev",
+        "core/portal": "*@dev",
         "core/storage": "*@dev",
         "core/support": "*@dev",
         "core/wallet": "*@dev",

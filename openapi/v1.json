@@ -3,7 +3,7 @@
     "info": {
         "title": "Core System API",
         "version": "v1",
-        "description": "Enterprise Core System \u2014 the cross-cutting capabilities (identity, ledger, wallet, payment, notification, webhook) shared across every product. Authenticate with `Authorization: Bearer pk_<env>_<id>.<secret>` \u2014 see `GET /v1/whoami`. \n\n## Reading this document \n\n- Every request body attribute has a description and a realistic example. `required` is marked. - Every operation carries an `x-required-scopes` field listing the API key scopes the caller must hold. - The wildcard scope `*` covers every concrete scope \u2014 a key issued with `--scope=\"*\"` is the whole Core for this tenant and passes every scope check. - Every monetary POST under `/v1/payments/*` requires an `Idempotency-Key` header (cached response on replay, `409` on conflict). \n\n## Outbound events (Core \u2192 caller) \n\nThe Core emits events on two planes \u2014 register `POST /v1/webhook-endpoints` to subscribe, or supply `callback_url` on `POST /v1/payments` for a per-payment delivery: \n\n- `WebhookEvent` \u2014 envelope `{id, type, data}` POSTed to subscribed endpoints, signed HMAC-SHA256 (headers `X-Signature`, `X-Timestamp`, `X-Event-Id`, `X-Event-Type`). - `WebhookEventType` \u2014 the closed enum of event types the Core emits (`payment.status_changed`, `notification.delivered`, `notification.read`, `notification.failed`, `wallet.credited`, `wallet.debited`). - `PaymentCallbackEvent` \u2014 the body POSTed to a per-payment `callback_url`. Same signature scheme, per-payment secret returned once in the initiation response. \n\n## Errors \n\nEvery error response is `application/problem+json` (RFC 7807) with `{type, title, status, detail, correlation_id}`. 422 from a `FormRequest` adds an `errors: {field: [msg]}` map. Quote `correlation_id` when contacting support."
+        "description": "Enterprise Core System \u2014 the cross-cutting capabilities (identity, ledger, wallet, payment, notification, webhook) shared across every product. Authenticate with `Authorization: Bearer pk_<env>_<id>.<secret>` \u2014 see `GET /v1/whoami`. \n\n## Reading this document \n\n- Every request body attribute has a description and a realistic example. `required` is marked. - Every operation carries an `x-required-scopes` field listing the API key scopes the caller must hold. - The wildcard scope `*` covers every concrete scope \u2014 a key issued with `--scope=\"*\"` is the whole Core for this tenant and passes every scope check. - Every monetary POST under `/v1/payments/*` requires an `Idempotency-Key` header (cached response on replay, `409` on conflict). \n\n## Outbound events (Core \u2192 caller) \n\nThe Core emits events on two planes \u2014 register `POST /v1/webhook-endpoints` to subscribe, or supply `callback_url` on `POST /v1/payments` for a per-payment delivery: \n\n- `WebhookEvent` \u2014 envelope `{id, type, data}` POSTed to subscribed endpoints, signed HMAC-SHA256 (headers `X-Signature`, `X-Timestamp`, `X-Event-Id`, `X-Event-Type`). - `WebhookEventType` \u2014 the closed enum of event types the Core emits (`payment.status_changed`, `notification.delivered`, `notification.read`, `notification.failed`, `wallet.credited`, `wallet.debited`, the `subscription.*`, `invoice.*` and `usage.*` commerce events of ADR-0084). - `PaymentCallbackEvent` \u2014 the body POSTed to a per-payment `callback_url`. Same signature scheme, per-payment secret returned once in the initiation response. \n\n## Errors \n\nEvery error response is `application/problem+json` (RFC 7807) with `{type, title, status, detail, correlation_id}`. 422 from a `FormRequest` adds an `errors: {field: [msg]}` map. Quote `correlation_id` when contacting support."
     },
     "servers": [
         {
@@ -1481,6 +1481,669 @@
                 "x-required-scopes": [
                     "customers:read",
                     "customers:write"
+                ]
+            }
+        },
+        "/usage": {
+            "post": {
+                "operationId": "usage.consume",
+                "description": "`201` when the unit is counted, `200` when the same\n`idempotency_key` was already counted (nothing is counted twice),\n`429 quota-exceeded` when the plan's limit would be crossed \u2014 a\nrefused call writes nothing and may be replayed with the same key.\n\nRequires the `usage:write` scope.",
+                "summary": "Spend units of a meter",
+                "tags": [
+                    "Billing"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ConsumeUsageRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The unit is counted.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "meter": {
+                                            "type": "string"
+                                        },
+                                        "used": {
+                                            "type": "integer"
+                                        },
+                                        "limit": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "remaining": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "window_start": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "window_end": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "status",
+                                        "meter",
+                                        "used",
+                                        "limit",
+                                        "remaining",
+                                        "window_start",
+                                        "window_end"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "The key was already counted; the decision is replayed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "meter": {
+                                            "type": "string"
+                                        },
+                                        "used": {
+                                            "type": "integer"
+                                        },
+                                        "limit": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "remaining": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "window_start": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "window_end": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "status",
+                                        "meter",
+                                        "used",
+                                        "limit",
+                                        "remaining",
+                                        "window_start",
+                                        "window_end"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/quota-exceeded"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Quota exceeded"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 429
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/usage-underflow"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "Usage cannot go below zero"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/customer-ref-required"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "Customer reference required"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/idempotency-key-reused"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Idempotency key already used"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 409
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/entitlement-inactive"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "No active entitlement"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 403
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/feature-not-included"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "Feature not included"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 403
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/forbidden"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "Forbidden"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 403
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/customer-not-found"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Customer not found"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "usage:write"
+                ]
+            }
+        },
+        "/customers/{externalRef}/entitlements": {
+            "get": {
+                "operationId": "customers.entitlements",
+                "description": "`active: false` with no entitlement means no contract grants access\nright now (unpaid beyond the grace period, paused, suspended).\n\nRequires the `usage:read` scope.",
+                "summary": "Read the entitlements of a customer",
+                "tags": [
+                    "Billing"
+                ],
+                "parameters": [
+                    {
+                        "name": "externalRef",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The rights of the customer and its counters of the current window.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "customer_ref": {
+                                            "type": "string"
+                                        },
+                                        "active": {
+                                            "type": "boolean"
+                                        },
+                                        "plan_code": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "subscription_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "entitlements": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "key": {
+                                                        "type": "string"
+                                                    },
+                                                    "type": {
+                                                        "type": "string"
+                                                    },
+                                                    "enabled": {
+                                                        "type": [
+                                                            "boolean",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "meter": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "limit": {
+                                                        "type": [
+                                                            "integer",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "used": {
+                                                        "type": [
+                                                            "integer",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "remaining": {
+                                                        "type": [
+                                                            "integer",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "overage": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "threshold_bps": {
+                                                        "type": [
+                                                            "integer",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "window_start": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "window_end": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                },
+                                                "required": [
+                                                    "key",
+                                                    "type",
+                                                    "enabled",
+                                                    "meter",
+                                                    "limit",
+                                                    "used",
+                                                    "remaining",
+                                                    "overage",
+                                                    "threshold_bps",
+                                                    "window_start",
+                                                    "window_end"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "customer_ref",
+                                        "active",
+                                        "plan_code",
+                                        "subscription_id",
+                                        "entitlements"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/customer-not-found"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Customer not found"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "usage:read"
                 ]
             }
         },
@@ -10958,6 +11621,444 @@
                 ]
             }
         },
+        "/portal/sessions": {
+            "post": {
+                "operationId": "portal.sessions.open",
+                "description": "Returns a link valid **10 minutes** and usable **once**: redirect the\ncustomer's browser to it. In the same call you may declare the\ncustomer (`customer`) and subscribe it to a plan (`plan_code`, only\nif it has no live contract on it) \u2014 this single call is the whole\ncommerce integration of your login page.\n\nRequires `portal:write`; `customer` additionally needs\n`customers:write` and `plan_code` needs `subscriptions:write`.",
+                "summary": "Send a customer to the hosted portal",
+                "tags": [
+                    "Portal"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OpenPortalSessionRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The one-time link of the portal.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "url": {
+                                            "type": "string"
+                                        },
+                                        "expires_at": {
+                                            "type": "string"
+                                        },
+                                        "customer_created": {
+                                            "type": "boolean"
+                                        },
+                                        "subscription_created": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": [
+                                        "url",
+                                        "expires_at",
+                                        "customer_created",
+                                        "subscription_created"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "customers:write",
+                    "portal:write",
+                    "subscriptions:write"
+                ]
+            }
+        },
+        "/portal/settings": {
+            "get": {
+                "operationId": "portal.settings.show",
+                "description": "Requires the `portal:write` scope.",
+                "summary": "Read the look and the permissions of your portal",
+                "tags": [
+                    "Portal"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The settings of the portal (the defaults when you never set any).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "display_name": {
+                                            "type": "string"
+                                        },
+                                        "logo_url": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "primary_color": {
+                                            "type": "string"
+                                        },
+                                        "support_url": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "locale": {
+                                            "type": "string"
+                                        },
+                                        "allowed_return_urls": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "allow_self_cancel": {
+                                            "type": "boolean"
+                                        },
+                                        "allow_plan_change": {
+                                            "type": "boolean"
+                                        },
+                                        "payment_channels": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "display_name",
+                                        "logo_url",
+                                        "primary_color",
+                                        "support_url",
+                                        "locale",
+                                        "allowed_return_urls",
+                                        "allow_self_cancel",
+                                        "allow_plan_change",
+                                        "payment_channels"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "portal:write"
+                ]
+            },
+            "put": {
+                "operationId": "portal.settings.update",
+                "description": "`allowed_return_urls` is the only list of places the portal will ever\nsend a customer back to; anything else is refused. Requires `portal:write`.",
+                "summary": "Set the look and the permissions of your portal",
+                "tags": [
+                    "Portal"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SavePortalSettingsRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The settings now in force.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "display_name": {
+                                            "type": "string"
+                                        },
+                                        "logo_url": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "primary_color": {
+                                            "type": "string"
+                                        },
+                                        "support_url": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "locale": {
+                                            "type": "string"
+                                        },
+                                        "allowed_return_urls": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "allow_self_cancel": {
+                                            "type": "boolean"
+                                        },
+                                        "allow_plan_change": {
+                                            "type": "boolean"
+                                        },
+                                        "payment_channels": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "display_name",
+                                        "logo_url",
+                                        "primary_color",
+                                        "support_url",
+                                        "locale",
+                                        "allowed_return_urls",
+                                        "allow_self_cancel",
+                                        "allow_plan_change",
+                                        "payment_channels"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "portal:write"
+                ]
+            }
+        },
         "/wallets/{walletId}/balance": {
             "get": {
                 "operationId": "wallet.balance",
@@ -12838,6 +13939,82 @@
                 ],
                 "title": "ChangeSubscriptionPlanRequest"
             },
+            "ConsumeUsageRequest": {
+                "type": "object",
+                "description": "`POST /v1/usage` \u2014 ADR-0074 \u00a74.",
+                "properties": {
+                    "customer_ref": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The customer the usage is attributed to, by the reference the\nproject declared it with. Optional unless the project asked\nfor every metered call to name its customer.",
+                        "pattern": "^[A-Za-z0-9._:-]+$",
+                        "examples": [
+                            "AE0001"
+                        ],
+                        "maxLength": 128
+                    },
+                    "meter": {
+                        "type": "string",
+                        "description": "The meter, as the plan names it. The Core keeps no list of\nmeters: the project names them.",
+                        "pattern": "^[a-z0-9_.]{1,64}$",
+                        "examples": [
+                            "students"
+                        ]
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "description": "Units spent. Negative releases a gauge (a student leaves) or\ncompensates a failed effect; zero is meaningless.",
+                        "examples": [
+                            1
+                        ],
+                        "minimum": -1000000000,
+                        "maximum": 1000000000
+                    },
+                    "idempotency_key": {
+                        "type": "string",
+                        "description": "Makes the call safe to replay: the same key counts once.",
+                        "examples": [
+                            "student:8f2c:enroll"
+                        ],
+                        "minLength": 1,
+                        "maxLength": 255
+                    },
+                    "occurred_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time",
+                        "description": "When the usage happened. Defaults to now.",
+                        "examples": [
+                            "2026-11-02T09:12:00Z"
+                        ]
+                    },
+                    "mode": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "`enforce` refuses beyond the limit (default); `record` states\na fact that already happened and is written even beyond it.",
+                        "enum": [
+                            "enforce",
+                            "record",
+                            null
+                        ],
+                        "examples": [
+                            "enforce"
+                        ]
+                    }
+                },
+                "required": [
+                    "meter",
+                    "quantity",
+                    "idempotency_key"
+                ],
+                "title": "ConsumeUsageRequest"
+            },
             "CreateInvoiceRequest": {
                 "type": "object",
                 "description": "`POST /v1/invoices` \u2014 ADR-0073 \u00a71, a manual invoice.\n\nThe customer is named by the reference the project knows it by (the\ncorrelation key of ADR-0070 \u00a71): the reference is format-checked so it\ncan never be injected into a URL, a log or a cache key.",
@@ -13186,6 +14363,126 @@
                 },
                 "title": "EraseCustomerRequest"
             },
+            "OpenPortalSessionRequest": {
+                "type": "object",
+                "description": "`POST /v1/portal/sessions` \u2014 ADR-0075 \u00a71.",
+                "properties": {
+                    "customer_ref": {
+                        "type": "string",
+                        "description": "The customer, by the reference your project knows it by.",
+                        "pattern": "^[A-Za-z0-9._:-]+$",
+                        "examples": [
+                            "AE0001"
+                        ],
+                        "maxLength": 128
+                    },
+                    "flow": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Where the customer lands: `manage` (the home of the portal,\ndefault) or `pay_invoice` (straight to an invoice, which needs\n`invoice_id`).",
+                        "enum": [
+                            "manage",
+                            "pay_invoice",
+                            null
+                        ],
+                        "examples": [
+                            "manage"
+                        ]
+                    },
+                    "invoice_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uuid",
+                        "description": "The invoice to open with the `pay_invoice` flow."
+                    },
+                    "return_url": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Where the portal's \"Retour\" button sends the customer. It must\nbe one of the origins you allowed in `PUT /v1/portal/settings`,\notherwise the call is refused (422).",
+                        "examples": [
+                            "https://app.mon-auto-ecole.cm/compte"
+                        ],
+                        "maxLength": 2048
+                    },
+                    "customer": {
+                        "type": "object",
+                        "description": "Optional: declare or refresh the customer in the same call, so\nyour project needs no separate \"sync customers\" job. Needs the\n`customers:write` scope. Omitted fields keep their value.",
+                        "properties": {
+                            "display_name": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "maxLength": 200
+                            },
+                            "email": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "email",
+                                "maxLength": 254
+                            },
+                            "phone": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "maxLength": 32
+                            },
+                            "locale": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "maxLength": 10
+                            },
+                            "metadata": {
+                                "type": [
+                                    "array",
+                                    "null"
+                                ],
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "plan_code": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Optional: subscribe the customer to this plan **if it has no\nlive contract on it yet** \u2014 so the call is safe on every login.\nNeeds the `subscriptions:write` scope.",
+                        "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                        "examples": [
+                            "pro"
+                        ]
+                    },
+                    "trial_days": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "description": "Free trial days when the subscription is created by this call.",
+                        "examples": [
+                            14
+                        ],
+                        "minimum": 0,
+                        "maximum": 365
+                    }
+                },
+                "required": [
+                    "customer_ref"
+                ],
+                "title": "OpenPortalSessionRequest"
+            },
             "PayInvoiceRequest": {
                 "type": "object",
                 "description": "`POST /v1/invoices/{invoiceId}/pay` \u2014 ADR-0073 \u00a72, the online\ncollection of an invoice.\n\nThe amount is **not** in the request: what is due on the invoice is\nwhat is collected (ADR-0094 \u00a78). The caller says only how the payer\nwill pay.",
@@ -13526,7 +14823,25 @@
                                 "notification.read",
                                 "notification.failed",
                                 "wallet.credited",
-                                "wallet.debited"
+                                "wallet.debited",
+                                "subscription.created",
+                                "subscription.activated",
+                                "subscription.renewed",
+                                "subscription.renewal_due",
+                                "subscription.plan_changed",
+                                "subscription.past_due",
+                                "subscription.paused",
+                                "subscription.resumed",
+                                "subscription.canceled",
+                                "subscription.expired",
+                                "invoice.issued",
+                                "invoice.paid",
+                                "invoice.payment_failed",
+                                "invoice.voided",
+                                "customer.suspended",
+                                "customer.reactivated",
+                                "usage.threshold_reached",
+                                "usage.limit_reached"
                             ],
                             "examples": [
                                 "payment.status_changed"
@@ -13572,6 +14887,99 @@
                     }
                 },
                 "title": "RotateWebhookSecretRequest"
+            },
+            "SavePortalSettingsRequest": {
+                "type": "object",
+                "description": "`PUT /v1/portal/settings` \u2014 ADR-0075 \u00a74.",
+                "properties": {
+                    "display_name": {
+                        "type": "string",
+                        "description": "The name shown at the top of the portal. @example \"Mon Auto-\u00c9cole\"",
+                        "maxLength": 80
+                    },
+                    "logo_url": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "An https URL of your logo (shown at most 40px high).",
+                        "maxLength": 500
+                    },
+                    "primary_color": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Your brand colour, `#rrggbb`. @example \"#0f766e\"",
+                        "maxLength": 7
+                    },
+                    "support_url": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "An https URL or a `mailto:` address for \"Besoin d'aide ?\".",
+                        "maxLength": 500
+                    },
+                    "locale": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "examples": [
+                            "fr"
+                        ],
+                        "maxLength": 5
+                    },
+                    "allowed_return_urls": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "description": "The origins (and optional path prefixes) a `return_url` may\npoint to. Exact match on scheme, host and port.",
+                        "items": {
+                            "type": "string",
+                            "maxLength": 500
+                        },
+                        "maxItems": 20
+                    },
+                    "allow_self_cancel": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ],
+                        "description": "May a customer stop their contract at the end of the period?"
+                    },
+                    "allow_plan_change": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ],
+                        "description": "May a customer subscribe and change plan alone?"
+                    },
+                    "payment_channels": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "description": "Optional. By default the portal offers every payment channel the\nplatform can route for your project (you configure no payment\nprovider). List channels here only to NARROW that offer, e.g.\n`[\"mtn_momo\"]`. Empty = no restriction.",
+                        "examples": [
+                            [
+                                "mtn_momo",
+                                "orange_money"
+                            ]
+                        ],
+                        "items": {
+                            "type": "string",
+                            "maxLength": 32
+                        },
+                        "maxItems": 10
+                    }
+                },
+                "required": [
+                    "display_name"
+                ],
+                "title": "SavePortalSettingsRequest"
             },
             "SendFileNotificationRequest": {
                 "type": "object",
@@ -13655,6 +15063,18 @@
                                     "ma-boutique"
                                 ],
                                 "maxLength": 64
+                            },
+                            "customer_ref": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "description": "The customer this message is billed to, by the reference you\ndeclared it with (`PUT /v1/customers/{ref}`). Required only\nwhen your project asked for every metered call to name its\ncustomer; ignored when no meter is mapped to notifications.\nA message beyond the customer's plan is refused with `429\nquota-exceeded` and nothing is sent.",
+                                "pattern": "^[A-Za-z0-9._:-]+$",
+                                "examples": [
+                                    "AE0001"
+                                ],
+                                "maxLength": 128
                             }
                         }
                     },
@@ -13767,6 +15187,18 @@
                                     "ma-boutique"
                                 ],
                                 "maxLength": 64
+                            },
+                            "customer_ref": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "description": "The customer this message is billed to, by the reference you\ndeclared it with (`PUT /v1/customers/{ref}`). Required only\nwhen your project asked for every metered call to name its\ncustomer; ignored when no meter is mapped to notifications.\nA message beyond the customer's plan is refused with `429\nquota-exceeded` and nothing is sent.",
+                                "pattern": "^[A-Za-z0-9._:-]+$",
+                                "examples": [
+                                    "AE0001"
+                                ],
+                                "maxLength": 128
                             }
                         }
                     },
@@ -13843,6 +15275,18 @@
                                     "ma-boutique"
                                 ],
                                 "maxLength": 64
+                            },
+                            "customer_ref": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "description": "The customer this message is billed to, by the reference you\ndeclared it with (`PUT /v1/customers/{ref}`). Required only\nwhen your project asked for every metered call to name its\ncustomer; ignored when no meter is mapped to notifications.\nA message beyond the customer's plan is refused with `429\nquota-exceeded` and nothing is sent.",
+                                "pattern": "^[A-Za-z0-9._:-]+$",
+                                "examples": [
+                                    "AE0001"
+                                ],
+                                "maxLength": 128
                             }
                         }
                     },
@@ -14421,7 +15865,25 @@
                     "notification.read",
                     "notification.failed",
                     "wallet.credited",
-                    "wallet.debited"
+                    "wallet.debited",
+                    "subscription.created",
+                    "subscription.activated",
+                    "subscription.renewed",
+                    "subscription.renewal_due",
+                    "subscription.plan_changed",
+                    "subscription.past_due",
+                    "subscription.paused",
+                    "subscription.resumed",
+                    "subscription.canceled",
+                    "subscription.expired",
+                    "invoice.issued",
+                    "invoice.paid",
+                    "invoice.payment_failed",
+                    "invoice.voided",
+                    "customer.suspended",
+                    "customer.reactivated",
+                    "usage.threshold_reached",
+                    "usage.limit_reached"
                 ],
                 "title": "WebhookEventType"
             }
