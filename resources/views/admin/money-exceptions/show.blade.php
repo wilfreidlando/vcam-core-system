@@ -7,7 +7,7 @@
     @php
         $field = 'text-sm uppercase tracking-wider font-semibold text-slate-500';
         $fmt = static fn (?string $iso): string => $iso !== null ? \Illuminate\Support\Carbon::parse($iso)->format('d/m/Y H:i:s') : '—';
-        $money = static fn (int $minor) => \Core\Support\Money\Money::ofMinor($minor, $exception->currency)->formattedAmount().' '.$exception->currency;
+        $money = static fn (int $minor) => \Core\Support\Money\Money::ofMinor($minor, $exception->currency)->groupedAmount().' '.$exception->currency;
         $statusLabels = ['open' => 'Ouverte', 'awaiting_approval' => 'En attente de validation', 'resolved' => 'Résolue'];
         $resolutionLabels = [
             'refunded_outside' => 'Remboursé hors plateforme',

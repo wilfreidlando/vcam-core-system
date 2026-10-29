@@ -247,7 +247,7 @@ final class BillingSubscriptionsController
         $this->permittedScope($operator, 'subscriptions:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'subscriptions:write');
 
-        /** @var array{days: int, reason: string} $data */
+        /** @var array{days: int|string, reason: string} $data */
         $data = Validator::make($request->all(), [
             'days' => ['required', 'integer', 'min:1', 'max:365'],
             'reason' => ['required', 'string', 'max:500'],
@@ -259,7 +259,7 @@ final class BillingSubscriptionsController
             $this->grantComplimentaryPeriod->grant(new GrantComplimentaryPeriodCommand(
                 projectId: $projectId,
                 subscriptionId: $subscriptionId,
-                days: $data['days'],
+                days: (int) $data['days'],
                 reason: $reason,
                 actor: $this->actor($operator),
                 correlationId: null,
@@ -283,7 +283,7 @@ final class BillingSubscriptionsController
         $this->permittedScope($operator, 'subscriptions:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'subscriptions:write');
 
-        /** @var array{seq: int, reference?: string|null} $data */
+        /** @var array{seq: int|string|string, reference?: string|null} $data */
         $data = Validator::make($request->all(), [
             'seq' => ['required', 'integer', 'min:1'],
             'reference' => ['nullable', 'string', 'max:200'],
@@ -293,7 +293,7 @@ final class BillingSubscriptionsController
             $this->confirmPayment->confirm(new ConfirmSubscriptionPeriodPaymentCommand(
                 projectId: $projectId,
                 subscriptionId: $subscriptionId,
-                seq: $data['seq'],
+                seq: (int) $data['seq'],
                 reference: isset($data['reference']) && $data['reference'] !== '' ? $data['reference'] : null,
                 actor: $this->actor($operator),
                 correlationId: null,

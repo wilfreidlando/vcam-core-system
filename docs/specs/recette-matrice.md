@@ -71,3 +71,8 @@ Non corrigés (à trancher) :
 - `subscription.trial_will_end` est désormais émis une fois à J−3 (`TrialWillEndTest`, table `subscription_notices`).
 - R-06 : libellé de la spécification aligné sur ADR-0095 (le défaut était dans le critère, pas dans le code).
 - `billing_settings.retain_invoice_identity` reste sans effet : à décider avec le lot de conformité (ADR-0094 §7).
+
+## Recette par navigateur
+
+La session de bout en bout menée dans un navigateur, depuis la console de toute la plateforme, est dans
+[recette-navigateur.md](recette-navigateur.md) (21 scénarios, 9 défauts trouvés et corrigés).

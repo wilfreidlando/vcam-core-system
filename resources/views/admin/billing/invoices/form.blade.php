@@ -44,7 +44,7 @@
                            class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono">
                 </div>
                 <div>
-                    <label for="tax_rate_bps" class="block text-sm font-medium text-slate-700">Taxe (‰)</label>
+                    <label for="tax_rate_bps" class="block text-sm font-medium text-slate-700">Taxe (points de base)</label>
                     <input id="tax_rate_bps" name="tax_rate_bps" type="number" min="0" max="10000"
                            value="{{ old('tax_rate_bps') }}"
                            class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
@@ -65,7 +65,7 @@
                 <div class="grid gap-3 rounded-md border border-slate-200 p-3 sm:grid-cols-12">
                     <div class="sm:col-span-5">
                         <label for="lines_{{ $index }}_description" class="block text-xs font-medium text-slate-600">Désignation</label>
-                        <input id="lines_{{ $index }}_description" name="lines[{{ $index }}][description]" required
+                        <input id="lines_{{ $index }}_description" name="lines[{{ $index }}][description]" @required($index === 0)
                                value="{{ old('lines.'.$index.'.description') }}"
                                class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
                     </div>
@@ -78,12 +78,12 @@
                     <div class="sm:col-span-3">
                         <label for="lines_{{ $index }}_unit_amount_minor" class="block text-xs font-medium text-slate-600">Prix unitaire</label>
                         <input id="lines_{{ $index }}_unit_amount_minor" name="lines[{{ $index }}][unit_amount_minor]"
-                               type="number" min="0" required
+                               type="number" min="0" @required($index === 0)
                                value="{{ old('lines.'.$index.'.unit_amount_minor') }}"
                                class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
                     </div>
                     <div class="sm:col-span-2">
-                        <label for="lines_{{ $index }}_tax_rate_bps" class="block text-xs font-medium text-slate-600">Taxe (‰)</label>
+                        <label for="lines_{{ $index }}_tax_rate_bps" class="block text-xs font-medium text-slate-600">Taxe (points de base)</label>
                         <input id="lines_{{ $index }}_tax_rate_bps" name="lines[{{ $index }}][tax_rate_bps]"
                                type="number" min="0" max="10000"
                                value="{{ old('lines.'.$index.'.tax_rate_bps') }}"

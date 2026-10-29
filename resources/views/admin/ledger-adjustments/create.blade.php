@@ -80,7 +80,7 @@
                                 {{ \Illuminate\Support\Carbon::parse($transaction->createdAt)->format('d/m/Y H:i') }}
                                 — {{ $transaction->type }}
                                 @if (count($transaction->lines) > 0)
-                                    — {{ \Core\Support\Money\Money::ofMinor($transaction->lines[0]->amountMinor, $transaction->lines[0]->currency)->formattedAmount() }} {{ $transaction->lines[0]->currency }}
+                                    — {{ \Core\Support\Money\Money::ofMinor($transaction->lines[0]->amountMinor, $transaction->lines[0]->currency)->groupedAmount() }} {{ $transaction->lines[0]->currency }}
                                 @endif
                                 — {{ substr($transaction->id, 0, 8) }}…
                             </option>

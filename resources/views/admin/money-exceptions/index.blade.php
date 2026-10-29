@@ -57,10 +57,10 @@
                         {{ $projectNames[$exception->projectId] ?? substr($exception->projectId, 0, 8).'…' }}
                     </td>
                     <td class="px-4 py-2 text-base text-slate-900 tabular-nums whitespace-nowrap">
-                        {{ \Core\Support\Money\Money::ofMinor($exception->amountMinor, $exception->currency)->formattedAmount() }} {{ $exception->currency }}
+                        {{ \Core\Support\Money\Money::ofMinor($exception->amountMinor, $exception->currency)->groupedAmount() }} {{ $exception->currency }}
                     </td>
                     <td class="px-4 py-2 text-base text-slate-700 tabular-nums whitespace-nowrap">
-                        {{ \Core\Support\Money\Money::ofMinor($exception->bookedAmountMinor, $exception->currency)->formattedAmount() }} {{ $exception->currency }}
+                        {{ \Core\Support\Money\Money::ofMinor($exception->bookedAmountMinor, $exception->currency)->groupedAmount() }} {{ $exception->currency }}
                     </td>
                     <td class="px-4 py-2 text-sm text-slate-600 tabular-nums whitespace-nowrap">
                         {{ \Illuminate\Support\Carbon::parse($exception->createdAt)->format('d/m/Y H:i') }}

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Wallet\Application\UseCase;
 
+use Core\Parties\Contracts\PartyLookup;
 use Core\Support\Access\AccessScope;
 use Core\Wallet\Contracts\ListWallets;
 use Core\Wallet\Contracts\ListWalletsCommand;
@@ -21,6 +22,7 @@ final readonly class ListWalletsUseCase implements ListWallets
         private WalletRepository $wallets,
         private WalletBalanceRepository $balances,
         private LoggerInterface $logger,
+        private PartyLookup $parties,
     ) {}
 
     public function list(ListWalletsCommand $command, AccessScope $scope): WalletPage
@@ -43,16 +45,17 @@ final readonly class ListWalletsUseCase implements ListWallets
 
         $walletIds = array_map(static fn (Wallet $wallet): string => $wallet->id, $result['items']);
         $balances = $this->balances->findMany($walletIds);
+        $partyRefs = $this->parties->externalRefsOf($command->projectId, array_values(array_unique(array_map(static fn (Wallet $wallet): string => $wallet->partyId, $result['items']))));
 
         $items = array_map(
-            fn (Wallet $wallet): WalletSummaryView => $this->toSummary($wallet, $balances[$wallet->id] ?? null),
+            fn (Wallet $wallet): WalletSummaryView => $this->toSummary($wallet, $balances[$wallet->id] ?? null, $partyRefs[$wallet->partyId] ?? null),
             $result['items'],
         );
 
         return new WalletPage($items, $result['total'], $command->page, $command->perPage);
     }
 
-    private function toSummary(Wallet $wallet, ?WalletBalance $balance): WalletSummaryView
+    private function toSummary(Wallet $wallet, ?WalletBalance $balance, ?string $partyExternalRef): WalletSummaryView
     {
         if ($balance === null) {
             // Every wallet is `initialize()`d in the same transaction it
@@ -74,6 +77,7 @@ final readonly class ListWalletsUseCase implements ListWallets
             status: $wallet->status,
             availableMinor: $balance?->available->amountMinor() ?? 0,
             heldMinor: $balance?->held->amountMinor() ?? 0,
+            partyExternalRef: $partyExternalRef,
         );
     }
 }

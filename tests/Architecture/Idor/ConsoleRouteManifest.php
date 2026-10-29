@@ -152,11 +152,13 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.commerce-settings', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.commerce-settings.save', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.indicators', Nature::Project, Outcome::NotFound),
+            Entry::isolated('admin.projects.ledger', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.usage', Nature::Project, Outcome::NotFound),
 
             Entry::isolated('admin.projects.plans.index', Nature::Plan, Outcome::NotFound, control: true),
             Entry::isolated('admin.projects.plans.new', Nature::Plan, Outcome::NotFound),
             Entry::isolated('admin.projects.plans.store', Nature::Plan, Outcome::NotFound),
+            Entry::isolated('admin.projects.plans.versions.add', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.plans.versions.store', Nature::Plan, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.plans.versions.publish.web', Nature::Plan, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.plans.archive.web', Nature::Plan, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),

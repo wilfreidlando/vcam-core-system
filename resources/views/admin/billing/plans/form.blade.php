@@ -56,7 +56,7 @@
             publication.
         </p>
 
-        <form method="POST" action="{{ route('admin.projects.plans.versions.store', [$projectId, old('code', '')]) }}"
+        <form method="POST" action="{{ route('admin.projects.plans.versions.add', $projectId) }}"
               class="mt-4 space-y-4">
             @csrf
             <div class="grid gap-4 sm:grid-cols-3">

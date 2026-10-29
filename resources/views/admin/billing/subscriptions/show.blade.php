@@ -26,7 +26,7 @@
         <div class="rounded-lg border border-slate-200 bg-white px-4 py-3">
             <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Prix signé</p>
             <p class="mt-1 text-base font-semibold text-slate-900 tabular-nums">
-                {{ \Core\Support\Money\Money::ofMinor($subscription->priceMinor, $subscription->currency)->formattedAmount() }} {{ $subscription->currency }}
+                {{ \Core\Support\Money\Money::ofMinor($subscription->priceMinor, $subscription->currency)->groupedAmount() }} {{ $subscription->currency }}
             </p>
             <p class="mt-0.5 text-xs text-slate-500">
                 tous les {{ $subscription->intervalCount }} {{ $subscription->intervalUnit }}{{ $subscription->intervalCount > 1 ? 's' : '' }}

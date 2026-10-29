@@ -53,6 +53,23 @@ final class EloquentPartyRepository implements PartyRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
+    public function externalRefsOf(string $projectId, array $partyIds): array
+    {
+        if ($partyIds === []) {
+            return [];
+        }
+
+        $refs = [];
+
+        foreach (PartyRecord::query()->toBase()->where('project_id', $projectId)->whereIn('id', $partyIds)->get(['id', 'external_ref']) as $row) {
+            if (is_string($row->id) && is_string($row->external_ref)) {
+                $refs[$row->id] = $row->external_ref;
+            }
+        }
+
+        return $refs;
+    }
+
     private function toDomain(PartyRecord $record): Party
     {
         return new Party(

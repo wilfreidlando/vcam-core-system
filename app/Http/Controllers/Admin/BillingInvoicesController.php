@@ -146,7 +146,15 @@ final class BillingInvoicesController
         $this->permittedScope($operator, 'invoices:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'invoices:write');
 
-        /** @var array{customer_ref: string, currency?: string|null, tax_rate_bps?: int|null, due_at?: string|null, lines: array<int, array{description: string, quantity: int, unit_amount_minor: int, tax_rate_bps?: int|null}>} $data */
+        // The form offers three rows and the empty ones are ignored (as its hint says):
+        // a row is a row when it has a label or an amount.
+        $rows = $request->input('lines');
+        $request->merge(['lines' => array_values(array_filter(
+            is_array($rows) ? $rows : [],
+            static fn (mixed $row): bool => is_array($row) && (filled($row['description'] ?? null) || filled($row['unit_amount_minor'] ?? null)),
+        ))]);
+
+        /** @var array{customer_ref: string, currency?: string|null, tax_rate_bps?: int|string|null, due_at?: string|null, lines: array<int, array{description: string, quantity: int|string, unit_amount_minor: int|string, tax_rate_bps?: int|string|null}>} $data */
         $data = Validator::make($request->all(), [
             'customer_ref' => ['required', 'string', 'max:128'],
             'currency' => ['nullable', 'string', 'size:3'],
@@ -162,9 +170,9 @@ final class BillingInvoicesController
         $lines = array_values(array_map(
             static fn (array $line): InvoiceLineInput => new InvoiceLineInput(
                 description: $line['description'],
-                quantity: $line['quantity'],
-                unitAmountMinor: $line['unit_amount_minor'],
-                taxRateBps: $line['tax_rate_bps'] ?? null,
+                quantity: (int) $line['quantity'],
+                unitAmountMinor: (int) $line['unit_amount_minor'],
+                taxRateBps: isset($line['tax_rate_bps']) && $line['tax_rate_bps'] !== '' ? (int) $line['tax_rate_bps'] : null,
             ),
             $data['lines'],
         ));
@@ -176,7 +184,7 @@ final class BillingInvoicesController
                 lines: $lines,
                 dueAt: $data['due_at'] ?? null,
                 currency: $data['currency'] ?? null,
-                taxRateBps: $data['tax_rate_bps'] ?? null,
+                taxRateBps: isset($data['tax_rate_bps']) && $data['tax_rate_bps'] !== '' ? (int) $data['tax_rate_bps'] : null,
                 actor: $this->actor($operator),
                 correlationId: null,
             ));

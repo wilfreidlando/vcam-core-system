@@ -99,7 +99,7 @@ final class CustomerOverviewController
             return redirect()->route('admin.projects.customers.index', $projectId)->withErrors(['resource' => 'Ressource introuvable.']);
         }
 
-        /** @var array{plan_code: string, trial_days?: int|null} $data */
+        /** @var array{plan_code: string, trial_days?: int|string|string|null} $data */
         $data = Validator::make($request->all(), [
             'plan_code' => ['required', 'string', 'regex:/^[a-z0-9][a-z0-9_-]{0,63}$/'],
             'trial_days' => ['nullable', 'integer', 'min:0', 'max:365'],
@@ -110,7 +110,7 @@ final class CustomerOverviewController
                 projectId: $projectId,
                 customerRef: $externalRef,
                 planCode: $data['plan_code'],
-                trialDays: $data['trial_days'] ?? null,
+                trialDays: isset($data['trial_days']) && $data['trial_days'] !== '' ? (int) $data['trial_days'] : null,
                 startAt: null,
                 idempotencyKey: 'console:'.(string) Str::uuid(),
                 actor: 'operator:'.$operator->operatorId,

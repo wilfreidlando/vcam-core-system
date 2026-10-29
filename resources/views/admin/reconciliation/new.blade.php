@@ -80,7 +80,7 @@
                         {{-- Minor units -> major units, via
                              Money::formattedAmount() — currency-exponent-correct. --}}
                         <td class="px-4 py-2 text-base font-mono text-slate-900 tabular-nums text-right">
-                            {{ \Core\Support\Money\Money::ofMinor($payment->amount, $payment->currency)->formattedAmount() }} {{ $payment->currency }}
+                            {{ \Core\Support\Money\Money::ofMinor($payment->amount, $payment->currency)->groupedAmount() }} {{ $payment->currency }}
                         </td>
                         {{-- How long this payment has actually sat
                              untouched — the detail an operator needs to

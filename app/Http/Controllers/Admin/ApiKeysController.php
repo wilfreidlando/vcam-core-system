@@ -110,7 +110,7 @@ final class ApiKeysController
     {
         $this->authorize($operator, $projectId, $apiKeyId);
 
-        /** @var array{grace_days: int|string} $data */
+        /** @var array{grace_days: int|string|string} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
             'grace_days' => ['required', 'integer', 'between:'.RotateApiKeyCommand::MIN_GRACE_DAYS.','.RotateApiKeyCommand::MAX_GRACE_DAYS],

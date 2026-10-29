@@ -56,19 +56,19 @@
             </div>
             <div>
                 <dt class="text-slate-500">Sous-total</dt>
-                <dd class="text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($invoice->subtotalMinor, $invoice->currency)->formattedAmount() }} {{ $invoice->currency }}</dd>
+                <dd class="text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($invoice->subtotalMinor, $invoice->currency)->groupedAmount() }} {{ $invoice->currency }}</dd>
             </div>
             <div>
                 <dt class="text-slate-500">Taxe</dt>
-                <dd class="text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($invoice->taxMinor, $invoice->currency)->formattedAmount() }} {{ $invoice->currency }}</dd>
+                <dd class="text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($invoice->taxMinor, $invoice->currency)->groupedAmount() }} {{ $invoice->currency }}</dd>
             </div>
             <div>
                 <dt class="text-slate-500">Total</dt>
-                <dd class="text-base font-semibold text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($invoice->totalMinor, $invoice->currency)->formattedAmount() }} {{ $invoice->currency }}</dd>
+                <dd class="text-base font-semibold text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($invoice->totalMinor, $invoice->currency)->groupedAmount() }} {{ $invoice->currency }}</dd>
             </div>
             <div>
                 <dt class="text-slate-500">Déjà réglé</dt>
-                <dd class="text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($invoice->amountPaidMinor, $invoice->currency)->formattedAmount() }} {{ $invoice->currency }}</dd>
+                <dd class="text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($invoice->amountPaidMinor, $invoice->currency)->groupedAmount() }} {{ $invoice->currency }}</dd>
             </div>
         </dl>
 
@@ -87,13 +87,13 @@
                     <td class="px-4 py-2 text-sm text-slate-700">{{ $line->description }}</td>
                     <td class="px-4 py-2 text-sm text-slate-700 tabular-nums">{{ $line->quantity }}</td>
                     <td class="px-4 py-2 text-sm text-slate-700 tabular-nums whitespace-nowrap">
-                        {{ \Core\Support\Money\Money::ofMinor($line->unitAmountMinor, $invoice->currency)->formattedAmount() }}
+                        {{ \Core\Support\Money\Money::ofMinor($line->unitAmountMinor, $invoice->currency)->groupedAmount() }}
                     </td>
                     <td class="px-4 py-2 text-sm text-slate-900 tabular-nums whitespace-nowrap">
-                        {{ \Core\Support\Money\Money::ofMinor($line->amountMinor, $invoice->currency)->formattedAmount() }}
+                        {{ \Core\Support\Money\Money::ofMinor($line->amountMinor, $invoice->currency)->groupedAmount() }}
                     </td>
                     <td class="px-4 py-2 text-sm text-slate-700 tabular-nums whitespace-nowrap">
-                        {{ \Core\Support\Money\Money::ofMinor($line->taxAmountMinor, $invoice->currency)->formattedAmount() }}
+                        {{ \Core\Support\Money\Money::ofMinor($line->taxAmountMinor, $invoice->currency)->groupedAmount() }}
                         <span class="text-slate-400">({{ number_format($line->taxRateBps / 100, 2) }} %)</span>
                     </td>
                 </tr>
@@ -124,7 +124,7 @@
                 <tr>
                     <td class="px-4 py-2 text-sm text-slate-700">Paiement en ligne</td>
                     <td class="px-4 py-2 text-sm text-slate-900 tabular-nums whitespace-nowrap">
-                        {{ \Core\Support\Money\Money::ofMinor($payment->amountMinor, $payment->currency)->formattedAmount() }}
+                        {{ \Core\Support\Money\Money::ofMinor($payment->amountMinor, $payment->currency)->groupedAmount() }}
                         {{ $payment->currency }}
                     </td>
                     <td class="px-4 py-2 text-sm font-mono text-slate-700">{{ $payment->paymentId }}</td>
@@ -160,7 +160,7 @@
                 <tr>
                     <td class="px-4 py-2 text-sm text-slate-700">Hors ligne — {{ $methods[$receipt->method] ?? $receipt->method }}</td>
                     <td class="px-4 py-2 text-sm text-slate-900 tabular-nums whitespace-nowrap">
-                        {{ \Core\Support\Money\Money::ofMinor($receipt->amountMinor, $receipt->currency)->formattedAmount() }}
+                        {{ \Core\Support\Money\Money::ofMinor($receipt->amountMinor, $receipt->currency)->groupedAmount() }}
                         {{ $receipt->currency }}
                     </td>
                     <td class="px-4 py-2 text-sm font-mono text-slate-700">{{ $receipt->reference }}</td>

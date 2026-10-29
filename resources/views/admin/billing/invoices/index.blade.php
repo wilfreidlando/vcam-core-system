@@ -39,7 +39,7 @@
                     <td class="px-4 py-2 text-sm font-mono text-slate-700">{{ $invoice->number ?? 'brouillon' }}</td>
                     <td class="px-4 py-2 text-sm font-mono text-slate-700">{{ $invoice->customerRef }}</td>
                     <td class="px-4 py-2 text-base text-slate-900 tabular-nums whitespace-nowrap">
-                        {{ \Core\Support\Money\Money::ofMinor($invoice->totalMinor, $invoice->currency)->formattedAmount() }} {{ $invoice->currency }}
+                        {{ \Core\Support\Money\Money::ofMinor($invoice->totalMinor, $invoice->currency)->groupedAmount() }} {{ $invoice->currency }}
                     </td>
                     <td class="px-4 py-2 text-sm">
                         @php

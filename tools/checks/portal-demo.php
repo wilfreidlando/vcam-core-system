@@ -56,3 +56,5 @@ app(IssueInvoice::class)->issue(new IssueInvoiceCommand(projectId: $project, inv
 
 $link = app(OpenPortalSessionUseCase::class)->open(new OpenPortalSessionCommand($project, 'AE0001', returnUrl: 'http://localhost:8000/compte'));
 echo 'LINK='.$link->url."\n";
+
+return $project;

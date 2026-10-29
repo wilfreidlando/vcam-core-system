@@ -62,6 +62,21 @@ final readonly class Money
         return (string) $this->money->getAmount();
     }
 
+    /**
+     * The same amount for a human reader: the integer part grouped by three
+     * (« 85 000 »), the decimals untouched. A display form — documents and
+     * the API keep `formattedAmount()`, which is exact and unseparated.
+     */
+    public function groupedAmount(): string
+    {
+        $plain = $this->formattedAmount();
+        $sign = str_starts_with($plain, '-') ? '-' : '';
+        $digits = ltrim($plain, '-');
+        $parts = explode('.', $digits, 2);
+
+        return $sign.strrev(implode(' ', str_split(strrev($parts[0]), 3))).(isset($parts[1]) ? '.'.$parts[1] : '');
+    }
+
     public function plus(self $other): self
     {
         return new self($this->money->plus($this->sameCurrency($other)->money));

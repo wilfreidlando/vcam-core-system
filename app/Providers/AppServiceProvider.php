@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Http\Middleware\ResolveOperatorSession;
+use App\Http\View\Composers\AdminBreadcrumbComposer;
 use App\Http\View\Composers\AdminSidebarComposer;
 use App\Infrastructure\DatabaseIdempotencyStore;
 use App\Infrastructure\DatabaseUnitOfWork;
@@ -66,6 +67,8 @@ final class AppServiceProvider extends ServiceProvider
         // ADR-0069 §2 — the console sidebar reads its entries and badges
         // through a composer, never through a port called in the template.
         View::composer('layouts.admin', AdminSidebarComposer::class);
+        // The trail above the title: derived from the route, the project's name read through a scoped port.
+        View::composer('layouts.admin', AdminBreadcrumbComposer::class);
 
         // ADR-0067: the Horizon dashboard (its routes run under `web`, so
         // the console session is available) opens to the operator signed in

@@ -64,7 +64,7 @@ final class ProjectCommerceController
         $scope = $this->permittedScope($operator, 'portal:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'portal:write');
 
-        /** @var array{display_name: string, logo_url?: string|null, primary_color?: string|null, support_url?: string|null, locale?: string|null, allowed_return_urls?: string|null, payment_channels?: list<string>|null} $data */
+        /** @var array{display_name: string, logo_url?: string|null, primary_color?: string|null, support_url?: string|null, locale?: string|null, allowed_return_urls?: string|null, payment_channels?: list<string>|null, direct_login_session?: string|null} $data */
         $data = Validator::make($request->all(), [
             'display_name' => ['required', 'string', 'max:80'],
             'logo_url' => ['nullable', 'string', 'max:500'],
@@ -76,6 +76,8 @@ final class ProjectCommerceController
             'allow_plan_change' => ['nullable', 'boolean'],
             'payment_channels' => ['nullable', 'array', 'max:10'],
             'payment_channels.*' => ['string', 'in:mtn_momo,orange_money,card'],
+            'direct_login_enabled' => ['nullable', 'boolean'],
+            'direct_login_session' => ['nullable', 'string', 'max:64'],
         ])->validate();
 
         try {
@@ -91,6 +93,8 @@ final class ProjectCommerceController
                 allowPlanChange: $request->boolean('allow_plan_change'),
                 paymentChannels: $this->channels($request),
                 actor: $this->actor($operator),
+                directLoginEnabled: $request->boolean('direct_login_enabled'),
+                directLoginSession: $this->blank($data['direct_login_session'] ?? null),
             ), $scope);
         } catch (InvalidPortalSettings $e) {
             return back()->withInput()->withErrors(['resource' => $e->getMessage()]);
@@ -119,7 +123,7 @@ final class ProjectCommerceController
         $scope = $this->permittedScope($operator, 'plans:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
 
-        /** @var array{timezone: string, default_currency: string, renewal_lead_days: int, incomplete_expiry_hours: int, invoice_prefix: string, default_tax_rate_percent: numeric-string|int|float|null, manual_receipt_threshold: int|null, meter_mappings?: string|null} $data */
+        /** @var array{timezone: string, default_currency: string, renewal_lead_days: int|string|string, incomplete_expiry_hours: int|string|string, invoice_prefix: string, default_tax_rate_percent: numeric-string|int|float|null, manual_receipt_threshold?: int|string|string|null, meter_mappings?: string|null} $data */
         $data = Validator::make($request->all(), [
             'timezone' => ['required', 'string', 'max:64'],
             'default_currency' => ['required', 'string', 'size:3'],
@@ -140,12 +144,12 @@ final class ProjectCommerceController
                 projectId: $projectId,
                 timezone: $data['timezone'],
                 defaultCurrency: strtoupper($data['default_currency']),
-                renewalLeadDays: $data['renewal_lead_days'],
-                incompleteExpiryHours: $data['incomplete_expiry_hours'],
+                renewalLeadDays: (int) $data['renewal_lead_days'],
+                incompleteExpiryHours: (int) $data['incomplete_expiry_hours'],
                 invoicePrefix: $data['invoice_prefix'],
                 // A percentage typed by a human becomes basis points (G5: no float stored).
                 defaultTaxRateBps: (int) round(((float) ($data['default_tax_rate_percent'] ?? 0)) * 100),
-                manualReceiptApprovalThresholdMinor: $data['manual_receipt_threshold'] ?? 0,
+                manualReceiptApprovalThresholdMinor: (int) ($data['manual_receipt_threshold'] ?? 0),
                 meterMappings: $this->mappings($data['meter_mappings'] ?? null),
                 refundFailedUsage: $request->boolean('refund_failed_usage'),
                 requireCustomerRef: $request->boolean('require_customer_ref'),

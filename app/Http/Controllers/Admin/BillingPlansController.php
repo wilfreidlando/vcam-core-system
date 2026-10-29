@@ -98,7 +98,7 @@ final class BillingPlansController
         $this->permittedScope($operator, 'plans:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
 
-        /** @var array{code: string, name: string, description?: string|null, visibility?: string|null, sort_order?: int|null} $data */
+        /** @var array{code: string, name: string, description?: string|null, visibility?: string|null, sort_order?: int|string|null} $data */
         $data = Validator::make($request->all(), [
             'code' => ['required', 'string', 'max:64', 'regex:/^[a-z0-9][a-z0-9_-]*$/'],
             'name' => ['required', 'string', 'max:200'],
@@ -114,7 +114,7 @@ final class BillingPlansController
                 name: $data['name'],
                 description: isset($data['description']) && $data['description'] !== '' ? $data['description'] : null,
                 visibility: isset($data['visibility']) && $data['visibility'] !== '' ? $data['visibility'] : 'public',
-                sortOrder: $data['sort_order'] ?? 0,
+                sortOrder: (int) ($data['sort_order'] ?? 0),
                 actor: $this->actor($operator),
                 correlationId: null,
             ));
@@ -139,12 +139,28 @@ final class BillingPlansController
             ->with('status', sprintf('Plan %s créé — ajoutez-lui une version.', $plan->code));
     }
 
+    /**
+     * The form of the « new plan » page: the plan is named by a field.
+     */
+    public function storeVersionOfPlan(Request $request, OperatorContext $operator, string $projectId): RedirectResponse
+    {
+        $this->permittedScope($operator, 'plans:write');
+        $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
+
+        /** @var array{plan_code: string} $named */
+        $named = Validator::make($request->all(), [
+            'plan_code' => ['required', 'string', 'max:64', 'regex:/^[a-z0-9][a-z0-9_-]*$/'],
+        ])->validate();
+
+        return $this->storeVersion($request, $operator, $projectId, $named['plan_code']);
+    }
+
     public function storeVersion(Request $request, OperatorContext $operator, string $projectId, string $code): RedirectResponse
     {
         $this->permittedScope($operator, 'plans:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
 
-        /** @var array{price_minor: int, currency: string, interval_unit: string, interval_count: int, trial_days?: int|null, grace_days?: int|null, grace_access?: bool|null, features?: string|null} $data */
+        /** @var array{price_minor: int|string, currency: string, interval_unit: string, interval_count: int|string, trial_days?: int|string|null, grace_days?: int|string|null, grace_access?: bool|null, features?: string|null} $data */
         $data = Validator::make($request->all(), [
             'price_minor' => ['required', 'integer', 'min:0'],
             'currency' => ['required', 'string', 'size:3'],
@@ -160,13 +176,14 @@ final class BillingPlansController
             $version = $this->createPlanVersion->createVersion(new CreatePlanVersionCommand(
                 projectId: $projectId,
                 planCode: $code,
-                priceMinor: $data['price_minor'],
+                // A browser form sends strings: the command is strictly typed.
+                priceMinor: (int) $data['price_minor'],
                 currency: strtoupper($data['currency']),
                 intervalUnit: $data['interval_unit'],
-                intervalCount: $data['interval_count'],
-                trialDays: $data['trial_days'] ?? 0,
-                graceDays: $data['grace_days'] ?? 0,
-                graceAccess: $data['grace_access'] ?? true,
+                intervalCount: (int) $data['interval_count'],
+                trialDays: (int) ($data['trial_days'] ?? 0),
+                graceDays: (int) ($data['grace_days'] ?? 0),
+                graceAccess: $request->has('grace_access') ? $request->boolean('grace_access') : true,
                 features: $this->features($data['features'] ?? null),
                 actor: $this->actor($operator),
                 correlationId: null,

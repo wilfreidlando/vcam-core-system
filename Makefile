@@ -246,6 +246,10 @@ prod-logs: ## Tail production container logs
 prod-shell: ## Open a shell in the production app container
 	$(DC_PROD) exec app bash
 
+.PHONY: e2e-seed
+e2e-seed: ## Seed a project, a console login and a portal link for the browser end-to-end session (dev only)
+	@$(EXEC) php artisan tinker --execute="require 'tools/checks/e2e-seed.php';" | grep -o '^\(LINK\|E2E_[A-Z_]*\)=.*' | sed "s#localhost:8000#localhost:$${APP_PORT:-8010}#"
+
 .PHONY: portal-demo
 portal-demo: ## Seed demo data and print a fresh one-time link to the customer portal (dev only)
 	@$(EXEC) php artisan tinker --execute="require 'tools/checks/portal-demo.php';" | grep -o 'LINK=.*' | sed "s/^LINK=//; s#localhost:8000#localhost:$${APP_PORT:-8010}#"

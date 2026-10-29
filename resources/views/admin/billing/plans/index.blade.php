@@ -44,7 +44,7 @@
                         <tr>
                             <td class="px-4 py-2 text-sm tabular-nums text-slate-700">{{ $version->version }}</td>
                             <td class="px-4 py-2 text-base text-slate-900 tabular-nums whitespace-nowrap">
-                                {{ \Core\Support\Money\Money::ofMinor($version->priceMinor, $version->currency)->formattedAmount() }} {{ $version->currency }}
+                                {{ \Core\Support\Money\Money::ofMinor($version->priceMinor, $version->currency)->groupedAmount() }} {{ $version->currency }}
                             </td>
                             <td class="px-4 py-2 text-sm text-slate-700">
                                 {{ $version->intervalCount }} {{ $version->intervalUnit }}{{ $version->intervalCount > 1 ? 's' : '' }}

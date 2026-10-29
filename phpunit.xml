@@ -129,6 +129,8 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="EVENTS_RELAY_ON_COMMIT" value="false"/>
+        <!-- Hermetic: a developer's own .env (the simulator is on in dev) must not change what the suite proves. -->
+        <env name="PAYMENT_SIMULATOR_ENABLED" value="false" force="true"/>
         <!-- Connect-time SSRF re-check resolves real DNS; it is covered
              hermetically by GuardedHttpTransportTest instead. -->
         <env name="OUTBOUND_ENFORCE_AT_CONNECT" value="false"/>

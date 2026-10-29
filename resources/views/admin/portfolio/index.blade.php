@@ -18,10 +18,10 @@
 @endphp
 <div class="space-y-6">
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <x-admin.stat label="Revenu récurrent mensuel" :value="$money($totals['mrr'])" hint="contrats actifs et impayés, au mois"/>
-        <x-admin.stat label="Encaissé" :value="$money($totals['collected'])" hint="lu au grand livre" tone="emerald"/>
-        <x-admin.stat label="Créances" :value="$money($totals['receivables'])" hint="ce qu'on vous doit" :tone="$totals['receivables'] === [] ? 'slate' : 'amber'"/>
-        <x-admin.stat label="Clients actifs" :value="$totals['active'].' / '.$totals['customers']" :hint="$totals['pastDue'].' impayé(s)'" :tone="$totals['pastDue'] > 0 ? 'rose' : 'slate'"/>
+        <x-admin.stat label="Revenu récurrent mensuel" :text="$money($totals['mrr'])" hint="contrats actifs et impayés, au mois"/>
+        <x-admin.stat label="Encaissé" :text="$money($totals['collected'])" hint="lu au grand livre" tone="emerald"/>
+        <x-admin.stat label="Créances" :text="$money($totals['receivables'])" hint="ce qu'on vous doit" :tone="$totals['receivables'] === [] ? 'slate' : 'amber'"/>
+        <x-admin.stat label="Clients actifs" :text="$totals['active'].' / '.$totals['customers']" :hint="$totals['pastDue'].' impayé(s)'" :tone="$totals['pastDue'] > 0 ? 'rose' : 'slate'"/>
     </div>
 
     <form method="GET" class="flex items-center gap-2">

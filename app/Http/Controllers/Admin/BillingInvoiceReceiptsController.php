@@ -89,7 +89,7 @@ final class BillingInvoiceReceiptsController
         $this->permittedScope($operator, 'invoices:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'invoices:write');
 
-        /** @var array{method: string, reference: string, amount_minor: int, currency: string, received_at: string, evidence_ref?: string, note?: string} $data */
+        /** @var array{method: string, reference: string, amount_minor: int|string, currency: string, received_at: string, evidence_ref?: string, note?: string} $data */
         $data = Validator::make($request->all(), [
             'method' => ['required', 'string', Rule::in(['bank_transfer', 'cash', 'cheque', 'other'])],
             'reference' => ['required', 'string', 'max:200'],
@@ -106,7 +106,7 @@ final class BillingInvoiceReceiptsController
                 invoiceId: $invoiceId,
                 method: $data['method'],
                 reference: $data['reference'],
-                amountMinor: $data['amount_minor'],
+                amountMinor: (int) $data['amount_minor'],
                 currency: $data['currency'],
                 receivedAt: $data['received_at'],
                 recordedBy: $operator->operatorId,
@@ -140,7 +140,7 @@ final class BillingInvoiceReceiptsController
         return redirect()
             ->route('admin.projects.invoices.show', [$projectId, $invoiceId])
             ->with('status', $receipt->status === 'pending'
-                ? 'Encaissement hors ligne enregistré : il attend une seconde validation.'
+                ? 'Encaissement hors ligne enregistré : il attend sa validation.'
                 : 'Encaissement hors ligne enregistré et comptabilisé.');
     }
 

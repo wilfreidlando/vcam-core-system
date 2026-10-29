@@ -57,7 +57,7 @@
                 {{-- Minor units (G5) → major units, via Money::formattedAmount()
                      — currency-exponent-correct (0 decimals for XAF).
                      Same pattern as reconciliation/new.blade.php. --}}
-                {{ \Core\Support\Money\Money::ofMinor($payment->amount, $payment->currency)->formattedAmount() }}
+                {{ \Core\Support\Money\Money::ofMinor($payment->amount, $payment->currency)->groupedAmount() }}
             </td>
             <td class="px-4 py-2 text-base font-mono text-slate-700">
                 {{ $payment->currency }}

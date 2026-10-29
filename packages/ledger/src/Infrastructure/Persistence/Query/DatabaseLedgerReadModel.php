@@ -162,6 +162,11 @@ final class DatabaseLedgerReadModel implements AccountStatement, FindPostedLedge
         );
     }
 
+    public function forProjectScoped(string $projectId, AccessScope $scope, ?DateTimeImmutable $at = null): array
+    {
+        return $scope->allowsProject($projectId) ? $this->forProject($projectId, $at) : [];
+    }
+
     public function forProject(string $projectId, ?DateTimeImmutable $at = null): array
     {
         $query = DB::table('ledger_entries')

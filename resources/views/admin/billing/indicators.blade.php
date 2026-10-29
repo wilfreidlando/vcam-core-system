@@ -37,10 +37,10 @@
 
     @if ($metrics)
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <x-admin.stat label="Revenu récurrent mensuel" :value="$money($metrics->mrrMinor)" hint="contrats actifs et impayés, au mois"/>
-            <x-admin.stat label="Encaissé ce mois" :value="$money($metrics->collectedMinor)" hint="lu au grand livre" tone="emerald"/>
-            <x-admin.stat label="Créances" :value="$money($metrics->receivablesMinor)" hint="ce qu'on vous doit" :tone="$metrics->receivablesMinor === [] ? 'slate' : 'amber'"/>
-            <x-admin.stat label="Attrition du mois" :value="number_format($metrics->churnBps / 100, 1, ',', ' ').' %'" :hint="$metrics->lostThisMonth.' perdu(s), '.$metrics->newThisMonth.' nouveau(x)'" :tone="$metrics->churnBps > 500 ? 'rose' : 'slate'"/>
+            <x-admin.stat label="Revenu récurrent mensuel" :text="$money($metrics->mrrMinor)" hint="contrats actifs et impayés, au mois"/>
+            <x-admin.stat label="Encaissé ce mois" :text="$money($metrics->collectedMinor)" hint="lu au grand livre" tone="emerald"/>
+            <x-admin.stat label="Créances" :text="$money($metrics->receivablesMinor)" hint="ce qu'on vous doit" :tone="$metrics->receivablesMinor === [] ? 'slate' : 'amber'"/>
+            <x-admin.stat label="Attrition du mois" :text="number_format($metrics->churnBps / 100, 1, ',', ' ').' %'" :hint="$metrics->lostThisMonth.' perdu(s), '.$metrics->newThisMonth.' nouveau(x)'" :tone="$metrics->churnBps > 500 ? 'rose' : 'slate'"/>
         </div>
     @endif
 
@@ -59,6 +59,8 @@
                             $values = $series->map(fn ($p) => $p->{$field})->all();
                             [$line, $max] = $curve($values);
                             $last = $values === [] ? 0 : end($values);
+                            // A single day is a dot, not a line: mark the latest point.
+                            $lastPoint = $line === '' ? ['160', '82'] : explode(',', (string) last(explode(' ', $line)));
                         @endphp
                         <figure class="rounded-lg border border-slate-200 bg-white p-4">
                             <figcaption class="flex items-baseline justify-between text-sm">
@@ -69,6 +71,7 @@
                                  aria-label="{{ $label }} sur {{ $series->count() }} jour(s), de {{ $amount($values[0] ?? 0, $currency) }} à {{ $amount($last, $currency) }}">
                                 <line x1="8" y1="82" x2="312" y2="82" class="stroke-slate-200" stroke-width="1"/>
                                 <polyline points="{{ $line }}" fill="none" class="stroke-indigo-600" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+                                <circle cx="{{ $lastPoint[0] }}" cy="{{ $lastPoint[1] ?? 82 }}" r="3.5" class="fill-indigo-600"/>
                             </svg>
                             <div class="mt-1 flex justify-between text-xs text-slate-400">
                                 <span>{{ $series->first()?->day }}</span><span>max {{ $amount($max, $currency) }}</span><span>{{ $series->last()?->day }}</span>

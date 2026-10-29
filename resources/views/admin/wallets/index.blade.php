@@ -30,8 +30,8 @@
     @forelse ($stats['byCurrency'] as $currency => $totals)
         <div class="bg-white border border-slate-200 rounded-lg p-4">
             <p class="text-sm font-semibold uppercase tracking-wider text-slate-500">{{ $currency }} disponible</p>
-            <p class="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($totals['availableMinor'], $currency)->formattedAmount() }}</p>
-            <p class="mt-0.5 text-sm text-slate-500">{{ $totals['count'] }} wallet{{ $totals['count'] === 1 ? '' : 's' }} · {{ \Core\Support\Money\Money::ofMinor($totals['heldMinor'], $currency)->formattedAmount() }} bloqué</p>
+            <p class="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($totals['availableMinor'], $currency)->groupedAmount() }}</p>
+            <p class="mt-0.5 text-sm text-slate-500">{{ $totals['count'] }} wallet{{ $totals['count'] === 1 ? '' : 's' }} · {{ \Core\Support\Money\Money::ofMinor($totals['heldMinor'], $currency)->groupedAmount() }} bloqué</p>
         </div>
     @empty
         <div class="bg-white border border-slate-200 rounded-lg p-4 sm:col-span-2 lg:col-span-3 flex items-center">
@@ -50,7 +50,7 @@
                 {{ substr($wallet->id, 0, 8) }}…
             </td>
             <td class="px-4 py-2 text-sm font-mono text-slate-700 truncate max-w-[8rem]" title="{{ $wallet->partyId }}">
-                {{ substr($wallet->partyId, 0, 8) }}…
+                {{ $wallet->partyExternalRef ?? substr($wallet->partyId, 0, 8).'…' }}
             </td>
             <td class="px-4 py-2 text-base font-mono text-slate-700">
                 {{ $wallet->currency }}
@@ -67,10 +67,10 @@
             {{-- Minor units -> major units, via Money::formattedAmount()
                  — currency-exponent-correct (0 decimals for XAF). --}}
             <td class="px-4 py-2 text-base font-mono text-slate-900 tabular-nums text-right">
-                {{ \Core\Support\Money\Money::ofMinor($wallet->availableMinor, $wallet->currency)->formattedAmount() }}
+                {{ \Core\Support\Money\Money::ofMinor($wallet->availableMinor, $wallet->currency)->groupedAmount() }}
             </td>
             <td class="px-4 py-2 text-base font-mono text-slate-500 tabular-nums text-right">
-                {{ \Core\Support\Money\Money::ofMinor($wallet->heldMinor, $wallet->currency)->formattedAmount() }}
+                {{ \Core\Support\Money\Money::ofMinor($wallet->heldMinor, $wallet->currency)->groupedAmount() }}
             </td>
             <td class="px-4 py-2 text-sm text-right">
                 <a href="{{ route('admin.projects.wallets.ledger', ['projectId' => $project->id, 'walletId' => $wallet->id]) }}" class="font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap">

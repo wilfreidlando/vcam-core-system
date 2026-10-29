@@ -24,14 +24,14 @@
     <div class="bg-white border border-slate-200 rounded-lg p-4">
         <p class="text-sm font-semibold uppercase tracking-wider text-slate-500">Disponible</p>
         <p class="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">
-            {{ \Core\Support\Money\Money::ofMinor($balance->availableMinor, $balance->currency)->formattedAmount() }}
+            {{ \Core\Support\Money\Money::ofMinor($balance->availableMinor, $balance->currency)->groupedAmount() }}
             <span class="text-base font-mono text-slate-500">{{ $balance->currency }}</span>
         </p>
     </div>
     <div class="bg-white border border-slate-200 rounded-lg p-4">
         <p class="text-sm font-semibold uppercase tracking-wider text-slate-500">Bloqué</p>
         <p class="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">
-            {{ \Core\Support\Money\Money::ofMinor($balance->heldMinor, $balance->currency)->formattedAmount() }}
+            {{ \Core\Support\Money\Money::ofMinor($balance->heldMinor, $balance->currency)->groupedAmount() }}
             <span class="text-base font-mono text-slate-500">{{ $balance->currency }}</span>
         </p>
     </div>
@@ -64,7 +64,7 @@
                 </span>
             </td>
             <td class="px-4 py-2 text-base font-mono text-slate-900 tabular-nums text-right">
-                {{ $entry->direction === 'debit' ? '−' : '+' }}{{ \Core\Support\Money\Money::ofMinor($entry->amountMinor, $entry->currency)->formattedAmount() }}
+                {{ $entry->direction === 'debit' ? '−' : '+' }}{{ \Core\Support\Money\Money::ofMinor($entry->amountMinor, $entry->currency)->groupedAmount() }}
             </td>
             <td class="px-4 py-2 text-sm font-mono text-slate-500 truncate max-w-[8rem]" title="{{ $entry->transactionId }}">
                 {{ substr($entry->transactionId, 0, 8) }}…

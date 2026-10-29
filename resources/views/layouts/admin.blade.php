@@ -279,7 +279,25 @@
                  unauthenticated pages (no title, no flash yet). --}}
             @if (app()->bound(\Core\Identity\Contracts\OperatorContext::class))
                 <div class="bg-white border-b border-slate-200">
-                    <div class="px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between">
+                    @if (! empty($breadcrumbs))
+                        <nav aria-label="Fil d'Ariane" class="px-4 sm:px-6 lg:px-8 pt-4">
+                            <ol class="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-slate-500">
+                                @foreach ($breadcrumbs as [$crumbLabel, $crumbUrl])
+                                    <li class="flex items-center gap-1.5 min-w-0">
+                                        @if (! $loop->first)
+                                            <svg class="h-4 w-4 shrink-0 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                        @endif
+                                        @if ($crumbUrl !== null && ! $loop->last)
+                                            <a href="{{ $crumbUrl }}" class="truncate hover:text-indigo-700 hover:underline">{{ $crumbLabel }}</a>
+                                        @else
+                                            <span class="truncate font-medium text-slate-700" @if ($loop->last) aria-current="page" @endif>{{ $crumbLabel }}</span>
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ol>
+                        </nav>
+                    @endif
+                    <div class="px-4 sm:px-6 lg:px-8 pt-2 pb-5 flex items-center justify-between">
                         <h1 class="text-xl sm:text-2xl font-semibold text-slate-900 truncate">@yield('title', 'Admin')</h1>
                         <div class="text-sm text-slate-500 hidden sm:block">
                             @hasSection('subtitle')

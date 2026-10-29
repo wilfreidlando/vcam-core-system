@@ -224,6 +224,7 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             Route::post('{projectId}/commerce-settings', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'saveSettings'])->name('projects.commerce-settings.save');
             Route::get('{projectId}/usage', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'usage'])->name('projects.usage');
             Route::get('{projectId}/indicators', [App\Http\Controllers\Admin\ProjectIndicatorsController::class, 'show'])->name('projects.indicators');
+            Route::get('{projectId}/ledger', [App\Http\Controllers\Admin\ProjectLedgerController::class, 'show'])->name('projects.ledger');
 
             Route::prefix('{projectId}/customers')->group(function (): void {
                 // The reference is format-checked in the route (the
@@ -266,6 +267,10 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                     ->name('projects.plans.new');
                 Route::post('/', [App\Http\Controllers\Admin\BillingPlansController::class, 'store'])
                     ->name('projects.plans.store');
+                // The « add a version » form of the new-plan page names its plan in the
+                // body: the plan code is a field there, not a path segment.
+                Route::post('versions', [App\Http\Controllers\Admin\BillingPlansController::class, 'storeVersionOfPlan'])
+                    ->name('projects.plans.versions.add');
                 Route::post('{code}/versions', [App\Http\Controllers\Admin\BillingPlansController::class, 'storeVersion'])
                     ->name('projects.plans.versions.store');
                 Route::post('{code}/versions/{version}/publish', [App\Http\Controllers\Admin\BillingPlansController::class, 'publish'])

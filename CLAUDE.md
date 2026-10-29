@@ -205,7 +205,11 @@ Le **lot 13** livre le module `portal` (ADR-0075, ADR-0097) : un seul appel
 l'espace client hébergé — tableau de bord, abonnement et changement d'offre,
 factures, paiement (canaux routés par la plateforme, aucune configuration),
 paiements, utilisation, profil — sous CSP stricte, sans JavaScript. Un SaaS se
-branche avec `docs/integration/kit-laravel/INSTALL.md`. Les événements
+branche avec `docs/integration/kit-laravel/INSTALL.md`. La **connexion directe par code**
+(ADR-0075 §2, [ADR-0100](docs/adr/0100-portail-connexion-par-code-arete-notification.md), lot 17, désactivée par
+défaut) : `GET|POST /portal/{projectId}/login` envoie un code à 6 chiffres (HMAC, 10 min, 5 essais) par la session
+WhatsApp du projet, réponse identique que le numéro existe ou non, limites fermées en cas de panne, arête
+`portal → notification` ; elle n'ouvre que le portail. Les événements
 `subscription.*`, `invoice.*` et `usage.*` sont abonnables par webhook.
 Le **lot 14** (en cours) ajoute à la console : réglages du portail et du commerce, usage,
 portefeuille, fiche client, et par projet une page **Indicateurs** (courbes SVG serveur lues dans

@@ -59,7 +59,7 @@
                         {{ $adjustment->destinationKind }}@if ($adjustment->destinationReference !== ''):{{ $adjustment->destinationReference }}@endif
                     </td>
                     <td class="px-4 py-2 text-base text-slate-900 tabular-nums whitespace-nowrap">
-                        {{ \Core\Support\Money\Money::ofMinor($adjustment->amountMinor, $adjustment->currency)->formattedAmount() }} {{ $adjustment->currency }}
+                        {{ \Core\Support\Money\Money::ofMinor($adjustment->amountMinor, $adjustment->currency)->groupedAmount() }} {{ $adjustment->currency }}
                     </td>
                     <td class="px-4 py-2 text-sm text-slate-700 max-w-[20rem] truncate" title="{{ $adjustment->reason }}">
                         {{ $adjustment->reason }}

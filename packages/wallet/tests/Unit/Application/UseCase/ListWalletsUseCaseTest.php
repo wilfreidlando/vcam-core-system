@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Core\Parties\Contracts\PartyLookup;
+use Core\Parties\Contracts\PartyRef;
 use Core\Support\Access\AccessScope;
 use Core\Support\Money\Money;
 use Core\Wallet\Application\UseCase\ListWalletsUseCase;
@@ -20,7 +22,7 @@ it('lists only the requesting project\'s wallets, with their balance', function 
     $wallets->save(new Wallet('wallet-2', 'project-b', 'party-2', 'XAF', 'active'));
     $balances->save(new WalletBalance('wallet-1', Money::ofMinor(1_000, 'XAF'), Money::ofMinor(200, 'XAF'), 1));
 
-    $useCase = new ListWalletsUseCase($wallets, $balances, new NullLogger);
+    $useCase = new ListWalletsUseCase($wallets, $balances, new NullLogger, noParties());
     $page = $useCase->list(new ListWalletsCommand('project-a'), AccessScope::platform());
 
     expect($page->total)->toBe(1)
@@ -45,7 +47,7 @@ it('defaults to a zero balance but logs an error when none has been initialised'
         }
     };
 
-    $useCase = new ListWalletsUseCase($wallets, $balances, $logger);
+    $useCase = new ListWalletsUseCase($wallets, $balances, $logger, noParties());
     $page = $useCase->list(new ListWalletsCommand('project-a'), AccessScope::platform());
 
     expect($page->items[0]->availableMinor)->toBe(0)
@@ -62,7 +64,7 @@ it('paginates', function (): void {
         $wallets->save(new Wallet('wallet-'.$i, 'project-a', 'party-'.$i, 'XAF', 'active'));
     }
 
-    $useCase = new ListWalletsUseCase($wallets, $balances, new NullLogger);
+    $useCase = new ListWalletsUseCase($wallets, $balances, new NullLogger, noParties());
     $page = $useCase->list(new ListWalletsCommand('project-a', page: 1, perPage: 2), AccessScope::platform());
 
     expect($page->total)->toBe(3)
@@ -75,7 +77,7 @@ it('lists the wallets of a project the scope allows', function (): void {
     $wallets->save(new Wallet('wallet-1', 'project-a', 'party-1', 'XAF', 'active'));
     $balances->save(new WalletBalance('wallet-1', Money::ofMinor(1_000, 'XAF'), Money::ofMinor(200, 'XAF'), 1));
 
-    $useCase = new ListWalletsUseCase($wallets, $balances, new NullLogger);
+    $useCase = new ListWalletsUseCase($wallets, $balances, new NullLogger, noParties());
     $page = $useCase->list(new ListWalletsCommand('project-a'), AccessScope::forProject('project-a'));
 
     expect($page->total)->toBe(1)
@@ -91,7 +93,7 @@ it('returns an empty page when the project is outside the caller\'s scope', func
     $wallets->save(new Wallet('wallet-1', 'project-a', 'party-1', 'XAF', 'active'));
     $balances->save(new WalletBalance('wallet-1', Money::ofMinor(1_000, 'XAF'), Money::ofMinor(200, 'XAF'), 1));
 
-    $useCase = new ListWalletsUseCase($wallets, $balances, new NullLogger);
+    $useCase = new ListWalletsUseCase($wallets, $balances, new NullLogger, noParties());
     $page = $useCase->list(new ListWalletsCommand('project-a'), AccessScope::forOrganization('org-b', ['project-b']));
 
     expect($page->total)->toBe(0)
@@ -103,9 +105,25 @@ it('returns an empty page when the scope sees nothing at all', function (): void
     $balances = new InMemoryWalletBalanceRepository;
     $wallets->save(new Wallet('wallet-1', 'project-a', 'party-1', 'XAF', 'active'));
 
-    $useCase = new ListWalletsUseCase($wallets, $balances, new NullLogger);
+    $useCase = new ListWalletsUseCase($wallets, $balances, new NullLogger, noParties());
     $page = $useCase->list(new ListWalletsCommand('project-a'), AccessScope::none());
 
     expect($page->total)->toBe(0)
         ->and($page->items)->toBe([]);
 });
+
+function noParties(): PartyLookup
+{
+    return new class implements PartyLookup
+    {
+        public function find(string $projectId, string $externalRef): ?PartyRef
+        {
+            return null;
+        }
+
+        public function externalRefsOf(string $projectId, array $partyIds): array
+        {
+            return array_combine($partyIds, array_map(static fn (string $id): string => 'ref-'.$id, $partyIds));
+        }
+    };
+}

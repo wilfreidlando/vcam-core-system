@@ -63,7 +63,7 @@
                 <tr>
                     <td class="px-4 py-2 text-sm font-mono text-slate-700">{{ $receipt->reference }}</td>
                     <td class="px-4 py-2 text-sm text-slate-900 tabular-nums whitespace-nowrap">
-                        {{ \Core\Support\Money\Money::ofMinor($receipt->amountMinor, $receipt->currency)->formattedAmount() }}
+                        {{ \Core\Support\Money\Money::ofMinor($receipt->amountMinor, $receipt->currency)->groupedAmount() }}
                         {{ $receipt->currency }}
                     </td>
                     <td class="px-4 py-2 text-sm text-slate-700">{{ $methods[$receipt->method] ?? $receipt->method }}</td>

@@ -23,7 +23,7 @@
                         {{ $subscription->planCode }} <span class="text-slate-400">v{{ $subscription->planVersion }}</span>
                     </td>
                     <td class="px-4 py-2 text-base text-slate-900 tabular-nums whitespace-nowrap">
-                        {{ \Core\Support\Money\Money::ofMinor($subscription->priceMinor, $subscription->currency)->formattedAmount() }} {{ $subscription->currency }}
+                        {{ \Core\Support\Money\Money::ofMinor($subscription->priceMinor, $subscription->currency)->groupedAmount() }} {{ $subscription->currency }}
                     </td>
                     <td class="px-4 py-2 text-sm">
                         @php

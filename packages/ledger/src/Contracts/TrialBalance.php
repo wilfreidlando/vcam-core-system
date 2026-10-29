@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Ledger\Contracts;
 
+use Core\Support\Access\AccessScope;
 use DateTimeImmutable;
 
 /**
@@ -18,4 +19,12 @@ interface TrialBalance
      * @return list<AccountBalanceView> ordered by currency, kind, reference
      */
     public function forProject(string $projectId, ?DateTimeImmutable $at = null): array;
+
+    /**
+     * The same, for the console: the operator's scope is **required** (ADR-0069 §2),
+     * and a project outside it yields an empty balance, never a zero that looks real.
+     *
+     * @return list<AccountBalanceView>
+     */
+    public function forProjectScoped(string $projectId, AccessScope $scope, ?DateTimeImmutable $at = null): array;
 }

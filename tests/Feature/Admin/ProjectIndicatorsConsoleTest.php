@@ -70,6 +70,17 @@ final class ProjectIndicatorsConsoleTest extends TestCase
         $this->get("/admin/projects/{$projectId}/indicators")->assertStatus(403);
     }
 
+    #[Test]
+    public function a_stat_tile_shows_an_amount_with_its_currency_as_written_not_as_a_number(): void
+    {
+        // Found by the browser session: « 85 000 XAF » was cast to a number and shown as « 85 ».
+        $html = \Illuminate\Support\Facades\Blade::render('<x-admin.stat label="Encaissé" text="85 000 XAF" /><x-admin.stat label="Actifs" text="2 / 3" /><x-admin.stat label="Total" :value="12345" />');
+
+        self::assertStringContainsString('85 000 XAF', $html);
+        self::assertStringContainsString('2 / 3', $html);
+        self::assertStringContainsString('12,345', $html);
+    }
+
     private function projectWithOneSubscriber(): string
     {
         $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Org'), actor: 'service:test', correlationId: null);

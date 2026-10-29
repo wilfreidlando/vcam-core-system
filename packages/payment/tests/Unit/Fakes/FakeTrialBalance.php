@@ -6,6 +6,7 @@ namespace Core\Payment\Tests\Unit\Fakes;
 
 use Core\Ledger\Contracts\AccountBalanceView;
 use Core\Ledger\Contracts\TrialBalance;
+use Core\Support\Access\AccessScope;
 use DateTimeImmutable;
 
 /**
@@ -20,6 +21,11 @@ final class FakeTrialBalance implements TrialBalance
     public function forProject(string $projectId, ?DateTimeImmutable $at = null): array
     {
         return $this->balances;
+    }
+
+    public function forProjectScoped(string $projectId, AccessScope $scope, ?DateTimeImmutable $at = null): array
+    {
+        return $scope->allowsProject($projectId) ? $this->balances : [];
     }
 
     /**
