@@ -34,7 +34,7 @@ Route::middleware([PortalSecurityHeaders::class])
             Route::post('/{projectId}/login/verify', [DirectLoginController::class, 'verify'])->whereUuid('projectId')->name('portal.login.verify');
         });
 
-        Route::get('/theme.css', [PortalPagesController::class, 'theme'])->name('portal.theme');
+        Route::get('/theme.css', [PortalPagesController::class, 'theme'])->middleware('throttle:portal-theme')->name('portal.theme');
 
         Route::middleware(['throttle:portal', AuthenticatePortal::class])->group(function (): void {
             Route::get('/', [PortalPagesController::class, 'home'])->name('portal.home');

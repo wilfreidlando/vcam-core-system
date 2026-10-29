@@ -129,9 +129,9 @@ final readonly class PortalSessionService
             $session->returnUrl,
             new PortalBranding(
                 $settings->displayName,
-                $settings->logoUrl,
+                $settings->publicLogoUrl(),
                 $settings->primaryColor,
-                $settings->supportUrl,
+                $settings->publicSupportUrl(),
                 $settings->locale,
                 $settings->allowSelfCancel,
                 $settings->paymentChannels,
@@ -166,6 +166,6 @@ final readonly class PortalSessionService
     {
         $settings = $this->settings->find($projectId);
 
-        return new PortalBranding($settings->displayName, $settings->logoUrl, $settings->primaryColor, $settings->supportUrl, $settings->locale, $settings->allowSelfCancel, $settings->paymentChannels, $settings->allowPlanChange);
+        return new PortalBranding($settings->displayName, $settings->publicLogoUrl(), $settings->primaryColor, $settings->publicSupportUrl(), $settings->locale, $settings->allowSelfCancel, $settings->paymentChannels, $settings->allowPlanChange);
     }
 }

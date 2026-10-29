@@ -17,38 +17,15 @@
             @csrf
             @method('PUT')
 
-            <div>
-                <label for="name" class="block text-base font-medium text-slate-700 mb-1">Nom</label>
-                <input
-                    type="text"
-                    name="name"
-                    id="name"
-                    value="{{ old('name', $organization->name) }}"
-                    required
-                    autofocus
-                    class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm" />
-                @error('name')
-                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                @enderror
-            </div>
+            <x-admin.field name="name" label="Nom" :value="$organization->name" required autofocus autocomplete="organization" />
 
-            <div>
-                <label for="status" class="block text-base font-medium text-slate-700 mb-1">Statut</label>
-                <select
-                    name="status"
-                    id="status"
-                    required
-                    class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm bg-white">
-                    @foreach ($statuses as $status)
-                        <option value="{{ $status }}" @selected(old('status', $organization->status) === $status)>
-                            {{ $status === 'active' ? 'Active' : 'Suspendue' }}
-                        </option>
-                    @endforeach
-                </select>
-                @error('status')
-                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                @enderror
-            </div>
+            <x-admin.field
+                name="status"
+                label="Statut"
+                type="select"
+                :value="$organization->status"
+                :options="collect($statuses)->mapWithKeys(fn ($status) => [$status => $status === 'active' ? 'Active' : 'Suspendue'])->all()"
+                required />
 
             <button
                 type="submit"
@@ -56,7 +33,7 @@
                 Enregistrer les modifications
             </button>
 
-            <a href="{{ route('admin.organizations.index') }}" class="block text-center text-base text-slate-500 hover:text-slate-700">
+            <a href="{{ route('admin.organizations.index') }}" class="block text-center text-base text-slate-600 hover:text-slate-800 py-1.5 px-2.5">
                 Annuler
             </a>
         </form>

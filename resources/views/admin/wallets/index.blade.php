@@ -11,7 +11,7 @@
         explicite de l'initiation d'un paiement par l'appelant, jamais
         manuellement.
     </div>
-    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-base font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap ml-4">
+    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-base font-medium text-indigo-700 hover:text-indigo-900 whitespace-nowrap ml-4">
         ← Retour au projet
     </a>
 </div>
@@ -24,23 +24,24 @@
      at 500 wallets for the aggregate, see WalletsController::summarize()). --}}
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <div class="bg-white border border-slate-200 rounded-lg p-4">
-        <p class="text-sm font-semibold uppercase tracking-wider text-slate-500">Total wallets</p>
+        <p class="text-sm font-semibold uppercase tracking-wider text-slate-600">Total wallets</p>
         <p class="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">{{ $stats['total'] }}</p>
     </div>
     @forelse ($stats['byCurrency'] as $currency => $totals)
         <div class="bg-white border border-slate-200 rounded-lg p-4">
-            <p class="text-sm font-semibold uppercase tracking-wider text-slate-500">{{ $currency }} disponible</p>
+            <p class="text-sm font-semibold uppercase tracking-wider text-slate-600">{{ $currency }} disponible</p>
             <p class="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($totals['availableMinor'], $currency)->groupedAmount() }}</p>
-            <p class="mt-0.5 text-sm text-slate-500">{{ $totals['count'] }} wallet{{ $totals['count'] === 1 ? '' : 's' }} · {{ \Core\Support\Money\Money::ofMinor($totals['heldMinor'], $currency)->groupedAmount() }} bloqué</p>
+            <p class="mt-0.5 text-sm text-slate-600">{{ $totals['count'] }} wallet{{ $totals['count'] === 1 ? '' : 's' }} · {{ \Core\Support\Money\Money::ofMinor($totals['heldMinor'], $currency)->groupedAmount() }} bloqué</p>
         </div>
     @empty
         <div class="bg-white border border-slate-200 rounded-lg p-4 sm:col-span-2 lg:col-span-3 flex items-center">
-            <p class="text-base text-slate-500">Aucun wallet à résumer pour le moment.</p>
+            <p class="text-base text-slate-600">Aucun wallet à résumer pour le moment.</p>
         </div>
     @endforelse
 </div>
 
 <x-admin.table
+    caption="Wallets du projet"
     :headers="['ID wallet', 'Tiers', 'Devise', 'Statut', 'Disponible', 'Bloqué', '']"
     :empty="'Aucun wallet pour ce projet pour le moment.'">
     <tbody class="divide-y divide-slate-100 bg-white">
@@ -69,11 +70,11 @@
             <td class="px-4 py-2 text-base font-mono text-slate-900 tabular-nums text-right">
                 {{ \Core\Support\Money\Money::ofMinor($wallet->availableMinor, $wallet->currency)->groupedAmount() }}
             </td>
-            <td class="px-4 py-2 text-base font-mono text-slate-500 tabular-nums text-right">
+            <td class="px-4 py-2 text-base font-mono text-slate-600 tabular-nums text-right">
                 {{ \Core\Support\Money\Money::ofMinor($wallet->heldMinor, $wallet->currency)->groupedAmount() }}
             </td>
             <td class="px-4 py-2 text-sm text-right">
-                <a href="{{ route('admin.projects.wallets.ledger', ['projectId' => $project->id, 'walletId' => $wallet->id]) }}" class="font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap">
+                <a href="{{ route('admin.projects.wallets.ledger', ['projectId' => $project->id, 'walletId' => $wallet->id]) }}" class="font-medium text-indigo-700 hover:text-indigo-900 whitespace-nowrap">
                     Écritures →
                 </a>
             </td>

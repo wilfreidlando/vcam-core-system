@@ -14,6 +14,7 @@ use Core\Portal\Presentation\Http\PortalCookie;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
@@ -52,7 +53,7 @@ final class PortalPagesController
         // one, named in the query; it is only a colour, validated like the rest.
         $project = $request->query('project');
         $color = $principal?->branding->primaryColor
-            ?? (is_string($project) && preg_match('/^[0-9a-f-]{36}\\z/', $project) === 1 ? $this->sessions->brandingOf($project)->primaryColor : null);
+            ?? (is_string($project) && Str::isUuid($project) ? $this->sessions->brandingOf($project)->primaryColor : null);
 
         // Strictly validated, derived tokens included (WCAG 1.4.3): see PortalPalette.
         return response(PortalPalette::css($color), 200, [
@@ -84,7 +85,7 @@ final class PortalPagesController
     public function invoice(Request $request, string $invoiceId): View|Response
     {
         $who = $this->who($request);
-        $detail = preg_match('/^[0-9a-f-]{36}\\z/', $invoiceId) === 1 ? $this->workspace->invoice($who, $invoiceId) : null;
+        $detail = Str::isUuid($invoiceId) ? $this->workspace->invoice($who, $invoiceId) : null;
 
         if ($detail === null) {
             return $this->notFound($who);
@@ -106,7 +107,7 @@ final class PortalPagesController
                 $request->string('nonce')->toString(),
             );
         } catch (PortalActionRefused $refused) {
-            $detail = preg_match('/^[0-9a-f-]{36}\\z/', $invoiceId) === 1 ? $this->workspace->invoice($who, $invoiceId) : null;
+            $detail = Str::isUuid($invoiceId) ? $this->workspace->invoice($who, $invoiceId) : null;
 
             if ($detail === null) {
                 return $this->notFound($who);

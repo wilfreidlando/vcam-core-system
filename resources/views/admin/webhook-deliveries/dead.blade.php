@@ -4,17 +4,8 @@
 
 @section('content')
 
-{{-- `withErrors()` from `replay()` ('id' — invalid/not found/not dead) has
-     no standing form field to attach an inline @error() to on this
-     table-only page, so without this banner those failures were silently
-     dropped (same reasoning as reconciliation/new.blade.php). --}}
-@if ($errors->any())
-    <div class="mb-4 rounded-md bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-800">
-        @foreach ($errors->all() as $error)
-            <p>{{ $error }}</p>
-        @endforeach
-    </div>
-@endif
+{{-- Les erreurs de `replay()` (id invalide / introuvable / pas en échec) sont rendues par le bloc
+     d'erreurs global du layout (`role="alert"`) : pas de bandeau local en double. --}}
 
 <div class="mb-4 flex items-start justify-between gap-4 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
     <p>
@@ -28,20 +19,13 @@
     </a>
 </div>
 
-<form method="GET" action="{{ route('admin.webhook-deliveries.dead.web') }}" class="bg-white border border-slate-200 rounded-lg p-4 mb-4">
+<form method="GET" action="{{ route('admin.webhook-deliveries.dead.web') }}" aria-label="Filtrer les livraisons" class="bg-white border border-slate-200 rounded-lg p-4 mb-4">
     @if (($filters['project_id'] ?? '') !== '')
         <input type="hidden" name="project_id" value="{{ $filters['project_id'] }}" />
     @endif
     <div class="flex items-end gap-3">
-        <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Statut</label>
-            <select name="status" class="block rounded-md border border-slate-300 px-3 py-2 text-base bg-white">
-                <option value="" @selected(($filters['status'] ?? '') === '')>Tous</option>
-                <option value="pending" @selected(($filters['status'] ?? '') === 'pending')>En attente</option>
-                <option value="delivered" @selected(($filters['status'] ?? '') === 'delivered')>Livré</option>
-                <option value="dead" @selected(($filters['status'] ?? '') === 'dead')>En échec (mort)</option>
-            </select>
-        </div>
+        <x-admin.field name="status" type="select" label="Statut" :value="$filters['status'] ?? ''"
+                       :options="['' => 'Tous', 'pending' => 'En attente', 'delivered' => 'Livré', 'dead' => 'En échec (mort)']" />
         <div class="flex items-end gap-2">
             <a href="{{ route('admin.webhook-deliveries.dead.web') }}" class="text-sm text-slate-500 hover:text-slate-700">Réinitialiser</a>
             <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-base font-medium text-white">Filtrer</button>
@@ -50,6 +34,7 @@
 </form>
 
 <x-admin.table
+    caption="Livraisons de webhooks"
     :headers="['', 'ID', 'URL du endpoint', 'Projet', 'Statut', 'Type d\'événement', 'Tentatives', 'Dernière erreur', 'Dernière tentative', 'Action']"
     :empty="'Aucune livraison ne correspond aux filtres.'">
     @foreach ($deliveries as $delivery)
@@ -68,7 +53,7 @@
              permanently expanded (review finding, live-tested). Multiple
              `<tbody>` per `<table>` is valid HTML — this is the standard
              way to group rows that need to share client-side state. --}}
-        <tbody class="divide-y divide-slate-100 bg-white" x-data="{ confirmReplay: false, showDetails: false }">
+        <tbody class="divide-y divide-slate-100 bg-white" x-data="{ showDetails: false }">
         <tr>
             <td class="px-2 py-2">
                 {{-- Review finding: the ID text alone (same styling as
@@ -78,10 +63,13 @@
                 <button
                     type="button"
                     @click="showDetails = !showDetails"
-                    class="inline-flex items-center justify-center h-6 w-6 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-                    :aria-expanded="showDetails.toString()"
+                    class="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+                    aria-expanded="false"
+                    :aria-expanded="showDetails ? 'true' : 'false'"
+                    aria-controls="delivery-detail-{{ $delivery->id }}"
+                    aria-label="Voir le corps envoyé et la réponse reçue de la livraison {{ substr($delivery->id, 0, 8) }}"
                     title="Voir le corps envoyé et la réponse reçue">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform" :class="{ 'rotate-90': showDetails }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="h-4 w-4 transition-transform" :class="{ 'rotate-90': showDetails }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                     </svg>
                 </button>
@@ -127,43 +115,26 @@
             </td>
             <td class="px-4 py-2 text-sm">
                 @if ($delivery->status === 'dead')
-                    <button
-                        @click="confirmReplay = true"
-                        type="button"
-                        class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 font-medium text-indigo-700 hover:bg-indigo-100">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5.197m0 0v5.197M15 4v5h.582M19.418 15A8.003 8.003 0 0115 19.418M4.582 9H9"/></svg>
-                        Rejouer
-                    </button>
-                    <form
-                        x-show="confirmReplay"
-                        x-cloak
-                        @submit="confirmReplay = false"
-                        method="POST"
-                        action="{{ route('admin.webhook-deliveries.replay.web', ['delivery' => $delivery->id]) }}"
-                        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50"
-                        @click.self="confirmReplay = false">
-                        @csrf
-                        <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4" @click.stop>
-                            <p class="font-semibold text-slate-900 mb-2">Rejouer cette livraison ?</p>
-                            <p class="text-sm text-slate-600 mb-4">
-                                La ligne en échec d'origine est conservée telle
-                                quelle ; une nouvelle livraison sera créée et
-                                remise en file.
-                            </p>
-                            <div class="flex justify-end gap-2">
-                                <button type="button" @click="confirmReplay = false"
-                                        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Annuler</button>
-                                <button type="submit"
-                                        class="rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white">Confirmer</button>
-                            </div>
-                        </div>
-                    </form>
+                    {{-- #26 — rejouer crée une nouvelle livraison : confirmation en dialogue accessible. --}}
+                    <x-admin.confirm-dialog
+                        title="Rejouer cette livraison ?"
+                        message="La ligne en échec d'origine est conservée telle quelle ; une nouvelle livraison sera créée et remise en file."
+                        :action="route('admin.webhook-deliveries.replay.web', ['delivery' => $delivery->id])"
+                        confirm="Rejouer"
+                        variant="primary">
+                        <x-slot:trigger>
+                            <button type="button" class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-1.5 font-medium text-indigo-700 hover:bg-indigo-100">
+                                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5.197m0 0v5.197M15 4v5h.582M19.418 15A8.003 8.003 0 0115 19.418M4.582 9H9"/></svg>
+                                Rejouer<span class="sr-only"> la livraison {{ substr($delivery->id, 0, 8) }}</span>
+                            </button>
+                        </x-slot:trigger>
+                    </x-admin.confirm-dialog>
                 @else
-                    <span class="text-slate-400">—</span>
+                    <span class="text-slate-500">—</span>
                 @endif
             </td>
         </tr>
-        <tr x-show="showDetails" x-cloak>
+        <tr id="delivery-detail-{{ $delivery->id }}" x-show="showDetails" x-cloak>
             <td colspan="10" class="px-4 py-3 bg-slate-50 border-t border-slate-100">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div>
@@ -174,7 +145,7 @@
                         <p class="text-sm font-semibold text-slate-700 mb-1">
                             Réponse reçue
                             @if ($delivery->lastResponseStatus !== null)
-                                <span class="ml-1 font-mono font-normal text-slate-500">HTTP {{ $delivery->lastResponseStatus }}</span>
+                                <span class="ml-1 font-mono font-normal text-slate-600">HTTP {{ $delivery->lastResponseStatus }}</span>
                             @endif
                         </p>
                         @if ($delivery->lastResponseBody !== null && $delivery->lastResponseBody !== '')

@@ -16,7 +16,7 @@
 
     <div class="flex flex-wrap items-center justify-between gap-3">
         <a href="{{ route('admin.projects.plans.new', $projectId) }}"
-           class="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">
+           class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
             Nouveau plan
         </a>
     </div>
@@ -31,13 +31,18 @@
                         <span class="ml-2 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">privé</span>
                     @endif
                 </div>
-                <form method="POST" action="{{ route('admin.projects.plans.archive.web', [$projectId, $plan->code]) }}">
-                    @csrf
-                    <button type="submit" class="text-sm font-medium text-rose-700 hover:text-rose-900">Archiver</button>
-                </form>
+                <x-admin.confirm-dialog
+                    :title="'Archiver le plan '.$plan->code.' ?'"
+                    message="Le plan n'est plus proposé aux nouvelles souscriptions. Les abonnements en cours gardent leurs conditions."
+                    :action="route('admin.projects.plans.archive.web', [$projectId, $plan->code])"
+                    confirm="Archiver">
+                    <x-slot:trigger>
+                        <button type="button" class="rounded-md px-2.5 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50 hover:text-rose-900">Archiver</button>
+                    </x-slot:trigger>
+                </x-admin.confirm-dialog>
             </div>
 
-            <x-admin.table :headers="['Version', 'Prix', 'Période', 'Essai', 'Grâce', 'Statut', '']" empty="Aucune version.">
+            <x-admin.table :caption="'Versions du plan '.$plan->code" :headers="['Version', 'Prix', 'Période', 'Essai', 'Grâce', 'Statut', '']" empty="Aucune version.">
                 @if (count($plan->versions) > 0)
                     <tbody class="divide-y divide-slate-100 bg-white">
                     @foreach ($plan->versions as $version)
@@ -68,10 +73,16 @@
                             </td>
                             <td class="px-4 py-2 text-sm text-right">
                                 @if ($version->status === 'draft')
-                                    <form method="POST" action="{{ route('admin.projects.plans.versions.publish.web', [$projectId, $plan->code, $version->version]) }}">
-                                        @csrf
-                                        <button type="submit" class="font-medium text-indigo-600 hover:text-indigo-800">Publier</button>
-                                    </form>
+                                    <x-admin.confirm-dialog
+                                        :title="'Publier la version '.$version->version.' de '.$plan->code.' ?'"
+                                        message="Une version publiée est figée : prix, période et essai ne changeront plus. Corriger un tarif demandera une nouvelle version."
+                                        :action="route('admin.projects.plans.versions.publish.web', [$projectId, $plan->code, $version->version])"
+                                        confirm="Publier"
+                                        variant="primary">
+                                        <x-slot:trigger>
+                                            <button type="button" class="rounded-md px-2.5 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50 hover:text-indigo-900">Publier</button>
+                                        </x-slot:trigger>
+                                    </x-admin.confirm-dialog>
                                 @endif
                             </td>
                         </tr>
@@ -81,12 +92,9 @@
             </x-admin.table>
         </div>
     @empty
-        <x-admin.table :headers="['Plan']" empty="Aucun plan." />
+        <x-admin.table caption="Plans du projet" :headers="['Plan']" empty="Aucun plan." />
     @endforelse
 
-    @if ($nextCursor !== null)
-        <a href="{{ route('admin.projects.plans.index', [$projectId, 'cursor' => $nextCursor]) }}"
-           class="text-sm font-medium text-indigo-600 hover:text-indigo-800">Page suivante →</a>
-    @endif
+    @include('admin.billing.partials.cursor-pager', ['routeName' => 'admin.projects.plans.index', 'routeParams' => [$projectId], 'nextCursor' => $nextCursor])
 </div>
 @endsection

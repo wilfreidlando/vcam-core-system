@@ -5,9 +5,9 @@
 <h1>Mon abonnement</h1>
 @forelse ($subscriptions as $sub)
     @php [$label, $tone] = F::subscriptionStatus($sub->status); @endphp
-    <section class="card">
+    <section class="card" aria-labelledby="sub-{{ $loop->index }}-title">
         <div class="card__head">
-            <h2 class="card__title">{{ ucfirst($sub->planCode) }}</h2>
+            <h2 id="sub-{{ $loop->index }}-title" class="card__title">{{ ucfirst($sub->planCode) }}</h2>
             <span class="badge badge--{{ $tone }}">{{ $label }}</span>
         </div>
         <dl class="facts">

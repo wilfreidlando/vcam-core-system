@@ -12,6 +12,7 @@ final readonly class PortalSettingsData
     /**
      * @param list<string> $allowedReturnUrls
      * @param list<string> $paymentChannels
+     * @param list<string>|null $allowedAssetOrigins null = keep the origins already stored
      */
     public function __construct(
         public string $displayName,
@@ -25,5 +26,6 @@ final readonly class PortalSettingsData
         public array $paymentChannels,
         public bool $directLoginEnabled = false,
         public ?string $directLoginSession = null,
+        public ?array $allowedAssetOrigins = null,
     ) {}
 }

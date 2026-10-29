@@ -11,7 +11,7 @@
             @foreach ($home->dueByCurrency as $currency => $minor)
                 <p class="kpi__value">{{ F::money($minor, $currency) }}</p>
             @endforeach
-            <p class="kpi__hint">@if($home->nextDueAt)Échéance le {{ F::date($home->nextDueAt) }}@else{{ count($home->openInvoices) }} facture(s) en attente @endif</p>
+            <p class="kpi__hint">@if($home->nextDueAt)Échéance le {{ F::date($home->nextDueAt) }}@else{{ count($home->openInvoices) }} {{ count($home->openInvoices) > 1 ? 'factures' : 'facture' }} en attente @endif</p>
         @else
             <p class="kpi__value">À jour</p>
             <p class="kpi__hint">Aucune facture en attente</p>
@@ -48,7 +48,7 @@
                 </div>
                 <div class="row__side">
                     <span class="amount amount--sm">{{ F::money($invoice->totalMinor - $invoice->amountPaidMinor, $invoice->currency) }}</span>
-                    <span class="button button--sm">Payer</span>
+                    <span class="button button--sm" aria-hidden="true">Payer</span>
                 </div>
             </a>
         @endforeach

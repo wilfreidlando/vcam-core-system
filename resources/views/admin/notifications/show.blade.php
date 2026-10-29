@@ -5,7 +5,7 @@
 
 @section('content')
 @php
-    $field = 'text-sm uppercase tracking-wider font-semibold text-slate-500';
+    $field = 'text-sm uppercase tracking-wider font-semibold text-slate-600';
     $fmt = static fn (?string $iso): string => $iso !== null ? \Illuminate\Support\Carbon::parse($iso)->format('d/m/Y H:i:s') : '—';
     $json = static fn (array $data): string => (string) json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 @endphp
@@ -24,7 +24,7 @@
             </div>
             <div>
                 <p class="{{ $field }}">Projet</p>
-                <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-indigo-600 hover:text-indigo-800 font-medium">{{ $project->name }}</a>
+                <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-indigo-700 hover:text-indigo-900 font-medium">{{ $project->name }}</a>
             </div>
             <div>
                 <p class="{{ $field }}">Créée le</p>
@@ -63,7 +63,7 @@
         <div class="bg-white border border-slate-200 rounded-lg p-6">
             <h2 class="text-lg font-semibold text-slate-900 mb-3">Contenu envoyé</h2>
             @if ($notification->content === [])
-                <p class="text-slate-500">Non conservé (notification antérieure à ADR-0062).</p>
+                <p class="text-slate-600">Non conservé (notification antérieure à ADR-0062).</p>
             @else
                 <pre class="bg-slate-50 rounded-md p-3 text-sm font-mono text-slate-800 overflow-x-auto whitespace-pre-wrap break-all">{{ $json($notification->content) }}</pre>
             @endif
@@ -71,7 +71,7 @@
         <div class="bg-white border border-slate-200 rounded-lg p-6">
             <h2 class="text-lg font-semibold text-slate-900 mb-3">Variables</h2>
             @if ($notification->variables === [])
-                <p class="text-slate-500">Aucune.</p>
+                <p class="text-slate-600">Aucune.</p>
             @else
                 <pre class="bg-slate-50 rounded-md p-3 text-sm font-mono text-slate-800 overflow-x-auto whitespace-pre-wrap break-all">{{ $json($notification->variables) }}</pre>
             @endif
@@ -97,7 +97,7 @@
     </div>
 
     <div class="text-right">
-        <a href="{{ route('admin.projects.notifications.index', ['projectId' => $project->id]) }}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">← Retour aux notifications</a>
+        <a href="{{ route('admin.projects.notifications.index', ['projectId' => $project->id]) }}" class="text-sm text-indigo-700 hover:text-indigo-900 font-medium">← Retour aux notifications</a>
     </div>
 </div>
 @endsection

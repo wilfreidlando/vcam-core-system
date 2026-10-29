@@ -37,6 +37,7 @@ final readonly class ManagePortalSettingsUseCase implements ManagePortalSettings
             $command->paymentChannels,
             $command->directLoginEnabled,
             $command->directLoginSession,
+            $command->allowedAssetOrigins,
         ), $command->correlationId, $command->actor));
     }
 
@@ -54,6 +55,7 @@ final readonly class ManagePortalSettingsUseCase implements ManagePortalSettings
             $d->paymentChannels,
             $d->directLoginEnabled,
             $d->directLoginSession,
+            $d->allowedAssetOrigins ?? [],
         );
     }
 }

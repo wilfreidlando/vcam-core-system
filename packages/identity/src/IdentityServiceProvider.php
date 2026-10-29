@@ -42,6 +42,7 @@ use Core\Identity\Contracts\ListOperators;
 use Core\Identity\Contracts\ListOrganizationMembers;
 use Core\Identity\Contracts\ListOrganizations;
 use Core\Identity\Contracts\ListProjects;
+use Core\Identity\Contracts\MfaBypassForbidden;
 use Core\Identity\Contracts\ResolveAccessScope;
 use Core\Identity\Contracts\RevokeApiKey;
 use Core\Identity\Contracts\RevokeOperator;
@@ -97,6 +98,8 @@ final class IdentityServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->refuseMfaBypassOutsideLocal();
+
         $this->app->bind(OrganizationRepository::class, EloquentOrganizationRepository::class);
         $this->app->bind(ProjectRepository::class, EloquentProjectRepository::class);
         $this->app->bind(ApiKeyRepository::class, EloquentApiKeyRepository::class);
@@ -172,6 +175,21 @@ final class IdentityServiceProvider extends ServiceProvider
                 RotateApiKeyCommand::class,
                 InviteOperatorCommand::class,
             ]);
+        }
+    }
+
+    /**
+     * Audit 2026-10-29 #12 — `IDENTITY_DISABLE_MFA=true` removes the second
+     * factor on BOTH planes (web and API). Like `disable_totp_in_local`, the
+     * environment is checked here, in code, not only through the flag: no
+     * config value can keep the console running without MFA outside `local`.
+     *
+     * @throws MfaBypassForbidden
+     */
+    private function refuseMfaBypassOutsideLocal(): void
+    {
+        if ((bool) config('identity.disable_mfa', false) && ! $this->app->environment('local')) {
+            throw MfaBypassForbidden::inEnvironment($this->app->environment());
         }
     }
 }

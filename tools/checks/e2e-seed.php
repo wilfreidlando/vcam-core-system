@@ -16,6 +16,17 @@ use Core\Identity\Contracts\IssueApiKey;
 use Core\Identity\Contracts\IssueApiKeyCommand;
 use Core\Identity\OperatorRole;
 
+// A screen whose table does not exist is a 500 on the first click — the export screen of lot 15
+// was never opened by any session for exactly that reason (recette 2026-10-29, F-03: the migration
+// was Pending). Refuse to seed a database that is behind its code, and say which migrations.
+$migrator = app('migrator');
+$files = $migrator->getMigrationFiles(array_merge($migrator->paths(), [database_path('migrations')]));
+$pending = array_values(array_diff(array_keys($files), $migrator->getRepository()->getRan()));
+if ($pending !== []) {
+    fwrite(STDERR, 'E2E_ERROR='.count($pending)." migration(s) en attente — lancez `make migrate` avant la recette :\n  - ".implode("\n  - ", $pending)."\n");
+    exit(1);
+}
+
 $project = require 'tools/checks/portal-demo.php';   // prints LINK= and returns the project id
 assert(is_string($project));
 

@@ -75,4 +75,19 @@ final class OpenPortalSessionRequest extends FormRequest
             'trial_days' => ['nullable', 'integer', 'between:0,365'],
         ];
     }
+
+    /**
+     * Une règle `integer` valide `"14"` mais ne caste pas : sans conversion,
+     * `trial_days` tombait à `null` et l'abonnement était créé SANS essai, sans
+     * la moindre erreur. On convertit ici un entier écrit en chaîne ; toute
+     * autre valeur (`"abc"`, `14.5`) reste intacte et la validation répond 422.
+     */
+    protected function prepareForValidation(): void
+    {
+        $days = $this->input('trial_days');
+
+        if (is_string($days) && preg_match('/^-?[0-9]{1,6}$/', $days) === 1) {
+            $this->merge(['trial_days' => (int) $days]);
+        }
+    }
 }

@@ -18,44 +18,19 @@
         <form method="POST" action="{{ route('admin.operators.store') }}" class="space-y-4">
             @csrf
 
-            <div>
-                <label for="email" class="block text-base font-medium text-slate-700 mb-1">Email</label>
-                <input
-                    type="email"
-                    name="email"
-                    id="email"
-                    value="{{ old('email') }}"
-                    required
-                    autofocus
-                    autocomplete="off"
-                    class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm" />
-                @error('email')
-                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                @enderror
-            </div>
+            {{-- B30 — l'email de l'invité : `autocomplete="email"`, jamais `off` sur un identifiant. --}}
+            <x-admin.field name="email" label="Email" type="email" required autofocus autocomplete="email" />
 
-            <div>
-                <label for="role" class="block text-base font-medium text-slate-700 mb-1">Rôle</label>
-                <select
-                    name="role"
-                    id="role"
-                    required
-                    class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm">
-                    {{-- Le rôle est obligatoire : une option vide et sélectionnée
-                         par défaut empêche le navigateur de soumettre d'office
-                         le rôle le plus privilégié (`platform_admin`, premier
-                         de `OperatorRole::cases()`). --}}
-                    <option value="" @selected(old('role') === null)>Choisir un rôle…</option>
-                    @foreach ($roles as $role)
-                        <option value="{{ $role->value }}" @selected(old('role') === $role->value)>
-                            {{ $role->value }}
-                        </option>
-                    @endforeach
-                </select>
-                @error('role')
-                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                @enderror
-            </div>
+            {{-- Le rôle est obligatoire : une option vide et sélectionnée par défaut
+                 empêche le navigateur de soumettre d'office le rôle le plus privilégié
+                 (`platform_admin`, premier de `OperatorRole::cases()`). --}}
+            <x-admin.field
+                name="role"
+                label="Rôle"
+                type="select"
+                required
+                placeholder="Choisir un rôle…"
+                :options="collect($roles)->mapWithKeys(fn ($role) => [$role->value => $role->value])->all()" />
 
             <button
                 type="submit"

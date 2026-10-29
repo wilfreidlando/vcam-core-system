@@ -613,7 +613,7 @@ final readonly class PortalWorkspace
             $limit = $definition['limit'] ?? null;
 
             if (! is_int($limit)) {
-                $lines[] = ucfirst($label).' illimité(s)';
+                $lines[] = ucfirst($label).' : illimité';
 
                 continue;
             }

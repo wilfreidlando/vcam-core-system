@@ -13,77 +13,36 @@
         </p>
 
         @if (! $operatorRow)
-            <div class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
-                <p class="text-base text-amber-800">
-                    Les valeurs actuelles n'ont pas pu être chargées pour cet
-                    opérateur
-                    (id <code class="font-mono">{{ substr($operatorId, 0, 8) }}…</code>)
-                    — seule la recherche par liste est disponible, et cet id
-                    n'a pas été trouvé parmi les 200 premiers opérateurs.
-                    Remplissez les champs ci-dessous depuis zéro ;
-                    la soumission mettra bien à jour le bon opérateur.
-                </p>
-            </div>
+            <x-admin.alert variant="warning">
+                Les valeurs actuelles n'ont pas pu être chargées pour cet
+                opérateur
+                (id <code class="font-mono">{{ substr($operatorId, 0, 8) }}…</code>)
+                — seule la recherche par liste est disponible, et cet id
+                n'a pas été trouvé parmi les 200 premiers opérateurs.
+                Remplissez les champs ci-dessous depuis zéro ;
+                la soumission mettra bien à jour le bon opérateur.
+            </x-admin.alert>
         @endif
 
         <form method="POST" action="{{ route('admin.operators.update.web', ['operatorId' => $operatorId]) }}" class="space-y-4">
             @csrf
             @method('PUT')
 
-            <div>
-                <label for="email" class="block text-base font-medium text-slate-700 mb-1">Email</label>
-                <input
-                    type="email"
-                    name="email"
-                    id="email"
-                    value="{{ old('email', $operatorRow->email ?? '') }}"
-                    required
-                    autofocus
-                    autocomplete="off"
-                    class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm" />
-                @error('email')
-                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                @enderror
-            </div>
+            {{-- B30 — `autocomplete="email"` : ce champ est un identifiant. --}}
+            <x-admin.field name="email" label="Email" type="email" :value="$operatorRow->email ?? ''" required autofocus autocomplete="email" />
 
-            <div>
-                <label for="name" class="block text-base font-medium text-slate-700 mb-1">Nom</label>
-                <input
-                    type="text"
-                    name="name"
-                    id="name"
-                    value="{{ old('name', $operatorRow->name ?? '') }}"
-                    required
-                    class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm" />
-                @error('name')
-                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                @enderror
-            </div>
+            <x-admin.field name="name" label="Nom" :value="$operatorRow->name ?? ''" required autocomplete="name" />
 
-            <div>
-                <label for="role" class="block text-base font-medium text-slate-700 mb-1">Rôle</label>
-                <select
-                    name="role"
-                    id="role"
-                    required
-                    class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm">
-                    {{-- ADR-0069 §1 : le rôle de plateforme est facultatif. Sans
-                         cette option, un compte sans rôle de plateforme n'a rien
-                         de sélectionné et le navigateur soumet la première
-                         option — `platform_admin`. Modifier le nom d'un compte
-                         d'organisation lui accorderait donc silencieusement la
-                         plateforme. --}}
-                    <option value="" @selected((string) old('role', $operatorRow->role ?? '') === '')>Aucun rôle de plateforme</option>
-                    @foreach ($roles as $role)
-                        <option value="{{ $role->value }}" @selected(old('role', $operatorRow->role ?? null) === $role->value)>
-                            {{ $role->value }}
-                        </option>
-                    @endforeach
-                </select>
-                @error('role')
-                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                @enderror
-            </div>
+            {{-- ADR-0069 §1 : le rôle de plateforme est facultatif. Sans l'option vide,
+                 un compte sans rôle de plateforme n'a rien de sélectionné et le navigateur
+                 soumet la première option — `platform_admin`. --}}
+            <x-admin.field
+                name="role"
+                label="Rôle"
+                type="select"
+                :value="$operatorRow->role ?? ''"
+                placeholder="Aucun rôle de plateforme"
+                :options="collect($roles)->mapWithKeys(fn ($role) => [$role->value => $role->value])->all()" />
 
             <button
                 type="submit"

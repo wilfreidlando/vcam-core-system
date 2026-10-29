@@ -12,23 +12,12 @@
             Les projets se créent séparément, une fois l'organisation créée.
         </p>
 
+        {{-- Les erreurs de validation sont résumées par le layout (role="alert") ;
+             chaque champ relie son message par aria-describedby / aria-invalid. --}}
         <form method="POST" action="{{ route('admin.organizations.store') }}" class="space-y-4">
             @csrf
 
-            <div>
-                <label for="name" class="block text-base font-medium text-slate-700 mb-1">Nom</label>
-                <input
-                    type="text"
-                    name="name"
-                    id="name"
-                    value="{{ old('name') }}"
-                    required
-                    autofocus
-                    class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm" />
-                @error('name')
-                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                @enderror
-            </div>
+            <x-admin.field name="name" label="Nom" required autofocus autocomplete="organization" />
 
             <button
                 type="submit"

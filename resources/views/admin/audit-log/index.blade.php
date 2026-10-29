@@ -7,36 +7,22 @@
 @endsection
 
 @section('content')
-<form method="GET" action="{{ route('admin.audit-log.index') }}" class="bg-white border border-slate-200 rounded-lg p-4 mb-4">
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
-        <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Ressource</label>
-            <input type="text" name="resource" value="{{ $filters['resource'] ?? '' }}" class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base" />
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Acteur</label>
-            <input type="text" name="actor" value="{{ $filters['actor'] ?? '' }}" class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base" />
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Action</label>
-            <input type="text" name="action" value="{{ $filters['action'] ?? '' }}" class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base" />
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Depuis le</label>
-            <input type="date" name="from" value="{{ $filters['from'] ?? '' }}" class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base" />
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Jusqu'au</label>
-            <input type="date" name="to" value="{{ $filters['to'] ?? '' }}" class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base" />
-        </div>
+<form method="GET" action="{{ route('admin.audit-log.index') }}" class="bg-white border border-slate-200 rounded-lg p-4 mb-4" aria-label="Filtrer le journal d'audit">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-start">
+        <x-admin.field name="resource" label="Ressource" :value="$filters['resource'] ?? ''" />
+        <x-admin.field name="actor" label="Acteur" :value="$filters['actor'] ?? ''" hint="Identifiant brut, par ex. operator:…" />
+        <x-admin.field name="action" label="Action" :value="$filters['action'] ?? ''" hint="Code brut, par ex. api_key.issued" />
+        <x-admin.field name="from" type="date" label="Depuis le" :value="$filters['from'] ?? ''" />
+        <x-admin.field name="to" type="date" label="Jusqu'au" :value="$filters['to'] ?? ''" />
     </div>
     <div class="mt-3 flex items-center justify-end gap-2">
-        <a href="{{ route('admin.audit-log.index') }}" class="text-sm text-slate-500 hover:text-slate-700">Réinitialiser</a>
+        <a href="{{ route('admin.audit-log.index') }}" class="text-sm text-slate-600 hover:text-slate-800">Réinitialiser</a>
         <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-base font-medium text-white">Filtrer</button>
     </div>
 </form>
 
 <x-admin.table
+    caption="Journal d'audit"
     :headers="['Quand', 'Acteur', 'Action', 'Ressource', 'Corrélation', 'Détails']"
     :empty="'Aucune entrée d\'audit ne correspond aux filtres.'">
     <tbody class="divide-y divide-slate-100 bg-white">
@@ -52,24 +38,25 @@
             <td class="px-4 py-2 text-sm font-mono text-slate-600 whitespace-nowrap">
                 {{ $entry->occurredAt->format('Y-m-d H:i:s') }}
             </td>
-            <td class="px-4 py-2 text-sm text-slate-700 truncate max-w-[10rem]">
-                {{ $entry->actor }}
+            {{-- F-08 / V-01 — the actor is a label; the internal identifier stays in `title` and sr-only text. --}}
+            <td class="px-4 py-2 text-sm text-slate-700 whitespace-nowrap">
+                @include('admin.audit-log._actor', ['actor' => $actorLabels[$entry->actor] ?? new \App\Http\View\ActorLabel($entry->actor, $entry->actor)])
             </td>
-            <td class="px-4 py-2">
-                <span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-700">
-                    {{ $entry->action }}
-                </span>
+            <td class="px-4 py-2 whitespace-nowrap">
+                @include('admin.audit-log._action', ['action' => $entry->action])
             </td>
-            <td class="px-4 py-2 text-sm text-slate-600 truncate max-w-[12rem] font-mono">
-                {{ $entry->resource }}
+            <td class="px-4 py-2 text-sm text-slate-600 whitespace-nowrap">
+                @include('admin.audit-log._resource', ['resource' => $actorLabels[$entry->resource] ?? new \App\Http\View\ActorLabel($entry->resource, $entry->resource)])
             </td>
-            <td class="px-4 py-2 text-sm text-slate-500 truncate max-w-[8rem] font-mono">
+            <td class="px-4 py-2 text-sm text-slate-600 truncate max-w-[8rem] min-w-[6rem] font-mono">
                 {{ $entry->correlationId ?? '' }}
             </td>
             <td class="px-4 py-2 text-sm align-top">
                 @if ($hasDetail)
-                    <button type="button" @click="expanded = ! expanded" class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap">
-                        <span x-text="expanded ? 'Masquer ▾' : 'Voir ▸'"></span>
+                    <button type="button" @click="expanded = ! expanded"
+                            aria-controls="audit-detail-{{ $entry->id }}" aria-expanded="false" :aria-expanded="expanded ? 'true' : 'false'"
+                            class="inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-indigo-700 hover:text-indigo-900 font-medium whitespace-nowrap">
+                        <span x-text="expanded ? 'Masquer ▾' : 'Voir ▸'">Voir ▸</span><span class="sr-only"> le détail de l'entrée {{ $entry->id }}</span>
                     </button>
                     {{-- Kept inside this same <td> rather than a sibling
                          <tr> — Alpine's x-data scopes to an element and
@@ -77,28 +64,28 @@
                          share this row's `expanded` state without a
                          global store; nesting the detail here avoids that
                          entirely and stays valid table markup. --}}
-                    <div x-show="expanded" x-cloak class="mt-2 space-y-1.5 w-max max-w-sm">
+                    <div id="audit-detail-{{ $entry->id }}" x-show="expanded" x-cloak class="mt-2 space-y-1.5 w-max max-w-sm">
                         @if (! empty($entry->before))
                             <div>
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Avant</p>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-600">Avant</p>
                                 <pre class="text-xs font-mono bg-slate-50 border border-slate-200 rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap break-all">{{ json_encode($entry->before, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                             </div>
                         @endif
                         @if (! empty($entry->after))
                             <div>
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Après</p>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-600">Après</p>
                                 <pre class="text-xs font-mono bg-slate-50 border border-slate-200 rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap break-all">{{ json_encode($entry->after, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                             </div>
                         @endif
                         @if (! empty($entry->context))
                             <div>
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Contexte</p>
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-600">Contexte</p>
                                 <pre class="text-xs font-mono bg-slate-50 border border-slate-200 rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap break-all">{{ json_encode($entry->context, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                             </div>
                         @endif
                     </div>
                 @else
-                    <span class="text-slate-400">—</span>
+                    <span class="text-slate-500">—</span>
                 @endif
             </td>
         </tr>

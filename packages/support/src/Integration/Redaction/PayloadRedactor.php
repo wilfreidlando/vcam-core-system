@@ -78,10 +78,11 @@ final class PayloadRedactor
     {
         $substrings = $this->keys->keySubstrings();
         $substringsLower = array_map('strtolower', $substrings);
+        $exactLower = array_map('strtolower', $this->keys->exactKeys());
 
         $out = [];
         foreach ($payload as $key => $value) {
-            if (is_string($key) && $this->keyIsSensitive(strtolower($key), $substringsLower)) {
+            if (is_string($key) && $this->keyIsSensitive(strtolower($key), $substringsLower, $exactLower)) {
                 $out[$key] = self::PLACEHOLDER;
 
                 continue;
@@ -96,9 +97,14 @@ final class PayloadRedactor
 
     /**
      * @param list<string> $substringsLower
+     * @param list<string> $exactLower
      */
-    private function keyIsSensitive(string $lowerKey, array $substringsLower): bool
+    private function keyIsSensitive(string $lowerKey, array $substringsLower, array $exactLower): bool
     {
+        if (in_array($lowerKey, $exactLower, true)) {
+            return true;
+        }
+
         foreach ($substringsLower as $needle) {
             if (str_contains($lowerKey, $needle)) {
                 return true;

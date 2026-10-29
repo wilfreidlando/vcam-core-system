@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
+use App\Http\View\AuditLabels;
 use Core\Export\Contracts\ExportNotFound;
 use Core\Export\Contracts\GetExport;
 use Core\Export\Contracts\ListExports;
@@ -39,6 +40,7 @@ final class ProjectExportsController
         private readonly ListExports $listExports,
         private readonly GetExport $getExport,
         private readonly SignedDownloadLinks $links,
+        private readonly AuditLabels $labels,
     ) {}
 
     public function index(OperatorContext $operator, string $projectId): Response
@@ -46,10 +48,14 @@ final class ProjectExportsController
         $scope = $this->permittedScope($operator, self::PERMISSION);
         $this->resolveScopedProject($this->getProject, $operator, $projectId, self::PERMISSION);
 
+        $exports = $this->listExports->list($projectId, 30, $scope);
+
         return response()->view('admin.projects.exports', [
             'title' => 'Export des données',
             'projectId' => $projectId,
-            'exports' => $this->listExports->list($projectId, 30, $scope),
+            'exports' => $exports,
+            // F-08 / V-01 — « PAR » shows « Opérateur — e-mail », never `operator:<uuid>`.
+            'requesterLabels' => $this->labels->actors(array_map(static fn ($export): string => $export->requestedBy, $exports), $operator),
         ]);
     }
 

@@ -33,6 +33,7 @@ final class DatabasePortalSettingsRepository implements PortalSettingsRepository
             $this->strings($r->nullableString('payment_channels')),
             $r->bool('direct_login_enabled'),
             $r->nullableString('direct_login_session'),
+            $this->strings($r->nullableString('allowed_asset_origins')),
         );
     }
 
@@ -50,6 +51,7 @@ final class DatabasePortalSettingsRepository implements PortalSettingsRepository
             'payment_channels' => json_encode($settings->paymentChannels),
             'direct_login_enabled' => $settings->directLoginEnabled,
             'direct_login_session' => $settings->directLoginSession,
+            'allowed_asset_origins' => json_encode($settings->allowedAssetOrigins),
             'updated_at' => now(),
         ];
 

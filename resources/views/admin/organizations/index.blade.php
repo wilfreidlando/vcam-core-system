@@ -18,7 +18,8 @@
 </div>
 
 <x-admin.table
-    :headers="['ID', 'Nom', 'Statut', 'Action']"
+    caption="Organisations"
+    :headers="['ID', 'Nom', 'Statut', 'Actions']"
     :empty="'Aucune organisation pour le moment.'">
     <tbody class="divide-y divide-slate-100 bg-white">
     @foreach ($organizations as $org)
@@ -38,24 +39,24 @@
                     {{ $org->status }}
                 </span>
             </td>
-            <td class="px-4 py-2 text-base space-x-3 whitespace-nowrap">
+            <td class="px-4 py-2 text-base whitespace-nowrap">
                 <a href="{{ route('admin.projects.index', ['organization_id' => $org->id]) }}"
-                   class="text-indigo-600 hover:text-indigo-800 font-medium">
+                   class="inline-block py-1.5 px-2.5 text-indigo-700 hover:text-indigo-900 font-medium">
                     Voir les projets →
                 </a>
                 @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermissionAnywhere('members:read'))
                     <a href="{{ route('admin.organizations.members.index', ['organizationId' => $org->id]) }}"
-                       class="text-slate-500 hover:text-slate-700 font-medium">
+                       class="inline-block py-1.5 px-2.5 text-slate-600 hover:text-slate-800 font-medium">
                         Membres
                     </a>
                 @endif
                 @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('projects:write'))
                     <a href="{{ route('admin.organizations.edit', ['organizationId' => $org->id]) }}"
-                       class="text-slate-500 hover:text-slate-700 font-medium">
+                       class="inline-block py-1.5 px-2.5 text-slate-600 hover:text-slate-800 font-medium">
                         Modifier
                     </a>
                     <a href="{{ route('admin.projects.new', ['organization_id' => $org->id]) }}"
-                       class="text-slate-500 hover:text-slate-700 font-medium">
+                       class="inline-block py-1.5 px-2.5 text-slate-600 hover:text-slate-800 font-medium">
                         + Nouveau projet
                     </a>
                 @endif

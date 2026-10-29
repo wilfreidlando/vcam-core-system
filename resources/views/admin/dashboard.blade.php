@@ -7,7 +7,7 @@
 
     {{-- Platform row: tenancy footprint. --}}
     <div>
-        <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-2">Plateforme</p>
+        <p class="text-sm font-semibold uppercase tracking-wider text-slate-600 mb-2">Plateforme</p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
             <x-admin.stat label="Organisations"
@@ -38,7 +38,7 @@
 
     {{-- Money row: payment activity + health. --}}
     <div>
-        <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-2">Argent</p>
+        <p class="text-sm font-semibold uppercase tracking-wider text-slate-600 mb-2">Argent</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
             <x-admin.stat label="Paiements (24h)"
@@ -71,7 +71,7 @@
 
     {{-- Delivery row: outbound webhook health. --}}
     <div>
-        <p class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-2">Livraison</p>
+        <p class="text-sm font-semibold uppercase tracking-wider text-slate-600 mb-2">Livraison</p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
             <x-admin.stat label="Webhooks en échec"
@@ -89,10 +89,11 @@
     <div class="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
         <div class="px-5 py-3.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between">
             <h2 class="font-semibold text-slate-900">Activité récente</h2>
-            <a href="{{ route('admin.audit-log.index') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-800">Tout le journal d'audit →</a>
+            <a href="{{ route('admin.audit-log.index') }}" class="text-sm font-medium text-indigo-700 hover:text-indigo-900">Tout le journal d'audit →</a>
         </div>
 
         <x-admin.table
+            caption="Activité récente"
             :headers="['Quand', 'Acteur', 'Action', 'Ressource']"
             :empty="'Aucune entrée d\'audit pour le moment.'">
             <tbody class="divide-y divide-slate-100 bg-white">
@@ -101,16 +102,14 @@
                     <td class="px-4 py-3 text-base text-slate-600 whitespace-nowrap font-mono">
                         {{ $entry->occurredAt->format('Y-m-d H:i:s') }}
                     </td>
-                    <td class="px-4 py-3 text-base text-slate-700 truncate max-w-xs">
-                        {{ $entry->actor }}
+                    <td class="px-4 py-3 text-base text-slate-700 whitespace-nowrap">
+                        @include('admin.audit-log._actor', ['actor' => $actorLabels[$entry->actor] ?? new \App\Http\View\ActorLabel($entry->actor, $entry->actor)])
                     </td>
-                    <td class="px-4 py-3 text-sm">
-                        <span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-700">
-                            {{ $entry->action }}
-                        </span>
+                    <td class="px-4 py-3 text-sm whitespace-nowrap">
+                        @include('admin.audit-log._action', ['action' => $entry->action])
                     </td>
-                    <td class="px-4 py-3 text-base text-slate-500 truncate max-w-xs font-mono">
-                        {{ $entry->resource }}
+                    <td class="px-4 py-3 text-base text-slate-600 whitespace-nowrap">
+                        @include('admin.audit-log._resource', ['resource' => $actorLabels[$entry->resource] ?? new \App\Http\View\ActorLabel($entry->resource, $entry->resource)])
                     </td>
                 </tr>
             @endforeach
@@ -128,7 +127,7 @@
             </div>
             <div>
                 <p class="text-lg font-medium text-slate-900">Organisations</p>
-                <p class="text-sm text-slate-500">Voir les clients, en créer de nouveaux.</p>
+                <p class="text-sm text-slate-600">Voir les clients, en créer de nouveaux.</p>
             </div>
         </a>
 
@@ -139,7 +138,7 @@
             </div>
             <div>
                 <p class="text-lg font-medium text-slate-900">Paiements</p>
-                <p class="text-sm text-slate-500">Rechercher dans le registre des paiements.</p>
+                <p class="text-sm text-slate-600">Rechercher dans le registre des paiements.</p>
             </div>
         </a>
 
@@ -150,7 +149,7 @@
             </div>
             <div>
                 <p class="text-lg font-medium text-slate-900">Webhooks en échec</p>
-                <p class="text-sm text-slate-500">Rejouer les livraisons échouées.</p>
+                <p class="text-sm text-slate-600">Rejouer les livraisons échouées.</p>
             </div>
         </a>
 

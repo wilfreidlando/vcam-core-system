@@ -6,13 +6,11 @@ namespace Core\Identity\Application\UseCase;
 
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
+use Core\Identity\Application\Support\PlatformAdministratorPolicy;
 use Core\Identity\Contracts\RevokeOperator as RevokeOperatorPort;
 use Core\Identity\Contracts\RevokeOperatorCommand;
-use Core\Identity\Domain\Exception\CannotRevokeOwnAccount;
-use Core\Identity\Domain\Exception\LastPlatformAdmin;
 use Core\Identity\Domain\Exception\OperatorNotFound;
 use Core\Identity\Domain\Port\OperatorRepository;
-use Core\Identity\OperatorRole;
 use Core\Support\Clock;
 
 final readonly class RevokeOperator implements RevokeOperatorPort
@@ -21,6 +19,7 @@ final readonly class RevokeOperator implements RevokeOperatorPort
         private OperatorRepository $operators,
         private AuditLogger $audit,
         private Clock $clock,
+        private PlatformAdministratorPolicy $policy,
     ) {}
 
     public function revoke(RevokeOperatorCommand $command, string $actor, ?string $correlationId): void
@@ -30,16 +29,9 @@ final readonly class RevokeOperator implements RevokeOperatorPort
 
         $wasAlreadyRevoked = $operator->isRevoked();
 
-        if (! $wasAlreadyRevoked) {
-            // A console account never revokes itself, and the console keeps one active administrator.
-            if ($actor === 'operator:'.$operator->id) {
-                throw CannotRevokeOwnAccount::forOperator($operator->id);
-            }
-
-            if ($operator->role === OperatorRole::PlatformAdmin && $this->operators->countActiveWithRole(OperatorRole::PlatformAdmin) <= 1) {
-                throw LastPlatformAdmin::forOperator($operator->id);
-            }
-        }
+        // A console account never revokes itself, and the console keeps one
+        // active administrator — the guard shared with UpdateOperator (G-5).
+        $this->policy->assertCanRevoke($operator, $actor);
 
         $now = $this->clock->now();
         $operator->revoke($now);

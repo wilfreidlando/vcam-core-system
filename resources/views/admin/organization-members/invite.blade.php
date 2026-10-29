@@ -18,37 +18,15 @@
         <form method="POST" action="{{ route('admin.organizations.members.store', ['organizationId' => $organization->id]) }}" class="space-y-4">
             @csrf
 
-            <div>
-                <label for="email" class="block text-base font-medium text-slate-700 mb-1">Email</label>
-                <input
-                    type="email"
-                    name="email"
-                    id="email"
-                    value="{{ old('email') }}"
-                    required
-                    autofocus
-                    class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm" />
-                @error('email')
-                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                @enderror
-            </div>
+            <x-admin.field name="email" label="Email" type="email" required autofocus autocomplete="email" />
 
-            <div>
-                <label for="role" class="block text-base font-medium text-slate-700 mb-1">Rôle</label>
-                <select name="role" id="role" required
-                        class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm">
-                    @foreach ($roles as $role)
-                        <option value="{{ $role }}" @selected(old('role') === $role)>{{ $role }}</option>
-                    @endforeach
-                </select>
-                @error('role')
-                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                @enderror
-                <p class="mt-1 text-sm text-slate-500">
-                    Seul un <code class="font-mono">org_owner</code> peut attribuer <code class="font-mono">org_owner</code> ;
-                    aucun rôle de plateforme ne s'attribue ici.
-                </p>
-            </div>
+            <x-admin.field
+                name="role"
+                label="Rôle"
+                type="select"
+                required
+                hint="Seul un org_owner peut attribuer org_owner ; aucun rôle de plateforme ne s'attribue ici."
+                :options="collect($roles)->mapWithKeys(fn ($role) => [$role => $role])->all()" />
 
             <button
                 type="submit"

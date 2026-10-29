@@ -60,17 +60,17 @@ final class UpdateOperatorController
             // before the generic catch, which would mislabel it.
             return ProblemDetails::make('operator-email-already-taken', 'This email address is already taken', 409, $e->getMessage());
         } catch (RuntimeException $e) {
-            // The concrete exception types (OperatorNotFound,
-            // InvalidOperatorRole) live in identity's Domain layer; admin
-            // must not reference them (G3c) — the Contracts port's own
-            // docblock documents this generic RuntimeException as the
-            // catchable type, so a not-found is distinguished from an
-            // invalid role only by message content, on a best-effort basis.
+            // The concrete exception types live in identity's Domain layer, which admin must not
+            // reference (G3c), so an invalid role is recognised by its message, best effort.
             if (str_contains($e->getMessage(), 'is not a valid operator role')) {
                 return ProblemDetails::make('invalid-operator-role', 'Invalid operator role', 422, $e->getMessage());
             }
 
-            return ProblemDetails::make('operator-not-found', 'Operator not found', 404, $e->getMessage());
+            // Everything else is answered by `ExceptionProblemMapping`, each refusal with its own
+            // status: OperatorNotFound → 404, and — audit 2026-10-29 #6 / G-5 — the last platform
+            // administrator's demotion and a self-demotion → 409. The blanket « 404 » that used to
+            // stand here made a refused demotion read as « operator not found ».
+            throw $e;
         }
 
         return new JsonResponse(null, 204);

@@ -65,7 +65,7 @@ final class OpenPortalSessionController
             returnUrl: is_string($data['return_url'] ?? null) ? $data['return_url'] : null,
             customer: $customer,
             planCode: $planCode,
-            trialDays: is_int($data['trial_days'] ?? null) ? $data['trial_days'] : null,
+            trialDays: $data['trial_days'] ?? null,
             callerIp: $request->ip(),
             correlationId: TraceContext::correlationId(),
         ));

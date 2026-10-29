@@ -29,11 +29,13 @@ use Core\Billing\Domain\Exception\UnsupportedCurrency as BillingUnsupportedCurre
 use Core\Export\Contracts\ExportNotAvailable;
 use Core\Export\Contracts\ExportNotFound;
 use Core\Identity\Contracts\AlreadyOrganizationMember;
+use Core\Identity\Contracts\CannotChangeOwnPlatformRole;
 use Core\Identity\Contracts\InvalidOrganizationRole;
 use Core\Identity\Contracts\InvitationAccountPasswordInvalid;
 use Core\Identity\Contracts\InvitationNotUsable;
 use Core\Identity\Contracts\InvitationPasswordTooWeak;
 use Core\Identity\Contracts\LastOrganizationOwner;
+use Core\Identity\Contracts\LastPlatformAdminDemotion;
 use Core\Identity\Contracts\OperatorAlreadyExists;
 use Core\Identity\Contracts\OperatorEmailAlreadyTaken;
 use Core\Identity\Contracts\OrganizationInvitationAlreadyExists;
@@ -150,6 +152,10 @@ final class ExceptionProblemMapping
         OperatorNotFound::class => ['type' => 'operator-not-found', 'title' => 'Operator not found', 'status' => 404],
         CannotRevokeOwnAccount::class => ['type' => 'cannot-revoke-own-account', 'title' => 'An account cannot revoke itself', 'status' => 409],
         LastPlatformAdmin::class => ['type' => 'last-platform-admin', 'title' => 'The last platform administrator cannot be revoked', 'status' => 409],
+        // Audit 2026-10-29 #6 / G-5 — the same guarantee for a role change: demoting the last
+        // platform administrator, or one's own platform role, leaves nobody able to recover the console.
+        LastPlatformAdminDemotion::class => ['type' => 'last-platform-admin', 'title' => 'The last platform administrator cannot be demoted', 'status' => 409],
+        CannotChangeOwnPlatformRole::class => ['type' => 'cannot-change-own-platform-role', 'title' => 'An account cannot change its own platform role', 'status' => 409],
         InvalidOperatorCredentials::class => ['type' => 'unauthenticated', 'title' => 'Unauthenticated', 'status' => 401],
         OperatorRevoked::class => ['type' => 'forbidden', 'title' => 'Forbidden', 'status' => 403],
         MfaChallengeInvalid::class => ['type' => 'unauthenticated', 'title' => 'Unauthenticated', 'status' => 401],

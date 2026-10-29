@@ -13,14 +13,14 @@
         </p>
     </div>
 
-    <x-admin.table :headers="['Client', 'Plan', 'Prix', 'Statut', 'Période courante', 'Échéance', '']" empty="Aucun abonnement.">
+    <x-admin.table caption="Abonnements du projet" :headers="['Client', 'Plan', 'Prix', 'Statut', 'Période courante', 'Échéance', '']" empty="Aucun abonnement.">
         @if (count($subscriptions) > 0)
             <tbody class="divide-y divide-slate-100 bg-white">
             @foreach ($subscriptions as $subscription)
                 <tr>
                     <td class="px-4 py-2 text-sm font-mono text-slate-700">{{ $subscription->customerRef }}</td>
                     <td class="px-4 py-2 text-sm text-slate-700">
-                        {{ $subscription->planCode }} <span class="text-slate-400">v{{ $subscription->planVersion }}</span>
+                        {{ $subscription->planCode }} <span class="text-slate-500">v{{ $subscription->planVersion }}</span>
                     </td>
                     <td class="px-4 py-2 text-base text-slate-900 tabular-nums whitespace-nowrap">
                         {{ \Core\Support\Money\Money::ofMinor($subscription->priceMinor, $subscription->currency)->groupedAmount() }} {{ $subscription->currency }}
@@ -66,7 +66,7 @@
                     </td>
                     <td class="px-4 py-2 text-sm text-right">
                         <a href="{{ route('admin.projects.subscriptions.show', [$projectId, $subscription->id]) }}"
-                           class="font-medium text-indigo-600 hover:text-indigo-800">Ouvrir</a>
+                           class="inline-block px-2.5 py-1.5 font-medium text-indigo-700 hover:text-indigo-900">Ouvrir</a>
                     </td>
                 </tr>
             @endforeach
@@ -74,9 +74,6 @@
         @endif
     </x-admin.table>
 
-    @if ($nextCursor !== null)
-        <a href="{{ route('admin.projects.subscriptions.index', [$projectId, 'cursor' => $nextCursor]) }}"
-           class="text-sm font-medium text-indigo-600 hover:text-indigo-800">Page suivante →</a>
-    @endif
+    @include('admin.billing.partials.cursor-pager', ['routeName' => 'admin.projects.subscriptions.index', 'routeParams' => [$projectId], 'nextCursor' => $nextCursor])
 </div>
 @endsection

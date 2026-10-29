@@ -9,6 +9,7 @@ final readonly class SavePortalSettingsCommand
     /**
      * @param list<string> $allowedReturnUrls
      * @param list<string> $paymentChannels
+     * @param list<string>|null $allowedAssetOrigins https origins `logo_url` / `support_url` may point to; null keeps the stored list
      * @param string $actor "operator:<uuid>" — who changed it (audited)
      */
     public function __construct(
@@ -26,5 +27,6 @@ final readonly class SavePortalSettingsCommand
         public ?string $correlationId = null,
         public bool $directLoginEnabled = false,
         public ?string $directLoginSession = null,
+        public ?array $allowedAssetOrigins = null,
     ) {}
 }

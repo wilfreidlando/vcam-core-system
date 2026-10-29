@@ -30,6 +30,7 @@
         <div class="flex gap-2 text-sm">
             @foreach ($periods as $p)
                 <a href="{{ route('admin.projects.indicators', ['projectId' => $projectId, 'days' => $p]) }}"
+                   @if ($days === $p) aria-current="page" @endif
                    @class(['rounded-md px-3 py-1.5 font-medium border', 'bg-slate-900 text-white border-slate-900' => $days === $p, 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50' => $days !== $p])>{{ $p }} jours</a>
             @endforeach
         </div>
@@ -73,7 +74,7 @@
                                 <polyline points="{{ $line }}" fill="none" class="stroke-indigo-600" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
                                 <circle cx="{{ $lastPoint[0] }}" cy="{{ $lastPoint[1] ?? 82 }}" r="3.5" class="fill-indigo-600"/>
                             </svg>
-                            <div class="mt-1 flex justify-between text-xs text-slate-400">
+                            <div class="mt-1 flex justify-between text-xs text-slate-500">
                                 <span>{{ $series->first()?->day }}</span><span>max {{ $amount($max, $currency) }}</span><span>{{ $series->last()?->day }}</span>
                             </div>
                         </figure>
@@ -86,7 +87,7 @@
     @if ($metrics)
         <section aria-labelledby="aging">
             <h2 id="aging" class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Créances par ancienneté</h2>
-            <x-admin.table :headers="['Devise', 'Non échues', '1 à 30 jours', '31 à 60 jours', 'Plus de 60 jours']" empty="Aucune facture ouverte.">
+            <x-admin.table caption="Créances ouvertes par ancienneté et par devise" :headers="['Devise', 'Non échues', '1 à 30 jours', '31 à 60 jours', 'Plus de 60 jours']" empty="Aucune facture ouverte.">
                 @foreach ($metrics->receivableAging as $currency => $row)
                     <tr>
                         <td class="px-4 py-2 text-sm font-mono">{{ $currency }}</td>

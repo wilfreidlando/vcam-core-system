@@ -15,24 +15,14 @@
             <input type="hidden" name="version" value="{{ $customer->version }}">
         @endif
 
-        <div>
-            <label for="external_ref" class="block text-sm font-medium text-slate-700">Référence chez le projet</label>
-            <input id="external_ref" name="external_ref" required
-                   value="{{ $customer?->externalRef ?? old('external_ref') }}"
-                   class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm{{ $customer !== null ? ' bg-slate-100' : '' }}"
-                   {{ $customer !== null ? 'readonly' : '' }}>
-            <p class="mt-1 text-xs text-slate-500">
-                L'identifiant opaque que le projet connaît : lettres, chiffres et
-                <code>. _ : -</code>.
-            </p>
-        </div>
+        {{-- old() passe AVANT le modèle (défaut #22) : la saisie refusée par le serveur survit. --}}
+        <x-admin.field name="external_ref" label="Référence chez le projet" required maxlength="128"
+                       pattern="[A-Za-z0-9._:\-]+" :value="$customer?->externalRef"
+                       :readonly="$customer !== null"
+                       :class="$customer !== null ? 'bg-slate-100' : ''"
+                       hint="L'identifiant opaque que le projet connaît : lettres, chiffres et . _ : -" />
 
-        <div>
-            <label for="display_name" class="block text-sm font-medium text-slate-700">Nom affiché</label>
-            <input id="display_name" name="display_name" required maxlength="200"
-                   value="{{ $customer?->displayName ?? old('display_name') }}"
-                   class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-        </div>
+        <x-admin.field name="display_name" label="Nom affiché" required maxlength="200" :value="$customer?->displayName" />
 
         <div class="grid gap-4 sm:grid-cols-2">
             {{-- ADR-0083 §3 — the console never shows personal data in
@@ -40,45 +30,21 @@
                  Leaving it empty keeps the stored value; filling it
                  replaces it. Unmasking is an audited action, and the Core
                  does not offer one in this lot. --}}
-            <div>
-                <label for="email" class="block text-sm font-medium text-slate-700">Contact (courriel)</label>
-                <input id="email" name="email" type="email" maxlength="255"
-                       value="{{ old('email') }}"
-                       class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                <p class="mt-1 text-xs text-slate-500">
-                    Chiffré au repos, jamais affiché en clair en console.
-                    @if ($customer !== null && $customer->email !== null)
-                        <span class="block">Valeur actuelle : {{ \Core\Support\Privacy\PersonalDataMask::email($customer->email) }} — laissez le champ vide pour la conserver.</span>
-                    @endif
-                </p>
-            </div>
-            <div>
-                <label for="phone" class="block text-sm font-medium text-slate-700">Téléphone</label>
-                <input id="phone" name="phone" maxlength="32"
-                       value="{{ old('phone') }}"
-                       class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                @if ($customer !== null && $customer->phone !== null)
-                    <p class="mt-1 text-xs text-slate-500">
-                        Valeur actuelle : {{ \Core\Support\Privacy\PersonalDataMask::phone($customer->phone) }} — laissez le champ vide pour la conserver.
-                    </p>
-                @endif
-            </div>
+            <x-admin.field name="email" label="Contact (courriel)" type="email" maxlength="255" optional autocomplete="off"
+                           :hint="'Chiffré au repos, jamais affiché en clair en console.'.($customer !== null && $customer->email !== null ? ' Valeur actuelle : '.\Core\Support\Privacy\PersonalDataMask::email($customer->email).' — laissez le champ vide pour la conserver.' : '')" />
+            <x-admin.field name="phone" label="Téléphone" maxlength="32" optional autocomplete="off"
+                           :hint="$customer !== null && $customer->phone !== null ? 'Valeur actuelle : '.\Core\Support\Privacy\PersonalDataMask::phone($customer->phone).' — laissez le champ vide pour la conserver.' : null" />
         </div>
 
-        <div>
-            <label for="locale" class="block text-sm font-medium text-slate-700">Langue</label>
-            <input id="locale" name="locale" maxlength="16"
-                   value="{{ $customer?->locale ?? old('locale', 'fr') }}"
-                   class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-        </div>
+        <x-admin.field name="locale" label="Langue" maxlength="16" optional :value="$customer?->locale ?? 'fr'" />
 
         <div class="flex items-center gap-3 pt-2">
             <button type="submit"
-                    class="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">
+                    class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
                 {{ $customer === null ? 'Déclarer le client' : 'Enregistrer' }}
             </button>
             <a href="{{ route('admin.projects.customers.index', $projectId) }}"
-               class="text-sm font-medium text-slate-600 hover:text-slate-900">Annuler</a>
+               class="inline-block px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">Annuler</a>
         </div>
     </form>
 </div>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Billing\Presentation\Http\Requests;
 
+use Core\Billing\Presentation\Http\Requests\Concerns\CastsNumericInput;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -14,6 +15,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 final class CreateSubscriptionRequest extends FormRequest
 {
+    use CastsNumericInput;
+
     public function authorize(): bool
     {
         return true;
@@ -47,7 +50,7 @@ final class CreateSubscriptionRequest extends FormRequest
              *
              * @example 14
              */
-            'trial_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'trial_days' => ['nullable', 'integer:strict', 'min:0', 'max:365'],
             /**
              * When the contract starts. Defaults to now.
              *
@@ -55,5 +58,16 @@ final class CreateSubscriptionRequest extends FormRequest
              */
             'start_at' => ['nullable', 'string', 'date'],
         ];
+    }
+
+    /**
+     * F-12 — `"5000"` devient `5000` avant la validation ; une valeur non numérique
+     * reste telle quelle et la règle la refuse en 422 (jamais de `TypeError` en 500).
+     */
+    protected function prepareForValidation(): void
+    {
+        $cast = self::castNumericKeys($this->inputAsArray(), ['trial_days']);
+
+        $this->merge($cast);
     }
 }

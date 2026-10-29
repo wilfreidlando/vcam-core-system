@@ -29,5 +29,9 @@ return [
     // carrying this token, added by this project's nginx sidecar
     // (App\Http\Middleware\TrustProxiesFromSidecar). Required once the
     // app shares the VPS-wide `observability` network with other projects.
+    // Audit 2026-10-29 #8: MANDATORY (32 characters minimum, generate it
+    // with `openssl rand -hex 32`) when APP_ENV=production — the middleware
+    // throws MissingTrustedProxyToken otherwise. Empty stays accepted only
+    // outside production (local, testing).
     'sidecar_token' => env('TRUSTED_PROXY_TOKEN', ''),
 ];

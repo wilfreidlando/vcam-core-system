@@ -35,13 +35,14 @@
     <nav class="flex flex-wrap gap-2" aria-label="Filtrer par statut">
         @foreach ($filters as $value => $label)
             <a href="{{ route('admin.money-exceptions.index', $value === '' ? [] : ['status' => $value]) }}"
+               @if (($status ?? '') === $value) aria-current="page" @endif
                class="rounded-md px-3 py-1.5 text-sm font-medium {{ ($status ?? '') === $value ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50' }}">
                 {{ $label }}
             </a>
         @endforeach
     </nav>
 
-    <x-admin.table :headers="['Statut', 'Gravité', 'Type', 'Projet', 'Montant', 'En attente au grand livre', 'Ouverte le', '']" empty="Aucune exception d'argent.">
+    <x-admin.table caption="Exceptions d'argent" :headers="['Statut', 'Gravité', 'Type', 'Projet', 'Montant', 'En attente au grand livre', 'Ouverte le', '']" empty="Aucune exception d'argent.">
         @if (count($exceptions) > 0)
             <tbody class="divide-y divide-slate-100 bg-white">
             @foreach ($exceptions as $exception)
@@ -66,8 +67,8 @@
                         {{ \Illuminate\Support\Carbon::parse($exception->createdAt)->format('d/m/Y H:i') }}
                     </td>
                     <td class="px-4 py-2 text-sm text-right">
-                        <a href="{{ route('admin.money-exceptions.show', $exception->id) }}" class="text-indigo-600 hover:text-indigo-800 font-medium">
-                            {{ $exception->status === 'resolved' ? 'Voir' : 'Traiter' }}
+                        <a href="{{ route('admin.money-exceptions.show', $exception->id) }}" class="text-indigo-700 hover:text-indigo-900 font-medium">
+                            {{ $exception->status === 'resolved' ? 'Voir' : 'Traiter' }}<span class="sr-only"> l'exception {{ $exception->kindLabel }} du {{ \Illuminate\Support\Carbon::parse($exception->createdAt)->format('d/m/Y H:i') }}</span>
                         </a>
                     </td>
                 </tr>

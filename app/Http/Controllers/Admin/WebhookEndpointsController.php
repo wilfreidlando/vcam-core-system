@@ -101,20 +101,10 @@ final class WebhookEndpointsController
     {
         $project = $this->authorizedProject($operator, $projectId);
 
-        $endpoints = $this->listWebhookEndpoints->list(new ListWebhookEndpointsCommand($projectId), $operator->scope);
-
-        return response()->view('admin.webhook-endpoints.create', [
-            'title' => 'Endpoints webhook · '.$project->name,
-            'project' => $project,
-            'endpoints' => $endpoints,
-            'categories' => self::CATEGORIES,
-            'created' => session('admin.webhook-endpoints.created'),
-            'rotated' => session('admin.webhook-endpoints.rotated'),
-            'overlap' => ['min' => RotateWebhookSecretCommand::MIN_OVERLAP_HOURS, 'max' => RotateWebhookSecretCommand::MAX_OVERLAP_HOURS, 'default' => RotateWebhookSecretCommand::DEFAULT_OVERLAP_HOURS],
-        ]);
+        return $this->render($projectId, $operator, $project, null, null);
     }
 
-    public function store(string $projectId, Request $request, OperatorContext $operator): RedirectResponse
+    public function store(string $projectId, Request $request, OperatorContext $operator): Response|RedirectResponse
     {
         // ADR-0069 §2 — the endpoint is registered on a project, so the
         // project must be inside the account's scope: without this, an
@@ -161,16 +151,12 @@ final class WebhookEndpointsController
             organizationId: $project->organizationId,
         ));
 
-        // The plaintext signing secret is shown exactly once, on this
-        // redirect — same one-shot-secret pattern as an API key or a
-        // freshly-registered provider application's keys.
-        // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
-        session()->flash('admin.webhook-endpoints.created', [
+        // The plaintext signing secret is shown exactly once, in THIS
+        // response (ADR-0081 S-07), never flashed into the session store.
+        return $this->render($projectId, $operator, $project, [
             'url' => $view->url,
             'secret' => $view->secret,
-        ]);
-
-        return redirect()->route('admin.projects.webhook-endpoints.create', ['projectId' => $projectId]);
+        ], null);
     }
 
     public function update(string $projectId, string $endpointId, Request $request, OperatorContext $operator): RedirectResponse
@@ -236,7 +222,7 @@ final class WebhookEndpointsController
      * ADR-0082 §5 — a new signing secret, shown once; the previous one keeps
      * signing (`X-Signature-Previous`) for the chosen overlap.
      */
-    public function rotateSecret(string $projectId, string $endpointId, Request $request, OperatorContext $operator): RedirectResponse
+    public function rotateSecret(string $projectId, string $endpointId, Request $request, OperatorContext $operator): Response|RedirectResponse
     {
         $project = $this->authorizeEndpoint($operator, $projectId, $endpointId);
 
@@ -266,13 +252,11 @@ final class WebhookEndpointsController
             organizationId: $project->organizationId,
         ));
 
-        // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
-        session()->flash('admin.webhook-endpoints.rotated', [
+        // Shown exactly once, in THIS response, never flashed (S-07).
+        return $this->render($projectId, $operator, $project, null, [
             'secret' => $rotated->secret,
             'previousSecretExpiresAt' => $rotated->previousSecretExpiresAt->format('d/m/Y H:i'),
         ]);
-
-        return redirect()->route('admin.projects.webhook-endpoints.create', ['projectId' => $projectId]);
     }
 
     /** ADR-0082 §5 — end the overlap now, with a reason (audited). */
@@ -311,6 +295,28 @@ final class WebhookEndpointsController
 
         return redirect()->route('admin.projects.webhook-endpoints.create', ['projectId' => $projectId])
             ->with('status', 'Ancien secret révoqué : seules les signatures du nouveau secret sont envoyées désormais.');
+    }
+
+    /**
+     * Les secrets en clair ne voyagent que par les arguments : rendus dans
+     * CETTE réponse, jamais lus dans le store de session.
+     *
+     * @param array{url: string, secret: string}|null $created
+     * @param array{secret: string, previousSecretExpiresAt: string}|null $rotated
+     */
+    private function render(string $projectId, OperatorContext $operator, ProjectView $project, ?array $created, ?array $rotated): Response
+    {
+        $endpoints = $this->listWebhookEndpoints->list(new ListWebhookEndpointsCommand($projectId), $operator->scope);
+
+        return response()->view('admin.webhook-endpoints.create', [
+            'title' => 'Endpoints webhook · '.$project->name,
+            'project' => $project,
+            'endpoints' => $endpoints,
+            'categories' => self::CATEGORIES,
+            'created' => $created,
+            'rotated' => $rotated,
+            'overlap' => ['min' => RotateWebhookSecretCommand::MIN_OVERLAP_HOURS, 'max' => RotateWebhookSecretCommand::MAX_OVERLAP_HOURS, 'default' => RotateWebhookSecretCommand::DEFAULT_OVERLAP_HOURS],
+        ]);
     }
 
     /**

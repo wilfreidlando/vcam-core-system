@@ -15,7 +15,8 @@
 
     <div class="flex flex-wrap items-center justify-between gap-3">
         <form method="GET" action="{{ route('admin.projects.invoices.index', $projectId) }}" class="flex items-center gap-2">
-            <select name="status" class="rounded-md border border-slate-300 px-3 py-2 text-sm">
+            <label for="invoice-status" class="text-sm font-medium text-slate-700">Statut</label>
+            <select id="invoice-status" name="status" class="rounded-md border border-slate-300 px-3 py-2 text-sm">
                 <option value="">Tous les statuts</option>
                 @foreach (['draft' => 'Brouillon', 'open' => 'Ouverte', 'paid' => 'Payée', 'void' => 'Annulée', 'uncollectible' => 'Irrécouvrable'] as $value => $label)
                     <option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>
@@ -26,12 +27,12 @@
             </button>
         </form>
         <a href="{{ route('admin.projects.invoices.new', $projectId) }}"
-           class="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">
+           class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
             Nouvelle facture
         </a>
     </div>
 
-    <x-admin.table :headers="['Numéro', 'Client', 'Total', 'Statut', 'Échéance', '']" empty="Aucune facture.">
+    <x-admin.table caption="Factures du projet" :headers="['Numéro', 'Client', 'Total', 'Statut', 'Échéance', '']" empty="Aucune facture.">
         @if (count($invoices) > 0)
             <tbody class="divide-y divide-slate-100 bg-white">
             @foreach ($invoices as $invoice)
@@ -71,7 +72,7 @@
                     </td>
                     <td class="px-4 py-2 text-sm text-right">
                         <a href="{{ route('admin.projects.invoices.show', [$projectId, $invoice->id]) }}"
-                           class="font-medium text-indigo-600 hover:text-indigo-800">Ouvrir</a>
+                           class="inline-block px-2.5 py-1.5 font-medium text-indigo-700 hover:text-indigo-900">Ouvrir</a>
                     </td>
                 </tr>
             @endforeach
@@ -79,9 +80,6 @@
         @endif
     </x-admin.table>
 
-    @if ($nextCursor !== null)
-        <a href="{{ route('admin.projects.invoices.index', [$projectId, 'cursor' => $nextCursor]) }}"
-           class="text-sm font-medium text-indigo-600 hover:text-indigo-800">Page suivante →</a>
-    @endif
+    @include('admin.billing.partials.cursor-pager', ['routeName' => 'admin.projects.invoices.index', 'routeParams' => array_filter([$projectId, 'status' => $status]), 'nextCursor' => $nextCursor])
 </div>
 @endsection

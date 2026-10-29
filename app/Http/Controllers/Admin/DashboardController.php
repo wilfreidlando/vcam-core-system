@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\View\AuditLabels;
 use Core\Audit\Contracts\AuditQuery;
 use Core\Audit\Contracts\AuditSearchCriteria;
 use Core\Identity\Contracts\ListOperators;
@@ -52,6 +53,7 @@ final class DashboardController
         private readonly ListOrganizations $listOrganizations,
         private readonly ListProjects $listProjects,
         private readonly ListOperators $listOperators,
+        private readonly AuditLabels $labels,
     ) {}
 
     public function show(): Response
@@ -78,6 +80,8 @@ final class DashboardController
             'title' => 'Tableau de bord',
             'stats' => $stats,
             'recentAudit' => $recentAudit,
+            // F-08 — readable actors, the raw identifier stays in `title`.
+            'actorLabels' => $this->labels->actors(array_merge(array_map(static fn ($entry): string => $entry->actor, $recentAudit), array_map(static fn ($entry): string => $entry->resource, $recentAudit)), $this->operator),
             'isPlatformOperator' => $this->operator->isPlatformRole(),
         ]);
     }

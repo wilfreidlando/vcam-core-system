@@ -218,9 +218,18 @@ final class MyCoolPayWebhookController
             return;
         }
 
+        // Audit 2026-10-29 #3 — the MAC (md5 of the signed fields + the
+        // application's private key) replays a forged callback and is
+        // shown in the console: it is never persisted, only the fact that
+        // the callback carried one. Dropped here, before the redactor, so
+        // the guarantee does not depend on the key list alone.
+        $hadSignature = isset($body['signature']) && $body['signature'] !== '';
+        unset($body['signature']);
+
         $this->journey->record($payment->id, $payment->projectId, $type, $summary, [
             'source_ip' => $request->ip(),
             'body' => $this->redactor->redact($body),
+            'signature_present' => $hadSignature,
             ...$extra,
         ]);
     }

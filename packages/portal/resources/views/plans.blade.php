@@ -37,7 +37,7 @@
                 </ul>
 
                 @if ($plan->isCurrent)
-                    <span class="button button--ghost button--block is-static">Offre actuelle</span>
+                    <p class="tier__state">Offre actuelle</p>
                 @elseif ($plans->canSubscribe)
                     <form method="post" action="/portal/plans/{{ $plan->code }}/subscribe">
                         <input type="hidden" name="_csrf" value="{{ $csrf }}">

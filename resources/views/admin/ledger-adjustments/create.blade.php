@@ -18,13 +18,7 @@
         </p>
     </div>
 
-    @if ($errors->any())
-        <div class="rounded-md bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-800">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
-        </div>
-    @endif
+    {{-- Les erreurs sont aussi rendues par le bloc global du layout ; le formulaire a son résumé focalisable. --}}
 
     @if (count($projects) === 0)
         <div class="rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
@@ -42,8 +36,8 @@
                 @foreach ($projects as $project)
                     <li class="py-2">
                         <a href="{{ route('admin.ledger-adjustments.new', ['project_id' => $project->id]) }}"
-                           class="text-indigo-600 hover:text-indigo-800 font-medium">{{ $project->name }}</a>
-                        <span class="text-xs font-mono text-slate-400 ml-2">{{ $project->id }}</span>
+                           class="text-indigo-700 hover:text-indigo-900 font-medium">{{ $project->name }}</a>
+                        <span class="text-xs font-mono text-slate-600 ml-2">{{ $project->id }}</span>
                     </li>
                 @endforeach
             </ul>
@@ -55,16 +49,17 @@
             <input type="hidden" name="project_id" value="{{ $selectedProjectId }}">
 
             <div>
-                <p class="text-sm uppercase tracking-wider font-semibold text-slate-500 mb-1">Projet</p>
+                <p class="text-sm uppercase tracking-wider font-semibold text-slate-600 mb-1">Projet</p>
                 @php $selectedProject = collect($projects)->firstWhere('id', $selectedProjectId); @endphp
                 <p class="text-base text-slate-900">
                     {{ $selectedProject !== null ? $selectedProject->name : $selectedProjectId }}
                 </p>
-                <a href="{{ route('admin.ledger-adjustments.new') }}" class="text-sm text-indigo-600 hover:text-indigo-800">Changer de projet</a>
+                <a href="{{ route('admin.ledger-adjustments.new') }}" class="text-sm text-indigo-700 hover:text-indigo-900">Changer de projet</a>
             </div>
 
-            <div>
-                <label for="reverses_transaction_id" class="text-sm uppercase tracking-wider font-semibold text-slate-500 block mb-1">Transaction à contrer-passer</label>
+            <x-admin.errors />
+
+            <div class="space-y-4">
                 @if (count($transactions) === 0)
                     <p class="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
                         Ce projet n'a aucune écriture récente à contrer-passer : une correction se
@@ -72,94 +67,59 @@
                         ci-dessous.
                     </p>
                 @else
-                    <select id="reverses_transaction_id" name="reverses_transaction_id"
-                            class="w-full rounded-md border border-slate-300 px-3 py-2 text-base">
-                        <option value="">— Choisir la transaction corrigée —</option>
-                        @foreach ($transactions as $transaction)
-                            <option value="{{ $transaction->id }}" @selected(old('reverses_transaction_id') === $transaction->id)>
-                                {{ \Illuminate\Support\Carbon::parse($transaction->createdAt)->format('d/m/Y H:i') }}
-                                — {{ $transaction->type }}
-                                @if (count($transaction->lines) > 0)
-                                    — {{ \Core\Support\Money\Money::ofMinor($transaction->lines[0]->amountMinor, $transaction->lines[0]->currency)->groupedAmount() }} {{ $transaction->lines[0]->currency }}
-                                @endif
-                                — {{ substr($transaction->id, 0, 8) }}…
-                            </option>
-                        @endforeach
-                    </select>
-                    <p class="text-xs text-slate-500 mt-1">
-                        Les {{ count($transactions) }} écritures les plus récentes du projet. Une
-                        correction ne contrer-passe jamais une autre correction.
-                    </p>
+                    @php
+                        $transactionOptions = ['' => '— Choisir la transaction corrigée —'];
+                        foreach ($transactions as $transaction) {
+                            $transactionOptions[$transaction->id] = \Illuminate\Support\Carbon::parse($transaction->createdAt)->format('d/m/Y H:i')
+                                .' — '.$transaction->type
+                                .(count($transaction->lines) > 0
+                                    ? ' — '.\Core\Support\Money\Money::ofMinor($transaction->lines[0]->amountMinor, $transaction->lines[0]->currency)->groupedAmount().' '.$transaction->lines[0]->currency
+                                    : '')
+                                .' — '.substr($transaction->id, 0, 8).'…';
+                        }
+                    @endphp
+                    <x-admin.field name="reverses_transaction_id" type="select" label="Transaction à contrer-passer"
+                                   :options="$transactionOptions"
+                                   :hint="'Les '.count($transactions).' écritures les plus récentes du projet. Une correction ne contrer-passe jamais une autre correction.'" />
                 @endif
 
-                {{-- Une écriture plus ancienne que la liste : le champ
-                     libre qui la nomme. Il l'emporte sur la liste
-                     quand il porte quelque chose (le serveur le dit
-                     ainsi), et c'est la seule façon d'atteindre une
-                     écriture que les {{ count($transactions) }} plus
-                     récentes ne proposent pas. --}}
-                <label for="reverses_transaction_id_manual" class="text-sm uppercase tracking-wider font-semibold text-slate-500 block mt-4 mb-1">
-                    …ou une écriture plus ancienne (identifiant)
-                </label>
-                <input type="text" id="reverses_transaction_id_manual" name="reverses_transaction_id_manual"
-                       value="{{ old('reverses_transaction_id_manual') }}" maxlength="36"
-                       placeholder="00000000-0000-0000-0000-000000000000"
-                       class="w-full rounded-md border border-slate-300 px-3 py-2 text-base font-mono">
-                <p class="text-xs text-slate-500 mt-1">
-                    L'identifiant saisi ici l'emporte sur la liste. La transaction doit exister,
-                    appartenir à ce projet, et ne pas être elle-même une correction.
-                </p>
+                {{-- Une écriture plus ancienne que la liste : le champ libre qui la nomme. Il l'emporte sur
+                     la liste quand il porte quelque chose (le serveur le dit ainsi). --}}
+                <x-admin.field name="reverses_transaction_id_manual" label="…ou une écriture plus ancienne (identifiant)" maxlength="36"
+                               placeholder="00000000-0000-0000-0000-000000000000" class="font-mono"
+                               hint="L'identifiant saisi ici l'emporte sur la liste. La transaction doit exister, appartenir à ce projet, et ne pas être elle-même une correction." />
             </div>
 
+            @php
+                $kindOptions = [];
+                foreach ($accountKinds as $kind => $label) {
+                    $kindOptions[$kind] = $kind.' — '.$label;
+                }
+            @endphp
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <fieldset class="space-y-2">
-                    <legend class="text-sm uppercase tracking-wider font-semibold text-slate-500">Compte débité (source)</legend>
-                    <select name="source_kind" required class="w-full rounded-md border border-slate-300 px-3 py-2 text-base">
-                        @foreach ($accountKinds as $kind => $label)
-                            <option value="{{ $kind }}" @selected(old('source_kind') === $kind)>{{ $kind }} — {{ $label }}</option>
-                        @endforeach
-                    </select>
-                    <input type="text" name="source_reference" value="{{ old('source_reference') }}" maxlength="200"
-                           placeholder="Référence (prestataire, partie… ; vide pour un compte de projet)"
-                           class="w-full rounded-md border border-slate-300 px-3 py-2 text-base">
+                    <legend class="text-sm uppercase tracking-wider font-semibold text-slate-600 mb-1">Compte débité (source)</legend>
+                    <x-admin.field name="source_kind" type="select" label="Type de compte débité" required :options="$kindOptions" />
+                    <x-admin.field name="source_reference" label="Référence du compte débité" optional maxlength="200"
+                                   hint="Prestataire, partie… ; vide pour un compte de projet." />
                 </fieldset>
 
                 <fieldset class="space-y-2">
-                    <legend class="text-sm uppercase tracking-wider font-semibold text-slate-500">Compte crédité (destination)</legend>
-                    <select name="destination_kind" required class="w-full rounded-md border border-slate-300 px-3 py-2 text-base">
-                        @foreach ($accountKinds as $kind => $label)
-                            <option value="{{ $kind }}" @selected(old('destination_kind') === $kind)>{{ $kind }} — {{ $label }}</option>
-                        @endforeach
-                    </select>
-                    <input type="text" name="destination_reference" value="{{ old('destination_reference') }}" maxlength="200"
-                           placeholder="Référence (prestataire, partie… ; vide pour un compte de projet)"
-                           class="w-full rounded-md border border-slate-300 px-3 py-2 text-base">
+                    <legend class="text-sm uppercase tracking-wider font-semibold text-slate-600 mb-1">Compte crédité (destination)</legend>
+                    <x-admin.field name="destination_kind" type="select" label="Type de compte crédité" required :options="$kindOptions" />
+                    <x-admin.field name="destination_reference" label="Référence du compte crédité" optional maxlength="200"
+                                   hint="Prestataire, partie… ; vide pour un compte de projet." />
                 </fieldset>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label for="amount_minor" class="text-sm uppercase tracking-wider font-semibold text-slate-500 block mb-1">Montant (unités mineures)</label>
-                    <input type="number" id="amount_minor" name="amount_minor" value="{{ old('amount_minor') }}" min="1" step="1" required
-                           class="w-full rounded-md border border-slate-300 px-3 py-2 text-base tabular-nums">
-                    <p class="text-xs text-slate-500 mt-1">Le montant est toujours saisi en unités mineures : 100 XAF = 100 F CFA, 100 USD = 1,00 $.</p>
-                </div>
-                <div>
-                    <label for="currency" class="text-sm uppercase tracking-wider font-semibold text-slate-500 block mb-1">Devise</label>
-                    <select id="currency" name="currency" required class="w-full rounded-md border border-slate-300 px-3 py-2 text-base">
-                        @foreach ($currencies as $currency)
-                            <option value="{{ $currency }}" @selected(old('currency') === $currency)>{{ $currency }}</option>
-                        @endforeach
-                    </select>
-                </div>
+                <x-admin.field name="amount_minor" type="number" label="Montant (unités mineures)" required min="1" step="1" class="tabular-nums"
+                               hint="Le montant est toujours saisi en unités mineures : 100 XAF = 100 F CFA, 100 USD = 1,00 $." />
+                <x-admin.field name="currency" type="select" label="Devise" required :options="array_combine($currencies, $currencies)" />
             </div>
 
-            <div>
-                <label for="reason" class="text-sm uppercase tracking-wider font-semibold text-slate-500 block mb-1">Motif</label>
-                <textarea id="reason" name="reason" rows="3" minlength="5" maxlength="1000" required
-                          class="w-full rounded-md border border-slate-300 px-3 py-2 text-base">{{ old('reason') }}</textarea>
-                <p class="text-xs text-slate-500 mt-1">Le motif est obligatoire : il est ce qui reste de la décision quand on la relit dans six mois.</p>
-            </div>
+            <x-admin.field name="reason" type="textarea" label="Motif" required :rows="3" minlength="5" maxlength="1000"
+                           hint="Le motif est obligatoire : il est ce qui reste de la décision quand on la relit dans six mois." />
 
             <button type="submit" class="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">
                 Proposer la correction
@@ -167,6 +127,6 @@
         </form>
     @endif
 
-    <p><a href="{{ route('admin.ledger-adjustments.index') }}" class="text-sm text-indigo-600 hover:text-indigo-800">← Toutes les corrections</a></p>
+    <p><a href="{{ route('admin.ledger-adjustments.index') }}" class="text-sm text-indigo-700 hover:text-indigo-900">← Toutes les corrections</a></p>
 </div>
 @endsection

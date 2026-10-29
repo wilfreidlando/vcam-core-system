@@ -17,7 +17,8 @@
             @endphp
             @foreach ($filters as $value => $label)
                 <a href="{{ route('admin.projects.receipts.index', [$projectId, 'status' => $value]) }}"
-                   class="rounded-md px-2 py-1 text-xs font-medium {{ $status === $value ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
+                   @if ($status === $value) aria-current="true" @endif
+                   class="rounded-md px-2.5 py-1.5 text-xs font-medium {{ $status === $value ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
                     {{ $label }}
                 </a>
             @endforeach
@@ -30,15 +31,9 @@
         projet, il attend une validation explicite avant de compter.
     </div>
 
-    @if ($errors->any())
-        <div class="rounded-md bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-800">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
-        </div>
-    @endif
+    {{-- Les erreurs de validation sont rendues une seule fois, par le layout (role="alert"). --}}
 
-    <x-admin.table :headers="['Référence', 'Montant', 'Méthode', 'Reçu le', 'État', 'Validation']" empty="Aucun encaissement hors ligne.">
+    <x-admin.table caption="Encaissements hors ligne du projet" :headers="['Référence', 'Montant', 'Méthode', 'Reçu le', 'État', 'Validation']" empty="Aucun encaissement hors ligne.">
         @if (count($receipts) > 0)
             <tbody class="divide-y divide-slate-100 bg-white">
             @foreach ($receipts as $receipt)
@@ -81,20 +76,20 @@
                                 <form method="POST" action="{{ route('admin.projects.receipts.approve.web', [$projectId, $receipt->id]) }}">
                                     @csrf
                                     <input type="hidden" name="decision" value="approve">
-                                    <button type="submit" class="rounded-md bg-emerald-700 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-800">
+                                    <button type="submit" class="rounded-md bg-emerald-700 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800">
                                         Valider
                                     </button>
                                 </form>
                                 <form method="POST" action="{{ route('admin.projects.receipts.approve.web', [$projectId, $receipt->id]) }}">
                                     @csrf
                                     <input type="hidden" name="decision" value="reject">
-                                    <button type="submit" class="rounded-md bg-slate-700 px-2 py-1 text-xs font-semibold text-white hover:bg-slate-800">
+                                    <button type="submit" class="rounded-md bg-slate-700 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">
                                         Refuser
                                     </button>
                                 </form>
                             </div>
                         @else
-                            <span class="text-xs text-slate-400">—</span>
+                            <span class="text-xs text-slate-500">—</span>
                         @endif
                     </td>
                 </tr>
@@ -103,11 +98,6 @@
         @endif
     </x-admin.table>
 
-    @if ($nextCursor !== null)
-        <div class="text-right">
-            <a href="{{ route('admin.projects.receipts.index', [$projectId, 'status' => $status, 'cursor' => $nextCursor]) }}"
-               class="text-sm font-medium text-indigo-700 hover:text-indigo-900">Page suivante →</a>
-        </div>
-    @endif
+    @include('admin.billing.partials.cursor-pager', ['routeName' => 'admin.projects.receipts.index', 'routeParams' => array_filter([$projectId, 'status' => $status]), 'nextCursor' => $nextCursor])
 </div>
 @endsection

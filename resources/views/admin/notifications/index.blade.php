@@ -5,28 +5,27 @@
 
 @section('content')
 <div class="mb-4 flex justify-end">
-    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-base font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap">← Retour au projet</a>
+    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-base font-medium text-indigo-700 hover:text-indigo-900 whitespace-nowrap">← Retour au projet</a>
 </div>
 
-<form method="GET" action="{{ route('admin.projects.notifications.index', ['projectId' => $project->id]) }}" class="bg-white border border-slate-200 rounded-lg p-4 mb-4">
+<form method="GET" action="{{ route('admin.projects.notifications.index', ['projectId' => $project->id]) }}" aria-label="Filtrer les notifications" class="bg-white border border-slate-200 rounded-lg p-4 mb-4">
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-        <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Statut</label>
-            <select name="status" class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base bg-white">
-                <option value="">(tous)</option>
-                @foreach ($statuses as $s)
-                    <option value="{{ $s }}" @selected($filters['status'] === $s)>{{ ucfirst($s) }}</option>
-                @endforeach
-            </select>
-        </div>
+        @php
+            $statusOptions = ['' => '(tous)'];
+            foreach ($statuses as $s) {
+                $statusOptions[$s] = ucfirst($s);
+            }
+        @endphp
+        <x-admin.field name="status" type="select" label="Statut" :value="$filters['status'] ?? ''" :options="$statusOptions" />
         <div class="flex items-end gap-2 justify-end">
-            <a href="{{ route('admin.projects.notifications.index', ['projectId' => $project->id]) }}" class="text-sm text-slate-500 hover:text-slate-700">Réinitialiser</a>
+            <a href="{{ route('admin.projects.notifications.index', ['projectId' => $project->id]) }}" class="text-sm text-slate-600 hover:text-slate-800">Réinitialiser</a>
             <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-base font-medium text-white">Filtrer</button>
         </div>
     </div>
 </form>
 
 <x-admin.table
+    caption="Notifications du projet"
     :headers="['Créée le', 'ID', 'Canal', 'Type', 'Destinataire', 'Statut', 'Provider', '']"
     :empty="'Aucune notification ne correspond aux filtres.'">
     <tbody class="divide-y divide-slate-100 bg-white">
@@ -42,12 +41,12 @@
             <td class="px-4 py-2">
                 <x-admin.status-badge :status="$notification->status" />
                 @if ($notification->errorMessage !== null)
-                    <p class="mt-0.5 text-xs text-rose-600 truncate max-w-[14rem]" title="{{ $notification->errorMessage }}">{{ $notification->errorMessage }}</p>
+                    <p class="mt-0.5 text-xs text-rose-700 truncate max-w-[14rem]" title="{{ $notification->errorMessage }}">{{ $notification->errorMessage }}</p>
                 @endif
             </td>
             <td class="px-4 py-2 text-sm font-mono text-slate-700">{{ $notification->providerCode ?? '—' }}</td>
             <td class="px-4 py-2 text-sm text-right">
-                <a href="{{ route('admin.projects.notifications.show', ['projectId' => $project->id, 'notificationId' => $notification->id]) }}" class="font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap">Détail →</a>
+                <a href="{{ route('admin.projects.notifications.show', ['projectId' => $project->id, 'notificationId' => $notification->id]) }}" class="font-medium text-indigo-700 hover:text-indigo-900 whitespace-nowrap">Détail →</a>
             </td>
         </tr>
     @endforeach

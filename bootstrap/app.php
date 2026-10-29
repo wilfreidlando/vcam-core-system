@@ -81,6 +81,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'operator.session' => App\Http\Middleware\ResolveOperatorSession::class,
             // G7: every monetary mutation route applies this (ADR-0025).
             'idempotency' => RequireIdempotencyKey::class,
+            // ADR-0081 S-11: the console's security headers (the portal has its own).
+            'admin.headers' => App\Http\Middleware\AdminSecurityHeaders::class,
         ]);
     })
     ->withSchedule(function (Schedule $schedule): void {

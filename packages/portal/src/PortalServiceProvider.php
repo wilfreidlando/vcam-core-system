@@ -61,6 +61,9 @@ final class PortalServiceProvider extends ServiceProvider
         // A coarse wall in front of the login by code; its real budgets (per
         // phone, per address, per project, per hour) are counted by LoginThrottle.
         RateLimiter::for('portal-login', static fn (Request $request): Limit => Limit::perMinute(30)->by('portal-login:'.$request->ip()));
+        // The public stylesheet (a colour read from the query): every page links
+        // it, so the wall is generous, but it is no longer unbounded.
+        RateLimiter::for('portal-theme', static fn (Request $request): Limit => Limit::perMinute(240)->by('portal-theme:'.$request->ip()));
         RateLimiter::for('portal-sessions', static fn (Request $request): Limit => Limit::perMinute(300)->by('portal-sessions:'.$request->bearerToken()));
 
         Route::middleware('api')->group(__DIR__.'/../routes/api.php');

@@ -14,7 +14,7 @@
         <input type="hidden" name="phone" value="{{ $phone }}">
         <div class="field">
             <label class="field__label" for="login_pin">Code à 6 chiffres</label>
-            <input class="field__input field__input--code" id="login_pin" type="text" name="login_pin" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,8}" maxlength="8" placeholder="000000" aria-describedby="{{ isset($error) ? 'code-error' : '' }}" @isset($error) aria-invalid="true" @endisset required>
+            <input class="field__input field__input--code" id="login_pin" type="text" name="login_pin" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,8}" maxlength="8" placeholder="000000" @isset($error) aria-describedby="code-error" aria-invalid="true" @endisset required>
         </div>
         <button type="submit" class="button button--block">Se connecter</button>
     </form>

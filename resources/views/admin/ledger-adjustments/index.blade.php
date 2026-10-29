@@ -27,6 +27,7 @@
             @endphp
             @foreach ($filters as $value => $label)
                 <a href="{{ route('admin.ledger-adjustments.index', $value === '' ? [] : ['status' => $value]) }}"
+                   @if (($status ?? '') === $value) aria-current="page" @endif
                    class="rounded-md px-3 py-1.5 text-sm font-medium {{ ($status ?? '') === $value ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50' }}">
                     {{ $label }}
                 </a>
@@ -41,7 +42,7 @@
         @endif
     </div>
 
-    <x-admin.table :headers="['Statut', 'Projet', 'Source', 'Destination', 'Montant', 'Motif', 'Proposée le', '']" empty="Aucune correction d'exploitation.">
+    <x-admin.table caption="Corrections d'exploitation" :headers="['Statut', 'Projet', 'Source', 'Destination', 'Montant', 'Motif', 'Proposée le', '']" empty="Aucune correction d'exploitation.">
         @if (count($adjustments) > 0)
             <tbody class="divide-y divide-slate-100 bg-white">
             @foreach ($adjustments as $adjustment)
@@ -68,7 +69,7 @@
                         {{ \Illuminate\Support\Carbon::parse($adjustment->createdAt)->format('d/m/Y H:i') }}
                     </td>
                     <td class="px-4 py-2 text-sm text-right">
-                        <a href="{{ route('admin.ledger-adjustments.show', $adjustment->id) }}" class="text-indigo-600 hover:text-indigo-800 font-medium">
+                        <a href="{{ route('admin.ledger-adjustments.show', $adjustment->id) }}" class="text-indigo-700 hover:text-indigo-900 font-medium">
                             {{ $adjustment->status === 'proposed' ? 'Traiter' : 'Voir' }}
                         </a>
                     </td>

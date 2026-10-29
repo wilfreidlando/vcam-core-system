@@ -58,7 +58,7 @@
             @endforeach
         </nav>
 
-        <div class="sidebar__foot">
+        <footer class="sidebar__foot">
             @if ($principal->returnUrl)
                 <a class="nav__item nav__item--quiet" href="{{ $principal->returnUrl }}">
                     @include('portal::partials.icon', ['name' => 'back'])
@@ -77,7 +77,7 @@
                 <input type="hidden" name="_csrf" value="{{ $csrf }}">
                 <button type="submit" class="iconbtn" title="Se déconnecter" aria-label="Se déconnecter">@include('portal::partials.icon', ['name' => 'logout'])</button>
             </form>
-        </div>
+        </footer>
     </div>
 @endisset
 

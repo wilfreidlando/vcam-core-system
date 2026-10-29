@@ -78,6 +78,24 @@ final class SensitiveKeySet
         'credential',
         'confirmation',
         'salt',
+        // Audit 2026-10-29 #2 (ADR-0081 S-17) — the one-time codes (TOTP,
+        // SMS, verification): a code replayed inside its validity window
+        // is a second factor in the clear. Targeted names, not the bare
+        // `code` substring: that one would also blank `status_code`,
+        // `provider_code`, `error_code` or `postal_code`, the very signal
+        // an operator needs in a log line. The bare `code` / `otp` field
+        // names are matched exactly instead (see EXACT_KEYS).
+        'totp',
+        'otp_code',
+        'verification_code',
+        'mfa_code',
+        'sms_code',
+        // Audit 2026-10-29 #3 — the MAC / signature of a provider callback
+        // (MyCoolPay: md5 of fields + private key) is a credential that
+        // replays a forged callback; `signature` was only a header name.
+        'signature',
+        'hmac',
+        'checksum',
         // ADR-0083 §1 / ADR-0081 S-17 — the **personal data**: a name,
         // an address, a phone number. They are encrypted at rest
         // (ADR-0083 §2), and they must never be written in clear in a
@@ -91,6 +109,22 @@ final class SensitiveKeySet
         'full_name',
         'first_name',
         'last_name',
+    ];
+
+    /**
+     * @var list<string>
+     *
+     * Key names matched case-insensitively **in full**, never as a
+     * substring: too short to be safe as a substring (`code` would match
+     * `status_code`, `postal_code`; `mac` would match `machine`; `otp`
+     * would match `footprint`) yet exactly the name the console and the
+     * providers give to a secret (the console's MFA field is `code`;
+     * MyCoolPay's callback MAC may be named `mac`).
+     */
+    public const EXACT_KEYS = [
+        'code',
+        'otp',
+        'mac',
     ];
 
     /**
@@ -116,5 +150,13 @@ final class SensitiveKeySet
     public function keySubstrings(): array
     {
         return array_merge(self::KEY_SUBSTRINGS, $this->extraKeySubstrings);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function exactKeys(): array
+    {
+        return self::EXACT_KEYS;
     }
 }

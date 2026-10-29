@@ -11,7 +11,7 @@
         <span id="{{ $labelId }}">{{ str_replace(['_', '.'], ' ', $e->key) }}</span>
         <span class="muted">
             @if ($e->limit === null)
-                {{ $usedText }} utilisé(s) · illimité
+                {{ $usedText }} {{ (int) $e->used > 1 ? 'utilisés' : 'utilisé' }} · illimité
             @else
                 {{ $usedText }} / {{ $limitText }}
             @endif

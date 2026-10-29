@@ -38,6 +38,16 @@ final class SavePortalSettingsRequest extends FormRequest
              */
             'allowed_return_urls' => ['nullable', 'array', 'max:20'],
             'allowed_return_urls.*' => ['string', 'max:500'],
+            /**
+             * The https origins (`https://cdn.mon-site.cm`, no path) your
+             * `logo_url` and `support_url` may point to. Empty or omitted
+             * on a project that never set it = no external URL accepted;
+             * omitted on a project that did = the list is kept.
+             *
+             * @example ["https://cdn.mon-auto-ecole.cm"]
+             */
+            'allowed_asset_origins' => ['nullable', 'array', 'max:20'],
+            'allowed_asset_origins.*' => ['string', 'max:255'],
             /** May a customer stop their contract at the end of the period? */
             'allow_self_cancel' => ['nullable', 'boolean'],
             /** May a customer subscribe and change plan alone? */
@@ -61,5 +71,29 @@ final class SavePortalSettingsRequest extends FormRequest
             /** The name of one of your WhatsApp sessions (the one you put in `variables.session`). */
             'direct_login_session' => ['nullable', 'string', 'max:64'],
         ];
+    }
+
+    /**
+     * Une règle `boolean` valide `"1"` / `"0"` mais ne caste pas : le typage
+     * strict des commandes lèverait une `TypeError` (500). On convertit ici,
+     * une fois ; toute autre valeur reste intacte et la validation répond 422.
+     */
+    protected function prepareForValidation(): void
+    {
+        $casts = [];
+
+        foreach (['allow_self_cancel', 'allow_plan_change', 'direct_login_enabled'] as $field) {
+            $value = $this->input($field);
+
+            if ($value === '1' || $value === 1) {
+                $casts[$field] = true;
+            } elseif ($value === '0' || $value === 0) {
+                $casts[$field] = false;
+            }
+        }
+
+        if ($casts !== []) {
+            $this->merge($casts);
+        }
     }
 }

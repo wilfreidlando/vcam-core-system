@@ -43,7 +43,7 @@
     <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
         <div class="px-5 py-3.5 border-b border-slate-200 bg-slate-50/60">
             <h2 class="font-semibold text-slate-900">payment.status_changed</h2>
-            <p class="text-sm text-slate-500 mt-0.5">Le statut d'un paiement a changé (succès, échec, expiration, remboursement, annulation…).</p>
+            <p class="text-sm text-slate-600 mt-0.5">Le statut d'un paiement a changé (succès, échec, expiration, remboursement, annulation…).</p>
         </div>
         <div class="p-5 space-y-3">
             <pre class="text-sm font-mono bg-slate-50 border border-slate-200 rounded px-3 py-2.5 overflow-x-auto">{
@@ -72,7 +72,7 @@
     <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
         <div class="px-5 py-3.5 border-b border-slate-200 bg-slate-50/60">
             <h2 class="font-semibold text-slate-900">wallet.credited</h2>
-            <p class="text-sm text-slate-500 mt-0.5">Un wallet vient d'être crédité — aujourd'hui, toujours en conséquence directe et synchrone d'un paiement réussi qui portait <span class="font-mono">wallet_recipient_external_ref</span>.</p>
+            <p class="text-sm text-slate-600 mt-0.5">Un wallet vient d'être crédité — aujourd'hui, toujours en conséquence directe et synchrone d'un paiement réussi qui portait <span class="font-mono">wallet_recipient_external_ref</span>.</p>
         </div>
         <div class="p-5 space-y-3">
             <pre class="text-sm font-mono bg-slate-50 border border-slate-200 rounded px-3 py-2.5 overflow-x-auto">{
@@ -99,7 +99,7 @@
     <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
         <div class="px-5 py-3.5 border-b border-slate-200 bg-slate-50/60">
             <h2 class="font-semibold text-slate-900">wallet.debited</h2>
-            <p class="text-sm text-slate-500 mt-0.5">Un wallet vient d'être débité.</p>
+            <p class="text-sm text-slate-600 mt-0.5">Un wallet vient d'être débité.</p>
         </div>
         <div class="p-5 space-y-3">
             <pre class="text-sm font-mono bg-slate-50 border border-slate-200 rounded px-3 py-2.5 overflow-x-auto">{
@@ -124,7 +124,7 @@
     <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
         <div class="px-5 py-3.5 border-b border-slate-200 bg-slate-50/60">
             <h2 class="font-semibold text-slate-900">notification.delivered / notification.read / notification.failed</h2>
-            <p class="text-sm text-slate-500 mt-0.5">Le statut d'une notification envoyée via <span class="font-mono">POST /v1/notifications/{text,image,file}</span> a changé.</p>
+            <p class="text-sm text-slate-600 mt-0.5">Le statut d'une notification envoyée via <span class="font-mono">POST /v1/notifications/{text,image,file}</span> a changé.</p>
         </div>
         <div class="p-5 space-y-3">
             <pre class="text-sm font-mono bg-slate-50 border border-slate-200 rounded px-3 py-2.5 overflow-x-auto">{
@@ -147,7 +147,7 @@
     </div>
 
     <div class="text-right">
-        <a href="{{ route('admin.webhook-deliveries.dead.web') }}" class="text-base text-indigo-600 hover:text-indigo-800 font-medium">
+        <a href="{{ route('admin.webhook-deliveries.dead.web') }}" class="text-base text-indigo-700 hover:text-indigo-900 font-medium">
             ← Retour aux livraisons de webhooks
         </a>
     </div>

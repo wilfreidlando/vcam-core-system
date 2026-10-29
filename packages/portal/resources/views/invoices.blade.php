@@ -3,7 +3,8 @@
 @section('content')
 @php use Core\Portal\Application\Support\PortalFormat as F; @endphp
 <h1>Factures</h1>
-<section class="card card--flush">
+<section class="card card--flush" aria-labelledby="invoices-title">
+    <h2 id="invoices-title" class="sr-only">Liste des factures</h2>
     @forelse ($invoices as $invoice)
         @php [$label, $tone] = F::invoiceStatus($invoice->status); @endphp
         <a class="row row--link" href="/portal/invoices/{{ $invoice->id }}">

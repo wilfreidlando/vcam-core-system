@@ -50,7 +50,10 @@ use Illuminate\Support\Facades\Route;
 | VerifyCsrfToken is intentionally NOT included: API clients don't carry
 | CSRF tokens, and the admin web UI doesn't hit these endpoints via
 | state-changing AJAX — every mutation here is a synchronous form POST
-| handled by `routes/admin.php`.
+| handled by `routes/admin.php`. Because there is no CSRF token, the session
+| cookie is accepted for READS only (gap #7, annexe sécurité 2026-10-29):
+| `ResolveOperatorMiddleware` answers 401 to an unsafe method that carries the
+| cookie without an `Authorization: Bearer` header.
 */
 
 Route::middleware([

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Billing\Presentation\Http\Requests;
 
+use Core\Billing\Presentation\Http\Requests\Concerns\CastsNumericInput;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -11,6 +12,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 final class CancelSubscriptionRequest extends FormRequest
 {
+    use CastsNumericInput;
+
     public function authorize(): bool
     {
         return true;
@@ -39,5 +42,16 @@ final class CancelSubscriptionRequest extends FormRequest
              */
             'reason' => ['nullable', 'string', 'max:500'],
         ];
+    }
+
+    /**
+     * F-12 — `"5000"` devient `5000` avant la validation ; une valeur non numérique
+     * reste telle quelle et la règle la refuse en 422 (jamais de `TypeError` en 500).
+     */
+    protected function prepareForValidation(): void
+    {
+        $cast = self::castNumericKeys($this->inputAsArray(), [], ['at_period_end']);
+
+        $this->merge($cast);
     }
 }

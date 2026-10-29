@@ -167,4 +167,61 @@ final class PayloadRedactorTest extends TestCase
         $variables = $redacted['variables'];
         self::assertSame('***REDACTED***', $variables['phone_number']);
     }
+
+    #[Test]
+    public function one_time_codes_are_redacted_but_diagnostic_codes_are_kept(): void
+    {
+        $redactor = new PayloadRedactor(new SensitiveKeySet);
+
+        /** @var array<string, mixed> $redacted */
+        $redacted = $redactor->redact([
+            // Audit 2026-10-29 #2 — the console's MFA field is named `code`.
+            'code' => '123456',
+            'otp' => '654321',
+            'mfa_code' => '111111',
+            'sms_code' => '222222',
+            'verification_code' => '333333',
+            'totp' => '444444',
+            'Code' => '555555',
+            'nested' => ['code' => '666666'],
+            // Not secrets: an operator needs them in a log line.
+            'status_code' => 502,
+            'provider_code' => 'my-coolpay',
+            'error_code' => 'E42',
+            'postal_code' => 'BP 12',
+            'footprint' => 'kept',
+        ]);
+
+        foreach (['code', 'otp', 'mfa_code', 'sms_code', 'verification_code', 'totp', 'Code'] as $key) {
+            self::assertSame('***REDACTED***', $redacted[$key], $key);
+        }
+        self::assertSame(['code' => '***REDACTED***'], $redacted['nested']);
+        self::assertSame(502, $redacted['status_code']);
+        self::assertSame('my-coolpay', $redacted['provider_code']);
+        self::assertSame('E42', $redacted['error_code']);
+        self::assertSame('BP 12', $redacted['postal_code']);
+        self::assertSame('kept', $redacted['footprint']);
+    }
+
+    #[Test]
+    public function provider_signatures_and_macs_are_redacted(): void
+    {
+        $redactor = new PayloadRedactor(new SensitiveKeySet);
+
+        /** @var array<string, mixed> $redacted */
+        $redacted = $redactor->redact([
+            'signature' => md5('secret'),
+            'mac' => 'abc',
+            'hmac' => 'def',
+            'payload_checksum' => 'ghi',
+            'machine' => 'kept',
+            'transaction_ref' => 'tx-1',
+        ]);
+
+        foreach (['signature', 'mac', 'hmac', 'payload_checksum'] as $key) {
+            self::assertSame('***REDACTED***', $redacted[$key], $key);
+        }
+        self::assertSame('kept', $redacted['machine']);
+        self::assertSame('tx-1', $redacted['transaction_ref']);
+    }
 }

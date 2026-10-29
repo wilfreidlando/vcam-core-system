@@ -50,7 +50,7 @@ final class PortalSettingsController
             return ProblemDetails::forbidden('The portal:write scope is required.');
         }
 
-        /** @var array{display_name: string, logo_url?: string|null, primary_color?: string|null, support_url?: string|null, locale?: string|null, allowed_return_urls?: list<string>|null, allow_self_cancel?: bool|null, allow_plan_change?: bool|null, payment_channels?: list<string>|null, direct_login_enabled?: bool|null, direct_login_session?: string|null} $data */
+        /** @var array{display_name: string, logo_url?: string|null, primary_color?: string|null, support_url?: string|null, locale?: string|null, allowed_return_urls?: list<string>|null, allowed_asset_origins?: list<string>|null, allow_self_cancel?: bool|null, allow_plan_change?: bool|null, payment_channels?: list<string>|null, direct_login_enabled?: bool|null, direct_login_session?: string|null} $data */
         $data = $request->validated();
 
         $saved = $this->settings->save($project->projectId, new PortalSettingsData(
@@ -65,6 +65,7 @@ final class PortalSettingsController
             paymentChannels: $this->strings($data['payment_channels'] ?? []),
             directLoginEnabled: $data['direct_login_enabled'] ?? false,
             directLoginSession: is_string($data['direct_login_session'] ?? null) ? $data['direct_login_session'] : null,
+            allowedAssetOrigins: is_array($data['allowed_asset_origins'] ?? null) ? $this->strings($data['allowed_asset_origins']) : null,
         ), TraceContext::correlationId());
 
         return new JsonResponse($this->body($saved));
@@ -82,6 +83,7 @@ final class PortalSettingsController
             'support_url' => $s->supportUrl,
             'locale' => $s->locale,
             'allowed_return_urls' => $s->allowedReturnUrls,
+            'allowed_asset_origins' => $s->allowedAssetOrigins ?? [],
             'allow_self_cancel' => $s->allowSelfCancel,
             'allow_plan_change' => $s->allowPlanChange,
             'payment_channels' => $s->paymentChannels,

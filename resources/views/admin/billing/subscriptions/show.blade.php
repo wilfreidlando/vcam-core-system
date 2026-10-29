@@ -8,11 +8,11 @@
         <div>
             <span class="font-mono text-sm text-slate-500">{{ $subscription->customerRef }}</span>
             <span class="ml-2 text-base font-semibold text-slate-900">
-                {{ $subscription->planCode }} <span class="text-slate-400">v{{ $subscription->planVersion }}</span>
+                {{ $subscription->planCode }} <span class="text-slate-500">v{{ $subscription->planVersion }}</span>
             </span>
         </div>
         <a href="{{ route('admin.projects.subscriptions.index', $projectId) }}"
-           class="text-sm font-medium text-slate-600 hover:text-slate-900">← Tous les abonnements</a>
+           class="inline-block px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">← Tous les abonnements</a>
     </div>
 
     <div class="grid gap-4 sm:grid-cols-3">
@@ -45,7 +45,7 @@
         </div>
     </div>
 
-    <x-admin.table :headers="['#', 'Type', 'Début', 'Fin', 'Réglée', 'Motif']" empty="Aucune période.">
+    <x-admin.table caption="Périodes de l'abonnement" :headers="['#', 'Type', 'Début', 'Fin', 'Réglée', 'Motif']" empty="Aucune période.">
         @if (count($periods) > 0)
             <tbody class="divide-y divide-slate-100 bg-white">
             @foreach ($periods as $period)
@@ -72,19 +72,31 @@
         @endif
     </x-admin.table>
 
+    @php
+        // Défaut #31 : le n° de période à déclarer est sous les yeux de l'opérateur, on le pré-remplit
+        // avec la première période non réglée (à défaut, la première du tableau).
+        $periodList = collect($periods);
+        $payableSeq = $periodList->first(fn ($period) => $period->paidAt === null)?->seq ?? $periodList->first()?->seq;
+        $periodOptions = $periodList->mapWithKeys(fn ($period) => [
+            $period->seq => 'Période '.$period->seq.' — '.\Illuminate\Support\Carbon::parse($period->startsAt)->format('d/m/Y').' → '.\Illuminate\Support\Carbon::parse($period->endsAt)->format('d/m/Y').($period->paidAt !== null ? ' (réglée)' : ''),
+        ])->all();
+    @endphp
     <div class="grid gap-4 lg:grid-cols-2">
         <div class="rounded-lg border border-slate-200 bg-white p-5">
             <h2 class="text-base font-semibold text-slate-900">Suspendre / reprendre</h2>
             <p class="mt-1 text-sm text-slate-600">Un motif est obligatoire : l'acte est audité.</p>
-            <form method="POST" action="{{ route('admin.projects.subscriptions.pause.web', [$projectId, $subscription->id]) }}"
-                  class="mt-3 flex items-center gap-2">
-                @csrf
-                <input name="reason" required placeholder="Motif de la suspension" maxlength="500"
-                       class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                <button type="submit" class="rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700">
-                    Suspendre
-                </button>
-            </form>
+            <div class="mt-3">
+                <x-admin.confirm-dialog
+                    title="Suspendre cet abonnement ?"
+                    message="Les droits du client sont suspendus tant que l'abonnement n'est pas repris. L'acte est audité."
+                    :action="route('admin.projects.subscriptions.pause.web', [$projectId, $subscription->id])"
+                    confirm="Suspendre">
+                    <x-slot:trigger>
+                        <button type="button" class="rounded-md bg-indigo-700 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-800">Suspendre</button>
+                    </x-slot:trigger>
+                    <x-admin.field name="reason" id="pause-reason" label="Motif de la suspension" required maxlength="500" />
+                </x-admin.confirm-dialog>
+            </div>
             <form method="POST" action="{{ route('admin.projects.subscriptions.resume.web', [$projectId, $subscription->id]) }}"
                   class="mt-3">
                 @csrf
@@ -100,13 +112,11 @@
                 Une période <em>complimentary</em> : sans facture, avec un motif.
             </p>
             <form method="POST" action="{{ route('admin.projects.subscriptions.complimentary.web', [$projectId, $subscription->id]) }}"
-                  class="mt-3 space-y-2">
+                  class="mt-3 space-y-3">
                 @csrf
-                <input name="days" type="number" min="1" max="365" value="30" required
-                       class="w-28 rounded-md border border-slate-300 px-3 py-2 text-sm">
-                <input name="reason" required placeholder="Motif" maxlength="500"
-                       class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                <button type="submit" class="rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700">
+                <x-admin.field name="days" id="complimentary-days" type="number" label="Durée offerte (jours)" min="1" max="365" required :value="30" wrapper-class="w-40" />
+                <x-admin.field name="reason" id="complimentary-reason" label="Motif" required maxlength="500" />
+                <button type="submit" class="rounded-md bg-indigo-700 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
                     Accorder
                 </button>
             </form>
@@ -118,15 +128,12 @@
                 À l'échéance par défaut ; immédiat sans prorata.
             </p>
             <form method="POST" action="{{ route('admin.projects.subscriptions.change-plan.web', [$projectId, $subscription->id]) }}"
-                  class="mt-3 flex items-center gap-2">
+                  class="mt-3 flex flex-wrap items-end gap-3">
                 @csrf
-                <input name="plan_code" required placeholder="code du plan" maxlength="64"
-                       class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono">
-                <select name="effective" class="rounded-md border border-slate-300 px-3 py-2 text-sm">
-                    <option value="period_end">à l'échéance</option>
-                    <option value="immediate">immédiat</option>
-                </select>
-                <button type="submit" class="rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700">
+                <x-admin.field name="plan_code" label="Code du plan" required maxlength="64" pattern="[a-z0-9][a-z0-9_\-]*" class="font-mono" wrapper-class="min-w-48 flex-1" />
+                <x-admin.field name="effective" type="select" label="Prise d'effet" value="period_end"
+                               :options="['period_end' => 'à l\'échéance', 'immediate' => 'immédiat']" />
+                <button type="submit" class="rounded-md bg-indigo-700 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
                     Changer
                 </button>
             </form>
@@ -140,12 +147,14 @@
                 période comme réglée.
             </p>
             <form method="POST" action="{{ route('admin.projects.subscriptions.pay.web', [$projectId, $subscription->id]) }}"
-                  class="mt-3 flex items-center gap-2">
+                  class="mt-3 flex flex-wrap items-end gap-3">
                 @csrf
-                <input name="seq" type="number" min="1" required placeholder="n° de période"
-                       class="w-28 rounded-md border border-amber-300 px-3 py-2 text-sm">
-                <input name="reference" placeholder="référence du règlement" maxlength="200"
-                       class="w-full rounded-md border border-amber-300 px-3 py-2 text-sm">
+                @if ($periodOptions !== [])
+                    <x-admin.field name="seq" type="select" label="Période à régler" required :value="$payableSeq" :options="$periodOptions" />
+                @else
+                    <x-admin.field name="seq" type="number" label="N° de période" min="1" required wrapper-class="w-32" />
+                @endif
+                <x-admin.field name="reference" label="Référence du règlement" maxlength="200" optional wrapper-class="min-w-48 flex-1" />
                 <button type="submit" class="rounded-md bg-amber-800 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-900">
                     Déclarer
                 </button>
@@ -158,19 +167,20 @@
                 À l'échéance, le contrat vit jusqu'à la fin de sa période ; immédiatement,
                 il s'arrête.
             </p>
-            <form method="POST" action="{{ route('admin.projects.subscriptions.cancel.web', [$projectId, $subscription->id]) }}"
-                  class="mt-3 flex items-center gap-2">
-                @csrf
-                <input name="reason" placeholder="Motif (facultatif)" maxlength="500"
-                       class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                <select name="at_period_end" class="rounded-md border border-slate-300 px-3 py-2 text-sm">
-                    <option value="1">à l'échéance</option>
-                    <option value="0">immédiat</option>
-                </select>
-                <button type="submit" class="rounded-md bg-rose-700 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-800">
-                    Annuler
-                </button>
-            </form>
+            <div class="mt-3">
+                <x-admin.confirm-dialog
+                    title="Annuler cet abonnement ?"
+                    message="À l'échéance, le contrat s'arrête à la fin de la période en cours ; immédiatement, il s'arrête tout de suite. Cette action est irréversible et journalisée."
+                    :action="route('admin.projects.subscriptions.cancel.web', [$projectId, $subscription->id])"
+                    confirm="Annuler l'abonnement">
+                    <x-slot:trigger>
+                        <button type="button" class="rounded-md bg-rose-700 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-800">Annuler l'abonnement</button>
+                    </x-slot:trigger>
+                    <x-admin.field name="reason" id="cancel-reason" label="Motif" maxlength="500" optional />
+                    <x-admin.field name="at_period_end" id="cancel-at-period-end" type="select" label="Prise d'effet" value="1"
+                                   :options="['1' => 'à l\'échéance', '0' => 'immédiat']" />
+                </x-admin.confirm-dialog>
+            </div>
         </div>
     </div>
 </div>

@@ -36,6 +36,7 @@ use Core\Identity\Domain\Exception\MfaNotEnrolled;
 use Core\Identity\Domain\Exception\OperatorNotFound;
 use Core\Identity\Domain\Port\OperatorTokenIssuer;
 use Core\Identity\Presentation\Http\Middleware\ResolveOperatorMiddleware;
+use Core\Identity\Presentation\Http\Middleware\StepUpGate;
 use Core\Support\Clock;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -299,6 +300,9 @@ final class AuthController
     {
         Session::put(self::SESSION_KEY, $plaintext);
         Session::forget(['admin.challenge_token', 'admin.challenge_purpose']);
+        // The operator has just proved a fresh TOTP code: that IS an elevation (audit 2026-10-29 #5).
+        // Without this, the first sensitive action after every login would ask for a second code.
+        app(StepUpGate::class)->markElevated();
         Session::regenerate();
 
         return redirect()->route('admin.dashboard')

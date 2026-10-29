@@ -23,6 +23,7 @@ final class PortalResponses
         .'support_url: string|null, '
         .'locale: string, '
         .'allowed_return_urls: list<string>, '
+        .'allowed_asset_origins: list<string>, '
         .'allow_self_cancel: bool, '
         .'allow_plan_change: bool, '
         .'payment_channels: list<string>, '

@@ -30,7 +30,8 @@ final readonly class PortalSettingsService
 
     public function save(string $projectId, PortalSettingsData $data, ?string $correlationId, ?string $actor = null): PortalSettingsData
     {
-        $before = $this->toData($this->settings->find($projectId));
+        $existing = $this->settings->find($projectId);
+        $before = $this->toData($existing);
 
         $validated = PortalSettings::validated(
             $projectId,
@@ -45,6 +46,7 @@ final readonly class PortalSettingsService
             $data->paymentChannels,
             $data->directLoginEnabled,
             $data->directLoginSession,
+            $data->allowedAssetOrigins ?? $existing->allowedAssetOrigins,
         );
 
         $this->settings->save($validated);
@@ -79,6 +81,7 @@ final readonly class PortalSettingsService
             $s->paymentChannels,
             $s->directLoginEnabled,
             $s->directLoginSession,
+            $s->allowedAssetOrigins,
         );
     }
 }

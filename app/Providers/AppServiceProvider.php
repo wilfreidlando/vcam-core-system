@@ -13,6 +13,7 @@ use App\Infrastructure\ProjectIdempotencyScope;
 use App\OpenApi\ExceptionProblemResponseExtension;
 use App\OpenApi\ProblemDetailsStaticMethodReturnTypeExtension;
 use Core\Support\Clock;
+use Core\Support\Http\Middleware\LimitRequestBody;
 use Core\Support\Idempotency\IdempotencyScope;
 use Core\Support\Idempotency\IdempotencyStore;
 use Core\Support\SystemClock;
@@ -23,8 +24,10 @@ use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Dedoc\Scramble\Support\RouteInfo;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
@@ -78,6 +81,7 @@ final class AppServiceProvider extends ServiceProvider
             || (app(ResolveOperatorSession::class)->currentOperator()?->hasPermission('queues:manage') ?? false));
 
         $this->configureRateLimiting();
+        $this->configureRequestBodyLimit();
         $this->configureApiDocumentationTags();
         $this->configureAdminApiDocumentation();
         $this->configureApiDocumentationAccess();
@@ -199,6 +203,21 @@ final class AppServiceProvider extends ServiceProvider
     }
 
     /**
+     * Audit de sécurité 2026-10-29 #13 — the application bounds the body it
+     * accepts (1 Mio, JSON nested on 20 levels at most) at the head of the
+     * `api` group, before throttling, authentication or any validator reads
+     * it. The alias lets a route outside the group opt in explicitly.
+     */
+    private function configureRequestBodyLimit(): void
+    {
+        /** @var Router $router */
+        $router = $this->app->make(Router::class);
+
+        $router->aliasMiddleware('body.limit', LimitRequestBody::class);
+        $router->prependMiddlewareToGroup('api', LimitRequestBody::class);
+    }
+
+    /**
      * Scramble's own `RestrictedDocsAccess` middleware (applied to every
      * documented route via `config('scramble.middleware')`) only lets
      * `local` through automatically; anywhere else it checks this Gate and
@@ -207,12 +226,14 @@ final class AppServiceProvider extends ServiceProvider
      *
      * `/docs/api` is the third-party integration surface (ADR-0049) — it's
      * meant to be read by a Project integrator who has no operator
-     * credentials, so it's public here unconditionally. `/docs/admin`
-     * instead relies on the `operator.session` middleware attached to its
-     * routes above (the same mechanism every other admin console page
-     * uses) — this Gate stays permissive for it too, rather than
-     * duplicating a second, parallel check of "is there a valid operator
-     * session" that could drift from `ResolveOperatorSession`.
+     * credentials, so it stays public in local and staging. In PRODUCTION
+     * (audit de sécurité 2026-10-29 #14) it is no longer an open map of the
+     * whole public surface: only an operator signed in to the console who
+     * holds `audit:read` may open it. `/docs/admin` additionally relies on
+     * the `operator.session` middleware attached to its routes above.
+     *
+     * Whatever the environment, these pages are never framed and never leak
+     * their address through the `Referer` (they load third-party scripts).
      */
     private function configureApiDocumentationAccess(): void
     {
@@ -221,7 +242,22 @@ final class AppServiceProvider extends ServiceProvider
         // every request here, this Core has no Auth::user()) unless the
         // callback's first parameter explicitly allows null, regardless of
         // whether it's actually read.
-        Gate::define('viewApiDocs', fn (mixed $user = null): bool => true);
+        Gate::define('viewApiDocs', static function (mixed $user = null): bool {
+            if (! app()->isProduction()) {
+                return true;
+            }
+
+            return app(ResolveOperatorSession::class)->currentOperator()?->hasPermission('audit:read') ?? false;
+        });
+
+        Event::listen(RequestHandled::class, static function (RequestHandled $handled): void {
+            if (! $handled->request->is('docs/*')) {
+                return;
+            }
+
+            $handled->response->headers->set('X-Frame-Options', 'DENY');
+            $handled->response->headers->set('Referrer-Policy', 'no-referrer');
+        });
     }
 
     /**

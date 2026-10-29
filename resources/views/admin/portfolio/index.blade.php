@@ -24,13 +24,13 @@
         <x-admin.stat label="Clients actifs" :text="$totals['active'].' / '.$totals['customers']" :hint="$totals['pastDue'].' impayé(s)'" :tone="$totals['pastDue'] > 0 ? 'rose' : 'slate'"/>
     </div>
 
-    <form method="GET" class="flex items-center gap-2">
-        <input name="q" value="{{ $search }}" placeholder="Rechercher un projet"
-               class="w-full max-w-xs rounded-md border border-slate-300 px-3 py-2 text-sm">
+    <form method="GET" role="search" aria-label="Rechercher un projet" class="flex items-center gap-2">
+        <x-admin.field name="q" label="Rechercher un projet" label-hidden :value="$search" placeholder="Rechercher un projet" wrapper-class="w-full max-w-xs" class="text-sm" />
         <button class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Rechercher</button>
     </form>
 
-    <x-admin.table :headers="['Projet', 'MRR', 'Actifs', 'Essais', 'Impayés', 'Nouveaux / perdus', 'Encaissé', 'Créances', 'À surveiller']" empty="Aucun projet.">
+    <x-admin.table caption="Portefeuille par projet" :headers="['Projet', 'MRR', 'Actifs', 'Essais', 'Impayés', 'Nouveaux / perdus', 'Encaissé', 'Créances', 'À surveiller']" empty="Aucun projet.">
+        <tbody class="divide-y divide-slate-100 bg-white">
         @foreach ($rows as $row)
             @php $m = $row['metrics']; @endphp
             <tr>
@@ -51,21 +51,23 @@
                     @forelse ($row['attention'] as $flag)
                         <span class="mr-1 inline-block rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{{ $flag }}</span>
                     @empty
-                        <span class="text-slate-400">—</span>
+                        <span class="text-slate-600">—</span>
                     @endforelse
                 </td>
             </tr>
         @endforeach
+        </tbody>
     </x-admin.table>
 
     @if ($truncated)
-        <p class="text-sm text-slate-500">Seuls les 50 premiers projets sont affichés : affinez la recherche.</p>
+        <p class="text-sm text-slate-600">Seuls les 50 premiers projets sont affichés : affinez la recherche.</p>
     @endif
 
     @if (count($rows) > 0)
         <div class="space-y-3">
             <h2 class="text-base font-semibold text-slate-900">Créances par ancienneté</h2>
-            <x-admin.table :headers="['Projet', 'Devise', 'Non échues', '1–30 jours', '31–60 jours', '> 60 jours']" empty="Aucune créance ouverte.">
+            <x-admin.table caption="Créances par ancienneté" :headers="['Projet', 'Devise', 'Non échues', '1–30 jours', '31–60 jours', '> 60 jours']" empty="Aucune créance ouverte.">
+                <tbody class="divide-y divide-slate-100 bg-white">
                 @foreach ($rows as $row)
                     @foreach ($row['metrics']->receivableAging as $currency => $b)
                         <tr>
@@ -77,6 +79,7 @@
                         </tr>
                     @endforeach
                 @endforeach
+                </tbody>
             </x-admin.table>
         </div>
     @endif

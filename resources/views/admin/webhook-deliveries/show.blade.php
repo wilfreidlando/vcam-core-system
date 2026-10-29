@@ -28,10 +28,18 @@
             <x-admin.status-badge :status="$delivery->status" />
             <span class="font-mono text-sm text-slate-600">{{ $delivery->eventType }}</span>
             @if ($delivery->status === 'dead' && $canReplay && $delivery->endpointActive)
-                <form method="POST" action="{{ route('admin.webhook-deliveries.replay.web', ['delivery' => $delivery->id]) }}" class="ml-auto">
-                    @csrf
-                    <button type="submit" class="rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white">Rejouer</button>
-                </form>
+                <div class="ml-auto">
+                    <x-admin.confirm-dialog
+                        title="Rejouer cette livraison ?"
+                        message="La ligne en échec d'origine est conservée telle quelle ; une nouvelle livraison sera créée et remise en file."
+                        :action="route('admin.webhook-deliveries.replay.web', ['delivery' => $delivery->id])"
+                        confirm="Rejouer"
+                        variant="primary">
+                        <x-slot:trigger>
+                            <button type="button" class="rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white">Rejouer</button>
+                        </x-slot:trigger>
+                    </x-admin.confirm-dialog>
+                </div>
             @endif
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-base">

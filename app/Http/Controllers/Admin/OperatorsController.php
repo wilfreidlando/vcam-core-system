@@ -58,25 +58,7 @@ final class OperatorsController
             abort(403, 'La permission operators:read est requise.');
         }
 
-        $page = max(1, (int) $request->query('page', 1));
-        $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
-        $searchRaw = (string) $request->query('search', '');
-
-        $pageResult = $this->listOperators->list(new ListOperatorsCommand(
-            page: $page,
-            perPage: $perPage,
-            search: $searchRaw === '' ? null : $searchRaw,
-        ), $operator->scope);
-
-        return response()->view('admin.operators.index', [
-            'title' => 'Opérateurs',
-            'operators' => $pageResult->items,
-            'total' => $pageResult->total,
-            'page' => $page,
-            'perPage' => $perPage,
-            'created' => session('admin.operators.created'),
-            'search' => $searchRaw,
-        ]);
+        return $this->renderIndex($request, $operator, null);
     }
 
     public function create(OperatorContext $operator): Response
@@ -91,7 +73,7 @@ final class OperatorsController
         ]);
     }
 
-    public function store(Request $request, OperatorContext $operator): RedirectResponse
+    public function store(Request $request, OperatorContext $operator): Response|RedirectResponse
     {
         if (! $operator->hasPermission('operators:write')) {
             abort(403, 'La permission operators:write est requise.');
@@ -122,18 +104,17 @@ final class OperatorsController
             return back()->withInput()->withErrors(['role' => $e->getMessage()]);
         }
 
-        // The activation token is shown exactly once, on this redirect —
-        // same one-shot-secret pattern as API key issuance, never
-        // persisted or logged. The invitee chooses their own password
-        // when they activate the invitation (ADR-0081 S-07).
-        // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
-        session()->flash('admin.operators.created', [
+        // The activation token is shown exactly once, in THIS response,
+        // and nowhere else (ADR-0081 S-07): it is rendered directly rather
+        // than flashed into the session for a redirect — a flash would
+        // write the clear token to the session store, where it would
+        // outlive the response that carries it. The invitee chooses their
+        // own password when they activate the invitation.
+        return $this->renderIndex($request, $operator, [
             'email' => $invitation->email,
-            'token' => $invitation->token,
+            'token' => (string) $invitation->token,
             'expires_at' => $invitation->expiresAt->format('Y-m-d H:i'),
         ]);
-
-        return redirect()->route('admin.operators.index');
     }
 
     public function revoke(string $operatorId, OperatorContext $operator): RedirectResponse
@@ -214,6 +195,32 @@ final class OperatorsController
 
         return redirect()->route('admin.operators.index')
             ->with('status', 'Opérateur mis à jour : '.$data['email']);
+    }
+
+    /**
+     * @param array{email: string, token: string, expires_at: string}|null $created rendu dans CETTE réponse, jamais flashé
+     */
+    private function renderIndex(Request $request, OperatorContext $operator, ?array $created): Response
+    {
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
+        $searchRaw = (string) $request->query('search', '');
+
+        $pageResult = $this->listOperators->list(new ListOperatorsCommand(
+            page: $page,
+            perPage: $perPage,
+            search: $searchRaw === '' ? null : $searchRaw,
+        ), $operator->scope);
+
+        return response()->view('admin.operators.index', [
+            'title' => 'Opérateurs',
+            'operators' => $pageResult->items,
+            'total' => $pageResult->total,
+            'page' => $page,
+            'perPage' => $perPage,
+            'created' => $created,
+            'search' => $searchRaw,
+        ]);
     }
 
     /**

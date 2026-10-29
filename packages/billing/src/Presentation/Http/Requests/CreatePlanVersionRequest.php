@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Billing\Presentation\Http\Requests;
 
+use Core\Billing\Presentation\Http\Requests\Concerns\CastsNumericInput;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -15,6 +16,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 final class CreatePlanVersionRequest extends FormRequest
 {
+    use CastsNumericInput;
+
     public function authorize(): bool
     {
         return true;
@@ -32,7 +35,7 @@ final class CreatePlanVersionRequest extends FormRequest
              *
              * @example 5000
              */
-            'price_minor' => ['required', 'integer', 'min:0'],
+            'price_minor' => ['required', 'integer:strict', 'min:0'],
             /**
              * The currency of the price, as its ISO-4217 code.
              *
@@ -51,21 +54,21 @@ final class CreatePlanVersionRequest extends FormRequest
              *
              * @example 1
              */
-            'interval_count' => ['required', 'integer', 'min:1', 'max:365'],
+            'interval_count' => ['required', 'integer:strict', 'min:1', 'max:365'],
             /**
              * How many days the contract may be used before its first
              * paid period begins.
              *
              * @example 14
              */
-            'trial_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'trial_days' => ['nullable', 'integer:strict', 'min:0', 'max:365'],
             /**
              * How many days the service keeps running after the period
              * ends, before the contract is suspended.
              *
              * @example 3
              */
-            'grace_days' => ['nullable', 'integer', 'min:0', 'max:90'],
+            'grace_days' => ['nullable', 'integer:strict', 'min:0', 'max:90'],
             /**
              * Whether the service stays reachable during the grace
              * period — read-only when it does not.
@@ -83,5 +86,16 @@ final class CreatePlanVersionRequest extends FormRequest
             'features' => ['nullable', 'array'],
             'features.*' => ['array'],
         ];
+    }
+
+    /**
+     * F-12 — `"5000"` devient `5000` avant la validation ; une valeur non numérique
+     * reste telle quelle et la règle la refuse en 422 (jamais de `TypeError` en 500).
+     */
+    protected function prepareForValidation(): void
+    {
+        $cast = self::castNumericKeys($this->inputAsArray(), ['price_minor', 'interval_count', 'trial_days', 'grace_days'], ['grace_access']);
+
+        $this->merge($cast);
     }
 }

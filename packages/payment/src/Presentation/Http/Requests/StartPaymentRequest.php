@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Payment\Presentation\Http\Requests;
 
 use Core\Payment\PaymentFlow;
+use Core\Payment\Presentation\Http\Requests\Concerns\CastsNumericInput;
 use Core\Support\Integration\Security\SafeOutboundUrlRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -21,6 +22,8 @@ use Illuminate\Validation\Rule;
  */
 final class StartPaymentRequest extends FormRequest
 {
+    use CastsNumericInput;
+
     public function authorize(): bool
     {
         return true;
@@ -51,7 +54,7 @@ final class StartPaymentRequest extends FormRequest
              *
              * @example 100
              */
-            'amount' => ['required', 'integer', 'min:1'],
+            'amount' => ['required', 'integer:strict', 'min:1'],
             /**
              * The ISO 4217 three-letter code of the currency. The
              * provider configured for the chosen `channel` must
@@ -131,9 +134,12 @@ final class StartPaymentRequest extends FormRequest
              * disabled JS, captive portal). For a reliable
              * server-to-server signal, use `callback_url` instead.
              *
+             * Must be an `https://` URL (audit de sécurité 2026-10-29 #18): the
+             * provider redirects the customer's browser to it as is.
+             *
              * @example "https://example.com/payments/return"
              */
-            'return_url' => ['nullable', 'url'],
+            'return_url' => ['nullable', 'url', 'starts_with:https://'],
             /**
              * Optional. The external reference of the wallet to
              * credit automatically when this payment reaches a
@@ -164,5 +170,16 @@ final class StartPaymentRequest extends FormRequest
              */
             'callback_url' => ['nullable', 'url', 'starts_with:http://,https://', new SafeOutboundUrlRule],
         ];
+    }
+
+    /**
+     * F-12 — `"5000"` devient `5000` avant la validation ; une valeur non numérique
+     * reste telle quelle et la règle la refuse en 422 (jamais de `TypeError` en 500).
+     */
+    protected function prepareForValidation(): void
+    {
+        $cast = self::castNumericKeys($this->inputAsArray(), ['amount']);
+
+        $this->merge($cast);
     }
 }

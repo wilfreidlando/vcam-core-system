@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Billing\Presentation\Http\Requests;
 
+use Core\Billing\Presentation\Http\Requests\Concerns\CastsNumericInput;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -15,6 +16,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 final class CreateInvoiceRequest extends FormRequest
 {
+    use CastsNumericInput;
+
     public function authorize(): bool
     {
         // The scope is checked by the controller (`invoices:write`): the
@@ -50,7 +53,7 @@ final class CreateInvoiceRequest extends FormRequest
              *
              * @example 1925
              */
-            'tax_rate_bps' => ['nullable', 'integer', 'min:0', 'max:10000'],
+            'tax_rate_bps' => ['nullable', 'integer:strict', 'min:0', 'max:10000'],
 
             /**
              * The instant the invoice falls due — optional: an invoice
@@ -79,14 +82,14 @@ final class CreateInvoiceRequest extends FormRequest
              *
              * @example 2
              */
-            'lines.*.quantity' => ['required', 'integer', 'min:1', 'max:1000000'],
+            'lines.*.quantity' => ['required', 'integer:strict', 'min:1', 'max:1000000'],
 
             /**
              * The price of one unit, in minor units.
              *
              * @example 50000
              */
-            'lines.*.unit_amount_minor' => ['required', 'integer', 'min:0'],
+            'lines.*.unit_amount_minor' => ['required', 'integer:strict', 'min:0'],
 
             /**
              * The tax rate of this line, in basis points — the default
@@ -94,7 +97,26 @@ final class CreateInvoiceRequest extends FormRequest
              *
              * @example 1925
              */
-            'lines.*.tax_rate_bps' => ['nullable', 'integer', 'min:0', 'max:10000'],
+            'lines.*.tax_rate_bps' => ['nullable', 'integer:strict', 'min:0', 'max:10000'],
         ];
+    }
+
+    /**
+     * F-12 — `"5000"` devient `5000` avant la validation ; une valeur non numérique
+     * reste telle quelle et la règle la refuse en 422 (jamais de `TypeError` en 500).
+     */
+    protected function prepareForValidation(): void
+    {
+        $cast = self::castNumericKeys($this->inputAsArray(), ['tax_rate_bps']);
+
+        $rawLines = $this->input('lines');
+        if (is_array($rawLines)) {
+            $cast['lines'] = array_map(
+                static fn (mixed $line): mixed => is_array($line) ? array_merge($line, self::castNumericKeys($line, ['quantity', 'unit_amount_minor', 'tax_rate_bps'])) : $line,
+                $rawLines,
+            );
+        }
+
+        $this->merge($cast);
     }
 }

@@ -12,44 +12,21 @@
         </a>
     </div>
 
-    @if (session('status'))
-        <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-base text-emerald-800">
-            {{ session('status') }}
-        </div>
-    @endif
-
-    @if ($errors->any() && ! $errors->has('url') && ! $errors->has('categories'))
-        {{-- `url`/`categories` errors render inline next to their field
-             (create or edit form, whichever was submitted); anything
-             else (e.g. activate/deactivate failing) has no field to
-             attach to, so it needs this banner — same reasoning as
-             webhook-deliveries/dead.blade.php's replay-error banner. --}}
-        <div class="rounded-md bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-800">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
-        </div>
-    @endif
+    {{-- Statut et erreurs : rendus par le layout (role="status" / role="alert"). --}}
 
     @if (! empty($created))
-        <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3">
-            <p class="text-base font-semibold text-emerald-800">Endpoint enregistré : {{ $created['url'] }}</p>
-            <p class="mt-1 text-base text-emerald-700">
-                Secret de signature — affiché uniquement maintenant, jamais stocké ni journalisé :
-                <code class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900 break-all">{{ $created['secret'] }}</code>
-            </p>
-        </div>
+        <x-admin.alert variant="success" title="Endpoint enregistré : {{ $created['url'] }}">
+            Secret de signature — affiché uniquement maintenant, jamais stocké ni journalisé :
+            <code class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900 break-all">{{ $created['secret'] }}</code>
+        </x-admin.alert>
     @endif
 
     @if (! empty($rotated))
-        <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3">
-            <p class="text-base font-semibold text-emerald-800">Nouveau secret de signature</p>
-            <p class="mt-1 text-base text-emerald-700">
-                Affiché uniquement maintenant :
-                <code class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900 break-all">{{ $rotated['secret'] }}</code>
-            </p>
-            <p class="mt-1 text-sm text-emerald-700">Jusqu'au {{ $rotated['previousSecretExpiresAt'] }}, chaque livraison porte aussi <code class="font-mono">X-Signature-Previous</code>, calculée avec l'ancien secret : mettez à jour le vérificateur du destinataire avant cette échéance.</p>
-        </div>
+        <x-admin.alert variant="success" title="Nouveau secret de signature">
+            Affiché uniquement maintenant :
+            <code class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900 break-all">{{ $rotated['secret'] }}</code>
+            <span class="mt-1 block">Jusqu'au {{ $rotated['previousSecretExpiresAt'] }}, chaque livraison porte aussi <code class="font-mono">X-Signature-Previous</code>, calculée avec l'ancien secret : mettez à jour le vérificateur du destinataire avant cette échéance.</span>
+        </x-admin.alert>
     @endif
 
     {{-- Existing endpoints — never shows the signing secret (there is no
@@ -61,7 +38,7 @@
     <div class="bg-white border border-slate-200 rounded-lg p-6">
         <h2 class="text-lg font-semibold text-slate-900 mb-3">Endpoints enregistrés</h2>
         @if (count($endpoints) === 0)
-            <p class="text-base text-slate-500">Aucun endpoint webhook enregistré pour ce projet pour le moment.</p>
+            <p class="text-base text-slate-600">Aucun endpoint webhook enregistré pour ce projet pour le moment.</p>
         @else
             <ul class="divide-y divide-slate-100">
                 @foreach ($endpoints as $endpoint)
@@ -83,7 +60,7 @@
                             </span>
                         </div>
                         <div class="flex items-center justify-between gap-2 mt-0.5">
-                            <p class="text-sm text-slate-500">
+                            <p class="text-sm text-slate-600">
                                 @if ($isAll)
                                     Tout
                                 @elseif ($matchedCategory !== false)
@@ -92,16 +69,32 @@
                                     <span class="font-mono">{{ implode(', ', $endpoint->events) }}</span>
                                 @endif
                             </p>
-                            <div class="flex items-center gap-3 text-sm">
-                                <button type="button" @click="editing = ! editing" class="font-medium text-indigo-600 hover:text-indigo-800">
+                            <div class="flex flex-wrap items-center gap-1 text-sm">
+                                <button type="button" @click="editing = ! editing"
+                                        aria-controls="endpoint-edit-{{ $endpoint->id }}" aria-expanded="false" :aria-expanded="editing ? 'true' : 'false'"
+                                        class="rounded-md px-2.5 py-1.5 font-medium text-indigo-700 hover:bg-indigo-50">
                                     <span x-show="! editing">Modifier</span>
                                     <span x-show="editing" x-cloak>Fermer</span>
+                                    <span class="sr-only"> l'endpoint {{ $endpoint->url }}</span>
                                 </button>
-                                <button type="button" @click="secret = 'rotate'" class="font-medium text-indigo-600 hover:text-indigo-800">Faire tourner le secret</button>
+                                {{-- C9–C13 : le déclencheur annonce un dialogue (aria-haspopup / aria-expanded posés par le composant). --}}
+                                <x-admin.confirm-dialog
+                                    :id="'rotate-'.$endpoint->id"
+                                    title="Faire tourner le secret de signature ?"
+                                    message="Un nouveau secret s'affichera une seule fois. Pendant le recouvrement, chaque livraison porte deux signatures (X-Signature et X-Signature-Previous) : le destinataire ne casse pas."
+                                    :action="route('admin.projects.webhook-endpoints.rotate-secret', ['projectId' => $project->id, 'endpointId' => $endpoint->id])"
+                                    confirm="Générer le nouveau secret"
+                                    variant="primary">
+                                    <x-slot:trigger>
+                                        <button type="button" class="rounded-md px-2.5 py-1.5 font-medium text-indigo-700 hover:bg-indigo-50">Faire tourner le secret<span class="sr-only"> de {{ $endpoint->url }}</span></button>
+                                    </x-slot:trigger>
+                                    <x-admin.field name="overlap_hours" type="number" label="Recouvrement (heures)" :id="'overlap-'.$endpoint->id"
+                                                   :value="$overlap['default']" required :min="$overlap['min']" :max="$overlap['max']" class="w-28" />
+                                </x-admin.confirm-dialog>
                                 <form method="POST" action="{{ route('admin.projects.webhook-endpoints.'.($endpoint->active ? 'deactivate' : 'activate'), ['projectId' => $project->id, 'endpointId' => $endpoint->id]) }}">
                                     @csrf
-                                    <button type="submit" class="font-medium {{ $endpoint->active ? 'text-rose-600 hover:text-rose-800' : 'text-emerald-600 hover:text-emerald-800' }}">
-                                        {{ $endpoint->active ? 'Désactiver' : 'Réactiver' }}
+                                    <button type="submit" class="rounded-md px-2.5 py-1.5 font-medium {{ $endpoint->active ? 'text-rose-700 hover:bg-rose-50' : 'text-emerald-700 hover:bg-emerald-50' }}">
+                                        {{ $endpoint->active ? 'Désactiver' : 'Réactiver' }}<span class="sr-only"> {{ $endpoint->url }}</span>
                                     </button>
                                 </form>
                             </div>
@@ -110,50 +103,30 @@
                         @if ($endpoint->previous_secret_expires_at !== null)
                             <div class="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900">
                                 <span>Double signature active : l'ancien secret signe encore jusqu'au {{ \Carbon\CarbonImmutable::parse($endpoint->previous_secret_expires_at)->format('d/m/Y H:i') }}.</span>
-                                <button type="button" @click="secret = 'revoke'" class="font-medium text-rose-700 hover:text-rose-900">Révoquer l'ancien secret</button>
+                                <x-admin.confirm-dialog
+                                    :id="'revoke-'.$endpoint->id"
+                                    title="Révoquer l'ancien secret maintenant ?"
+                                    message="Les livraisons ne porteront plus que la signature du nouveau secret : un destinataire qui vérifie encore l'ancien les rejettera."
+                                    :action="route('admin.projects.webhook-endpoints.revoke-previous-secret', ['projectId' => $project->id, 'endpointId' => $endpoint->id])"
+                                    confirm="Révoquer">
+                                    <x-slot:trigger>
+                                        <button type="button" class="rounded-md px-2.5 py-1.5 font-medium text-rose-700 hover:bg-rose-100">Révoquer l'ancien secret<span class="sr-only"> de {{ $endpoint->url }}</span></button>
+                                    </x-slot:trigger>
+                                    <x-admin.field name="reason" type="textarea" label="Motif (journalisé)" :id="'wh-reason-'.$endpoint->id" :rows="2" required minlength="3" maxlength="500" />
+                                </x-admin.confirm-dialog>
                             </div>
                         @endif
 
-                        <div x-show="secret !== null" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50" @click.self="secret = null">
-                            <div class="bg-white rounded-lg shadow-xl p-6 max-w-md mx-4">
-                                <template x-if="secret === 'rotate'">
-                                    <form method="POST" action="{{ route('admin.projects.webhook-endpoints.rotate-secret', ['projectId' => $project->id, 'endpointId' => $endpoint->id]) }}">
-                                        @csrf
-                                        <p class="font-semibold text-slate-900 mb-2">Faire tourner le secret de signature ?</p>
-                                        <p class="text-sm text-slate-600 mb-3">Un nouveau secret s'affichera une seule fois. Pendant le recouvrement, chaque livraison porte deux signatures (<code class="font-mono">X-Signature</code> et <code class="font-mono">X-Signature-Previous</code>) : le destinataire ne casse pas.</p>
-                                        <label class="block text-sm font-medium text-slate-700 mb-1" for="overlap-{{ $endpoint->id }}">Recouvrement (heures)</label>
-                                        <input id="overlap-{{ $endpoint->id }}" type="number" name="overlap_hours" min="{{ $overlap['min'] }}" max="{{ $overlap['max'] }}" value="{{ $overlap['default'] }}" required class="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm">
-                                        <div class="mt-4 flex justify-end gap-2">
-                                            <button type="button" @click="secret = null" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Annuler</button>
-                                            <button type="submit" class="rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white">Générer le nouveau secret</button>
-                                        </div>
-                                    </form>
-                                </template>
-                                <template x-if="secret === 'revoke'">
-                                    <form method="POST" action="{{ route('admin.projects.webhook-endpoints.revoke-previous-secret', ['projectId' => $project->id, 'endpointId' => $endpoint->id]) }}">
-                                        @csrf
-                                        <p class="font-semibold text-slate-900 mb-2">Révoquer l'ancien secret maintenant ?</p>
-                                        <p class="text-sm text-slate-600 mb-3">Les livraisons ne porteront plus que la signature du nouveau secret : un destinataire qui vérifie encore l'ancien les rejettera.</p>
-                                        <label class="block text-sm font-medium text-slate-700 mb-1" for="wh-reason-{{ $endpoint->id }}">Motif (journalisé)</label>
-                                        <textarea id="wh-reason-{{ $endpoint->id }}" name="reason" rows="2" minlength="3" maxlength="500" required class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"></textarea>
-                                        <div class="mt-4 flex justify-end gap-2">
-                                            <button type="button" @click="secret = null" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Annuler</button>
-                                            <button type="submit" class="rounded-md bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-sm font-medium text-white">Révoquer</button>
-                                        </div>
-                                    </form>
-                                </template>
-                            </div>
-                        </div>
-
-                        <div x-show="editing" x-cloak class="mt-3 pt-3 border-t border-slate-100">
+                        <div id="endpoint-edit-{{ $endpoint->id }}" x-show="editing" x-cloak class="mt-3 pt-3 border-t border-slate-100">
                             <form method="POST" action="{{ route('admin.projects.webhook-endpoints.update', ['projectId' => $project->id, 'endpointId' => $endpoint->id]) }}" class="space-y-3">
                                 @csrf
                                 @method('PUT')
 
                                 <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-1">URL de réception</label>
+                                    <label for="edit-url-{{ $endpoint->id }}" class="block text-sm font-medium text-slate-700 mb-1">URL de réception</label>
                                     <input
                                         type="url"
+                                        id="edit-url-{{ $endpoint->id }}"
                                         name="url"
                                         value="{{ $endpoint->url }}"
                                         required
@@ -161,7 +134,9 @@
                                 </div>
 
                                 <div x-data="{ all: {{ $isAll ? 'true' : 'false' }} }">
-                                    <label class="block text-sm font-medium text-slate-700 mb-1">Sur quoi être notifié ?</label>
+                                    {{-- B8/B9 : un groupe de cases à cocher est un fieldset, son titre un legend. --}}
+                                    <fieldset>
+                                    <legend class="block text-sm font-medium text-slate-700 mb-1">Sur quoi être notifié ?</legend>
                                     <div class="space-y-1.5">
                                         @foreach ($categories as $key => $category)
                                             <label class="flex items-center gap-2 text-sm text-slate-700" :class="{ 'opacity-50': all }">
@@ -180,6 +155,7 @@
                                             Tout recevoir
                                         </label>
                                     </div>
+                                    </fieldset>
                                 </div>
 
                                 <button
@@ -208,50 +184,40 @@
         <form method="POST" action="{{ route('admin.projects.webhook-endpoints.store', ['projectId' => $project->id]) }}" class="space-y-4">
             @csrf
 
-            <div>
-                <label for="url" class="block text-base font-medium text-slate-700 mb-1">URL de réception</label>
-                <input
-                    type="url"
-                    name="url"
-                    id="url"
-                    value="{{ old('url') }}"
-                    required
-                    autofocus
-                    placeholder="https://exemple.com/webhooks/core"
-                    class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm font-mono" />
-                @error('url')
-                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                @enderror
-            </div>
+            <x-admin.errors />
 
+            <x-admin.field name="url" type="url" label="URL de réception" id="url" required autofocus
+                           placeholder="https://exemple.com/webhooks/core" class="font-mono" />
 
             <div x-data="{ all: {{ old('all') === '1' ? 'true' : 'false' }} }">
-                <label class="block text-base font-medium text-slate-700 mb-1">Sur quoi voulez-vous être notifié ?</label>
-                <div class="space-y-2">
-                    @foreach ($categories as $key => $category)
-                        <label class="flex items-center gap-2 text-base text-slate-700" :class="{ 'opacity-50': all }">
-                            <input
-                                type="checkbox"
-                                name="categories[]"
-                                value="{{ $key }}"
-                                :disabled="all"
-                                @checked(is_array(old('categories')) && in_array($key, old('categories'), true))
-                                class="rounded border-slate-300" />
-                            {{ $category['label'] }}
+                <fieldset aria-describedby="categories-hint{{ $errors->has('categories') ? ' categories-error' : '' }}">
+                    <legend class="block text-base font-medium text-slate-700 mb-1">Sur quoi voulez-vous être notifié ?</legend>
+                    <div class="space-y-2">
+                        @foreach ($categories as $key => $category)
+                            <label class="flex items-center gap-2 text-base text-slate-700" :class="{ 'opacity-50': all }">
+                                <input
+                                    type="checkbox"
+                                    name="categories[]"
+                                    value="{{ $key }}"
+                                    :disabled="all"
+                                    @checked(is_array(old('categories')) && in_array($key, old('categories'), true))
+                                    class="rounded border-slate-300" />
+                                {{ $category['label'] }}
+                            </label>
+                        @endforeach
+                        <label class="flex items-center gap-2 text-base text-slate-700 pt-2 border-t border-slate-100">
+                            <input type="checkbox" name="all" value="1" x-model="all" class="rounded border-slate-300" />
+                            Tout recevoir
                         </label>
-                    @endforeach
-                    <label class="flex items-center gap-2 text-base text-slate-700 pt-2 border-t border-slate-100">
-                        <input type="checkbox" name="all" value="1" x-model="all" class="rounded border-slate-300" />
-                        Tout recevoir
-                    </label>
-                </div>
-                <p class="mt-1 text-sm text-slate-500">
+                    </div>
+                </fieldset>
+                <p id="categories-hint" class="mt-1 text-sm text-slate-600">
                     « Tout recevoir » mélange des types d'événements différents sur la même URL — préférez une
                     catégorie ciblée si votre intégration doit interpréter la réponse.
-                    Voir <a href="{{ route('admin.webhook-events.index') }}" class="text-indigo-600 hover:text-indigo-800 underline">le détail de ce que chaque catégorie envoie</a>.
+                    Voir <a href="{{ route('admin.webhook-events.index') }}" class="text-indigo-700 hover:text-indigo-900 underline">le détail de ce que chaque catégorie envoie</a>.
                 </p>
                 @error('categories')
-                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
+                    <p id="categories-error" class="mt-1 text-sm font-medium text-rose-700"><span class="sr-only">Erreur : </span>{{ $message }}</p>
                 @enderror
             </div>
 
@@ -261,7 +227,7 @@
                 Enregistrer l'endpoint
             </button>
 
-            <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="block text-center text-base text-slate-500 hover:text-slate-700">
+            <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="block text-center text-base text-slate-600 hover:text-slate-800">
                 Retour au projet
             </a>
         </form>

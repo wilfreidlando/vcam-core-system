@@ -6,6 +6,7 @@ namespace Core\Identity\Application\UseCase;
 
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
+use Core\Identity\Application\Support\PlatformAdministratorPolicy;
 use Core\Identity\Contracts\OperatorEmailAlreadyTaken;
 use Core\Identity\Contracts\UpdateOperator as UpdateOperatorPort;
 use Core\Identity\Contracts\UpdateOperatorCommand;
@@ -25,6 +26,7 @@ final readonly class UpdateOperator implements UpdateOperatorPort
         private OperatorRepository $operators,
         private AuditLogger $audit,
         private Clock $clock,
+        private PlatformAdministratorPolicy $policy,
     ) {}
 
     public function update(UpdateOperatorCommand $command, string $actor, ?string $correlationId): void
@@ -36,6 +38,11 @@ final readonly class UpdateOperator implements UpdateOperatorPort
         $role = trim($command->role) === ''
             ? null
             : (OperatorRole::tryFrom($command->role) ?? throw InvalidOperatorRole::withValue($command->role));
+
+        // Audit 2026-10-29 #6 / G-5 — same guard as the revocation: the last
+        // platform administrator is never demoted, nobody changes their own
+        // role.
+        $this->policy->assertCanChangeRole($operator, $role, $actor);
 
         $before = ['email' => $operator->email, 'name' => $operator->name, 'role' => $operator->role?->value];
 

@@ -236,14 +236,14 @@ final class AdminWebFlowTest extends TestCase
             'email' => $email,
             'role' => OperatorRole::SupportOperator->value,
         ]);
-        $store->assertRedirect(route('admin.operators.index'));
 
-        // The activation token is shown once, on the page that follows.
-        $index = $this->get('/admin/operators');
-        $index->assertOk();
-        $index->assertSee($email);
+        // The activation token is shown once, in the response of the POST
+        // itself (never flashed into the session store, S-07).
+        $store->assertOk();
+        $store->assertSee($email);
         // The text is literal in the template, so it is not escaped here.
-        $index->assertSee("Jeton d'activation à usage unique", false);
+        $store->assertSee("Jeton d'activation à usage unique", false);
+        $store->assertSessionMissing('admin.operators.created');
 
         // ADR-0081 S-07 — the account does not exist yet: it is created
         // by the activation, with the password the invitee chooses. The
@@ -347,7 +347,8 @@ final class AdminWebFlowTest extends TestCase
             'url' => 'https://example.com/webhooks/core',
             'categories' => ['payments', 'wallets'],
         ]);
-        $store->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+        $store->assertOk();
+        $store->assertSessionMissing('admin.webhook-endpoints.created');
 
         $endpoints = app(ListWebhookEndpoints::class)->list(
             new ListWebhookEndpointsCommand($project->id),
@@ -789,7 +790,7 @@ final class AdminWebFlowTest extends TestCase
 
         // A second key, from the « Versements » template, restricted to a network.
         $this->post("/admin/projects/{$project->id}/api-keys", ['name' => 'Versements', 'template' => 'payouts', 'allowed_cidrs' => "203.0.113.0/24\n2001:db8::/32"])
-            ->assertRedirect()->assertSessionHas('admin.api-keys.created');
+            ->assertOk()->assertSee('Nouvelle clé')->assertSessionMissing('admin.api-keys.created');
         $payouts = collect($keys())->firstWhere('name', 'Versements');
         self::assertNotNull($payouts);
         self::assertSame(['payouts:read', 'payouts:write'], $payouts->scopes);
@@ -804,7 +805,7 @@ final class AdminWebFlowTest extends TestCase
 
         // Rotation: a replacement appears, the old key stays valid for the grace period.
         $this->post("/admin/projects/{$project->id}/api-keys/{$payouts->id}/rotate", ['grace_days' => 3])
-            ->assertRedirect()->assertSessionHas('admin.api-keys.created');
+            ->assertOk()->assertSee('Nouvelle clé')->assertSessionMissing('admin.api-keys.created');
         self::assertCount(3, $keys());
         $rotated = collect($keys())->firstWhere('id', $payouts->id);
         self::assertNotNull($rotated?->replacedByApiKeyId);
@@ -836,7 +837,7 @@ final class AdminWebFlowTest extends TestCase
 
         $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/rotate-secret", ['overlap_hours' => 99])->assertSessionHasErrors('overlap_hours');
         $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/rotate-secret", ['overlap_hours' => 12])
-            ->assertRedirect()->assertSessionHas('admin.webhook-endpoints.rotated');
+            ->assertOk()->assertSessionMissing('admin.webhook-endpoints.rotated');
         $this->get($page)->assertSee('Double signature active')->assertSee('Révoquer l\'ancien secret', false);
 
         $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/revoke-previous-secret")->assertSessionHasErrors('reason');

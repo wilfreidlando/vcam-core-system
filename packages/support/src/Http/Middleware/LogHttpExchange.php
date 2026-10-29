@@ -27,6 +27,9 @@ use Throwable;
  */
 final readonly class LogHttpExchange
 {
+    /** Deeper than this, a JSON body is not decoded for the log (the body limiter refuses it anyway). */
+    private const MAX_LOGGED_DEPTH = 21;
+
     public function __construct(
         private LoggerInterface $logger,
         private PayloadRedactor $redactor,
@@ -148,11 +151,22 @@ final readonly class LogHttpExchange
     private function requestBody(Request $request): mixed
     {
         if ($request->isJson()) {
-            $decoded = json_decode($request->getContent(), true);
+            $content = $request->getContent();
+
+            // Audit 2026-10-29 #13 — the whole body used to be decoded on every
+            // request: with a 20 MB body, that was CPU and memory spent for a
+            // log line that truncates at `max_body_bytes` anyway. Past the
+            // ceiling nothing is decoded, and nothing of the raw text is logged
+            // either (a prefix of an unredacted body would carry its secrets).
+            if (strlen($content) > $this->maxBytes()) {
+                return sprintf('(corps JSON de %d octets, non journalisé : au-delà de %d octets)', strlen($content), $this->maxBytes());
+            }
+
+            $decoded = json_decode($content, true, self::MAX_LOGGED_DEPTH);
 
             return is_array($decoded)
                 ? $this->limit($this->scrub($this->redactor->redact($decoded)))
-                : $this->truncate($request->getContent());
+                : sprintf('(corps JSON illisible ou trop imbriqué, %d octets, non journalisé)', strlen($content));
         }
 
         $input = $request->request->all();

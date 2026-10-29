@@ -9,17 +9,7 @@
 @section('content')
 <div class="max-w-4xl mx-auto space-y-6">
 
-    @if (session('status'))
-        <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-base text-emerald-800">{{ session('status') }}</div>
-    @endif
-
-    @if ($errors->any())
-        <div class="rounded-md bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-800">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
-        </div>
-    @endif
+    {{-- Statut et erreurs : rendus par le layout (role="status" / role="alert"). --}}
 
     <div class="bg-white border border-slate-200 rounded-lg p-6">
         <h2 class="text-lg font-semibold text-slate-900 mb-1">Applications enregistrées</h2>
@@ -30,49 +20,36 @@
         </p>
 
         @if (count($applications) === 0)
-            <p class="text-base text-slate-500">Aucune application enregistrée pour ce projet.</p>
+            <p class="text-base text-slate-600">Aucune application enregistrée pour ce projet.</p>
         @else
-            <div class="overflow-x-auto">
-                <table class="min-w-full text-sm">
-                    <thead>
-                        <tr class="text-left text-xs uppercase tracking-wider text-slate-500">
-                            <th class="py-2 pr-4">Provider</th>
-                            <th class="py-2 pr-4">Libellé</th>
-                            <th class="py-2 pr-4">Clé publique</th>
-                            <th class="py-2 pr-4">Mise à jour</th>
-                            <th class="py-2"></th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @foreach ($applications as $application)
-                            <tr x-data="{ confirmDelete: false }">
-                                <td class="py-2.5 pr-4 font-mono">{{ $application->providerCode }}</td>
-                                <td class="py-2.5 pr-4 text-slate-700">{{ $application->label ?? '—' }}</td>
-                                <td class="py-2.5 pr-4 font-mono text-slate-700" title="{{ $application->publicKey }}">{{ $application->maskedPublicKey }}</td>
-                                <td class="py-2.5 pr-4 text-slate-500">{{ $application->updatedAt !== null ? \Illuminate\Support\Carbon::parse($application->updatedAt)->format('d/m/Y H:i') : '—' }}</td>
-                                <td class="py-2.5 text-right whitespace-nowrap">
+            {{-- D2 : x-admin.table (légende, en-têtes, défilement horizontal) au lieu d'un <table> écrit à la main. --}}
+            <x-admin.table caption="Applications provider enregistrées" :headers="['Provider', 'Libellé', 'Clé publique', 'Mise à jour', '']">
+                <tbody class="divide-y divide-slate-100 bg-white">
+                    @foreach ($applications as $application)
+                        <tr>
+                            <td class="px-4 py-2.5 text-sm font-mono">{{ $application->providerCode }}</td>
+                            <td class="px-4 py-2.5 text-sm text-slate-700">{{ $application->label ?? '—' }}</td>
+                            <td class="px-4 py-2.5 text-sm font-mono text-slate-700" title="{{ $application->publicKey }}">{{ $application->maskedPublicKey }}</td>
+                            <td class="px-4 py-2.5 text-sm text-slate-600 whitespace-nowrap">{{ $application->updatedAt !== null ? \Illuminate\Support\Carbon::parse($application->updatedAt)->format('d/m/Y H:i') : '—' }}</td>
+                            <td class="px-4 py-2.5 text-sm text-right whitespace-nowrap">
+                                <div class="flex items-center justify-end gap-1">
                                     <a href="{{ route('admin.projects.provider-applications.edit', ['projectId' => $project->id, 'applicationId' => $application->id]) }}#form"
-                                       class="text-indigo-600 hover:text-indigo-800 font-medium">Modifier</a>
-                                    <button type="button" @click="confirmDelete = true" class="ml-3 text-rose-600 hover:text-rose-800 font-medium">Supprimer</button>
-                                    <form x-show="confirmDelete" x-cloak method="POST"
-                                          action="{{ route('admin.projects.provider-applications.delete', ['projectId' => $project->id, 'applicationId' => $application->id]) }}"
-                                          class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50" @click.self="confirmDelete = false">
-                                        @csrf
-                                        <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4 text-left whitespace-normal" @click.stop>
-                                            <p class="font-semibold text-slate-900 mb-2">Supprimer l'application {{ $application->providerCode }} ?</p>
-                                            <p class="text-sm text-slate-600 mb-4">Les paiements de ce projet ne pourront plus passer par ce provider tant qu'une autre application n'est pas enregistrée.</p>
-                                            <div class="flex justify-end gap-2">
-                                                <button type="button" @click="confirmDelete = false" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Annuler</button>
-                                                <button type="submit" class="rounded-md bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-sm font-medium text-white">Supprimer</button>
-                                            </div>
-                                        </div>
-                                    </form>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+                                       class="rounded-md px-2.5 py-1.5 text-indigo-700 hover:bg-indigo-50 font-medium">Modifier<span class="sr-only"> l'application {{ $application->providerCode }}</span></a>
+                                    <x-admin.confirm-dialog
+                                        title="Supprimer l'application {{ $application->providerCode }} ?"
+                                        message="Les paiements de ce projet ne pourront plus passer par ce provider tant qu'une autre application n'est pas enregistrée."
+                                        :action="route('admin.projects.provider-applications.delete', ['projectId' => $project->id, 'applicationId' => $application->id])"
+                                        confirm="Supprimer">
+                                        <x-slot:trigger>
+                                            <button type="button" class="rounded-md px-2.5 py-1.5 text-rose-700 hover:bg-rose-50 font-medium">Supprimer<span class="sr-only"> l'application {{ $application->providerCode }}</span></button>
+                                        </x-slot:trigger>
+                                    </x-admin.confirm-dialog>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </x-admin.table>
         @endif
     </div>
 
@@ -82,67 +59,40 @@
         </h2>
 
         @if (count($availableProviders) === 0)
-            <p class="text-base text-rose-600">Aucun adaptateur de provider de paiement n'est enregistré dans ce Core.</p>
+            <p class="text-base text-rose-700">Aucun adaptateur de provider de paiement n'est enregistré dans ce Core.</p>
         @else
             <form method="POST" action="{{ route('admin.projects.provider-applications.store', ['projectId' => $project->id]) }}" class="space-y-4">
                 @csrf
 
+                <x-admin.errors />
+
                 @if ($editing !== null)
                     <input type="hidden" name="provider" value="{{ $editing->providerCode }}">
                 @else
-                    <div class="grid grid-cols-1 gap-4">
-                        <div>
-                            <label for="provider" class="block text-sm font-medium text-slate-700 mb-1">Provider</label>
-                            <select name="provider" id="provider" required class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base bg-white font-mono">
-                                @foreach ($availableProviders as $code)
-                                    <option value="{{ $code }}" @selected(old('provider') === $code)>{{ $code }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-                    <p class="text-xs text-slate-500">Si l'application existe déjà pour ce provider, ses clés sont remplacées.</p>
+                    <x-admin.field name="provider" type="select" label="Provider" required class="font-mono"
+                                   :options="array_combine($availableProviders, $availableProviders)"
+                                   hint="Si l'application existe déjà pour ce provider, ses clés sont remplacées." />
                 @endif
 
-                <div>
-                    <label for="label" class="block text-sm font-medium text-slate-700 mb-1">Libellé <span class="text-slate-400">(facultatif)</span></label>
-                    <input type="text" name="label" id="label" value="{{ old('label', $editing?->label) }}" maxlength="120"
-                           class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base" placeholder="ex. Boutique principale">
-                </div>
-
-                <div>
-                    <label for="public_key" class="block text-sm font-medium text-slate-700 mb-1">Clé publique</label>
-                    <input type="text" name="public_key" id="public_key" value="{{ old('public_key', $editing?->publicKey) }}" required autocomplete="off"
-                           class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base font-mono">
-                    @error('public_key')
-                        <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div>
-                    <label for="private_key" class="block text-sm font-medium text-slate-700 mb-1">Clé privée</label>
-                    <input type="password" name="private_key" id="private_key" autocomplete="new-password" @if ($editing === null) required @endif
-                           class="block w-full rounded-md border border-slate-300 px-3 py-2 text-base font-mono">
-                    <p class="mt-1 text-xs text-slate-500">
-                        @if ($editing !== null)
-                            Laissez vide pour conserver la clé privée actuelle (elle n'est jamais réaffichée).
-                        @else
-                            Chiffrée au repos, jamais réaffichée ni journalisée.
-                        @endif
-                    </p>
-                </div>
+                <x-admin.field name="label" label="Libellé" optional maxlength="120" :value="$editing?->label" placeholder="ex. Boutique principale" />
+                <x-admin.field name="public_key" label="Clé publique" required autocomplete="off" :value="$editing?->publicKey" class="font-mono" />
+                <x-admin.field name="private_key" type="password" label="Clé privée" :required="$editing === null" autocomplete="new-password" class="font-mono"
+                               :hint="$editing !== null
+                                   ? 'Laissez vide pour conserver la clé privée actuelle (elle n\'est jamais réaffichée).'
+                                   : 'Chiffrée au repos, jamais réaffichée ni journalisée.'" />
 
                 <div class="flex items-center gap-3">
                     <button type="submit" class="inline-flex justify-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-base font-medium text-white shadow-sm">
                         {{ $editing !== null ? 'Enregistrer les modifications' : "Enregistrer l'application" }}
                     </button>
                     @if ($editing !== null)
-                        <a href="{{ route('admin.projects.provider-applications.create', ['projectId' => $project->id]) }}" class="text-sm text-slate-500 hover:text-slate-700">Annuler</a>
+                        <a href="{{ route('admin.projects.provider-applications.create', ['projectId' => $project->id]) }}" class="text-sm text-slate-600 hover:text-slate-800">Annuler</a>
                     @endif
                 </div>
             </form>
         @endif
     </div>
 
-    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="block text-center text-base text-slate-500 hover:text-slate-700">Retour au projet</a>
+    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="block text-center text-base text-slate-600 hover:text-slate-800">Retour au projet</a>
 </div>
 @endsection

@@ -17,11 +17,11 @@
     </section>
     @php $features = array_values(array_filter($entitlements->entitlements, fn ($e) => $e->type === 'boolean')); @endphp
     @if (count($features) > 0)
-        <section class="card">
-            <h2 class="card__title">Fonctionnalités incluses</h2>
+        <section class="card" aria-labelledby="features-title">
+            <h2 id="features-title" class="card__title">Fonctionnalités incluses</h2>
             <ul class="ticks">
                 @foreach ($features as $f)
-                    <li @class(['is-off' => ! $f->enabled])>{{ str_replace(['_', '.'], ' ', $f->key) }}@unless ($f->enabled) <span class="sr-only">(non inclus)</span>@endunless</li>
+                    <li @class(['is-off' => ! $f->enabled])><span class="ticks__mark" aria-hidden="true">{{ $f->enabled ? '✓' : '–' }}</span>{{ str_replace(['_', '.'], ' ', $f->key) }} <span class="sr-only">({{ $f->enabled ? 'inclus' : 'non inclus' }})</span></li>
                 @endforeach
             </ul>
         </section>

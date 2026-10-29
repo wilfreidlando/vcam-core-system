@@ -6,7 +6,7 @@
 <div class="space-y-6">
     {{-- ADR-0062 — toutes les données du paiement, sans exception. --}}
     @php
-        $field = 'text-sm uppercase tracking-wider font-semibold text-slate-500';
+        $field = 'text-sm uppercase tracking-wider font-semibold text-slate-600';
         $fmt = static fn (?string $iso): string => $iso !== null ? \Illuminate\Support\Carbon::parse($iso)->format('d/m/Y H:i:s') : '—';
     @endphp
     <div class="bg-white border border-slate-200 rounded-lg p-6">
@@ -23,7 +23,7 @@
             <div>
                 <p class="{{ $field }}">Projet</p>
                 @if ($project !== null)
-                    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-indigo-600 hover:text-indigo-800 font-medium">{{ $project->name }}</a>
+                    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-indigo-700 hover:text-indigo-900 font-medium">{{ $project->name }}</a>
                 @else
                     <p class="font-mono text-slate-700 break-all">{{ $projectId }}</p>
                 @endif
@@ -62,8 +62,14 @@
             </div>
             <div class="md:col-span-3">
                 <p class="{{ $field }}">URL de paiement</p>
-                @if ($payment->paymentUrl !== null)
-                    <a href="{{ $payment->paymentUrl }}" target="_blank" rel="noopener" class="text-indigo-600 hover:text-indigo-800 font-mono text-sm break-all">{{ $payment->paymentUrl }}</a>
+                {{-- The address comes from the provider and is not ours to trust: only
+                     an https address becomes a link (a `javascript:` URL would run in
+                     the operator's session). Anything else is shown as plain text. --}}
+                @if ($payment->paymentUrl !== null && preg_match('#^https://[^\s]+$#i', $payment->paymentUrl) === 1)
+                    <a href="{{ $payment->paymentUrl }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800 font-mono text-sm break-all">{{ $payment->paymentUrl }}</a>
+                @elseif ($payment->paymentUrl !== null)
+                    <p class="font-mono text-slate-700 text-sm break-all">{{ $payment->paymentUrl }}</p>
+                    <p class="mt-0.5 text-sm text-slate-500">Adresse non cliquable : seul le schéma https est accepté comme lien.</p>
                 @else
                     <p class="text-slate-500">—</p>
                 @endif
@@ -76,9 +82,9 @@
                 <p class="{{ $field }}">URL de callback</p>
                 @if ($payment->callbackUrl !== null)
                     <p class="font-mono text-slate-700 text-sm break-all">{{ $payment->callbackUrl }}</p>
-                    <p class="mt-0.5 text-sm text-slate-500">Notification directe à cette URL — pas de relais vers les endpoints webhook du projet pour ce paiement.</p>
+                    <p class="mt-0.5 text-sm text-slate-600">Notification directe à cette URL — pas de relais vers les endpoints webhook du projet pour ce paiement.</p>
                 @else
-                    <p class="text-slate-500">— (notifié via les endpoints webhook du projet, le cas échéant)</p>
+                    <p class="text-slate-600">— (notifié via les endpoints webhook du projet, le cas échéant)</p>
                 @endif
             </div>
             <div class="md:col-span-3">
@@ -107,19 +113,23 @@
                 provider et met à jour le Core si besoin — utile si un webhook
                 a pu être manqué.
             </p>
-            <form method="POST" action="{{ route('admin.reconciliation.run-one', ['payment' => $payment->id]) }}">
-                @csrf
-                <button type="submit" class="shrink-0 inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
-                    Réconcilier maintenant
-                </button>
-            </form>
+            <x-admin.confirm-dialog
+                title="Réconcilier ce paiement ?"
+                message="Vérifie son statut réel directement auprès du provider et met à jour le Core si le statut a changé."
+                :action="route('admin.reconciliation.run-one', ['payment' => $payment->id])"
+                confirm="Réconcilier"
+                variant="primary">
+                <x-slot:trigger>
+                    <button type="button" class="shrink-0 inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">Réconcilier maintenant</button>
+                </x-slot:trigger>
+            </x-admin.confirm-dialog>
         </div>
     @endif
 
     @include('admin.payments.partials.journey')
 
     <div class="text-right">
-        <a href="{{ route('admin.payments.index') }}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+        <a href="{{ route('admin.payments.index') }}" class="text-sm text-indigo-700 hover:text-indigo-900 font-medium">
             ← Retour aux paiements
         </a>
     </div>

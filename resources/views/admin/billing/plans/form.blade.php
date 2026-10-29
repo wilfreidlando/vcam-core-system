@@ -3,48 +3,33 @@
 @section('title', 'Nouveau plan')
 
 @section('content')
+{{-- Les erreurs de validation sont listées une fois par le layout (role="alert") ;
+     chaque champ reprend son message (aria-describedby, aria-invalid). Dans chaque
+     champ, old() passe AVANT la valeur par défaut : la saisie de l'opérateur survit
+     à un refus du serveur. --}}
 <div class="max-w-2xl space-y-6">
     <form method="POST" action="{{ route('admin.projects.plans.store', $projectId) }}"
           class="space-y-4 rounded-lg border border-slate-200 bg-white p-6">
         @csrf
 
         <div class="grid gap-4 sm:grid-cols-2">
-            <div>
-                <label for="code" class="block text-sm font-medium text-slate-700">Code</label>
-                <input id="code" name="code" required maxlength="64" pattern="[a-z0-9][a-z0-9_-]*"
-                       value="{{ old('code') }}"
-                       class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono">
-                <p class="mt-1 text-xs text-slate-500">Stable dans le temps : minuscules, chiffres, <code>-</code> et <code>_</code>.</p>
-            </div>
-            <div>
-                <label for="visibility" class="block text-sm font-medium text-slate-700">Visibilité</label>
-                <select id="visibility" name="visibility"
-                        class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                    <option value="public">Proposé publiquement</option>
-                    <option value="private">Attribué seulement</option>
-                </select>
-            </div>
+            <x-admin.field name="code" label="Code" required maxlength="64" pattern="[a-z0-9][a-z0-9_\-]*" class="font-mono"
+                           hint="Stable dans le temps : minuscules, chiffres, tirets et underscores." />
+            <x-admin.field name="visibility" label="Visibilité" type="select" value="public"
+                           :options="['public' => 'Proposé publiquement', 'private' => 'Attribué seulement']" />
         </div>
 
-        <div>
-            <label for="name" class="block text-sm font-medium text-slate-700">Nom</label>
-            <input id="name" name="name" required maxlength="200" value="{{ old('name') }}"
-                   class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-        </div>
+        <x-admin.field name="name" label="Nom" required maxlength="200" />
 
-        <div>
-            <label for="description" class="block text-sm font-medium text-slate-700">Description</label>
-            <textarea id="description" name="description" rows="3" maxlength="2000"
-                      class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">{{ old('description') }}</textarea>
-        </div>
+        <x-admin.field name="description" label="Description" type="textarea" :rows="3" maxlength="2000" optional />
 
         <div class="flex items-center gap-3 pt-2">
             <button type="submit"
-                    class="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">
+                    class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
                 Créer le plan
             </button>
             <a href="{{ route('admin.projects.plans.index', $projectId) }}"
-               class="text-sm font-medium text-slate-600 hover:text-slate-900">Annuler</a>
+               class="inline-block px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">Annuler</a>
         </div>
     </form>
 
@@ -60,67 +45,41 @@
               class="mt-4 space-y-4">
             @csrf
             <div class="grid gap-4 sm:grid-cols-3">
-                <div>
-                    <label for="plan_code" class="block text-sm font-medium text-slate-700">Plan (code)</label>
-                    <input id="plan_code" name="plan_code" required
-                           value="{{ old('code', '') }}"
-                           class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono">
-                </div>
-                <div>
-                    <label for="price_minor" class="block text-sm font-medium text-slate-700">Prix (unités mineures)</label>
-                    <input id="price_minor" name="price_minor" type="number" min="0" required
-                           value="{{ old('price_minor', 0) }}"
-                           class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label for="currency" class="block text-sm font-medium text-slate-700">Devise</label>
-                    <input id="currency" name="currency" size="3" required value="{{ old('currency', 'XAF') }}"
-                           class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono">
-                </div>
+                <x-admin.field name="plan_code" label="Plan (code)" required maxlength="64" pattern="[a-z0-9][a-z0-9_\-]*" class="font-mono" />
+                <x-admin.field name="price_minor" label="Prix (unités mineures)" type="number" min="0" required :value="0" />
+                <x-admin.field name="currency" label="Devise" required minlength="3" maxlength="3" class="font-mono uppercase" value="XAF" />
             </div>
 
             <div class="grid gap-4 sm:grid-cols-4">
-                <div>
-                    <label for="interval_unit" class="block text-sm font-medium text-slate-700">Unité</label>
-                    <select id="interval_unit" name="interval_unit"
-                            class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                        <option value="day">jour</option>
-                        <option value="week">semaine</option>
-                        <option value="month" selected>mois</option>
-                        <option value="year">an</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="interval_count" class="block text-sm font-medium text-slate-700">Nombre</label>
-                    <input id="interval_count" name="interval_count" type="number" min="1" max="365" required
-                           value="{{ old('interval_count', 1) }}"
-                           class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label for="trial_days" class="block text-sm font-medium text-slate-700">Essai (jours)</label>
-                    <input id="trial_days" name="trial_days" type="number" min="0" max="365"
-                           value="{{ old('trial_days', 0) }}"
-                           class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label for="grace_days" class="block text-sm font-medium text-slate-700">Grâce (jours)</label>
-                    <input id="grace_days" name="grace_days" type="number" min="0" max="90"
-                           value="{{ old('grace_days', 0) }}"
-                           class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-                </div>
+                <x-admin.field name="interval_unit" label="Unité" type="select" value="month"
+                               :options="['day' => 'jour', 'week' => 'semaine', 'month' => 'mois', 'year' => 'an']" />
+                <x-admin.field name="interval_count" label="Nombre" type="number" min="1" max="365" required :value="1" />
+                <x-admin.field name="trial_days" label="Essai (jours)" type="number" min="0" max="365" :value="0" />
+                <x-admin.field name="grace_days" label="Grâce (jours)" type="number" min="0" max="90" :value="0" />
             </div>
 
+            {{-- Case décochée = rien n'est envoyé : le champ caché porte alors « 0 », sinon le
+                 contrôleur retomberait sur « accès maintenu » (défaut #29). --}}
             <div>
-                <label for="features" class="block text-sm font-medium text-slate-700">Fonctionnalités (JSON)</label>
-                <textarea id="features" name="features" rows="4" placeholder='{"api_access": {"type": "boolean", "enabled": true}}'
-                          class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs">{{ old('features', '') }}</textarea>
-                <p class="mt-1 text-xs text-slate-500">
-                    Les noms sont ceux du projet, validés par format — le Core n'en connaît aucun.
+                <input type="hidden" name="grace_access" value="0">
+                <div class="flex items-center gap-2">
+                    <input id="grace_access" name="grace_access" type="checkbox" value="1"
+                           @checked(old('grace_access', true))
+                           aria-describedby="grace_access-hint"
+                           class="h-4 w-4 rounded border border-slate-400">
+                    <label for="grace_access" class="text-sm font-medium text-slate-800">Maintenir l'accès pendant la grâce</label>
+                </div>
+                <p id="grace_access-hint" class="mt-1 text-sm text-slate-600">
+                    Décochée, les droits du client sont fermés dès l'impayé, sans attendre la fin du délai de grâce.
                 </p>
             </div>
 
+            <x-admin.field name="features" label="Fonctionnalités (JSON)" type="textarea" :rows="4" optional
+                           placeholder='{"api_access": {"type": "boolean", "enabled": true}}' class="font-mono text-sm"
+                           hint="Les noms sont ceux du projet, validés par format — le Core n'en connaît aucun." />
+
             <button type="submit"
-                    class="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">
+                    class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
                 Ajouter la version
             </button>
         </form>

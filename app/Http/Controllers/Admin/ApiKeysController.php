@@ -48,27 +48,10 @@ final class ApiKeysController
     {
         $this->authorize($operator, $projectId);
 
-        try {
-            $project = $this->getProject->get(new GetProjectCommand($projectId), $operator->scope);
-        } catch (RuntimeException) {
-            abort(404, 'Projet introuvable.');
-        }
-
-        $keys = $this->listApiKeys->list(new ListApiKeysCommand($projectId), $operator->scope);
-
-        return response()->view('admin.api-keys.create', [
-            'title' => 'Clés API · '.$project->name,
-            'project' => $project,
-            'keys' => $keys,
-            'templates' => ApiKeyScopes::TEMPLATES,
-            'templateScopes' => array_map(ApiKeyScopes::template(...), array_combine(array_keys(ApiKeyScopes::TEMPLATES), array_keys(ApiKeyScopes::TEMPLATES))),
-            'allScopes' => ApiKeyScopes::ALL,
-            'graceDays' => ['min' => RotateApiKeyCommand::MIN_GRACE_DAYS, 'max' => RotateApiKeyCommand::MAX_GRACE_DAYS, 'default' => RotateApiKeyCommand::DEFAULT_GRACE_DAYS],
-            'created' => session('admin.api-keys.created'),
-        ]);
+        return $this->render($projectId, $operator, null);
     }
 
-    public function store(string $projectId, Request $request, OperatorContext $operator): RedirectResponse
+    public function store(string $projectId, Request $request, OperatorContext $operator): Response|RedirectResponse
     {
         $this->authorize($operator, $projectId);
 
@@ -103,10 +86,10 @@ final class ApiKeysController
             return back()->withInput()->withErrors(['name' => $e->getMessage()]);
         }
 
-        return $this->showOnce($projectId, $issued, 'Clé créée.');
+        return $this->showOnce($projectId, $operator, $issued, 'Clé créée.');
     }
 
-    public function rotate(string $projectId, string $apiKeyId, Request $request, OperatorContext $operator): RedirectResponse
+    public function rotate(string $projectId, string $apiKeyId, Request $request, OperatorContext $operator): Response|RedirectResponse
     {
         $this->authorize($operator, $projectId, $apiKeyId);
 
@@ -126,7 +109,7 @@ final class ApiKeysController
             return back()->withErrors(['apiKeyId' => $e->getMessage()]);
         }
 
-        return $this->showOnce($projectId, $issued, sprintf('Clé remplacée : l\'ancienne reste valide %d jour(s), le temps de déployer la nouvelle.', (int) $data['grace_days']));
+        return $this->showOnce($projectId, $operator, $issued, sprintf('Clé remplacée : l\'ancienne reste valide %d jour(s), le temps de déployer la nouvelle.', (int) $data['grace_days']));
     }
 
     public function revoke(string $projectId, string $apiKeyId, Request $request, OperatorContext $operator): RedirectResponse
@@ -153,6 +136,31 @@ final class ApiKeysController
             ->with('status', 'Clé révoquée : toute application qui l\'utilise est rejetée dès maintenant.');
     }
 
+    /**
+     * @param array{prefix: string, plaintextToken: string}|null $created rendu dans CETTE réponse, jamais flashé
+     */
+    private function render(string $projectId, OperatorContext $operator, ?array $created): Response
+    {
+        try {
+            $project = $this->getProject->get(new GetProjectCommand($projectId), $operator->scope);
+        } catch (RuntimeException) {
+            abort(404, 'Projet introuvable.');
+        }
+
+        $keys = $this->listApiKeys->list(new ListApiKeysCommand($projectId), $operator->scope);
+
+        return response()->view('admin.api-keys.create', [
+            'title' => 'Clés API · '.$project->name,
+            'project' => $project,
+            'keys' => $keys,
+            'templates' => ApiKeyScopes::TEMPLATES,
+            'templateScopes' => array_map(ApiKeyScopes::template(...), array_combine(array_keys(ApiKeyScopes::TEMPLATES), array_keys(ApiKeyScopes::TEMPLATES))),
+            'allScopes' => ApiKeyScopes::ALL,
+            'graceDays' => ['min' => RotateApiKeyCommand::MIN_GRACE_DAYS, 'max' => RotateApiKeyCommand::MAX_GRACE_DAYS, 'default' => RotateApiKeyCommand::DEFAULT_GRACE_DAYS],
+            'created' => $created,
+        ]);
+    }
+
     private function authorize(OperatorContext $operator, string $projectId, ?string $apiKeyId = null): void
     {
         $this->permittedScope($operator, 'api-keys:write');
@@ -169,18 +177,22 @@ final class ApiKeysController
     }
 
     /**
-     * The plaintext key is shown exactly once, on this redirect (S-07);
-     * the use case already audits the issuance.
+     * The plaintext key is shown exactly once, in THIS response (S-07,
+     * ADR-0081) and nowhere else: it is rendered directly rather than
+     * flashed into the session for a redirect, because a flash would write
+     * the clear key to the session store, where it would outlive the
+     * response that carries it. The status line uses `now()` for the same
+     * reason: nothing of this response reaches the store.
      */
-    private function showOnce(string $projectId, IssuedApiKeyView $issued, string $status): RedirectResponse
+    private function showOnce(string $projectId, OperatorContext $operator, IssuedApiKeyView $issued, string $status): Response
     {
-        // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
-        session()->flash('admin.api-keys.created', [
+        // @phpstan-ignore-next-line — session()->now() dynamic call, same class of Laravel stub gap as Request::validate().
+        session()->now('status', $status);
+
+        return $this->render($projectId, $operator, [
             'prefix' => $issued->prefix,
             'plaintextToken' => $issued->plaintextToken,
         ]);
-
-        return redirect()->route('admin.projects.api-keys.create', ['projectId' => $projectId])->with('status', $status);
     }
 
     /**
