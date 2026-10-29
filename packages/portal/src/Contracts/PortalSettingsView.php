@@ -24,5 +24,7 @@ final readonly class PortalSettingsView
         public bool $allowSelfCancel,
         public bool $allowPlanChange,
         public array $paymentChannels,
+        public bool $directLoginEnabled = false,
+        public ?string $directLoginSession = null,
     ) {}
 }

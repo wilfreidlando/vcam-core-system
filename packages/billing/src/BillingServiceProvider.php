@@ -27,6 +27,7 @@ use Core\Billing\Application\UseCase\CreatePlanVersionUseCase;
 use Core\Billing\Application\UseCase\CreateSubscriptionUseCase;
 use Core\Billing\Application\UseCase\EraseCustomerUseCase;
 use Core\Billing\Application\UseCase\FailInvoicePaymentUseCase;
+use Core\Billing\Application\UseCase\FindCustomerByContactUseCase;
 use Core\Billing\Application\UseCase\GetCustomerUseCase;
 use Core\Billing\Application\UseCase\GetEntitlementsUseCase;
 use Core\Billing\Application\UseCase\GetInvoiceUseCase;
@@ -67,6 +68,7 @@ use Core\Billing\Contracts\CreatePlan;
 use Core\Billing\Contracts\CreatePlanVersion;
 use Core\Billing\Contracts\CreateSubscription;
 use Core\Billing\Contracts\EraseCustomer;
+use Core\Billing\Contracts\FindCustomerByContact;
 use Core\Billing\Contracts\GetCustomer;
 use Core\Billing\Contracts\GetEntitlements;
 use Core\Billing\Contracts\GetInvoice;
@@ -180,6 +182,7 @@ final class BillingServiceProvider extends ServiceProvider
         // Published contracts → use cases.
         $this->app->bind(UpsertCustomer::class, UpsertCustomerUseCase::class);
         $this->app->bind(GetCustomer::class, GetCustomerUseCase::class);
+        $this->app->bind(FindCustomerByContact::class, FindCustomerByContactUseCase::class);
         $this->app->bind(ListCustomers::class, ListCustomersUseCase::class);
         $this->app->bind(SuspendCustomer::class, SuspendCustomerUseCase::class);
         $this->app->bind(ReactivateCustomer::class, ReactivateCustomerUseCase::class);

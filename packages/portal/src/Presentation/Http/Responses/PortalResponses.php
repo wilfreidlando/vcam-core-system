@@ -25,6 +25,8 @@ final class PortalResponses
         .'allowed_return_urls: list<string>, '
         .'allow_self_cancel: bool, '
         .'allow_plan_change: bool, '
-        .'payment_channels: list<string>'
+        .'payment_channels: list<string>, '
+        .'direct_login_enabled: bool, '
+        .'direct_login_session: string|null'
         .'}';
 }

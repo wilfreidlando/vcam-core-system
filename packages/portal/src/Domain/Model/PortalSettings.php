@@ -32,7 +32,18 @@ final readonly class PortalSettings
         public bool $allowSelfCancel,
         public bool $allowPlanChange,
         public array $paymentChannels,
+        public bool $directLoginEnabled = false,
+        public ?string $directLoginSession = null,
     ) {}
+
+    /**
+     * ADR-0075 §2 — the login by code needs the switch **and** the WhatsApp
+     * session the code leaves from; with either missing it does not exist.
+     */
+    public function offersDirectLogin(): bool
+    {
+        return $this->directLoginEnabled && $this->directLoginSession !== null && $this->directLoginSession !== '';
+    }
 
     public static function defaultsFor(string $projectId): self
     {
@@ -54,6 +65,8 @@ final readonly class PortalSettings
         bool $allowSelfCancel,
         bool $allowPlanChange,
         array $paymentChannels,
+        bool $directLoginEnabled = false,
+        ?string $directLoginSession = null,
     ): self {
         $displayName = trim($displayName);
 
@@ -93,6 +106,17 @@ final readonly class PortalSettings
             }
         }
 
+        $directLoginSession = $directLoginSession === null ? null : trim($directLoginSession);
+        $directLoginSession = $directLoginSession === '' ? null : $directLoginSession;
+
+        if ($directLoginSession !== null && preg_match('/^[A-Za-z0-9_-]{1,64}$/', $directLoginSession) !== 1) {
+            throw InvalidPortalSettings::because('direct_login_session must be 1 to 64 letters, digits, "-" or "_" (the name of a WhatsApp session of the project).');
+        }
+
+        if ($directLoginEnabled && $directLoginSession === null) {
+            throw InvalidPortalSettings::because('direct_login_session is required to enable the direct login: the code is sent from that WhatsApp session.');
+        }
+
         return new self(
             $projectId,
             $displayName,
@@ -104,6 +128,8 @@ final readonly class PortalSettings
             $allowSelfCancel,
             $allowPlanChange,
             array_values(array_unique($paymentChannels)),
+            $directLoginEnabled,
+            $directLoginSession,
         );
     }
 

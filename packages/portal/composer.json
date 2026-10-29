@@ -9,7 +9,8 @@
         "core/identity": "*@dev",
         "core/billing": "*@dev",
         "core/payment": "*@dev",
-        "core/audit": "*@dev"
+        "core/audit": "*@dev",
+        "core/notification": "*@dev"
     },
     "autoload": {
         "psr-4": {

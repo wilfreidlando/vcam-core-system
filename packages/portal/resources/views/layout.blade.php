@@ -7,7 +7,7 @@
     <meta name="robots" content="noindex, nofollow">
     <title>@yield('title', 'Espace client')@isset($principal) · {{ $principal->branding->displayName }}@endisset</title>
     <link rel="stylesheet" href="/assets/portal/portal.css">
-    <link rel="stylesheet" href="/portal/theme.css">
+    <link rel="stylesheet" href="/portal/theme.css{{ isset($themeProject) ? '?project='.$themeProject : '' }}">
 </head>
 <body @class(['shell' => isset($principal)])>
 @isset($principal)

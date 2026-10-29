@@ -50,7 +50,7 @@ final class PortalSettingsController
             return ProblemDetails::forbidden('The portal:write scope is required.');
         }
 
-        /** @var array{display_name: string, logo_url?: string|null, primary_color?: string|null, support_url?: string|null, locale?: string|null, allowed_return_urls?: list<string>|null, allow_self_cancel?: bool|null, allow_plan_change?: bool|null, payment_channels?: list<string>|null} $data */
+        /** @var array{display_name: string, logo_url?: string|null, primary_color?: string|null, support_url?: string|null, locale?: string|null, allowed_return_urls?: list<string>|null, allow_self_cancel?: bool|null, allow_plan_change?: bool|null, payment_channels?: list<string>|null, direct_login_enabled?: bool|null, direct_login_session?: string|null} $data */
         $data = $request->validated();
 
         $saved = $this->settings->save($project->projectId, new PortalSettingsData(
@@ -63,6 +63,8 @@ final class PortalSettingsController
             allowSelfCancel: $data['allow_self_cancel'] ?? false,
             allowPlanChange: $data['allow_plan_change'] ?? false,
             paymentChannels: $this->strings($data['payment_channels'] ?? []),
+            directLoginEnabled: $data['direct_login_enabled'] ?? false,
+            directLoginSession: is_string($data['direct_login_session'] ?? null) ? $data['direct_login_session'] : null,
         ), TraceContext::correlationId());
 
         return new JsonResponse($this->body($saved));
@@ -83,6 +85,8 @@ final class PortalSettingsController
             'allow_self_cancel' => $s->allowSelfCancel,
             'allow_plan_change' => $s->allowPlanChange,
             'payment_channels' => $s->paymentChannels,
+            'direct_login_enabled' => $s->directLoginEnabled,
+            'direct_login_session' => $s->directLoginSession,
         ];
     }
 

@@ -35,6 +35,8 @@ final readonly class ManagePortalSettingsUseCase implements ManagePortalSettings
             $command->allowSelfCancel,
             $command->allowPlanChange,
             $command->paymentChannels,
+            $command->directLoginEnabled,
+            $command->directLoginSession,
         ), $command->correlationId, $command->actor));
     }
 
@@ -50,6 +52,8 @@ final readonly class ManagePortalSettingsUseCase implements ManagePortalSettings
             $d->allowSelfCancel,
             $d->allowPlanChange,
             $d->paymentChannels,
+            $d->directLoginEnabled,
+            $d->directLoginSession,
         );
     }
 }

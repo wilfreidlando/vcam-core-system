@@ -73,6 +73,28 @@ final class ProjectCommerceConsoleTest extends TestCase
     }
 
     #[Test]
+    public function the_direct_login_is_off_by_default_and_needs_its_whatsapp_session_to_be_turned_on(): void
+    {
+        $projectId = $this->project();
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $this->get("/admin/projects/{$projectId}/portal")->assertOk()->assertSee('Connexion directe par code');
+
+        // Turned on without the session the code leaves from: refused with a sentence.
+        $this->post("/admin/projects/{$projectId}/portal", ['display_name' => 'X', 'direct_login_enabled' => '1'])->assertSessionHasErrors('resource');
+        self::assertSame(0, DB::table('portal_settings')->where('project_id', $projectId)->count());
+
+        $this->post("/admin/projects/{$projectId}/portal", ['display_name' => 'X', 'direct_login_enabled' => '1', 'direct_login_session' => 'ecole'])
+            ->assertRedirect("/admin/projects/{$projectId}/portal");
+        self::assertTrue((bool) DB::table('portal_settings')->where('project_id', $projectId)->value('direct_login_enabled'));
+        self::assertSame('ecole', DB::table('portal_settings')->where('project_id', $projectId)->value('direct_login_session'));
+
+        // Unticked: off again.
+        $this->post("/admin/projects/{$projectId}/portal", ['display_name' => 'X', 'direct_login_session' => 'ecole']);
+        self::assertFalse((bool) DB::table('portal_settings')->where('project_id', $projectId)->value('direct_login_enabled'));
+    }
+
+    #[Test]
     public function the_commerce_settings_are_edited_with_their_rules_in_code_and_audited(): void
     {
         $projectId = $this->project();
@@ -83,11 +105,11 @@ final class ProjectCommerceConsoleTest extends TestCase
         $this->post("/admin/projects/{$projectId}/commerce-settings", [
             'timezone' => 'Africa/Douala',
             'default_currency' => 'xaf',
-            'renewal_lead_days' => 5,
-            'incomplete_expiry_hours' => 48,
+            'renewal_lead_days' => '5',
+            'incomplete_expiry_hours' => '48',
             'invoice_prefix' => 'AUTO',
             'default_tax_rate_percent' => '19.25',
-            'manual_receipt_threshold' => 100000,
+            'manual_receipt_threshold' => '100000',
             'meter_mappings' => "notification.whatsapp = whatsapp_messages\n",
             'refund_failed_usage' => '1',
             'require_customer_ref' => '1',

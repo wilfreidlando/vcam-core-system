@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Core\Portal\Presentation\Http\Controllers\DirectLoginController;
 use Core\Portal\Presentation\Http\Controllers\PortalPagesController;
 use Core\Portal\Presentation\Http\Middleware\AuthenticatePortal;
 use Core\Portal\Presentation\Http\Middleware\PortalSecurityHeaders;
@@ -25,6 +26,13 @@ Route::middleware([PortalSecurityHeaders::class])
             ->where('token', '[A-Za-z0-9_-]{20,128}')
             ->middleware('throttle:portal-enter')
             ->name('portal.enter');
+
+        // ADR-0075 §2 — the login by code, off unless the project turned it on.
+        Route::middleware('throttle:portal-login')->group(function (): void {
+            Route::get('/{projectId}/login', [DirectLoginController::class, 'form'])->whereUuid('projectId')->name('portal.login');
+            Route::post('/{projectId}/login', [DirectLoginController::class, 'send'])->whereUuid('projectId')->name('portal.login.send');
+            Route::post('/{projectId}/login/verify', [DirectLoginController::class, 'verify'])->whereUuid('projectId')->name('portal.login.verify');
+        });
 
         Route::get('/theme.css', [PortalPagesController::class, 'theme'])->name('portal.theme');
 

@@ -48,8 +48,14 @@ final class PortalPagesController
         $cookie = $request->cookies->get(PortalCookie::name($request));
         $principal = $this->sessions->authenticate(is_string($cookie) ? $cookie : null);
 
+        // Before any session (the login page) the brand is the project's public
+        // one, named in the query; it is only a colour, validated like the rest.
+        $project = $request->query('project');
+        $color = $principal?->branding->primaryColor
+            ?? (is_string($project) && preg_match('/^[0-9a-f-]{36}\\z/', $project) === 1 ? $this->sessions->brandingOf($project)->primaryColor : null);
+
         // Strictly validated, derived tokens included (WCAG 1.4.3): see PortalPalette.
-        return response(PortalPalette::css($principal?->branding->primaryColor), 200, [
+        return response(PortalPalette::css($color), 200, [
             'Content-Type' => 'text/css; charset=utf-8',
         ]);
     }

@@ -43,6 +43,8 @@ final readonly class PortalSettingsService
             $data->allowSelfCancel,
             $data->allowPlanChange,
             $data->paymentChannels,
+            $data->directLoginEnabled,
+            $data->directLoginSession,
         );
 
         $this->settings->save($validated);
@@ -75,6 +77,8 @@ final readonly class PortalSettingsService
             $s->allowSelfCancel,
             $s->allowPlanChange,
             $s->paymentChannels,
+            $s->directLoginEnabled,
+            $s->directLoginSession,
         );
     }
 }

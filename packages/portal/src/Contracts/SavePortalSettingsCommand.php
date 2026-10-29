@@ -24,5 +24,7 @@ final readonly class SavePortalSettingsCommand
         public array $paymentChannels,
         public string $actor,
         public ?string $correlationId = null,
+        public bool $directLoginEnabled = false,
+        public ?string $directLoginSession = null,
     ) {}
 }

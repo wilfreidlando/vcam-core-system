@@ -31,6 +31,8 @@ final class DatabasePortalSettingsRepository implements PortalSettingsRepository
             $r->bool('allow_self_cancel'),
             $r->bool('allow_plan_change'),
             $this->strings($r->nullableString('payment_channels')),
+            $r->bool('direct_login_enabled'),
+            $r->nullableString('direct_login_session'),
         );
     }
 
@@ -46,6 +48,8 @@ final class DatabasePortalSettingsRepository implements PortalSettingsRepository
             'allow_self_cancel' => $settings->allowSelfCancel,
             'allow_plan_change' => $settings->allowPlanChange,
             'payment_channels' => json_encode($settings->paymentChannels),
+            'direct_login_enabled' => $settings->directLoginEnabled,
+            'direct_login_session' => $settings->directLoginSession,
             'updated_at' => now(),
         ];
 

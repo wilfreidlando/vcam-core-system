@@ -75,6 +75,27 @@ final class EloquentCustomerRepository implements CustomerDirectory
         return $record === null ? null : $this->toDomain($record);
     }
 
+    public function findByPhoneIndex(string $projectId, string $phoneBlindIndex, int $limit): array
+    {
+        // Built on `toBase()` and re-hydrated, like the listing below (Larastan
+        // false positive on the calls Eloquent's builder forwards).
+        $rows = CustomerRecord::query()->toBase()
+            ->where('project_id', $projectId)
+            ->where('phone_bidx', $phoneBlindIndex)
+            ->whereNull('erased_at')
+            ->orderBy('created_at')
+            ->limit(max(1, min(self::MAX_LIMIT, $limit)))
+            ->get()
+            ->map(static fn (object $row): array => (array) $row)->all();
+
+        $customers = [];
+        foreach (CustomerRecord::hydrate($rows) as $record) {
+            $customers[] = $this->toDomain($record);
+        }
+
+        return $customers;
+    }
+
     public function save(Customer $customer): void
     {
         try {

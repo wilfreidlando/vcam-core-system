@@ -57,7 +57,9 @@ final class ModuleGraph
         'billing' => ['support', 'identity', 'payment', 'ledger', 'events'],
         // ADR-0075 — the hosted customer portal: billing for what it shows,
         // payment for the channel a customer pays with, audit for the sessions.
-        'portal' => ['support', 'identity', 'billing', 'payment', 'audit'],
+        // notification: ADR-0100 — the code of the direct login leaves through
+        // SendTextNotification (portal → notification → billing: no cycle).
+        'portal' => ['support', 'identity', 'billing', 'payment', 'audit', 'notification'],
         'storage' => ['support', 'identity'],
         'developer-platform' => ['support', 'identity'],
 

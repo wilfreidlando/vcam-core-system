@@ -70,6 +70,26 @@
             @endforeach
         </fieldset>
 
+        <fieldset class="space-y-3">
+            <legend class="text-sm font-medium text-slate-700">Connexion directe par code <span class="font-normal text-slate-500">(désactivée par défaut)</span></legend>
+            <p class="text-xs text-slate-500">
+                Pour les clients qui arrivent sans passer par votre application : ils saisissent leur numéro sur
+                <code>/portal/{{ $projectId }}/login</code> et reçoivent un code à 6 chiffres par WhatsApp (valable 10 minutes,
+                5 essais). Cela n'ouvre que le portail, jamais votre application.
+            </p>
+            <label class="flex items-center gap-2 text-sm text-slate-800">
+                <input type="checkbox" name="direct_login_enabled" value="1" @checked(old('direct_login_enabled', $settings->directLoginEnabled))
+                       class="h-4 w-4 rounded border-slate-300">
+                Proposer la connexion par code
+            </label>
+            <div>
+                <label for="direct_login_session" class="block text-sm font-medium text-slate-700">Session WhatsApp d'envoi</label>
+                <input id="direct_login_session" name="direct_login_session" maxlength="64" pattern="[A-Za-z0-9_\-]+" value="{{ old('direct_login_session', $settings->directLoginSession) }}"
+                       class="mt-1 w-64 rounded-md border border-slate-300 px-3 py-2 text-sm font-mono" placeholder="ecole">
+                <p class="mt-1 text-xs text-slate-500">Le nom d'une session de ce projet (« Sessions WhatsApp ») ; obligatoire pour activer.</p>
+            </div>
+        </fieldset>
+
         <fieldset class="space-y-2">
             <legend class="text-sm font-medium text-slate-700">Restreindre les moyens de paiement <span class="font-normal text-slate-500">(facultatif)</span></legend>
             <p class="text-xs text-slate-500">Rien de coché : le portail propose tous les canaux que la plateforme sait traiter pour votre projet.</p>

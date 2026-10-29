@@ -41,4 +41,14 @@ interface CustomerDirectory extends CustomerRepository
         ?string $cursor,
         int $limit,
     ): array;
+
+    /**
+     * ADR-0083 §2 — the live customers of a project whose phone carries this
+     * blind index (the phone is not unique: several rows can match). At most
+     * `$limit` rows; an erased customer never matches (its identity is gone).
+     *
+     * @param string $phoneBlindIndex 64 lowercase hex characters
+     * @return list<Customer>
+     */
+    public function findByPhoneIndex(string $projectId, string $phoneBlindIndex, int $limit): array;
 }

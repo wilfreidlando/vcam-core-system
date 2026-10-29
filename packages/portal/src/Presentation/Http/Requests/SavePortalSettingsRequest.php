@@ -52,6 +52,14 @@ final class SavePortalSettingsRequest extends FormRequest
              */
             'payment_channels' => ['nullable', 'array', 'max:10'],
             'payment_channels.*' => ['string', 'max:32'],
+            /**
+             * Offer your customers a login by code on the portal page
+             * `/portal/{project_id}/login` (off by default). The code is sent on
+             * WhatsApp from `direct_login_session`, which is required to enable it.
+             */
+            'direct_login_enabled' => ['nullable', 'boolean'],
+            /** The name of one of your WhatsApp sessions (the one you put in `variables.session`). */
+            'direct_login_session' => ['nullable', 'string', 'max:64'],
         ];
     }
 }

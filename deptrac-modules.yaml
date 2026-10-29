@@ -161,12 +161,15 @@ deptrac:
       - Events
 
     # ADR-0075 — reads and acts through billing's Contracts only.
+    # Notification: ADR-0100 — the code of the direct login is sent through
+    # SendTextNotification.
     Portal:
       - Support
       - Identity
       - Billing
       - Payment
       - Audit
+      - Notification
 
     Storage:
       - Support

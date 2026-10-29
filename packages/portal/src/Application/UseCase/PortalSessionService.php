@@ -15,6 +15,7 @@ use Core\Portal\Domain\Port\PortalSettingsRepository;
 use Core\Portal\Domain\Port\SecretHasher;
 use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
+use Core\Support\Identifier;
 
 /**
  * ADR-0075 §1, §Sécurité — the life of a browser session.
@@ -32,6 +33,7 @@ final readonly class PortalSessionService
         private SecretHasher $hasher,
         private Clock $clock,
         private GetCustomer $customers,
+        private Identifier $identifier,
     ) {}
 
     public function exchange(string $token): ?ExchangedPortalSession
@@ -59,6 +61,32 @@ final readonly class PortalSessionService
             : '/portal';
 
         return new ExchangedPortalSession($cookie, $landing, PortalSession::ABSOLUTE_TTL_SECONDS);
+    }
+
+    /**
+     * ADR-0075 §2 — the login by code ends here: a session is opened for a
+     * customer the project (not a caller) vouched for by a code, and goes
+     * through the very same exchange as the one-time link. The link is
+     * created and spent inside this call, so it never reaches anyone.
+     */
+    public function openForCustomer(string $projectId, string $customerId, string $customerRef, ?string $ip): ?ExchangedPortalSession
+    {
+        $now = $this->clock->now();
+        $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+
+        $this->sessions->create(new PortalSession(
+            id: $this->identifier->generate(),
+            projectId: $projectId,
+            customerId: $customerId,
+            customerRef: $customerRef,
+            flow: PortalSession::FLOW_MANAGE,
+            flowRef: null,
+            returnUrl: null,
+            tokenExpiresAt: $now->modify('+'.PortalSession::TOKEN_TTL_SECONDS.' seconds'),
+            createdAt: $now,
+        ), $this->hasher->hash($token, 'link'), $ip);
+
+        return $this->exchange($token);
     }
 
     public function authenticate(?string $cookie): ?PortalPrincipal

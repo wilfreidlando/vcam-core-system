@@ -11,7 +11,8 @@ is a contract decision: it is the surface you must keep stable.
 ## Capabilities
 
 - **Customers** (ADR-0070) — `UpsertCustomer`, `GetCustomer`, `ListCustomers`,
-  `SuspendCustomer`, `ReactivateCustomer`, `EraseCustomer`.
+  `SuspendCustomer`, `ReactivateCustomer`, `EraseCustomer`, `FindCustomerByContact`
+  (ADR-0075 §2 — by phone or email through the blind index; the portal's login by code).
 - **Plan catalogue** (ADR-0071) — `CreatePlan`, `ListPlans`, `CreatePlanVersion`,
   `PublishPlanVersion`, `ArchivePlan`.
 - **Subscription contracts** (ADR-0072) — `CreateSubscription`, `GetSubscription`,
