@@ -102,6 +102,9 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->name('organizations.members.role.web');
         });
 
+        // ADR-0080 §1 — the portfolio: every project the operator may see, with its indicators.
+        Route::get('portfolio', [App\Http\Controllers\Admin\PortfolioController::class, 'index'])->name('portfolio');
+
         Route::prefix('projects')->group(function (): void {
             Route::get('/', [App\Http\Controllers\Admin\ProjectsController::class, 'index'])
                 ->name('projects.index');
@@ -213,6 +216,14 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             // `customers.*` / `plans.*` / `subscriptions.*`
             // (`packages/billing/routes/api.php`, unprefixed); these are
             // the console's own names, under `admin.projects.`.
+            // ADR-0097 / ADR-0074 — the commerce settings of a project: its
+            // customer portal, its billing settings and what its customers consume.
+            Route::get('{projectId}/portal', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'portal'])->name('projects.portal');
+            Route::post('{projectId}/portal', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'savePortal'])->name('projects.portal.save');
+            Route::get('{projectId}/commerce-settings', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'settings'])->name('projects.commerce-settings');
+            Route::post('{projectId}/commerce-settings', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'saveSettings'])->name('projects.commerce-settings.save');
+            Route::get('{projectId}/usage', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'usage'])->name('projects.usage');
+
             Route::prefix('{projectId}/customers')->group(function (): void {
                 // The reference is format-checked in the route (the
                 // column carries the same CHECK constraint): a
@@ -224,6 +235,12 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                     ->name('projects.customers.new');
                 Route::post('/', [App\Http\Controllers\Admin\BillingCustomersController::class, 'store'])
                     ->name('projects.customers.store');
+                Route::get('{externalRef}', [App\Http\Controllers\Admin\CustomerOverviewController::class, 'show'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.show');
+                Route::post('{externalRef}/subscribe', [App\Http\Controllers\Admin\CustomerOverviewController::class, 'subscribe'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.subscribe.web');
                 Route::get('{externalRef}/edit', [App\Http\Controllers\Admin\BillingCustomersController::class, 'edit'])
                     ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
                     ->name('projects.customers.edit');

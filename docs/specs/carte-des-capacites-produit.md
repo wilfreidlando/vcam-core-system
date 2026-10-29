@@ -9,7 +9,7 @@ d'extension prévu (ADR-0090), non planifié · **✗** refusé (liste négative
 
 La série ADR-0068 à ADR-0090 a été **ratifiée le 2026-10-27** ; ADR-0091 consigne
 les décisions que le code avait introduites sans ADR. Les lots 8, 9, 10 et 11
-sont **livrés** : leurs lignes sont passées de **◐** à **●**.
+sont **livrés** : leurs lignes sont passées de **◐** à **●**. Les lots 12 et 13 le sont aussi depuis le 2026-10-29. Le plan pour tout terminer : [plan-livraison-complet.md](plan-livraison-complet.md).
 
 ## 1. Services de plateforme
 
@@ -55,10 +55,10 @@ sont **livrés** : leurs lignes sont passées de **◐** à **●**.
 | Encaissement hors ligne, validation explicite | ● (lot 11b) — ADR-0095 a retiré les quatre yeux | ADR-0073 §4, ADR-0095 |
 | Reçus | ◐ — le lot est livré, le **rendu** du reçu reste à écrire | ADR-0073 §5 |
 | Prélèvement récurrent | ○ | ADR-0090 |
-| Usage idempotent, quotas atomiques, seuils | ◐ lot 12 | ADR-0074 |
-| Décompte automatique des notifications | ◐ lot 12 | ADR-0074 §5 |
+| Usage idempotent, quotas atomiques, seuils | ● (lot 12) | ADR-0074 |
+| Décompte automatique des notifications | ● (lot 12) | ADR-0074 §5 |
 | Facturation à l'usage | ○ (le journal en est la source) | ADR-0090 |
-| Portail client hébergé, personnalisable | ◐ lot 13 | ADR-0075 |
+| Portail client hébergé, personnalisable (tableau de bord, offres, paiement, renouvellement) | ● (lot 13) ; connexion directe par code ◐ lot 17 | ADR-0075, ADR-0097, ADR-0098 |
 | Domaine personnalisé du portail | ○ | ADR-0090 |
 | Facturation des projets par la plateforme elle-même | ○ | ADR-0090 |
 
@@ -84,7 +84,7 @@ sont **livrés** : leurs lignes sont passées de **◐** à **●**.
 
 | Capacité | État | Où |
 |---|---|---|
-| Console de portefeuille : MRR, attrition, encaissé, créances, exceptions, usage | ◐ lot 14 | ADR-0080 |
+| Console de portefeuille : MRR, attrition, encaissé, créances, exceptions, usage | ◐ lot 14 — indicateurs, portefeuille et fiche client livrés ; instantanés quotidiens et courbes à faire | ADR-0080 |
 | Liste de contrôle d'onboarding d'un projet | ◐ lot 14 | ADR-0080 §4 |
 | Modèle de menace, exigences S-01 à S-20 | ● (modèle écrit, lot 8) ; les contrôles sont vérifiés à chaque lot | ADR-0081 |
 | Garde-fous G13, G14, G15, G16 | ● — les quatre sont actifs et vérifiés par `make guard-test` | ADR-0081, ADR-0069 |

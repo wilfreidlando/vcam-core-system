@@ -204,6 +204,12 @@
                              d'abord choisir un projet (comme
                              "Wallets"), puis la fiche projet porte les
                              trois entrées. --}}
+                        @if($canPortfolio)
+                            <a href="{{ route('admin.portfolio') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.portfolio') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg>
+                                <span class="truncate">Portefeuille</span>
+                            </a>
+                        @endif
                         <a href="{{ route('admin.projects.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 text-slate-300">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                             <span class="truncate">Facturation</span>

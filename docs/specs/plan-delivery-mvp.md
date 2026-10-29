@@ -426,7 +426,7 @@ reprendre (ADR-0089, sous réserve de confirmation par la direction).
 | **18 — Rapprochement prestataire** | capacités `listTransactions` et `balance` des adaptateurs, niveaux B et C, `reconciliation_runs`, écrans | 0078 | 9 | 10 j |
 | **19 — Versements sortants** | module `payout`, port et adaptateur avec environnement de test du prestataire, callback dédié, balayage, plafonds, double validation, destination chiffrée | 0079 | 9 | 15 j |
 
-**État au 2026-10-28** : les **lots 8, 9, 10 et 11 sont livrés** — code conforme à
+**État au 2026-10-28** : les **lots 8, 9, 10, 11, 12 et 13 sont livrés** (le 12 : ADR-0074 ; le 13 : ADR-0075 et ADR-0097 — la connexion directe par code, entrée secondaire d'ADR-0075 §2, reste à faire) — code conforme à
 leurs ADR, `make ci` et `make guard-test` verts. La série d'ADR qui les
 réalise a été **ratifiée par le comité le 2026-10-27**, après vérification de
 la conformité du code livré (la décision a suivi le code, et non l'inverse —

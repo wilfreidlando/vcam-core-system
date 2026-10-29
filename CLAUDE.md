@@ -193,6 +193,20 @@ ligne** dans la console (un reçu qui porte sa méthode, sa référence et son
 montant ; ADR-0095 a retiré les quatre vues : **un** compte valide). Le
 `purpose` du paiement existe enfin (ADR-0094 §9) : un règlement de facture
 est crédité `collections`, jamais `revenue`.
+Le plan pour livrer **tous** les modules (état réel, lots restants, définition de « livré », décisions
+à écrire) est dans [docs/specs/plan-livraison-complet.md](docs/specs/plan-livraison-complet.md).
+Le **lot 12** livre l'autorité de quota (ADR-0074) : journal d'usage,
+compteur atomique (`UPDATE` conditionnel — aucun dépassement sous concurrence,
+prouvé par `tools/checks/usage-concurrency.sh`), `POST /v1/usage`,
+`GET /v1/customers/{ref}/entitlements`, et le décompte de chaque notification
+dans la transaction qui la crée (port `QuotaGuard`, arête `notification → billing`).
+Le **lot 13** livre le module `portal` (ADR-0075, ADR-0097) : un seul appel
+`POST /v1/portal/sessions` (qui peut aussi déclarer le client et l'abonner) ouvre
+l'espace client hébergé — tableau de bord, abonnement et changement d'offre,
+factures, paiement (canaux routés par la plateforme, aucune configuration),
+paiements, utilisation, profil — sous CSP stricte, sans JavaScript. Un SaaS se
+branche avec `docs/integration/kit-laravel/INSTALL.md`. Les événements
+`subscription.*`, `invoice.*` et `usage.*` sont abonnables par webhook.
 `storage`, `fees`, `developer-platform`
 sont **encore** des scaffolds Lot 0 vides. **ADR-0068 amends ADR-0048** :
 `billing` et `developer-platform` **entrent en production** (`billing` au lot 10,

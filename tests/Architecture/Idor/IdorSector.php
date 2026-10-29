@@ -45,6 +45,11 @@ final class IdorSector
         'admin.projects.subscriptions' => 'billing',
         'admin.projects.invoices' => 'billing',
         'admin.projects.receipts' => 'billing',
+        // The commerce settings and the usage of a project belong to `billing`;
+        // the portal page edits `portal`'s settings but is part of the same sector run.
+        'admin.projects.portal' => 'billing',
+        'admin.projects.commerce-settings' => 'billing',
+        'admin.projects.usage' => 'billing',
         'admin.projects.wallets' => 'wallet',
         'admin.projects.notifications' => 'notification',
         'admin.projects.api-keys' => 'identity',

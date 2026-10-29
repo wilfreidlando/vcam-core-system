@@ -79,6 +79,8 @@ final readonly class AdminSidebarComposer
             'canLedgerAdjustments' => $canLedgerAdjustments,
             'canWebhooks' => $canWebhooks,
             'canBilling' => $canBilling,
+            // ADR-0080 §1 — who may see what a project earns.
+            'canPortfolio' => self::holdsTogether($operator, 'projects:read', 'invoices:write'),
             'canBillingCustomers' => $anywhere('customers:read'),
             'canBillingPlans' => $anywhere('plans:read'),
             'canBillingSubscriptions' => $anywhere('subscriptions:read'),

@@ -59,6 +59,7 @@
                     </td>
                     <td class="px-4 py-2 text-sm tabular-nums text-slate-600">{{ $customer->version }}</td>
                     <td class="px-4 py-2 text-sm text-right whitespace-nowrap">
+                        <a href="{{ route('admin.projects.customers.show', [$projectId, $customer->externalRef]) }}" class="mr-3 text-sm font-medium text-indigo-600 hover:text-indigo-800">Fiche</a>
                         <a href="{{ route('admin.projects.customers.edit', [$projectId, $customer->externalRef]) }}"
                            class="font-medium text-indigo-600 hover:text-indigo-800">Modifier</a>
 

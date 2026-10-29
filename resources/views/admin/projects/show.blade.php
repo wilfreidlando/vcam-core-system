@@ -137,6 +137,27 @@
                 <span class="text-indigo-600">→</span>
             </a>
         @endif
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('usage:read')->allowsProject($project->id))
+            <a href="{{ route('admin.projects.usage', ['projectId' => $project->id]) }}"
+               class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+                <span class="font-medium text-slate-900">Usage et quotas</span>
+                <span class="text-indigo-600">→</span>
+            </a>
+        @endif
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('portal:write')->allowsProject($project->id))
+            <a href="{{ route('admin.projects.portal', ['projectId' => $project->id]) }}"
+               class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+                <span class="font-medium text-slate-900">Portail client</span>
+                <span class="text-indigo-600">→</span>
+            </a>
+        @endif
+        @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('plans:write')->allowsProject($project->id))
+            <a href="{{ route('admin.projects.commerce-settings', ['projectId' => $project->id]) }}"
+               class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+                <span class="font-medium text-slate-900">Réglages du commerce</span>
+                <span class="text-indigo-600">→</span>
+            </a>
+        @endif
     </div>
 
     <div class="text-right">

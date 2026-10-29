@@ -138,11 +138,20 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.customers.index', Nature::Customer, Outcome::NotFound, control: true),
             Entry::isolated('admin.projects.customers.new', Nature::Customer, Outcome::NotFound),
             Entry::isolated('admin.projects.customers.store', Nature::Customer, Outcome::NotFound),
+            Entry::isolated('admin.projects.customers.show', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFound),
+            Entry::isolated('admin.projects.customers.subscribe.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.customers.edit', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFound),
             Entry::isolated('admin.projects.customers.update.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.customers.suspend.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.customers.reactivate.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.customers.erase.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+
+            // ADR-0075 §4, ADR-0071 §4, ADR-0074 — the settings and the usage of a project.
+            Entry::isolated('admin.projects.portal', Nature::Project, Outcome::NotFound),
+            Entry::isolated('admin.projects.portal.save', Nature::Project, Outcome::NotFound),
+            Entry::isolated('admin.projects.commerce-settings', Nature::Project, Outcome::NotFound),
+            Entry::isolated('admin.projects.commerce-settings.save', Nature::Project, Outcome::NotFound),
+            Entry::isolated('admin.projects.usage', Nature::Project, Outcome::NotFound),
 
             Entry::isolated('admin.projects.plans.index', Nature::Plan, Outcome::NotFound, control: true),
             Entry::isolated('admin.projects.plans.new', Nature::Plan, Outcome::NotFound),
