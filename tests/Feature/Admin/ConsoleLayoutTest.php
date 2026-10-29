@@ -182,7 +182,7 @@ final class ConsoleLayoutTest extends TestCase
 
     private function page(string $path): string
     {
-        $content = $this->get($path)->assertOk()->getContent();
+        $content = $this->get($path)->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
 
         return is_string($content) ? $content : '';
     }

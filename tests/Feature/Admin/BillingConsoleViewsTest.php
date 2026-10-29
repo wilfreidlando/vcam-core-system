@@ -54,7 +54,7 @@ final class BillingConsoleViewsTest extends TestCase
             'code' => 'MAJUSCULES', 'name' => 'Offre saisie', 'description' => 'Texte libre', 'visibility' => 'private',
         ])->assertRedirect($page);
 
-        $html = $this->get($page)->assertOk()->getContent();
+        $html = $this->get($page)->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($html);
         // Le message est dans la page (bloc global du layout) ET relié au champ.
         self::assertStringContainsString('role="alert"', $html);
@@ -80,7 +80,7 @@ final class BillingConsoleViewsTest extends TestCase
             'trial_days' => '3', 'grace_days' => '5', 'grace_access' => '0',
         ])->assertRedirect($page);
 
-        $html = $this->get($page)->assertOk()->getContent();
+        $html = $this->get($page)->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($html);
         // (assertSessionHasErrors consommerait le flash : le message est vérifié dans la page rendue.)
         self::assertStringContainsString('id="field-plan_code-error"', $html);
@@ -107,7 +107,7 @@ final class BillingConsoleViewsTest extends TestCase
             'features' => '{api_access: true}',
         ])->assertRedirect($page);
 
-        $html = $this->get($page)->assertOk()->getContent();
+        $html = $this->get($page)->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($html);
         self::assertStringContainsString('id="field-features-error"', $html);
         self::assertStringContainsString('{api_access: true}', $html);
@@ -120,7 +120,7 @@ final class BillingConsoleViewsTest extends TestCase
         $this->plan($projectId, 'basic', withVersion: false);
         $this->signInToConsole();
 
-        $html = $this->get("/admin/projects/{$projectId}/plans/create")->assertOk()->getContent();
+        $html = $this->get("/admin/projects/{$projectId}/plans/create")->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($html);
         self::assertMatchesRegularExpression('/<input[^>]*id="grace_access"[^>]*type="checkbox"[^>]*checked|<input[^>]*type="checkbox"[^>]*id="grace_access"[^>]*checked/s', $html);
         self::assertMatchesRegularExpression('/<label[^>]*for="grace_access"/', $html);
@@ -142,7 +142,7 @@ final class BillingConsoleViewsTest extends TestCase
         $projectId = $this->project();
         $this->signInToConsole();
 
-        $plan = $this->get("/admin/projects/{$projectId}/plans/create")->assertOk()->getContent();
+        $plan = $this->get("/admin/projects/{$projectId}/plans/create")->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($plan);
         // #32 : `plan_code` a le motif et la longueur du serveur (`^[a-z0-9][a-z0-9_-]*$`, 64 au plus).
         self::assertMatchesRegularExpression('/<input[^>]*id="field-plan_code"[^>]*/s', $plan);
@@ -150,13 +150,13 @@ final class BillingConsoleViewsTest extends TestCase
         self::assertStringContainsString('pattern="[a-z0-9][a-z0-9_\-]*"', $planCode[0] ?? '');
         self::assertStringContainsString('maxlength="64"', $planCode[0] ?? '');
 
-        $customer = $this->get("/admin/projects/{$projectId}/customers/create")->assertOk()->getContent();
+        $customer = $this->get("/admin/projects/{$projectId}/customers/create")->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($customer);
         preg_match('/<input[^>]*id="field-external_ref"[^>]*>/s', $customer, $externalRef);
         self::assertStringContainsString('pattern="[A-Za-z0-9._:\-]+"', $externalRef[0] ?? '');
         self::assertStringContainsString(' required', $externalRef[0] ?? '');
 
-        $invoice = $this->get("/admin/projects/{$projectId}/invoices/create")->assertOk()->getContent();
+        $invoice = $this->get("/admin/projects/{$projectId}/invoices/create")->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($invoice);
         foreach ([0, 1, 2] as $index) {
             preg_match('/<input[^>]*id="field-lines-'.$index.'-quantity"[^>]*>/s', $invoice, $quantity);
@@ -178,7 +178,7 @@ final class BillingConsoleViewsTest extends TestCase
             'version' => '1', 'external_ref' => 'TR0001', 'display_name' => 'Nom corrigé', 'email' => 'pas-un-courriel', 'locale' => 'en',
         ])->assertRedirect($page);
 
-        $html = $this->get($page)->assertOk()->getContent();
+        $html = $this->get($page)->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($html);
         self::assertStringContainsString('value="Nom corrigé"', $html);
         self::assertStringNotContainsString('value="Nom stocké"', $html);
@@ -195,7 +195,7 @@ final class BillingConsoleViewsTest extends TestCase
         $this->signInToConsole();
 
         // Brouillon : « Émettre » demande confirmation.
-        $html = $this->get("/admin/projects/{$projectId}/invoices/{$draft}")->assertOk()->getContent();
+        $html = $this->get("/admin/projects/{$projectId}/invoices/{$draft}")->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($html);
         self::assertSame(1, substr_count($html, 'role="dialog"'));
         self::assertStringContainsString('Émettre cette facture ?', $html);
@@ -205,7 +205,7 @@ final class BillingConsoleViewsTest extends TestCase
 
         // Ouverte : « Annuler la facture » et « Irrécouvrable » aussi, avec un motif obligatoire dans la modale.
         app(IssueInvoice::class)->issue(new IssueInvoiceCommand(projectId: $projectId, invoiceId: $draft, actor: 'test', correlationId: null));
-        $open = $this->get("/admin/projects/{$projectId}/invoices/{$draft}")->assertOk()->getContent();
+        $open = $this->get("/admin/projects/{$projectId}/invoices/{$draft}")->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($open);
         self::assertSame(2, substr_count($open, 'role="dialog"'));
         self::assertStringContainsString('Annuler cette facture ?', $open);
@@ -223,13 +223,13 @@ final class BillingConsoleViewsTest extends TestCase
         $this->customer($projectId, 'AE0001', 'Soleil');
         $this->signInToConsole();
 
-        $plans = $this->get("/admin/projects/{$projectId}/plans")->assertOk()->getContent();
+        $plans = $this->get("/admin/projects/{$projectId}/plans")->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($plans);
         self::assertStringContainsString('Archiver le plan pro ?', $plans);
         self::assertStringContainsString('Publier la version 1 de pro ?', $plans);
         self::assertSame(2, substr_count($plans, 'role="dialog"'));
 
-        $customers = $this->get("/admin/projects/{$projectId}/customers")->assertOk()->getContent();
+        $customers = $this->get("/admin/projects/{$projectId}/customers")->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($customers);
         self::assertStringContainsString('Suspendre Soleil ?', $customers);
         self::assertStringContainsString('Effacer', $customers);
@@ -238,7 +238,7 @@ final class BillingConsoleViewsTest extends TestCase
 
         $this->plan($projectId, 'team');
         $subscriptionId = $this->subscribe($projectId, 'AE0001', 'team');
-        $subscription = $this->get("/admin/projects/{$projectId}/subscriptions/{$subscriptionId}")->assertOk()->getContent();
+        $subscription = $this->get("/admin/projects/{$projectId}/subscriptions/{$subscriptionId}")->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($subscription);
         self::assertStringContainsString('Suspendre cet abonnement ?', $subscription);
         self::assertStringContainsString('Annuler cet abonnement ?', $subscription);
@@ -262,7 +262,7 @@ final class BillingConsoleViewsTest extends TestCase
         $this->signInToConsole();
 
         foreach (["/admin/projects/{$projectId}/usage", "/admin/projects/{$projectId}/customers/AE0001"] as $url) {
-            $html = $this->get($url)->assertOk()->getContent();
+            $html = $this->get($url)->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
             self::assertIsString($html);
             self::assertStringContainsString('role="progressbar"', $html, $url);
             self::assertStringContainsString('<progress', $html, $url);
@@ -304,7 +304,7 @@ final class BillingConsoleViewsTest extends TestCase
             'usage', 'usage?view=journal', 'ledger', 'indicators', 'portal', 'commerce-settings',
         ];
         foreach ($pages as $path) {
-            $html = $this->get("/admin/projects/{$projectId}/{$path}")->assertOk()->getContent();
+            $html = $this->get("/admin/projects/{$projectId}/{$path}")->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
             self::assertIsString($html);
             preg_match_all('/<label\b[^>]*>/s', $html, $labels);
             foreach ($labels[0] as $label) {

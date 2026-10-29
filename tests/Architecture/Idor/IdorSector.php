@@ -54,6 +54,8 @@ final class IdorSector
         'admin.projects.indicators' => 'billing',
         // ADR-0088 §3 — the export of a project's data.
         'admin.projects.exports' => 'export',
+        // Audit 2026-10-29 #16 — the signed download link bound to an operator.
+        'exports.download.operator' => 'export',
         'admin.projects.ledger' => 'ledger',
         'admin.projects.wallets' => 'wallet',
         'admin.projects.notifications' => 'notification',

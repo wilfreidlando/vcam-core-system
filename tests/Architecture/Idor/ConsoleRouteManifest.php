@@ -159,6 +159,13 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.exports', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.exports.store', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.exports.download', Nature::Export, Outcome::NotFound, ownParent: Outcome::NotFound, control: true),
+            // Audit 2026-10-29 #16 — the signed link the console hands out names the operator in its path.
+            // It is not addressed by an organization account at all: the download demands the console
+            // session of THAT operator (403 otherwise, and 403 again if his scope no longer covers the
+            // project), and the link is spent after one use. Cross-organization isolation is therefore the
+            // operator's own scope, proved by ExportDownloadLinkBindingTest (a link signed for another
+            // operator is refused; the operator's session is required; the link works once).
+            Entry::platformReserved('exports.download.operator', Nature::Export, 'Lien signé lié à l\'opérateur : isolation portée par sa session et son périmètre, prouvée par ExportDownloadLinkBindingTest.'),
 
             Entry::isolated('admin.projects.plans.index', Nature::Plan, Outcome::NotFound, control: true),
             Entry::isolated('admin.projects.plans.new', Nature::Plan, Outcome::NotFound),

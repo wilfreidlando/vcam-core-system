@@ -40,7 +40,7 @@ final class AdminVendoredAssetsTest extends TestCase
     public function the_layout_loads_both_libraries_from_its_own_origin(): void
     {
         $this->signInToConsole();
-        $html = (string) $this->get('/admin')->assertOk()->getContent();
+        $html = (string) $this->get('/admin')->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
 
         foreach (array_keys(self::ASSETS) as $file) {
             self::assertStringContainsString('assets/admin/vendor/'.$file, $html);
@@ -53,7 +53,7 @@ final class AdminVendoredAssetsTest extends TestCase
         $this->signInToConsole();
 
         foreach (['/admin', '/admin/projects', '/admin/operators', '/admin/audit-log'] as $path) {
-            $html = (string) $this->get($path)->assertOk()->getContent();
+            $html = (string) $this->get($path)->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
 
             preg_match_all('/<script\b[^>]*\bsrc="([^"]+)"/i', $html, $scripts);
             foreach ($scripts[1] as $src) {

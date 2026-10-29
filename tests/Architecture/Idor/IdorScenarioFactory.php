@@ -240,7 +240,11 @@ final class IdorScenarioFactory
                     error: null,
                 ));
 
-                return new ResourceRequest(['projectId' => $projectId, 'exportId' => $exportId], markers: [$exportId]);
+                // `operatorId` serves the signed link bound to an operator (audit 2026-10-29 #16,
+                // `exports.download.operator`): the link names whoever it was issued to. Any operator
+                // will do — the case under test is an ORGANIZATION account being refused — and the
+                // other export route simply ignores the extra parameter.
+                return new ResourceRequest(['projectId' => $projectId, 'exportId' => $exportId, 'operatorId' => (string) Str::uuid()], markers: [$exportId]);
 
             case ResourceNature::Payment:
                 $paymentId = (string) Str::uuid();

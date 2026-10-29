@@ -65,7 +65,7 @@ final class IdentityConsoleViewsTest extends TestCase
         // Un jeton absent : le bandeau d'erreurs est une région `alert` et le champ désigne son message.
         $failed = $this->from('/admin/invitation')->followingRedirects()->post('/admin/invitation', [
             'token' => '', 'password' => 'x', 'password_confirmation' => 'y',
-        ])->getContent();
+        ])->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         $failed = is_string($failed) ? $failed : '';
         self::assertStringContainsString('role="alert"', $failed);
         self::assertStringContainsString('aria-invalid="true"', $failed);
@@ -181,7 +181,7 @@ final class IdentityConsoleViewsTest extends TestCase
 
     private function page(string $path): string
     {
-        $content = $this->get($path)->assertOk()->getContent();
+        $content = $this->get($path)->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
 
         return is_string($content) ? $content : '';
     }

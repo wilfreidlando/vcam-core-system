@@ -374,7 +374,7 @@ final class AdminComponentsTest extends TestCase
     }
 
     /**
-     * @param  array<string, mixed>  $input
+     * @param array<string, mixed> $input
      */
     private function putOldInput(array $input): void
     {
