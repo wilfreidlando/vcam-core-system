@@ -6,7 +6,9 @@ namespace Core\Events\Infrastructure\Persistence\Eloquent;
 
 use Core\Events\Contracts\DomainEvent;
 use Core\Events\Contracts\EventOutbox;
+use Core\Events\Infrastructure\Relay\WakeOutboxRelayJob;
 use Core\Support\Observability\TraceContext;
+use Illuminate\Support\Facades\DB;
 
 final class EloquentEventOutbox implements EventOutbox
 {
@@ -27,5 +29,12 @@ final class EloquentEventOutbox implements EventOutbox
             'created_at' => $event->occurredAt,
             'skip_webhook_endpoint_fan_out' => $event->skipWebhookEndpointFanOut,
         ]);
+
+        // ADR-0090 §1: the relay is woken **after the commit** that wrote the row,
+        // so a webhook leaves in seconds rather than at the next minute. The
+        // minute sweep stays as the net: a lost wake-up costs a minute, not an event.
+        if (config('events.relay.on_commit') === true) {
+            DB::afterCommit(static fn () => WakeOutboxRelayJob::dispatch());
+        }
     }
 }

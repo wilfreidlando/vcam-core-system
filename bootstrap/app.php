@@ -7,7 +7,6 @@ use App\Http\Controllers\Observability\ReadinessController;
 use App\Http\ExceptionProblemMapping;
 use App\Http\Middleware\RecordHttpMetrics;
 use Core\Identity\Presentation\Http\Middleware\ResolveOperatorMiddleware;
-use Core\Identity\Presentation\Http\Middleware\ResolveProjectMiddleware;
 use Core\Support\Http\Middleware\CorrelationId;
 use Core\Support\Http\Middleware\LogHttpExchange;
 use Core\Support\Http\Middleware\RequireIdempotencyKey;
@@ -73,7 +72,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // The composition root is the one place allowed to bind the string
         // to the class.
         $middleware->alias([
-            'project.auth' => ResolveProjectMiddleware::class,
+            'project.auth' => App\Http\Middleware\AuthenticateProjectWithRateLimit::class,
             // ADR-0044: the platform operator plane, parallel to project.auth.
             'operator.auth' => ResolveOperatorMiddleware::class,
             // Admin web UI: reads the Sanctum cookie set by ResolveOperatorSession

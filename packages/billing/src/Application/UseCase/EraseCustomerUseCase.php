@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Core\Billing\Application\UseCase;
 
+use Core\Billing\Application\Service\SubscriptionViewBuilder;
 use Core\Billing\Application\Support\CustomerViews;
+use Core\Billing\Application\Support\SubscriptionEvents;
 use Core\Billing\Contracts\CustomerView;
 use Core\Billing\Contracts\EraseCustomer;
 use Core\Billing\Contracts\EraseCustomerCommand;
 use Core\Billing\Domain\Exception\CustomerNotFound;
 use Core\Billing\Domain\Model\Customer;
 use Core\Billing\Domain\Port\CustomerRepository;
+use Core\Billing\Domain\Port\SubscriptionRepository;
 use Core\Events\Contracts\DomainEvent;
 use Core\Events\Contracts\EventOutbox;
 use Core\Support\Clock;
@@ -29,6 +32,8 @@ final readonly class EraseCustomerUseCase implements EraseCustomer
     public function __construct(
         private UnitOfWork $unitOfWork,
         private CustomerRepository $customers,
+        private SubscriptionRepository $subscriptions,
+        private SubscriptionViewBuilder $subscriptionViews,
         private EventOutbox $outbox,
         private Identifier $identifier,
         private Clock $clock,
@@ -52,6 +57,28 @@ final readonly class EraseCustomerUseCase implements EraseCustomer
             $customer->version++;
 
             $this->customers->save($customer);
+
+            // ADR-0083 §6.3 (F4.8) — an erased customer keeps no live contract:
+            // nobody is left to renew it, and the scheduler must not go on
+            // issuing invoices to a person who no longer exists. The invoices
+            // already issued stay due (ADR-0083 §6 last paragraph).
+            foreach ($this->subscriptions->listLiveByCustomer($customer->id) as $subscription) {
+                $subscription->cancel($now, false);
+                $this->subscriptions->save($subscription);
+
+                $this->outbox->append(new DomainEvent(
+                    $this->identifier->generate(),
+                    $command->projectId,
+                    'subscription.canceled',
+                    SubscriptionEvents::payload(
+                        $subscription,
+                        $customer->externalRef,
+                        $this->subscriptionViews->currentPeriod($subscription),
+                    ),
+                    $command->correlationId,
+                    $now,
+                ));
+            }
 
             $this->outbox->append(new DomainEvent(
                 $this->identifier->generate(),

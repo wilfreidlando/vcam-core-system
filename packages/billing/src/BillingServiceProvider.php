@@ -11,6 +11,7 @@ use Core\Billing\Application\Port\MetricsSnapshotStore;
 use Core\Billing\Application\Port\PlanDirectory;
 use Core\Billing\Application\Port\PlanVersionDirectory;
 use Core\Billing\Application\Port\SubscriptionDirectory;
+use Core\Billing\Application\Port\SubscriptionNoticeLog;
 use Core\Billing\Application\Port\UsageReader;
 use Core\Billing\Application\UseCase\AllocateInvoicePaymentUseCase;
 use Core\Billing\Application\UseCase\ApproveManualReceiptUseCase;
@@ -109,6 +110,7 @@ use Core\Billing\Domain\Port\UsageStore;
 use Core\Billing\Infrastructure\Ledger\InvoiceLedgerWriter;
 use Core\Billing\Infrastructure\Persistence\DatabaseMetricsReader;
 use Core\Billing\Infrastructure\Persistence\DatabaseMetricsSnapshotStore;
+use Core\Billing\Infrastructure\Persistence\DatabaseSubscriptionNoticeLog;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentBillingSettingsRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentCustomerRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentInvoiceLineRepository;
@@ -173,6 +175,7 @@ final class BillingServiceProvider extends ServiceProvider
         $this->app->bind(PlanDirectory::class, EloquentPlanRepository::class);
         $this->app->bind(PlanVersionDirectory::class, EloquentPlanVersionRepository::class);
         $this->app->bind(SubscriptionDirectory::class, EloquentSubscriptionRepository::class);
+        $this->app->bind(SubscriptionNoticeLog::class, DatabaseSubscriptionNoticeLog::class);
 
         // Published contracts → use cases.
         $this->app->bind(UpsertCustomer::class, UpsertCustomerUseCase::class);

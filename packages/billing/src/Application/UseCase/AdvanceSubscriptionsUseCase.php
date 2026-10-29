@@ -6,6 +6,7 @@ namespace Core\Billing\Application\UseCase;
 
 use Core\Billing\Application\Dto\AdvanceSubscriptionsReport;
 use Core\Billing\Application\Port\SubscriptionDirectory;
+use Core\Billing\Application\Port\SubscriptionNoticeLog;
 use Core\Billing\Application\Service\PeriodInvoiceIssuer;
 use Core\Billing\Application\Support\SubscriptionEvents;
 use Core\Billing\Domain\Model\BillingSettings;
@@ -61,6 +62,9 @@ use Throwable;
  */
 final readonly class AdvanceSubscriptionsUseCase
 {
+    /** ADR-0072 §9 — « the trial ends in three days ». */
+    private const TRIAL_WARNING_DAYS = 3;
+
     public function __construct(
         private UnitOfWork $unitOfWork,
         private SubscriptionDirectory $subscriptions,
@@ -73,6 +77,7 @@ final readonly class AdvanceSubscriptionsUseCase
         private Identifier $identifier,
         private Clock $clock,
         private LoggerInterface $logger,
+        private SubscriptionNoticeLog $notices,
     ) {}
 
     /**
@@ -155,6 +160,16 @@ final readonly class AdvanceSubscriptionsUseCase
     ): void {
         if ($current === null) {
             return;
+        }
+
+        // ADR-0072 §9 — three days before the trial ends, the project is told,
+        // once: it is the moment to ask the customer to pay.
+        if ($subscription->status === SubscriptionStatus::Trialing
+            && $subscription->trialEndsAt !== null
+            && $now < $subscription->trialEndsAt
+            && $now >= $subscription->trialEndsAt->sub(self::days(self::TRIAL_WARNING_DAYS))
+            && $this->notices->firstTime($subscription->id, 'trial_will_end')) {
+            $this->publish($subscription, 'subscription.trial_will_end', $current, $now);
         }
 
         // ADR-0072 §2 — a cancellation at the end of the period: the

@@ -524,7 +524,7 @@ bout-en-bout sur le staging (horloge de test + simulateur de paiement).
 | R-03 | Le parcours F4.2 se déroule sur horloge de test, webhooks reçus dans l'ordre logique ou rejoués sans effet. |
 | R-04 | Paiement anticipé (F4.3) : aucune période perdue, aucun chevauchement. |
 | R-05 | Impayé puis grâce puis expiration (F4.3) aux dates attendues. |
-| R-06 | Encaissement hors ligne au-dessus du seuil validé par son auteur : refusé. |
+| R-06 | Encaissement hors ligne au-dessus du seuil : n'écrit rien au grand livre tant qu'il n'est pas validé (ADR-0095 : un compte valide, l'auteur peut valider son propre reçu ; la règle des quatre yeux reste pour les exceptions d'argent et les corrections du grand livre). |
 | R-07 | Limite d'usage 1, 50 requêtes simultanées : une seule admise ; même clé rejouée : comptée une fois. |
 | R-08 | Notification refusée par quota : aucune notification créée, aucun appel prestataire. |
 | R-09 | Montant confirmé différent : aucune imputation, exception ouverte, grand livre équilibré. |

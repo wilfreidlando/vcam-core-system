@@ -29,7 +29,7 @@ ADR » — il n'existe pas d'autre état final.
 | `billing` | commerce | 303 | 103 | 11 | 8 | **livré** (lots 10–12) | indicateurs ✔ ; instantanés quotidiens, `lost_at`, rendu du reçu, PDF (lot 14, ADR-0094 §14) |
 | `portal` | commerce | 48 | 3 | 1 | 0 propres (couvert par `tests/Integration`) | **livré** (lot 13) | connexion directe par code (lot 17) ; amendement ADR-0098 |
 | `admin` | pilotage | 26 | 1 | 0 | 0 propres (couvert par `tests/Feature`) | **partiel** | lot 14 : instantanés + courbes, checklist d'onboarding, droits |
-| `developer-platform` | plateforme | 1 | 1 | 0 | 0 | **scaffold** | lot 16 (ADR-0096) |
+| `developer-platform` | plateforme | 1 | 1 | 0 | 0 | **scaffold** | non nécessaire pour le moment (ADR-0099) |
 | `payout` | grand livre | — | — | — | — | **absent** | lot 19 (ADR-0079) |
 | `fees` | grand livre | 1 | 1 | 0 | 0 | **scaffold** | non nécessaire pour le moment (ADR-0099) |
 | `storage` | plateforme | 1 | 1 | 0 | 0 | **scaffold** | non nécessaire pour le moment (ADR-0099) |
@@ -58,8 +58,8 @@ Estimations en jours de développeur senior, ±30 %, **non contraignantes** (ADR
 |---|---|---|---|---|---|
 | **S** | **Stabiliser le lot 12–13** | suite complète verte ; vues d'accessibilité restantes ; amendement ADR-0098 ; correctifs des revues (renouvellement payé d'avance ✔, plan du contrat ✔, indicateurs ✔) ; carte des capacités et `CLAUDE.md` à jour | `billing` (usage), `portal` | 0074, 0075, 0097, **0098** | 1 j |
 | **14** | **Console de portefeuille** | `billing_daily_metrics` + job nocturne idempotent + courbes SVG serveur ; checklist d'onboarding calculée ; droits de lecture alignés sur ADR-0080 §1 ; fiche client ✔ ; écran Créances (lecture seule) ; `lost_at` indexé | `admin` | 0080 | 8 j |
-| **15** | **Exploitation** | débit par projet/clé/classe + en-têtes `RateLimit-*` ; métriques par projet et alertes ; relais de l'outbox après commit ; listings par curseur pour paiements/usage/notifications/endpoints ; **export** par projet (JSONL, lien signé 15 min, `exports:write`) | `events`, `support` | 0085, 0088, 0090 | 10 j |
-| **16** | **Contrat et expérience développeur** | `developer-platform` : registre de capacités + `GET /v1/capabilities` + test registre↔OpenAPI ; pages de démarrage exécutées ; politique `Deprecation`/`Sunset` ; `api_version` dans les événements ; horloges de test | `developer-platform` | 0086, 0087, 0096 | 7 j |
+| **15** ◐ | **Exploitation** (✔ débit par projet/clé/classe + `RateLimit-*` ; ✔ relais de l'outbox après commit, `SKIP LOCKED` ; reste : listings par curseur publics, export) | débit par projet/clé/classe + en-têtes `RateLimit-*` ; métriques par projet et alertes ; relais de l'outbox après commit ; listings par curseur pour paiements/usage/notifications/endpoints ; **export** par projet (JSONL, lien signé 15 min, `exports:write`) | `events`, `support` | 0085, 0088, 0090 | 10 j |
+| **16** ✘ | **(retiré : developer-platform non nécessaire, ADR-0099)** Contrat et expérience développeur | `developer-platform` : registre de capacités + `GET /v1/capabilities` + test registre↔OpenAPI ; pages de démarrage exécutées ; politique `Deprecation`/`Sunset` ; `api_version` dans les événements ; horloges de test | `developer-platform` | 0086, 0087, 0096 | 7 j |
 | **17** | **Recette et bascule** | connexion directe par code (portail) ; recette R-01…R-15 automatisée de bout en bout ; guide d'intégration unique vérifié sur une application de démonstration (30 min chronométrées) ; plan de bascule exécutable ; retrait des secrets de la plateforme transitoire | `portal`, plan d'extinction | 0084, 0089, 0075 §2 | 8 j |
 | **18** | **Rapprochement prestataire** | capacités `listTransactions`/`balance` des adaptateurs ; niveaux B et C ; écrans | `payment`, `ledger` | 0078 | 10 j |
 | **19** | **Versements sortants** | module `payout`, adaptateur testable, double validation, plafonds, destination chiffrée | `payout` | 0079 | 15 j |

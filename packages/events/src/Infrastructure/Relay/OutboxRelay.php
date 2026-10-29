@@ -10,6 +10,7 @@ use Core\Events\Contracts\RelayOutboxEvents;
 use Core\Events\Infrastructure\Persistence\Eloquent\EventOutboxRecord;
 use Core\Support\Clock;
 use Core\Support\Observability\TraceContext;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The single physical reader of `event_outbox` (ADR-0040 §1). Every
@@ -48,33 +49,55 @@ final readonly class OutboxRelay implements RelayOutboxEvents
 
         $relayed = 0;
 
-        foreach ($rows as $row) {
-            $event = new DomainEvent(
-                id: $row->id,
-                projectId: $row->project_id,
-                type: $row->type,
-                payload: $row->payload,
-                correlationId: $row->correlation_id,
-                occurredAt: $row->created_at,
-                skipWebhookEndpointFanOut: $row->skip_webhook_endpoint_fan_out,
-            );
+        foreach ($rows as $candidate) {
+            // ADR-0090 §1: several workers may run (the wake-up job after each
+            // commit and the minute sweep). Each row is claimed under its own
+            // lock, in its own transaction, skipping rows another worker holds:
+            // two workers never publish the same row, and a listener that throws
+            // only rolls back its own row.
+            $published = DB::transaction(function () use ($candidate): bool {
+                // @phpstan-ignore staticMethod.dynamicCall
+                $row = EventOutboxRecord::query()
+                    ->whereKey($candidate->id)
+                    ->where('published_at', null)
+                    ->lock('for update skip locked')
+                    ->first();
 
-            // ADR-0059: the relay runs in the scheduler, outside the request
-            // that wrote the row — restore that request's correlation and
-            // trace ids so the queued listeners and the jobs they dispatch
-            // (Laravel carries Context into jobs) stay on the same thread.
-            TraceContext::begin(
-                TraceContext::sanitizeCorrelationId($row->correlation_id),
-                is_string($row->trace_id) && preg_match('/^[0-9a-f]{32}$/', $row->trace_id) === 1 ? $row->trace_id : null,
-            );
+                if ($row === null) {
+                    return false;
+                }
 
-            event(new OutboxEventPublished($event));
+                $event = new DomainEvent(
+                    id: $row->id,
+                    projectId: $row->project_id,
+                    type: $row->type,
+                    payload: $row->payload,
+                    correlationId: $row->correlation_id,
+                    occurredAt: $row->created_at,
+                    skipWebhookEndpointFanOut: $row->skip_webhook_endpoint_fan_out,
+                );
 
-            EventOutboxRecord::query()
-                ->whereKey($row->id)
-                ->update(['published_at' => $this->clock->now()]);
+                // ADR-0059: the relay runs in the scheduler, outside the request
+                // that wrote the row — restore that request's correlation and
+                // trace ids so the queued listeners and the jobs they dispatch
+                // (Laravel carries Context into jobs) stay on the same thread.
+                TraceContext::begin(
+                    TraceContext::sanitizeCorrelationId($row->correlation_id),
+                    is_string($row->trace_id) && preg_match('/^[0-9a-f]{32}$/', $row->trace_id) === 1 ? $row->trace_id : null,
+                );
 
-            $relayed++;
+                event(new OutboxEventPublished($event));
+
+                EventOutboxRecord::query()
+                    ->whereKey($row->id)
+                    ->update(['published_at' => $this->clock->now()]);
+
+                return true;
+            });
+
+            if ($published) {
+                $relayed++;
+            }
         }
 
         return $relayed;

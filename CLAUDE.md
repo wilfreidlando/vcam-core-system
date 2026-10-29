@@ -210,9 +210,9 @@ branche avec `docs/integration/kit-laravel/INSTALL.md`. Les événements
 Le **lot 14** (en cours) ajoute à la console : réglages du portail et du commerce, usage,
 portefeuille, fiche client, et par projet une page **Indicateurs** (courbes SVG serveur lues dans
 `billing_daily_metrics`, remplie chaque nuit par `billing:snapshot-metrics`, créances par ancienneté,
-checklist « prêt à encaisser »). `storage` et `fees` ne sont **pas nécessaires pour le moment** (
+checklist « prêt à encaisser »). `storage`, `fees` et `developer-platform` ne sont **pas nécessaires pour le moment** (
 [ADR-0099](docs/adr/0099-fees-storage-et-extensions-commerce-refuses.md) ; coquilles laissées vides,
-rien à construire) ; `developer-platform` est **encore** un scaffold Lot 0 vide. **ADR-0068 amends ADR-0048** :
+rien à construire). **ADR-0068 amends ADR-0048** :
 `billing` et `developer-platform` **entrent en production** (`billing` au lot 10,
 `developer-platform` plus tard) ; `storage` et `fees` restent **hors
 périmètre** de la version de production

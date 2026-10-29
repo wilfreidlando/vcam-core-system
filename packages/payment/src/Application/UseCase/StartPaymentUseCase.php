@@ -193,10 +193,13 @@ final readonly class StartPaymentUseCase implements StartPayment
                 'amount' => $payment->amount,
                 'currency' => $payment->currency,
                 'reason' => $command->reason,
+                // ADR-0083 / PaymentJourney: the timeline is never a second home
+                // for the payer's identity — it says what was provided, not the
+                // value, so that erasing a customer leaves nothing to chase here.
                 'customer' => [
-                    'phone_number' => $command->customerPhoneNumber,
-                    'name' => $command->customerName,
-                    'email' => $command->customerEmail,
+                    'phone_number_provided' => $command->customerPhoneNumber !== null,
+                    'name_provided' => $command->customerName !== null,
+                    'email_provided' => $command->customerEmail !== null,
                     'lang' => $command->customerLang,
                 ],
                 'return_url' => $payment->returnUrl,

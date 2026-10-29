@@ -91,6 +91,7 @@ it('publishes WebhookEventType schema with the closed enum of emitted types', fu
         'subscription.created',
         'subscription.activated',
         'subscription.renewed',
+        'subscription.trial_will_end',
         'subscription.renewal_due',
         'subscription.plan_changed',
         'subscription.past_due',

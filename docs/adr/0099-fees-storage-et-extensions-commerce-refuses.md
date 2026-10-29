@@ -1,7 +1,7 @@
-# ADR-0099 — `fees` et `storage` non nécessaires pour le moment ; relances, codes promo et e-mail renvoyés à une demande réelle
+# ADR-0099 — `fees`, `storage` et `developer-platform` non nécessaires pour le moment ; relances, codes promo et e-mail renvoyés à une demande réelle
 
 - **Statut** : Proposé — décision du commanditaire (« fees et storage ne sont pas nécessaires
-  pour le moment », 2026-10-29) ; à ratifier par le comité d'architecture
+  pour le moment », puis « developer-platform aussi », 2026-10-29) ; à ratifier par le comité d'architecture
 - **Date** : 2026-10-29
 - **Décideurs** : commanditaire (délégation) ; comité d'architecture (ratification)
 - **Dérives concernées** : D1 périmètre
@@ -16,14 +16,16 @@ l'arbre laisse croire qu'il viendra ; la gouvernance (§4) demande qu'un refus s
 
 ## Décision
 
-### 1. `fees` et `storage` : **non nécessaires pour le moment**, hors de la version de production
+### 1. `fees`, `storage` et `developer-platform` : **non nécessaires pour le moment**, hors de la version de production
 
 Porte 1 de la gouvernance (≥ 2 produits réels qui en ont besoin) non franchie : aucun produit
 n'attend un moteur de frais ni un stockage de fichiers du Core. Les paiements portent déjà leur
 montant ; les fichiers que manipule le Core (reçus, exports) sont des projections ou des liens
 signés, pas un produit de stockage.
 
-- les deux modules sont inscrits dans la **liste négative** (« ne pas construire sans nouvel ADR ») : ce n'est pas un refus définitif, c'est l'absence de besoin aujourd'hui ;
+- `developer-platform` (registre de capacités, `GET /v1/capabilities`, politique `Deprecation`/`Sunset`) n'est pas
+  nécessaire non plus : l'OpenAPI générée et le kit d'intégration suffisent à brancher un SaaS ;
+- les trois modules sont inscrits dans la **liste négative** (« ne pas construire sans nouvel ADR ») : ce n'est pas un refus définitif, c'est l'absence de besoin aujourd'hui ;
 - leurs coquilles restent dans l'arbre **sans rien porter** : les retirer toucherait le graphe de
   modules, Deptrac et les secteurs de test pour un gain nul. Elles sont marquées « non nécessaire pour le moment » dans
   `CLAUDE.md` et dans le plan ;

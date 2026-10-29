@@ -79,7 +79,7 @@ final class WebhookEndpointsController
         'payments' => ['label' => 'Paiements', 'events' => ['payment.status_changed']],
         'wallets' => ['label' => 'Wallets', 'events' => ['wallet.credited', 'wallet.debited']],
         'notifications' => ['label' => 'Notifications', 'events' => ['notification.delivered', 'notification.read', 'notification.failed']],
-        'subscriptions' => ['label' => 'Abonnements', 'events' => ['subscription.created', 'subscription.activated', 'subscription.renewed', 'subscription.renewal_due', 'subscription.plan_changed', 'subscription.past_due', 'subscription.paused', 'subscription.resumed', 'subscription.canceled', 'subscription.expired', 'customer.suspended', 'customer.reactivated']],
+        'subscriptions' => ['label' => 'Abonnements', 'events' => ['subscription.created', 'subscription.trial_will_end', 'subscription.activated', 'subscription.renewed', 'subscription.renewal_due', 'subscription.plan_changed', 'subscription.past_due', 'subscription.paused', 'subscription.resumed', 'subscription.canceled', 'subscription.expired', 'customer.suspended', 'customer.reactivated']],
         'invoices' => ['label' => 'Factures', 'events' => ['invoice.issued', 'invoice.paid', 'invoice.payment_failed', 'invoice.voided']],
         'usage' => ['label' => 'Quotas', 'events' => ['usage.threshold_reached', 'usage.limit_reached']],
     ];
