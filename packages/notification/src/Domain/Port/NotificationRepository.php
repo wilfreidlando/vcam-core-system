@@ -8,6 +8,7 @@ use Core\Notification\Domain\Exception\NotificationAlreadyExists;
 use Core\Notification\Domain\Model\Notification;
 use Core\Notification\NotificationStatus;
 use DateTimeImmutable;
+use InvalidArgumentException;
 
 interface NotificationRepository
 {
@@ -36,6 +37,18 @@ interface NotificationRepository
      * @return array{items: list<Notification>, total: int}
      */
     public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage, ?array $projectIds = null): array;
+
+    /**
+     * ADR-0088 §2 — one project's notifications, **oldest first**, ordered
+     * by the stable `(created_at, id)` pair and read from an opaque cursor.
+     *
+     * @param DateTimeImmutable|null $createdFrom inclusive
+     * @param DateTimeImmutable|null $createdTo exclusive
+     * @return array{items: list<Notification>, nextCursor: ?string}
+     *
+     * @throws InvalidArgumentException the cursor is not one this listing issued
+     */
+    public function listByCursor(string $projectId, ?NotificationStatus $status, ?string $channel, ?DateTimeImmutable $createdFrom, ?DateTimeImmutable $createdTo, ?string $cursor, int $limit): array;
 
     /**
      * ADR-0062 / decision D5 — empties the content and variables (recipient

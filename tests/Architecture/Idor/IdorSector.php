@@ -32,6 +32,7 @@ final class IdorSector
         'payment',
         'ledger',
         'webhook',
+        'export',
     ];
 
     /**
@@ -51,6 +52,8 @@ final class IdorSector
         'admin.projects.commerce-settings' => 'billing',
         'admin.projects.usage' => 'billing',
         'admin.projects.indicators' => 'billing',
+        // ADR-0088 §3 — the export of a project's data.
+        'admin.projects.exports' => 'export',
         'admin.projects.ledger' => 'ledger',
         'admin.projects.wallets' => 'wallet',
         'admin.projects.notifications' => 'notification',

@@ -246,6 +246,28 @@ final class BillingResponses
         .'}';
 
     /**
+     * ADR-0088 §2 — one line of the usage journal.
+     */
+    public const USAGE_RECORD = 'array{'
+        .'id: string, '
+        .'customer_ref: string|null, '
+        .'meter: string, '
+        .'quantity: int, '
+        .'source: string, '
+        .'idempotency_key: string, '
+        .'occurred_at: string, '
+        .'recorded_at: string'
+        .'}';
+
+    /**
+     * A page of the usage journal.
+     */
+    public const USAGE_PAGE = 'array{'
+        .'data: list<'.self::USAGE_RECORD.'>, '
+        .'next_cursor: string|null'
+        .'}';
+
+    /**
      * ADR-0074 §4 — what a customer may do, and how much is left.
      */
     public const ENTITLEMENTS = 'array{'

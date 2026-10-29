@@ -87,6 +87,11 @@ deptrac:
         - type: directory
           value: packages/portal/.*
 
+    - name: Export
+      collectors:
+        - type: directory
+          value: packages/export/.*
+
     - name: Storage
       collectors:
         - type: directory
@@ -170,6 +175,18 @@ deptrac:
       - Payment
       - Audit
       - Notification
+
+    # ADR-0101 — the export of a project (ADR-0088 §3): a hub that reads, through
+    # each module's Contracts, exactly what the public API already shows.
+    Export:
+      - Support
+      - Identity
+      - Audit
+      - Ledger
+      - Billing
+      - Payment
+      - Notification
+      - Wallet
 
     Storage:
       - Support

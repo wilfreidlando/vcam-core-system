@@ -8,6 +8,7 @@ use Core\Payment\Domain\Exception\PaymentAlreadyExists;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Model\SettlementException;
 use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Payment\Infrastructure\Persistence\Cursor;
 use Core\Payment\PaymentStatus;
 use DateTimeImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -87,6 +88,52 @@ final class EloquentPaymentRepository implements PaymentRepository
         $record = PaymentRecord::hydrate([(array) $row])->sole();
 
         return $this->toDomain($record);
+    }
+
+    public function listByCursor(string $projectId, ?PaymentStatus $status, ?DateTimeImmutable $createdFrom, ?DateTimeImmutable $createdTo, ?string $cursor, int $limit): array
+    {
+        // See findStuckSince() above for why this goes through toBase()/hydrate().
+        $base = PaymentRecord::query()->toBase()->where('project_id', $projectId);
+
+        if ($status !== null) {
+            $base->where('status', $status->value);
+        }
+
+        if ($createdFrom !== null) {
+            $base->where('created_at', '>=', $createdFrom->format('Y-m-d H:i:s.uP'));
+        }
+
+        if ($createdTo !== null) {
+            $base->where('created_at', '<', $createdTo->format('Y-m-d H:i:s.uP'));
+        }
+
+        if ($cursor !== null) {
+            [$createdAt, $id] = Cursor::decode($cursor);
+
+            // A row-value comparison: one index range instead of an OR.
+            $base->whereRaw('(created_at, id) > (?::timestamptz, ?::uuid)', [$createdAt, $id]);
+        }
+
+        $rows = $base->orderBy('created_at')->orderBy('id')->limit($limit + 1)->get()
+            ->map(static fn (object $row): array => (array) $row)->all();
+
+        $records = PaymentRecord::hydrate($rows);
+        $hasMore = $records->count() > $limit;
+        $records = $records->take($limit);
+
+        $items = [];
+        foreach ($records as $record) {
+            $items[] = $this->toDomain($record);
+        }
+
+        $last = $records->last();
+
+        return [
+            'items' => $items,
+            'nextCursor' => $hasMore && $last !== null
+                ? Cursor::encode($last->created_at->format('Y-m-d H:i:s.uP'), $last->id)
+                : null,
+        ];
     }
 
     public function findStuckSince(DateTimeImmutable $threshold, int $limit, DateTimeImmutable $createdAfter, ?array $projectIds = null): array

@@ -65,6 +65,9 @@ enum ResourceNature: string
     /** An offline receipt of a Project (ADR-0073 §4) — money that arrived outside a payment. */
     case ManualReceipt = 'manual-receipt';
 
+    /** An export of a Project's data (ADR-0088 §3) — a record and an encrypted archive. */
+    case Export = 'export';
+
     /** A console account — owned by the platform, by no organization. */
     case Operator = 'operator';
 

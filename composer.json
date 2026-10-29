@@ -19,6 +19,7 @@
         "core/billing": "*@dev",
         "core/developer-platform": "*@dev",
         "core/events": "*@dev",
+        "core/export": "*@dev",
         "core/fees": "*@dev",
         "core/identity": "*@dev",
         "core/ledger": "*@dev",

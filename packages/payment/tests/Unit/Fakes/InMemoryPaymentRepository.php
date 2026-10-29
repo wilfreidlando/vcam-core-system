@@ -127,6 +127,18 @@ final class InMemoryPaymentRepository implements PaymentRepository
         return ['items' => array_slice($matching, $offset, $perPage), 'total' => $total];
     }
 
+    public function listByCursor(string $projectId, ?PaymentStatus $status, ?DateTimeImmutable $createdFrom, ?DateTimeImmutable $createdTo, ?string $cursor, int $limit): array
+    {
+        $matching = array_values(array_filter(
+            $this->payments,
+            static fn (Payment $payment): bool => $payment->projectId === $projectId
+                && ($status === null || $payment->status === $status),
+        ));
+
+        // The ordering and the cursor are proven against the real database.
+        return ['items' => array_slice($matching, 0, $limit), 'nextCursor' => null];
+    }
+
     /**
      * Same candidate set as findStuckSince().
      */

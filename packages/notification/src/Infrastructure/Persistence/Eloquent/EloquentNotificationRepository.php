@@ -7,6 +7,7 @@ namespace Core\Notification\Infrastructure\Persistence\Eloquent;
 use Core\Notification\Domain\Exception\NotificationAlreadyExists;
 use Core\Notification\Domain\Model\Notification;
 use Core\Notification\Domain\Port\NotificationRepository;
+use Core\Notification\Infrastructure\Persistence\Cursor;
 use Core\Notification\NotificationStatus;
 use DateTimeImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -99,6 +100,56 @@ final class EloquentNotificationRepository implements NotificationRepository
         }
 
         return ['items' => $notifications, 'total' => $total];
+    }
+
+    public function listByCursor(string $projectId, ?NotificationStatus $status, ?string $channel, ?DateTimeImmutable $createdFrom, ?DateTimeImmutable $createdTo, ?string $cursor, int $limit): array
+    {
+        // See findByProject() above for why this goes through toBase()/hydrate().
+        $base = NotificationRecord::query()->toBase()->where('project_id', $projectId);
+
+        if ($status !== null) {
+            $base->where('status', $status->value);
+        }
+
+        if ($channel !== null) {
+            $base->where('channel', $channel);
+        }
+
+        if ($createdFrom !== null) {
+            $base->where('created_at', '>=', $createdFrom->format('Y-m-d H:i:s.uP'));
+        }
+
+        if ($createdTo !== null) {
+            $base->where('created_at', '<', $createdTo->format('Y-m-d H:i:s.uP'));
+        }
+
+        if ($cursor !== null) {
+            [$createdAt, $id] = Cursor::decode($cursor);
+
+            // A row-value comparison: one index range instead of an OR.
+            $base->whereRaw('(created_at, id) > (?::timestamptz, ?::uuid)', [$createdAt, $id]);
+        }
+
+        $rows = $base->orderBy('created_at')->orderBy('id')->limit($limit + 1)->get()
+            ->map(static fn (object $row): array => (array) $row)->all();
+
+        $records = NotificationRecord::hydrate($rows);
+        $hasMore = $records->count() > $limit;
+        $records = $records->take($limit);
+
+        $items = [];
+        foreach ($records as $record) {
+            $items[] = $this->toDomain($record);
+        }
+
+        $last = $records->last();
+
+        return [
+            'items' => $items,
+            'nextCursor' => $hasMore && $last !== null
+                ? Cursor::encode($last->created_at->format('Y-m-d H:i:s.uP'), $last->id)
+                : null,
+        ];
     }
 
     public function redactContentCreatedBefore(DateTimeImmutable $before): int

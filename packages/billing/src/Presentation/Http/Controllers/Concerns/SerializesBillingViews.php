@@ -11,6 +11,8 @@ use Core\Billing\Contracts\InvoiceView;
 use Core\Billing\Contracts\PlanVersionView;
 use Core\Billing\Contracts\PlanView;
 use Core\Billing\Contracts\SubscriptionView;
+use Core\Billing\Contracts\UsageRecordRow;
+use DateTimeInterface;
 
 /**
  * The public API's shape of the billing read models.
@@ -22,6 +24,25 @@ use Core\Billing\Contracts\SubscriptionView;
  */
 trait SerializesBillingViews
 {
+    /**
+     * One line of the usage journal (ADR-0088 §2).
+     *
+     * @return array<string, mixed>
+     */
+    protected function usageRecord(UsageRecordRow $row): array
+    {
+        return [
+            'id' => $row->id,
+            'customer_ref' => $row->customerRef,
+            'meter' => $row->meter,
+            'quantity' => $row->quantity,
+            'source' => $row->source,
+            'idempotency_key' => $row->idempotencyKey,
+            'occurred_at' => $this->instant($row->occurredAt),
+            'recorded_at' => $this->instant($row->recordedAt),
+        ];
+    }
+
     /**
      * ADR-0070 §Sécurité — the email and the phone leave the Core only
      * to a caller holding `customers:read`. A `customers:write`-only key
@@ -221,5 +242,16 @@ trait SerializesBillingViews
             'period_start' => $view->periodStart,
             'period_end' => $view->periodEnd,
         ];
+    }
+
+    /**
+     * The database hands a timestamp over as « 2026-10-29 09:00:00.1+00 »;
+     * the contract speaks RFC 3339.
+     */
+    private function instant(string $moment): string
+    {
+        $parsed = date_create_immutable($moment);
+
+        return $parsed === false ? $moment : $parsed->format(DateTimeInterface::RFC3339);
     }
 }

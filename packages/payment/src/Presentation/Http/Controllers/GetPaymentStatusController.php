@@ -8,8 +8,11 @@ use Core\Identity\Contracts\ProjectContext;
 use Core\Payment\Contracts\GetPaymentStatus;
 use Core\Payment\Contracts\GetPaymentStatusCommand;
 use Core\Payment\Domain\Exception\PaymentNotFound;
+use Core\Payment\Presentation\Http\Presenters\PaymentJson;
+use Core\Payment\Presentation\Http\Responses\PaymentResponses;
 use Core\Support\Access\AccessScope;
 use Core\Support\Http\ProblemDetails;
+use Dedoc\Scramble\Attributes\Response as ScrambleResponse;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -34,6 +37,7 @@ final class GetPaymentStatusController
      *
      * @throws PaymentNotFound the payment doesn't exist, or belongs to another project (404)
      */
+    #[ScrambleResponse(status: 200, type: PaymentResponses::PAYMENT, description: 'The current status of the payment.')]
     public function __invoke(string $paymentId, ProjectContext $project): JsonResponse|Response
     {
         if (! $project->hasScope('payments:read')) {
@@ -49,18 +53,6 @@ final class GetPaymentStatusController
 
         // ADR-0061 — same shape as the creation response, plus `updated_at`.
         // `is_final` tells the caller whether to keep waiting.
-        return new JsonResponse([
-            'id' => $view->id,
-            'status' => $view->status,
-            'is_final' => $view->isFinal,
-            'amount' => $view->amount,
-            'currency' => $view->currency,
-            'channel' => $view->channel,
-            'created_at' => $view->createdAt,
-            'updated_at' => $view->updatedAt,
-            ...($view->paymentUrl !== null && ! $view->isFinal ? ['payment_url' => $view->paymentUrl] : []),
-            ...($view->actionHint !== null && ! $view->isFinal ? ['action_hint' => $view->actionHint] : []),
-            ...($view->isFinal && $view->status !== 'succeeded' && $view->errorMessage !== null ? ['failure_reason' => $view->errorMessage] : []),
-        ]);
+        return new JsonResponse(PaymentJson::status($view));
     }
 }

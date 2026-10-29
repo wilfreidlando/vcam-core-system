@@ -122,6 +122,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // ADR-0062 / D5: notification content (phone numbers…) kept 90 days.
         $schedule->command('notification:redact-expired')->dailyAt('03:27')->withoutOverlapping();
 
+        // ADR-0088 §3: the files of the project exports are deleted after seven
+        // days. Idempotent: the record stays, the file goes once.
+        $schedule->command('exports:purge-expired')->dailyAt('03:37')->withoutOverlapping()->onOneServer();
+
         // ADR-0072 §8: the renewal scheduler — the next period is
         // prepared before its deadline, the periods roll over at it. One
         // server runs the pass, and a pass still running is not started

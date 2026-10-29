@@ -155,6 +155,11 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.ledger', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.usage', Nature::Project, Outcome::NotFound),
 
+            // ADR-0088 §3 — the export of a project's data.
+            Entry::isolated('admin.projects.exports', Nature::Project, Outcome::NotFound),
+            Entry::isolated('admin.projects.exports.store', Nature::Project, Outcome::NotFound),
+            Entry::isolated('admin.projects.exports.download', Nature::Export, Outcome::NotFound, ownParent: Outcome::NotFound, control: true),
+
             Entry::isolated('admin.projects.plans.index', Nature::Plan, Outcome::NotFound, control: true),
             Entry::isolated('admin.projects.plans.new', Nature::Plan, Outcome::NotFound),
             Entry::isolated('admin.projects.plans.store', Nature::Plan, Outcome::NotFound),

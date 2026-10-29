@@ -21,6 +21,9 @@ use Core\Billing\Contracts\RecordManualReceipt;
 use Core\Billing\Contracts\RecordManualReceiptCommand;
 use Core\Billing\Contracts\UpsertCustomer;
 use Core\Billing\Contracts\UpsertCustomerCommand;
+use Core\Export\Domain\Model\ExportStatus;
+use Core\Export\Domain\Model\ProjectExport;
+use Core\Export\Domain\Port\ExportRepository;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Contracts\CreateProject;
@@ -89,6 +92,7 @@ final class IdorScenarioFactory
         'notification_channel_sessions', 'notifications', 'payments', 'wallets', 'money_exceptions', 'event_outbox',
         'ledger_adjustments', 'ledger_transactions', 'ledger_accounts',
         'invoices', 'invoice_lines', 'invoice_number_sequences', 'invoice_payments', 'manual_receipts',
+        'exports',
     ];
 
     private const ORGANIZATION_TABLES = ['projects', 'organization_memberships', 'organization_invitations'];
@@ -218,6 +222,25 @@ final class IdorScenarioFactory
                 ));
 
                 return new ResourceRequest(['projectId' => $projectId, 'notificationId' => $notificationId], markers: [$notificationId, $content]);
+
+            case ResourceNature::Export:
+                // A finished export that still holds its file: the
+                // download is the route under test.
+                $exportId = (string) Str::uuid();
+                $now = new DateTimeImmutable;
+                app(ExportRepository::class)->create(new ProjectExport(
+                    id: $exportId,
+                    projectId: $owner->project->id,
+                    status: ExportStatus::Done,
+                    requestedBy: 'operator:idor',
+                    createdAt: $now,
+                    finishedAt: $now,
+                    expiresAt: $now->modify('+7 days'),
+                    filePath: $owner->project->id.'/'.$exportId.'.zip.enc',
+                    error: null,
+                ));
+
+                return new ResourceRequest(['projectId' => $projectId, 'exportId' => $exportId], markers: [$exportId]);
 
             case ResourceNature::Payment:
                 $paymentId = (string) Str::uuid();

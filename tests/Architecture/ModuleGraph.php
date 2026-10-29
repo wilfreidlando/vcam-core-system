@@ -60,6 +60,9 @@ final class ModuleGraph
         // notification: ADR-0100 — the code of the direct login leaves through
         // SendTextNotification (portal → notification → billing: no cycle).
         'portal' => ['support', 'identity', 'billing', 'payment', 'audit', 'notification'],
+        // ADR-0101 — the export of a project (ADR-0088 §3): a hub like `admin`, but it
+        // only reads what the public API already shows, through each module's Contracts.
+        'export' => ['support', 'identity', 'audit', 'ledger', 'billing', 'payment', 'notification', 'wallet'],
         'storage' => ['support', 'identity'],
         'developer-platform' => ['support', 'identity'],
 
@@ -92,6 +95,7 @@ final class ModuleGraph
         'audit' => 'Audit',
         'billing' => 'Billing',
         'portal' => 'Portal',
+        'export' => 'Export',
         'storage' => 'Storage',
         'developer-platform' => 'DeveloperPlatform',
         'admin' => 'Admin',

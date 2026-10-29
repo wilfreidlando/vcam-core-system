@@ -8,7 +8,10 @@ use Core\Identity\Contracts\ProjectContext;
 use Core\Notification\Contracts\GetNotificationStatus;
 use Core\Notification\Contracts\GetNotificationStatusCommand;
 use Core\Notification\Domain\Exception\NotificationNotFound;
+use Core\Notification\Presentation\Http\Presenters\NotificationJson;
+use Core\Notification\Presentation\Http\Responses\NotificationResponses;
 use Core\Support\Http\ProblemDetails;
+use Dedoc\Scramble\Attributes\Response as ScrambleResponse;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -27,6 +30,7 @@ final class GetNotificationStatusController
      *
      * @throws NotificationNotFound the notification doesn't exist, or belongs to another project (404)
      */
+    #[ScrambleResponse(status: 200, type: NotificationResponses::STATUS, description: 'The current status of the notification.')]
     public function __invoke(string $notificationId, ProjectContext $project): JsonResponse|Response
     {
         if (! $project->hasScope('notifications:read')) {
@@ -35,12 +39,6 @@ final class GetNotificationStatusController
 
         $view = $this->getNotificationStatus->get(new GetNotificationStatusCommand($notificationId, $project->projectId));
 
-        return new JsonResponse([
-            'id' => $view->id,
-            'channel' => $view->channel,
-            'status' => $view->status,
-            'content_type' => $view->contentType,
-            'error_message' => $view->errorMessage,
-        ]);
+        return new JsonResponse(NotificationJson::status($view));
     }
 }

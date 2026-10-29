@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3acb3a3047a1803de10f962c9e69142c",
+    "content-hash": "166f09e729c2615eee766063064a140a",
     "packages": [
         {
             "name": "brick/math",
@@ -368,13 +368,14 @@
             "dist": {
                 "type": "path",
                 "url": "packages/admin",
-                "reference": "312bf36ca47882edbd056a77e56bd18c8a4b68ed"
+                "reference": "a559032bc4554333b4c4bf02da45bba395089c4a"
             },
             "require": {
                 "core/audit": "*@dev",
                 "core/identity": "*@dev",
                 "core/notification": "*@dev",
                 "core/payment": "*@dev",
+                "core/portal": "*@dev",
                 "core/support": "*@dev",
                 "core/wallet": "*@dev",
                 "core/webhook": "*@dev",
@@ -558,6 +559,51 @@
                 "proprietary"
             ],
             "description": "Standardized event model, transactional outbox, relay and internal dispatch.",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "core/export",
+            "version": "dev-develop",
+            "dist": {
+                "type": "path",
+                "url": "packages/export",
+                "reference": "cdd2c8a70658aba1bb20a742842fded2bc4c56bb"
+            },
+            "require": {
+                "core/audit": "*@dev",
+                "core/billing": "*@dev",
+                "core/identity": "*@dev",
+                "core/ledger": "*@dev",
+                "core/notification": "*@dev",
+                "core/payment": "*@dev",
+                "core/support": "*@dev",
+                "core/wallet": "*@dev",
+                "php": "^8.4"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Core\\Export\\ExportServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Core\\Export\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Core\\Export\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Core Export: the asynchronous, encrypted, time-limited export of everything a project produced, in the public API's shape (ADR-0088 §3).",
             "transport-options": {
                 "relative": true
             }
@@ -802,12 +848,13 @@
             "dist": {
                 "type": "path",
                 "url": "packages/portal",
-                "reference": "4d7755385a737b346e070cb5ea0d3b2c5adb0756"
+                "reference": "b45ea1eb29b38a49bb8c380a0939daf7b64e33f6"
             },
             "require": {
                 "core/audit": "*@dev",
                 "core/billing": "*@dev",
                 "core/identity": "*@dev",
+                "core/notification": "*@dev",
                 "core/payment": "*@dev",
                 "core/support": "*@dev",
                 "php": "^8.4"
@@ -14053,6 +14100,7 @@
         "core/billing": 20,
         "core/developer-platform": 20,
         "core/events": 20,
+        "core/export": 20,
         "core/fees": 20,
         "core/identity": 20,
         "core/ledger": 20,

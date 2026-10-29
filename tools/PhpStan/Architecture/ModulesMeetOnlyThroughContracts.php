@@ -91,6 +91,15 @@ final class ModulesMeetOnlyThroughContracts
         return $this->contractsOnly('Portal');
     }
 
+    /**
+     * ADR-0101 — the export of a project reads what the public API shows,
+     * through each module's published `Contracts\` only.
+     */
+    public function test_export_uses_other_modules_through_contracts_only(): Rule
+    {
+        return $this->contractsOnly('Export');
+    }
+
     public function test_storage_uses_other_modules_through_contracts_only(): Rule
     {
         return $this->contractsOnly('Storage');

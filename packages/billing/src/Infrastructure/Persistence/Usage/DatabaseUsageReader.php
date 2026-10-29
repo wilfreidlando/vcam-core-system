@@ -9,6 +9,7 @@ use Core\Billing\Contracts\UsageCounterRow;
 use Core\Billing\Contracts\UsagePage;
 use Core\Billing\Contracts\UsageRecordRow;
 use Core\Billing\Infrastructure\Persistence\Cursor;
+use DateTimeImmutable;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -80,6 +81,60 @@ final class DatabaseUsageReader implements UsageReader
         $this->after($query, 'r.recorded_at', 'r.id', $cursor);
 
         $rows = $query->orderByDesc('r.recorded_at')->orderByDesc('r.id')->limit($limit + 1)->get();
+        $more = $rows->count() > $limit;
+        $items = [];
+
+        foreach ($rows->take($limit) as $row) {
+            $items[] = new UsageRecordRow(
+                $this->string($row->id),
+                is_string($row->external_ref) ? $row->external_ref : null,
+                $this->string($row->meter),
+                $this->int($row->quantity),
+                $this->string($row->source),
+                $this->string($row->idempotency_key),
+                $this->string($row->occurred_at),
+                $this->string($row->recorded_at),
+            );
+        }
+
+        $last = $rows->take($limit)->last();
+
+        return new UsagePage($items, $more && $last !== null ? Cursor::encode($this->string($last->recorded_at), $this->string($last->id)) : null);
+    }
+
+    public function journal(string $projectId, ?string $meter, ?string $customerRef, ?DateTimeImmutable $createdFrom, ?DateTimeImmutable $createdTo, ?string $cursor, int $limit): UsagePage
+    {
+        $query = DB::table('usage_records as r')
+            ->leftJoin('customers as u', function (JoinClause $join): void {
+                $join->on('u.id', '=', 'r.customer_id')->on('u.project_id', '=', 'r.project_id');
+            })
+            ->where('r.project_id', $projectId)
+            ->select(['r.id', 'r.meter', 'r.quantity', 'r.source', 'r.idempotency_key', 'r.occurred_at', 'r.recorded_at', 'u.external_ref']);
+
+        if ($meter !== null && $meter !== '') {
+            $query->where('r.meter', $meter);
+        }
+
+        if ($customerRef !== null && $customerRef !== '') {
+            $query->where('u.external_ref', $customerRef);
+        }
+
+        if ($createdFrom !== null) {
+            $query->where('r.recorded_at', '>=', $createdFrom->format('Y-m-d H:i:s.uP'));
+        }
+
+        if ($createdTo !== null) {
+            $query->where('r.recorded_at', '<', $createdTo->format('Y-m-d H:i:s.uP'));
+        }
+
+        if ($cursor !== null && $cursor !== '') {
+            [$moment, $id] = Cursor::decode($cursor);
+
+            // A row-value comparison: one index range instead of an OR.
+            $query->whereRaw('(r.recorded_at, r.id) > (?::timestamptz, ?::uuid)', [$moment, $id]);
+        }
+
+        $rows = $query->orderBy('r.recorded_at')->orderBy('r.id')->limit($limit + 1)->get();
         $more = $rows->count() > $limit;
         $items = [];
 

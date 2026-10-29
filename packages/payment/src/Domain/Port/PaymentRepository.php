@@ -7,6 +7,7 @@ namespace Core\Payment\Domain\Port;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\PaymentStatus;
 use DateTimeImmutable;
+use InvalidArgumentException;
 
 interface PaymentRepository
 {
@@ -93,6 +94,20 @@ interface PaymentRepository
      * @return array{items: list<Payment>, total: int}
      */
     public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage, ?array $projectIds = null): array;
+
+    /**
+     * ADR-0088 §2 — one project's payments, **oldest first**, ordered by
+     * the stable `(created_at, id)` pair and read from an opaque cursor.
+     * A row written while the listing is read is appended after the ones
+     * already read: nothing is repeated, nothing older is skipped.
+     *
+     * @param DateTimeImmutable|null $createdFrom inclusive
+     * @param DateTimeImmutable|null $createdTo exclusive
+     * @return array{items: list<Payment>, nextCursor: ?string}
+     *
+     * @throws InvalidArgumentException the cursor is not one this listing issued
+     */
+    public function listByCursor(string $projectId, ?PaymentStatus $status, ?DateTimeImmutable $createdFrom, ?DateTimeImmutable $createdTo, ?string $cursor, int $limit): array;
 
     /**
      * A pure count of the same candidate set `findStuckSince()` would

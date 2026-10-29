@@ -1932,6 +1932,291 @@
                 "x-required-scopes": [
                     "usage:write"
                 ]
+            },
+            "get": {
+                "operationId": "usage.list",
+                "description": "Every call counted by `POST /v1/usage`, oldest first, in a stable\norder: reading the whole journal while new usage is recorded neither\nrepeats nor skips a line recorded before you started. Pass\n`next_cursor` back as `cursor` to read the next page, and `null`\nwhen there is no more. `created_from` is inclusive and `created_to`\nexclusive, on the instant the line was recorded.\n\nRequires the `usage:read` scope.",
+                "summary": "List the calling Project's usage journal",
+                "tags": [
+                    "Billing"
+                ],
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Opaque cursor: the `next_cursor` of the previous page, absent on the first.",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 512
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Lines per page, from 1 to 100 (50 by default).",
+                        "schema": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "example": 50
+                    },
+                    {
+                        "name": "meter",
+                        "in": "query",
+                        "description": "Only this meter.",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "pattern": "^[a-z0-9_.]{1,64}$"
+                        },
+                        "example": "students"
+                    },
+                    {
+                        "name": "customer_ref",
+                        "in": "query",
+                        "description": "Only the usage attributed to this customer.",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "pattern": "^[A-Za-z0-9._:-]+$",
+                            "maxLength": 128
+                        },
+                        "example": "AE0001"
+                    },
+                    {
+                        "name": "created_from",
+                        "in": "query",
+                        "description": "Only the lines recorded at or after this instant (ISO 8601).",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "format": "date-time"
+                        },
+                        "example": "2026-10-01T00:00:00Z"
+                    },
+                    {
+                        "name": "created_to",
+                        "in": "query",
+                        "description": "Only the lines recorded strictly before this instant (ISO 8601).",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "format": "date-time"
+                        },
+                        "example": "2026-11-01T00:00:00Z"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of usage lines, and the cursor of the next one.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "customer_ref": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "meter": {
+                                                        "type": "string"
+                                                    },
+                                                    "quantity": {
+                                                        "type": "integer"
+                                                    },
+                                                    "source": {
+                                                        "type": "string"
+                                                    },
+                                                    "idempotency_key": {
+                                                        "type": "string"
+                                                    },
+                                                    "occurred_at": {
+                                                        "type": "string"
+                                                    },
+                                                    "recorded_at": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "id",
+                                                    "customer_ref",
+                                                    "meter",
+                                                    "quantity",
+                                                    "source",
+                                                    "idempotency_key",
+                                                    "occurred_at",
+                                                    "recorded_at"
+                                                ]
+                                            }
+                                        },
+                                        "next_cursor": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "next_cursor"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/validation-failed"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "The request payload is invalid"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "usage:read"
+                ]
             }
         },
         "/customers/{externalRef}/entitlements": {
@@ -8098,6 +8383,383 @@
                 ]
             }
         },
+        "/exports": {
+            "post": {
+                "operationId": "exports.create",
+                "description": "Asks for the export of everything the project produced \u2014 customers,\nplans, subscriptions, invoices, payments, notifications, usage,\nwallets and their movements, ledger transactions and the trial\nbalance \u2014 as one `.zip` of JSON Lines files, one file per type of\nobject, each line in the shape the API returns. The export is built\noutside the request: the response is `202` with the export in\n`queued` status; poll `GET /v1/exports/{id}` until it is `done`.\nThe file is kept seven days.\n\nRequires the `exports:write` scope and an `Idempotency-Key` header:\nthe same key returns the same export instead of starting another.",
+                "summary": "Export the calling Project's data",
+                "tags": [
+                    "Export"
+                ],
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "description": "Caller-supplied unique key used for both the HTTP-level response cache and the use case's own duplicate-effect guard. Same key + same body = cached response, never a second effect. Same key + different body = 409. Mandatory on every route that moves money.",
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 255
+                        },
+                        "example": "01HMZ9XK3P-9XK3P-9XK3P"
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The export is accepted and queued.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "created_at": {
+                                            "type": "string"
+                                        },
+                                        "finished_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "expires_at": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "download_url": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "download_url_expires_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "status",
+                                        "created_at",
+                                        "finished_at",
+                                        "expires_at",
+                                        "error",
+                                        "download_url",
+                                        "download_url_expires_at"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Idempotency-Key header is required",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-required"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key header is required"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 400
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "This route mutates state and must be called with an Idempotency-Key header."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Idempotency-Key was reused",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/idempotency-key-conflict"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Idempotency-Key was reused"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 409
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "Either a concurrent request with this Idempotency-Key is still in flight, or the key was reused with a different request body."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "exports:write"
+                ]
+            }
+        },
+        "/exports/{exportId}": {
+            "get": {
+                "operationId": "exports.get",
+                "description": "While the export is `queued` or `running`, poll again. When it is\n`done`, `download_url` is a **signed link valid for 15 minutes**:\nit needs no API key, so fetch it from your server and do not share\nit. Each call to this route returns a fresh link as long as the\nfile exists \u2014 the file itself is deleted seven days after the\nrequest, `expires_at`. A `failed` export carries its `error`.\n\nRequires the `exports:write` scope, and returns the same not-found\nresponse whether the export doesn't exist or belongs to another\nproject.",
+                "summary": "Get an export's status and its download link",
+                "tags": [
+                    "Export"
+                ],
+                "parameters": [
+                    {
+                        "name": "exportId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The export, with a signed download link once it is done.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "created_at": {
+                                            "type": "string"
+                                        },
+                                        "finished_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "expires_at": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "download_url": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "download_url_expires_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "status",
+                                        "created_at",
+                                        "finished_at",
+                                        "expires_at",
+                                        "error",
+                                        "download_url",
+                                        "download_url_expires_at"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Export not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/export-not-found"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Export not found"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error."
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "exports:write"
+                ]
+            }
+        },
         "/whoami": {
             "get": {
                 "operationId": "identity.whoami",
@@ -8724,6 +9386,295 @@
                 ]
             }
         },
+        "/notifications": {
+            "get": {
+                "operationId": "notifications.list",
+                "description": "The listing is paginated by an opaque cursor: pass `next_cursor`\nback as `cursor` to read the next page, and `null` when there is\nno more. Notifications come oldest first, in a stable order, so\nreading the whole listing while new notifications are sent neither\nrepeats nor skips one created before you started. `created_from`\nis inclusive and `created_to` exclusive. Each item has the shape\nof `GET /v1/notifications/{id}`, plus its `created_at`; the\ncontent and the recipient are never listed.\n\nRequires the `notifications:read` scope.",
+                "summary": "List the calling Project's notifications",
+                "tags": [
+                    "Notification"
+                ],
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Opaque cursor: the `next_cursor` of the previous page, absent on the first.",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 512
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Notifications per page, from 1 to 100 (50 by default).",
+                        "schema": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "example": 50
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Only the notifications in this status.",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "enum": [
+                                "queued",
+                                "sent",
+                                "delivered",
+                                "read",
+                                "failed",
+                                null
+                            ]
+                        },
+                        "example": "delivered"
+                    },
+                    {
+                        "name": "channel",
+                        "in": "query",
+                        "description": "Only the notifications sent through this channel.",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "pattern": "^[a-z][a-z0-9_]*$",
+                            "maxLength": 64
+                        },
+                        "example": "whatsapp"
+                    },
+                    {
+                        "name": "created_from",
+                        "in": "query",
+                        "description": "Only the notifications created at or after this instant (ISO 8601).",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "format": "date-time"
+                        },
+                        "example": "2026-10-01T00:00:00Z"
+                    },
+                    {
+                        "name": "created_to",
+                        "in": "query",
+                        "description": "Only the notifications created strictly before this instant (ISO 8601).",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "format": "date-time"
+                        },
+                        "example": "2026-11-01T00:00:00Z"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of notifications, and the cursor of the next one.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "channel": {
+                                                        "type": "string"
+                                                    },
+                                                    "status": {
+                                                        "type": "string"
+                                                    },
+                                                    "content_type": {
+                                                        "type": "string"
+                                                    },
+                                                    "error_message": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "created_at": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                },
+                                                "required": [
+                                                    "id",
+                                                    "channel",
+                                                    "status",
+                                                    "content_type",
+                                                    "error_message",
+                                                    "created_at"
+                                                ]
+                                            }
+                                        },
+                                        "next_cursor": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "next_cursor"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/validation-failed"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "The request payload is invalid"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "notifications:read"
+                ]
+            }
+        },
         "/notifications/{notificationId}": {
             "get": {
                 "operationId": "notifications.status",
@@ -8744,7 +9695,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "",
+                        "description": "The current status of the notification.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -10182,6 +11133,298 @@
                 "x-required-scopes": [
                     "payments:write"
                 ]
+            },
+            "get": {
+                "operationId": "payments.list",
+                "description": "The listing is paginated by an opaque cursor: pass `next_cursor`\nback as `cursor` to read the next page, and `null` when there is\nno more. Payments come oldest first, in a stable order, so reading\nthe whole listing while new payments arrive neither repeats nor\nskips a payment created before you started. `created_from` is\ninclusive and `created_to` exclusive. Each item has the shape of\n`GET /v1/payments/{id}`.\n\nRequires the `payments:read` scope.",
+                "summary": "List the calling Project's payments",
+                "tags": [
+                    "Payment"
+                ],
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Opaque cursor: the `next_cursor` of the previous page, absent on the first.",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 512
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Payments per page, from 1 to 100 (50 by default).",
+                        "schema": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "example": 50
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Only the payments in this status.",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "enum": [
+                                "pending",
+                                "processing",
+                                "succeeded",
+                                "failed",
+                                "expired",
+                                "refunded",
+                                "canceled",
+                                null
+                            ]
+                        },
+                        "example": "succeeded"
+                    },
+                    {
+                        "name": "created_from",
+                        "in": "query",
+                        "description": "Only the payments created at or after this instant (ISO 8601).",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "format": "date-time"
+                        },
+                        "example": "2026-10-01T00:00:00Z"
+                    },
+                    {
+                        "name": "created_to",
+                        "in": "query",
+                        "description": "Only the payments created strictly before this instant (ISO 8601).",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "format": "date-time"
+                        },
+                        "example": "2026-11-01T00:00:00Z"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of payments, and the cursor of the next one.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "status": {
+                                                        "type": "string"
+                                                    },
+                                                    "is_final": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "amount": {
+                                                        "type": "integer"
+                                                    },
+                                                    "currency": {
+                                                        "type": "string"
+                                                    },
+                                                    "channel": {
+                                                        "type": "string"
+                                                    },
+                                                    "created_at": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "updated_at": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "payment_url": {
+                                                        "type": "string"
+                                                    },
+                                                    "action_hint": {
+                                                        "type": "string"
+                                                    },
+                                                    "failure_reason": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "id",
+                                                    "status",
+                                                    "is_final",
+                                                    "amount",
+                                                    "currency",
+                                                    "channel",
+                                                    "created_at",
+                                                    "updated_at"
+                                                ]
+                                            }
+                                        },
+                                        "next_cursor": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "next_cursor"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/validation-failed"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "The request payload is invalid"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "payments:read"
+                ]
             }
         },
         "/payments/paylink": {
@@ -11444,81 +12687,50 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "",
+                        "description": "The current status of the payment.",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "type": "object",
                                     "properties": {
                                         "id": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string"
-                                                },
-                                                {}
-                                            ]
+                                            "type": "string"
                                         },
                                         "status": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string"
-                                                },
-                                                {}
-                                            ]
+                                            "type": "string"
                                         },
                                         "is_final": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "boolean"
-                                                },
-                                                {}
-                                            ]
+                                            "type": "boolean"
                                         },
                                         "amount": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "integer"
-                                                },
-                                                {}
-                                            ]
+                                            "type": "integer"
                                         },
                                         "currency": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string"
-                                                },
-                                                {}
-                                            ]
+                                            "type": "string"
                                         },
                                         "channel": {
-                                            "anyOf": [
-                                                {
-                                                    "type": "string"
-                                                },
-                                                {}
-                                            ]
+                                            "type": "string"
                                         },
                                         "created_at": {
-                                            "anyOf": [
-                                                {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                {}
+                                            "type": [
+                                                "string",
+                                                "null"
                                             ]
                                         },
                                         "updated_at": {
-                                            "anyOf": [
-                                                {
-                                                    "type": [
-                                                        "string",
-                                                        "null"
-                                                    ]
-                                                },
-                                                {}
+                                            "type": [
+                                                "string",
+                                                "null"
                                             ]
+                                        },
+                                        "payment_url": {
+                                            "type": "string"
+                                        },
+                                        "action_hint": {
+                                            "type": "string"
+                                        },
+                                        "failure_reason": {
+                                            "type": "string"
                                         }
                                     },
                                     "required": [
@@ -11530,8 +12742,7 @@
                                         "channel",
                                         "created_at",
                                         "updated_at"
-                                    ],
-                                    "additionalProperties": {}
+                                    ]
                                 }
                             }
                         }
@@ -11824,6 +13035,15 @@
                                             "items": {
                                                 "type": "string"
                                             }
+                                        },
+                                        "direct_login_enabled": {
+                                            "type": "boolean"
+                                        },
+                                        "direct_login_session": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
                                         }
                                     },
                                     "required": [
@@ -11835,7 +13055,9 @@
                                         "allowed_return_urls",
                                         "allow_self_cancel",
                                         "allow_plan_change",
-                                        "payment_channels"
+                                        "payment_channels",
+                                        "direct_login_enabled",
+                                        "direct_login_session"
                                     ]
                                 }
                             }
@@ -11944,6 +13166,15 @@
                                             "items": {
                                                 "type": "string"
                                             }
+                                        },
+                                        "direct_login_enabled": {
+                                            "type": "boolean"
+                                        },
+                                        "direct_login_session": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
                                         }
                                     },
                                     "required": [
@@ -11955,7 +13186,9 @@
                                         "allowed_return_urls",
                                         "allow_self_cancel",
                                         "allow_plan_change",
-                                        "payment_channels"
+                                        "payment_channels",
+                                        "direct_login_enabled",
+                                        "direct_login_session"
                                     ]
                                 }
                             }
@@ -14975,6 +16208,21 @@
                             "maxLength": 32
                         },
                         "maxItems": 10
+                    },
+                    "direct_login_enabled": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ],
+                        "description": "Offer your customers a login by code on the portal page\n`/portal/{project_id}/login` (off by default). The code is sent on\nWhatsApp from `direct_login_session`, which is required to enable it."
+                    },
+                    "direct_login_session": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The name of one of your WhatsApp sessions (the one you put in `variables.session`).",
+                        "maxLength": 64
                     }
                 },
                 "required": [

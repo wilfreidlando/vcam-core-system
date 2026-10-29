@@ -80,6 +80,19 @@ final class InMemoryNotificationRepository implements NotificationRepository
         return ['items' => array_slice($matching, $offset, $perPage), 'total' => $total];
     }
 
+    public function listByCursor(string $projectId, ?NotificationStatus $status, ?string $channel, ?DateTimeImmutable $createdFrom, ?DateTimeImmutable $createdTo, ?string $cursor, int $limit): array
+    {
+        $matching = array_values(array_filter(
+            $this->notifications,
+            static fn (Notification $notification): bool => $notification->projectId === $projectId
+                && ($status === null || $notification->status === $status)
+                && ($channel === null || $notification->channel === $channel),
+        ));
+
+        // The ordering and the cursor are proven against the real database.
+        return ['items' => array_slice($matching, 0, $limit), 'nextCursor' => null];
+    }
+
     public function redactContentCreatedBefore(DateTimeImmutable $before): int
     {
         return 0;
