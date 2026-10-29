@@ -82,6 +82,11 @@ deptrac:
         - type: directory
           value: packages/billing/.*
 
+    - name: Portal
+      collectors:
+        - type: directory
+          value: packages/portal/.*
+
     - name: Storage
       collectors:
         - type: directory
@@ -146,6 +151,7 @@ deptrac:
       - Identity
       - Parties
       - Events
+      - Billing
 
     Billing:
       - Support
@@ -153,6 +159,14 @@ deptrac:
       - Payment
       - Ledger
       - Events
+
+    # ADR-0075 — reads and acts through billing's Contracts only.
+    Portal:
+      - Support
+      - Identity
+      - Billing
+      - Payment
+      - Audit
 
     Storage:
       - Support
@@ -176,5 +190,6 @@ deptrac:
       - Notification
       - Audit
       - Billing
+      - Portal
       - Storage
       - DeveloperPlatform

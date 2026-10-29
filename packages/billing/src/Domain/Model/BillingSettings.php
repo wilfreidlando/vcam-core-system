@@ -20,6 +20,7 @@ final readonly class BillingSettings
 {
     /**
      * @param array<string, mixed> $documentBranding the free marks of the printed documents
+     * @param array<string, string> $meterMappings which capability of the Core feeds which meter (ADR-0074 §5)
      */
     public function __construct(
         public string $projectId,
@@ -32,7 +33,20 @@ final readonly class BillingSettings
         public int $manualReceiptApprovalThresholdMinor = 0,
         public bool $retainInvoiceIdentity = true,
         public array $documentBranding = [],
+        public array $meterMappings = [],
+        public bool $refundFailedUsage = true,
+        public bool $requireCustomerRef = false,
     ) {}
+
+    /**
+     * The meter a capability of the Core feeds, or null when the project
+     * declared none — a capability without a mapping is never counted
+     * (ADR-0074 §5).
+     */
+    public function meterFor(string $capability): ?string
+    {
+        return $this->meterMappings[$capability] ?? null;
+    }
 
     /**
      * The settings of a project that has not changed anything: Douala for
@@ -57,6 +71,9 @@ final readonly class BillingSettings
             manualReceiptApprovalThresholdMinor: 0,
             retainInvoiceIdentity: true,
             documentBranding: [],
+            meterMappings: [],
+            refundFailedUsage: true,
+            requireCustomerRef: false,
         );
     }
 

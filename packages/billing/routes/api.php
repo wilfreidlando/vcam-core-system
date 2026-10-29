@@ -5,12 +5,14 @@ declare(strict_types=1);
 use Core\Billing\Presentation\Http\Controllers\ArchivePlanController;
 use Core\Billing\Presentation\Http\Controllers\CancelSubscriptionController;
 use Core\Billing\Presentation\Http\Controllers\ChangeSubscriptionPlanController;
+use Core\Billing\Presentation\Http\Controllers\ConsumeUsageController;
 use Core\Billing\Presentation\Http\Controllers\CreateInvoiceController;
 use Core\Billing\Presentation\Http\Controllers\CreatePlanController;
 use Core\Billing\Presentation\Http\Controllers\CreatePlanVersionController;
 use Core\Billing\Presentation\Http\Controllers\CreateSubscriptionController;
 use Core\Billing\Presentation\Http\Controllers\EraseCustomerController;
 use Core\Billing\Presentation\Http\Controllers\GetCustomerController;
+use Core\Billing\Presentation\Http\Controllers\GetEntitlementsController;
 use Core\Billing\Presentation\Http\Controllers\GetInvoiceController;
 use Core\Billing\Presentation\Http\Controllers\GetInvoiceDocumentController;
 use Core\Billing\Presentation\Http\Controllers\GetSubscriptionController;
@@ -67,6 +69,15 @@ Route::middleware(['project.auth'])
         Route::post('/customers/{externalRef}/erase', EraseCustomerController::class)
             ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
             ->name('customers.erase');
+
+        // usage et droits — ADR-0074 §4
+        //
+        // Not a money route (G7): the idempotency of a metered call is its
+        // own `idempotency_key`, part of the atomic admission.
+        Route::post('/usage', ConsumeUsageController::class)->name('usage.consume');
+        Route::get('/customers/{externalRef}/entitlements', GetEntitlementsController::class)
+            ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+            ->name('customers.entitlements');
 
         // catalogue — ADR-0071 §5
         Route::get('/plans', ListPlansController::class)->name('plans.list');

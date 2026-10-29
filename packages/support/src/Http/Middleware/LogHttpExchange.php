@@ -46,7 +46,7 @@ final readonly class LogHttpExchange
         $this->logger->info('http.request.received', [
             'http' => [
                 'method' => $request->getMethod(),
-                'path' => '/'.ltrim($request->path(), '/'),
+                'path' => $this->path($request),
                 'query' => $this->redactor->redact($request->query->all()),
                 'client_ip' => $request->ip(),
                 'user_agent' => $this->truncate((string) $request->userAgent()),
@@ -61,7 +61,7 @@ final readonly class LogHttpExchange
             $this->logger->error('http.response.sent', [
                 'http' => [
                     'method' => $request->getMethod(),
-                    'path' => '/'.ltrim($request->path(), '/'),
+                    'path' => $this->path($request),
                     'route' => $request->route()?->getName(),
                     'status' => 500,
                     'duration_ms' => $this->elapsedMs($startedAt),
@@ -76,7 +76,7 @@ final readonly class LogHttpExchange
         $context = [
             'http' => [
                 'method' => $request->getMethod(),
-                'path' => '/'.ltrim($request->path(), '/'),
+                'path' => $this->path($request),
                 'route' => $request->route()?->getName(),
                 'status' => $status,
                 'duration_ms' => $this->elapsedMs($startedAt),
@@ -98,6 +98,40 @@ final readonly class LogHttpExchange
         return $response;
     }
 
+    private function path(Request $request): string
+    {
+        $scrubbed = $this->scrub('/'.ltrim($request->path(), '/'));
+
+        return is_string($scrubbed) ? $scrubbed : '/';
+    }
+
+    /**
+     * Masks what a key-based redaction cannot see: a secret that lives in a
+     * URL (a one-time link is `…/portal/enter/<token>`; logged, it would be
+     * a working credential for ten minutes). The patterns are configuration
+     * (`observability.http_log.scrub`: regex → replacement) so this shared
+     * kernel knows no module.
+     */
+    private function scrub(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            return array_map($this->scrub(...), $value);
+        }
+
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        /** @var array<string, string> $rules */
+        $rules = (array) config('observability.http_log.scrub', []);
+
+        foreach ($rules as $pattern => $replacement) {
+            $value = preg_replace($pattern, $replacement, $value) ?? $value;
+        }
+
+        return $value;
+    }
+
     private function enabled(): bool
     {
         return (bool) config('observability.http_log.enabled', true);
@@ -117,7 +151,7 @@ final readonly class LogHttpExchange
             $decoded = json_decode($request->getContent(), true);
 
             return is_array($decoded)
-                ? $this->limit($this->redactor->redact($decoded))
+                ? $this->limit($this->scrub($this->redactor->redact($decoded)))
                 : $this->truncate($request->getContent());
         }
 
@@ -126,7 +160,7 @@ final readonly class LogHttpExchange
             return null;
         }
 
-        return $this->limit($this->redactor->redact($input));
+        return $this->limit($this->scrub($this->redactor->redact($input)));
     }
 
     private function responseBody(Response $response): mixed
@@ -140,7 +174,7 @@ final readonly class LogHttpExchange
         $decoded = json_decode($content, true);
 
         return is_array($decoded)
-            ? $this->limit($this->redactor->redact($decoded))
+            ? $this->limit($this->scrub($this->redactor->redact($decoded)))
             : $this->truncate($content);
     }
 

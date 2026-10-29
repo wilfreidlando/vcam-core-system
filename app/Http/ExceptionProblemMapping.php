@@ -53,6 +53,9 @@ use Core\Notification\Contracts\ChannelSessionNotFound;
 use Core\Notification\Contracts\MissingChannelSession;
 use Core\Notification\Contracts\MissingRecipientPhoneNumber;
 use Core\Notification\Contracts\NoProviderForNotificationChannelException;
+use Core\Notification\Contracts\NotificationCustomerInvalid;
+use Core\Notification\Contracts\NotificationNotEntitled;
+use Core\Notification\Contracts\NotificationQuotaExceeded;
 use Core\Notification\Domain\Exception\NotificationNotFound;
 use Core\Payment\Contracts\NoProviderForChannelException;
 use Core\Payment\Domain\Exception\PaymentNotFound;
@@ -60,6 +63,10 @@ use Core\Payment\Domain\Exception\PaymentNotSimulable;
 use Core\Payment\Domain\Exception\ProviderApplicationNotFound;
 use Core\Payment\Domain\Exception\UnsupportedCurrency;
 use Core\Payment\Domain\Exception\UnsupportedPaymentPurpose;
+use Core\Portal\Domain\Exception\InvalidPortalFlow;
+use Core\Portal\Domain\Exception\InvalidPortalSettings;
+use Core\Portal\Domain\Exception\PortalCustomerNotFound;
+use Core\Portal\Domain\Exception\ReturnUrlNotAllowed;
 use Core\Support\Http\ProblemDetails;
 use Core\Support\Integration\CircuitBreaker\CircuitOpenException;
 use Core\Support\Integration\Exception\ProviderAuthError;
@@ -125,6 +132,13 @@ final class ExceptionProblemMapping
         MissingRecipientPhoneNumber::class => ['type' => 'missing-recipient-phone-number', 'title' => 'The recipient phone number is missing', 'status' => 422],
         ChannelDoesNotSupportSessions::class => ['type' => 'channel-does-not-support-sessions', 'title' => 'This channel has no linked-device session to manage', 'status' => 422],
         ChannelSessionNotFound::class => ['type' => 'channel-session-not-found', 'title' => 'WhatsApp session not found', 'status' => 422],
+        PortalCustomerNotFound::class => ['type' => 'customer-not-found', 'title' => 'Customer not found', 'status' => 404],
+        ReturnUrlNotAllowed::class => ['type' => 'return-url-not-allowed', 'title' => 'The return_url is not allowed', 'status' => 422],
+        InvalidPortalFlow::class => ['type' => 'invalid-portal-flow', 'title' => 'The portal flow is invalid', 'status' => 422],
+        InvalidPortalSettings::class => ['type' => 'invalid-portal-settings', 'title' => 'The portal settings are invalid', 'status' => 422],
+        NotificationQuotaExceeded::class => ['type' => 'quota-exceeded', 'title' => 'Quota exceeded', 'status' => 429],
+        NotificationNotEntitled::class => ['type' => 'entitlement-inactive', 'title' => 'No active entitlement', 'status' => 403],
+        NotificationCustomerInvalid::class => ['type' => 'customer-ref-invalid', 'title' => 'The metered customer is missing or unknown', 'status' => 422],
         MissingChannelSession::class => ['type' => 'missing-channel-session', 'title' => 'The WhatsApp session is missing', 'status' => 422],
         OperatorNotFound::class => ['type' => 'operator-not-found', 'title' => 'Operator not found', 'status' => 404],
         InvalidOperatorCredentials::class => ['type' => 'unauthenticated', 'title' => 'Unauthenticated', 'status' => 401],

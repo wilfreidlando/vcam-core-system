@@ -85,6 +85,19 @@ final readonly class ChangeSubscriptionPlanUseCase implements ChangeSubscription
                     "The plan \"{$command->planCode}\" has no published version (ADR-0071 §2).",
                 );
 
+            // One live contract per customer and per plan (ADR-0072 §1): moving to a
+            // plan the customer already holds would collide, and in the scheduler
+            // it would break the renewal. Refused here, with a sentence.
+            if ($plan->id !== $subscription->planId) {
+                $held = $this->subscriptions->findLiveByCustomerAndPlan($subscription->customerId, $plan->id);
+
+                if ($held !== null && $held->id !== $subscription->id) {
+                    throw new InvalidSubscriptionTransition(
+                        "The customer already holds a live contract on the plan \"{$command->planCode}\" (ADR-0072 §1).",
+                    );
+                }
+            }
+
             match ($command->effective) {
                 'period_end' => $this->armForPeriodEnd($subscription, $version),
                 'immediate' => $this->applyNow($subscription, $version, $now),
@@ -150,6 +163,7 @@ final readonly class ChangeSubscriptionPlanUseCase implements ChangeSubscription
         // The new terms are frozen on the contract, exactly like the
         // first ones (ADR-0072 §5, ADR-0092 §6).
         $subscription->applyPlanChange(
+            $version->planId,
             $version->id,
             $version->priceMinor,
             $version->currency,

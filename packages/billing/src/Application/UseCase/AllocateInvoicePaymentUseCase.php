@@ -7,14 +7,18 @@ namespace Core\Billing\Application\UseCase;
 use Core\Billing\Application\Port\InvoiceLedger;
 use Core\Billing\Application\Support\InvoiceEvents;
 use Core\Billing\Application\Support\InvoicePaymentViews;
+use Core\Billing\Contracts\ConfirmSubscriptionPeriodPayment;
+use Core\Billing\Contracts\ConfirmSubscriptionPeriodPaymentCommand;
 use Core\Billing\Contracts\InvoicePaymentView;
 use Core\Billing\Domain\Exception\InvoicePaymentNotFound;
 use Core\Billing\Domain\Model\Customer;
 use Core\Billing\Domain\Model\Invoice;
 use Core\Billing\Domain\Model\InvoicePayment;
+use Core\Billing\Domain\Model\PeriodState;
 use Core\Billing\Domain\Port\CustomerRepository;
 use Core\Billing\Domain\Port\InvoicePaymentRepository;
 use Core\Billing\Domain\Port\InvoiceRepository;
+use Core\Billing\Domain\Port\SubscriptionPeriodRepository;
 use Core\Events\Contracts\DomainEvent;
 use Core\Events\Contracts\EventOutbox;
 use Core\Payment\Contracts\RecordMoneyException;
@@ -59,6 +63,8 @@ final readonly class AllocateInvoicePaymentUseCase
         private EventOutbox $outbox,
         private Identifier $identifier,
         private Clock $clock,
+        private SubscriptionPeriodRepository $periods,
+        private ConfirmSubscriptionPeriodPayment $confirmPeriod,
     ) {}
 
     /**
@@ -149,11 +155,76 @@ final readonly class AllocateInvoicePaymentUseCase
             }
 
             $this->publishPaid($invoice, $now);
+            $this->settleThePeriodOf($invoice);
 
             $settled = $this->payments->findById($attempt->id);
 
             return $settled === null ? null : InvoicePaymentViews::from($settled);
         });
+    }
+
+    /**
+     * ADR-0072 §2, ADR-0094 §8 — the invoice of a period that has just been
+     * settled releases the contract: the period is constated paid and the
+     * subscription leaves `incomplete`, `trialing` or `past_due` for
+     * `active`, with its `subscription.activated` event, in the very
+     * transaction that credited the invoice.
+     *
+     * Without this step a customer who paid online would stay locked out
+     * until someone declared the period by hand.
+     *
+     * An invoice that is not the one of the running period (a late payment
+     * of an old period) books its money and releases nothing: the
+     * contract refuses the declaration, and that refusal is not an error.
+     */
+    private function settleThePeriodOf(Invoice $invoice): void
+    {
+        if ($invoice->periodId === null || $invoice->status->value !== 'paid') {
+            return;
+        }
+
+        $period = $this->periods->findById($invoice->periodId);
+
+        if ($period === null || $period->isPaid()) {
+            return;
+        }
+
+        $now = $this->clock->now();
+
+        switch ($period->state) {
+            // The period the contract is running: the payment releases it
+            // (`incomplete`/`trialing`/`past_due` → `active`). Any refusal here is a
+            // real error and rolls the whole transaction back — nothing is swallowed.
+            case PeriodState::Current:
+                $this->confirmPeriod->confirm(new ConfirmSubscriptionPeriodPaymentCommand(
+                    projectId: $invoice->projectId,
+                    subscriptionId: $period->subscriptionId,
+                    seq: $period->seq,
+                    reference: $invoice->number,
+                    actor: 'service:invoice-payment',
+                    correlationId: null,
+                ));
+
+                return;
+
+                // The renewal invoice is issued ahead of the period (ADR-0072 §4) and the
+                // customer may pay it ahead: the period is constated paid now, so that at
+                // the turn of the period the contract is NOT sent to `past_due`.
+            case PeriodState::Upcoming:
+                $period->markPaid($now);
+
+                if ($invoice->number !== null && $period->reason === null) {
+                    $period->reason = $invoice->number;
+                }
+
+                $this->periods->save($period);
+
+                return;
+
+                // A late payment of a period that is over: the money is booked, nothing to release.
+            case PeriodState::Closed:
+                return;
+        }
     }
 
     /**

@@ -39,6 +39,9 @@ final class EloquentBillingSettingsRepository implements BillingSettingsReposito
             manualReceiptApprovalThresholdMinor: $record->manual_receipt_approval_threshold_minor,
             retainInvoiceIdentity: $record->retain_invoice_identity,
             documentBranding: $this->brandingOf($record->document_branding),
+            meterMappings: $this->mappingsOf($record->meter_mappings),
+            refundFailedUsage: $record->refund_failed_usage,
+            requireCustomerRef: $record->require_customer_ref,
         );
     }
 
@@ -78,6 +81,9 @@ final class EloquentBillingSettingsRepository implements BillingSettingsReposito
             'manual_receipt_approval_threshold_minor' => $settings->manualReceiptApprovalThresholdMinor,
             'retain_invoice_identity' => $settings->retainInvoiceIdentity,
             'document_branding' => $this->branding($settings->documentBranding),
+            'meter_mappings' => $this->branding($settings->meterMappings),
+            'refund_failed_usage' => $settings->refundFailedUsage,
+            'require_customer_ref' => $settings->requireCustomerRef,
         ];
     }
 
@@ -106,5 +112,22 @@ final class EloquentBillingSettingsRepository implements BillingSettingsReposito
         $branding = is_array($decoded) ? $decoded : [];
 
         return $branding;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function mappingsOf(?string $json): array
+    {
+        $decoded = $json === null ? [] : json_decode($json, true);
+        $mappings = [];
+
+        foreach (is_array($decoded) ? $decoded : [] as $capability => $meter) {
+            if (is_string($meter)) {
+                $mappings[(string) $capability] = $meter;
+            }
+        }
+
+        return $mappings;
     }
 }

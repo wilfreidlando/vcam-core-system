@@ -16,6 +16,11 @@ use RuntimeException;
  */
 final class InvalidBillingSettings extends RuntimeException
 {
+    public static function because(string $reason): self
+    {
+        return new self($reason);
+    }
+
     public static function becauseUnknownTimezone(string $timezone): self
     {
         return new self("\"{$timezone}\" is not a known timezone.");

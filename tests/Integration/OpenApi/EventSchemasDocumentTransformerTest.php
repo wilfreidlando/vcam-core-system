@@ -87,6 +87,25 @@ it('publishes WebhookEventType schema with the closed enum of emitted types', fu
         'notification.failed',
         'wallet.credited',
         'wallet.debited',
+        // ADR-0084 §3 / ADR-0097 §4 — the commerce events a SaaS reacts to.
+        'subscription.created',
+        'subscription.activated',
+        'subscription.renewed',
+        'subscription.renewal_due',
+        'subscription.plan_changed',
+        'subscription.past_due',
+        'subscription.paused',
+        'subscription.resumed',
+        'subscription.canceled',
+        'subscription.expired',
+        'invoice.issued',
+        'invoice.paid',
+        'invoice.payment_failed',
+        'invoice.voided',
+        'customer.suspended',
+        'customer.reactivated',
+        'usage.threshold_reached',
+        'usage.limit_reached',
     ], $schema->type->enum);
 });
 

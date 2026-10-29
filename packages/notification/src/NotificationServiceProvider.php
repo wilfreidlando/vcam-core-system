@@ -42,6 +42,7 @@ use Core\Notification\Contracts\SendTextNotification;
 use Core\Notification\Domain\Port\ChannelSessionRepository;
 use Core\Notification\Domain\Port\NotificationDeliveryRepository;
 use Core\Notification\Domain\Port\NotificationRepository;
+use Core\Notification\Domain\Port\QuotaGuard;
 use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentChannelSessionRepository;
 use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentNotificationDeliveryRepository;
 use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentNotificationRepository;
@@ -49,6 +50,7 @@ use Core\Notification\Infrastructure\Persistence\Eloquent\EloquentNotificationSt
 use Core\Notification\Infrastructure\Provider\NotificationChannelProviderRegistryImpl;
 use Core\Notification\Infrastructure\Provider\Waha\WahaAdapter;
 use Core\Notification\Infrastructure\Provider\Waha\WahaStatusMapper;
+use Core\Notification\Infrastructure\Quota\BillingQuotaGuard;
 use Core\Notification\Infrastructure\Routing\ConfigNotificationProviderRouter;
 use Core\Notification\Presentation\Console\Commands\RedactExpiredNotificationContentCommand;
 use Core\Support\Integration\Configuration\ProviderConfigRegistry;
@@ -98,6 +100,7 @@ final class NotificationServiceProvider extends ServiceProvider
         $this->app->bind(ChannelSessionRepository::class, EloquentChannelSessionRepository::class);
 
         $this->app->bind(NotificationSendCascade::class, NotificationSendCascade::class);
+        $this->app->bind(QuotaGuard::class, BillingQuotaGuard::class);
         $this->app->bind(SendTextNotification::class, SendTextNotificationUseCase::class);
         $this->app->bind(SendImageNotification::class, SendImageNotificationUseCase::class);
         $this->app->bind(SendFileNotification::class, SendFileNotificationUseCase::class);

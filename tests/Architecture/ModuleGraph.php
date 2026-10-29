@@ -51,8 +51,13 @@ final class ModuleGraph
         'fees' => ['support', 'ledger', 'parties'],
         'payment' => ['support', 'ledger', 'fees', 'identity', 'parties', 'events', 'wallet'],
         'webhook' => ['support', 'identity', 'events'],
-        'notification' => ['support', 'identity', 'parties', 'events'],
+        // billing: ADR-0074 §5 — the notification asks the quota authority
+        // before it exists (port QuotaGuard, adapter in Infrastructure).
+        'notification' => ['support', 'identity', 'parties', 'events', 'billing'],
         'billing' => ['support', 'identity', 'payment', 'ledger', 'events'],
+        // ADR-0075 — the hosted customer portal: billing for what it shows,
+        // payment for the channel a customer pays with, audit for the sessions.
+        'portal' => ['support', 'identity', 'billing', 'payment', 'audit'],
         'storage' => ['support', 'identity'],
         'developer-platform' => ['support', 'identity'],
 
@@ -61,6 +66,8 @@ final class ModuleGraph
             'support', 'identity', 'parties', 'ledger', 'wallet', 'payment',
             'fees', 'events', 'webhook', 'notification', 'audit', 'billing',
             'storage', 'developer-platform',
+            // ADR-0097 — the console edits the settings of a project's portal.
+            'portal',
         ],
     ];
 
@@ -82,6 +89,7 @@ final class ModuleGraph
         'notification' => 'Notification',
         'audit' => 'Audit',
         'billing' => 'Billing',
+        'portal' => 'Portal',
         'storage' => 'Storage',
         'developer-platform' => 'DeveloperPlatform',
         'admin' => 'Admin',

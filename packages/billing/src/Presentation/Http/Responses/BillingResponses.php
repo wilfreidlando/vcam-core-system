@@ -231,4 +231,28 @@ final class BillingResponses
         .'data: list<'.self::INVOICE.'>, '
         .'next_cursor: string|null'
         .'}';
+
+    /**
+     * ADR-0074 §4 — the decision of a metered call.
+     */
+    public const USAGE_DECISION = 'array{'
+        .'status: string, '
+        .'meter: string, '
+        .'used: int, '
+        .'limit: int|null, '
+        .'remaining: int|null, '
+        .'window_start: string|null, '
+        .'window_end: string|null'
+        .'}';
+
+    /**
+     * ADR-0074 §4 — what a customer may do, and how much is left.
+     */
+    public const ENTITLEMENTS = 'array{'
+        .'customer_ref: string, '
+        .'active: bool, '
+        .'plan_code: string|null, '
+        .'subscription_id: string|null, '
+        .'entitlements: list<array{key: string, type: string, enabled: bool|null, meter: string|null, limit: int|null, used: int|null, remaining: int|null, overage: string|null, threshold_bps: int|null, window_start: string|null, window_end: string|null}>'
+        .'}';
 }

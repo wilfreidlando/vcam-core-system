@@ -86,6 +86,11 @@ final class ModulesMeetOnlyThroughContracts
         return $this->contractsOnly('Billing');
     }
 
+    public function test_portal_uses_other_modules_through_contracts_only(): Rule
+    {
+        return $this->contractsOnly('Portal');
+    }
+
     public function test_storage_uses_other_modules_through_contracts_only(): Rule
     {
         return $this->contractsOnly('Storage');

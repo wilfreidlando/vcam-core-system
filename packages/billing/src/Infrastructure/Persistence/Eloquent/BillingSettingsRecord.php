@@ -16,6 +16,9 @@ use Illuminate\Database\Eloquent\Model;
  * does not have).
  *
  * @property string $project_id
+ * @property string|null $meter_mappings
+ * @property bool $refund_failed_usage
+ * @property bool $require_customer_ref
  * @property string $timezone
  * @property string $default_currency
  * @property int $renewal_lead_days
@@ -51,6 +54,9 @@ final class BillingSettingsRecord extends Model
         'manual_receipt_approval_threshold_minor',
         'retain_invoice_identity',
         'document_branding',
+        'meter_mappings',
+        'refund_failed_usage',
+        'require_customer_ref',
     ];
 
     protected $casts = [
@@ -59,6 +65,8 @@ final class BillingSettingsRecord extends Model
         'default_tax_rate_bps' => 'int',
         'manual_receipt_approval_threshold_minor' => 'int',
         'retain_invoice_identity' => 'bool',
+        'refund_failed_usage' => 'bool',
+        'require_customer_ref' => 'bool',
         // `document_branding` is deliberately NOT cast to `array`: the
         // column is a jsonb **object**
         // (`billing_settings_document_branding_check`), and the cast

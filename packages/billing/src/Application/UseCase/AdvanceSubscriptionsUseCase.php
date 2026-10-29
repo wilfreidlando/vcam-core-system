@@ -338,6 +338,7 @@ final readonly class AdvanceSubscriptionsUseCase
 
         if ($pending !== null) {
             $subscription->applyPlanChange(
+                $pending->planId,
                 $pending->id,
                 $pending->priceMinor,
                 $pending->currency,

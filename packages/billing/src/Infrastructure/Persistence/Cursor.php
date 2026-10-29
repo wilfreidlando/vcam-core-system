@@ -43,6 +43,14 @@ final class Cursor
             throw new InvalidArgumentException('Invalid billing cursor.');
         }
 
+        // What reaches the database must be what the database will accept:
+        // an instant and a uuid, never free text (a malformed cursor is a
+        // 4xx of the caller, not a 500 of ours).
+        if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $parts[1]) !== 1
+            || date_create_immutable($parts[0]) === false) {
+            throw new InvalidArgumentException('Invalid billing cursor.');
+        }
+
         return [$parts[0], $parts[1]];
     }
 }

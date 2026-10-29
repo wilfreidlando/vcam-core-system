@@ -50,4 +50,19 @@ interface SubscriptionRepository
      * @throws InvalidSubscriptionTransition the row moved under our feet (the optimistic lock), or the customer already holds a live contract for this plan
      */
     public function save(Subscription $subscription): void;
+
+    /**
+     * ADR-0074 §3 — the contracts of a customer that are still alive
+     * (not canceled, not expired). Whether each one grants access is the
+     * caller's call: it depends on the grace rule of the plan version.
+     *
+     * @return list<Subscription>
+     */
+    public function listLiveByCustomer(string $customerId): array;
+
+    /**
+     * ADR-0074 §3 — has the project ever signed a contract? A project that
+     * has not has not activated billing: its usage is recorded, never blocked.
+     */
+    public function projectHasSubscriptions(string $projectId): bool;
 }

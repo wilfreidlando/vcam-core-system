@@ -38,7 +38,7 @@ final class Subscription
         public readonly string $id,
         public readonly string $projectId,
         public readonly string $customerId,
-        public readonly string $planId,
+        public string $planId,
         public string $planVersionId,
         public SubscriptionStatus $status,
         /** The price in minor units of `currency` (G5). */
@@ -166,6 +166,25 @@ final class Subscription
     }
 
     /**
+     * Withdraws a cancellation requested for the end of the period: the
+     * contract renews again. Only a contract that is still alive can be
+     * kept; one that has ended is gone (ADR-0072 §2) and a new one is
+     * signed instead.
+     */
+    public function keepRenewing(DateTimeImmutable $at): void
+    {
+        if ($this->status->isFinal()) {
+            throw InvalidSubscriptionTransition::becauseNotAllowed(
+                $this->status->value,
+                $this->status->value,
+            );
+        }
+
+        $this->cancelAtPeriodEnd = false;
+        $this->touch($at);
+    }
+
+    /**
      * ADR-0072 §5 — a change of plan scheduled at the end of the current
      * period. `null` withdraws the request.
      */
@@ -183,6 +202,7 @@ final class Subscription
      * on it exactly like the first ones.
      */
     public function applyPlanChange(
+        string $planId,
         string $planVersionId,
         int $priceMinor,
         string $currency,
@@ -191,6 +211,9 @@ final class Subscription
     ): void {
         $this->assertNegotiable();
 
+        // The contract is now ON the other plan: its code, its rights and
+        // its renewal follow — not only its price.
+        $this->planId = $planId;
         $this->planVersionId = $planVersionId;
         $this->priceMinor = $priceMinor;
         $this->currency = strtoupper($currency);

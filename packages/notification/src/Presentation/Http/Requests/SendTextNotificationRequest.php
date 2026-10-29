@@ -92,6 +92,17 @@ final class SendTextNotificationRequest extends FormRequest
              */
             'variables.session' => ['required_if:channel,whatsapp', 'string', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/'],
             /**
+             * The customer this message is billed to, by the reference you
+             * declared it with (`PUT /v1/customers/{ref}`). Required only
+             * when your project asked for every metered call to name its
+             * customer; ignored when no meter is mapped to notifications.
+             * A message beyond the customer's plan is refused with `429
+             * quota-exceeded` and nothing is sent.
+             *
+             * @example "AE0001"
+             */
+            'variables.customer_ref' => ['nullable', 'string', 'max:128', 'regex:/^[A-Za-z0-9._:-]+$/'],
+            /**
              * Optional opaque reference supplied by the caller. Two
              * requests with the same `client_reference` on the same
              * Project are deduplicated: the second one returns the

@@ -100,6 +100,29 @@ final class EloquentSubscriptionRepository implements SubscriptionDirectory
         return $this->toDomain($record);
     }
 
+    public function listLiveByCustomer(string $customerId): array
+    {
+        $base = SubscriptionRecord::query()
+            ->where('customer_id', $customerId)
+            ->toBase();
+        $base->whereIn('status', self::LIVE_STATUSES);
+
+        $items = [];
+
+        foreach ($base->get() as $row) {
+            $record = SubscriptionRecord::hydrate([(array) $row])->sole();
+            $this->expected[$record->id] = ['status' => $record->status, 'version' => $record->version];
+            $items[] = $this->toDomain($record);
+        }
+
+        return $items;
+    }
+
+    public function projectHasSubscriptions(string $projectId): bool
+    {
+        return SubscriptionRecord::query()->where('project_id', $projectId)->toBase()->exists();
+    }
+
     public function save(Subscription $subscription): void
     {
         $id = $subscription->id;
