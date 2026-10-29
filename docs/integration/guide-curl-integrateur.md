@@ -591,6 +591,55 @@ Pairing-code : `200` avec `{"code":"2692-4822"}`. Session inconnue de votre proj
 session globale) : `422` `channel-session-not-found`, comme ci-dessus. Le pairing-code déclenche une
 notification de liaison sur le numéro fourni : n'utilisez que le vôtre.
 
+## 6 bis. Lister ses données et les exporter (ADR-0088)
+
+### Listings à curseur
+
+`GET /v1/payments`, `GET /v1/notifications` et `GET /v1/usage` (comme `/v1/customers`, `/v1/plans`,
+`/v1/subscriptions`, `/v1/invoices`) se lisent **page après page** avec un curseur opaque : repassez
+`next_cursor` en `cursor` pour la page suivante, `null` quand il n'y en a plus. `limit` va de 1 à 100 (50 par
+défaut). L'ordre est stable — du plus ancien au plus récent, départagé par l'identifiant : lire tout le
+listing pendant que de nouvelles lignes arrivent ne répète rien et n'omet rien de ce qui existait au début.
+
+| Listing | Portée | Filtres |
+| --- | --- | --- |
+| `GET /v1/payments` | `payments:read` | `status`, `created_from`, `created_to` |
+| `GET /v1/notifications` | `notifications:read` | `status`, `channel`, `created_from`, `created_to` |
+| `GET /v1/usage` | `usage:read` | `meter`, `customer_ref`, `created_from`, `created_to` |
+
+`created_from` est inclus, `created_to` exclu (ISO 8601). Une clé ne voit jamais les lignes d'un autre projet.
+
+```bash
+curl -s "$CORE/v1/payments?status=succeeded&limit=2" -H "Authorization: Bearer $KEY"
+# {"data":[{"id":"…","status":"succeeded","is_final":true,"amount":5000,"currency":"XAF",
+#           "channel":"mtn_momo","created_at":"…","updated_at":"…"}, …],
+#  "next_cursor":"MjAyNi0xMC0yOSAw…"}
+curl -s "$CORE/v1/payments?status=succeeded&limit=2&cursor=MjAyNi0xMC0yOSAw…" -H "Authorization: Bearer $KEY"
+```
+
+Un curseur qui n'est pas le vôtre : `422`.
+
+### Export complet — `POST /v1/exports` (portée `exports:write`)
+
+```bash
+curl -s -X POST "$CORE/v1/exports" -H "Authorization: Bearer $KEY" -H "Idempotency-Key: export-2026-11"
+# 202 {"id":"9f1c…","status":"queued","created_at":"…","expires_at":"…","download_url":null, …}
+curl -s "$CORE/v1/exports/9f1c…" -H "Authorization: Bearer $KEY"
+# 200 {"status":"done","download_url":"https://…/exports/9f1c…/download?expires=…&signature=…",
+#      "download_url_expires_at":"…", …}
+curl -s -o export.zip "https://…/exports/9f1c…/download?expires=…&signature=…"   # sans clé d'API
+```
+
+L'export est construit en arrière-plan : interrogez `GET /v1/exports/{id}` jusqu'à `done` (ou `failed`,
+avec `error`). Le lien est **signé et valable 15 minutes** ; il ne demande pas de clé — ne le partagez pas.
+Altéré ou expiré, il répond `403` : redemandez `GET /v1/exports/{id}` pour un lien neuf. Le même
+`Idempotency-Key` rend le même export. L'archive `.zip` contient un fichier JSON Lines par type d'objet
+(`customers`, `plans`, `subscriptions`, `invoices`, `usage`, `payments`, `notifications`, `wallets`,
+`wallet_transactions`, `ledger_transactions`, `trial_balance`), **chaque ligne au format de l'API**, plus un
+`manifest.json` (`as_of`, nombre de lignes). Le fichier est chiffré au repos et supprimé 7 jours après la
+demande (`expires_at`) ; les données personnelles d'un client effacé restent effacées. La console propose le
+même geste (« Export des données » sur la page du projet).
+
 ## 7. Récapitulatif
 
 | Endpoint | Testé en réel | Résultat |
@@ -612,6 +661,8 @@ notification de liaison sur le numéro fourni : n'utilisez que le vôtre.
 | `POST /v1/notifications/image` | oui (WAHA) | 201 `sent` |
 | `POST /v1/notifications/file` | oui (WAHA) | 201 `sent` |
 | `GET /v1/notifications/{id}` | oui | 200 |
+| `GET /v1/payments`, `/v1/notifications`, `/v1/usage` (curseur) | tests d'intégration (parcours sous insertions concurrentes) | 200 / 403 / 422 |
+| `POST /v1/exports`, `GET /v1/exports/{id}`, lien signé | tests d'intégration | 202 / 200 / 403 / 404 / 409 |
 | `GET …/qr`, `GET …/screenshot`, `POST …/pairing-code` | oui (WAHA) | 200 / 422 si non enregistrée |
 
 Le passage d'un paiement à un statut final, l'événement qui en découle et le crédit du

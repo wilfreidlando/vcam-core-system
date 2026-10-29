@@ -35,6 +35,11 @@ Ne **pas** lancer `make ci` pendant une session : il touche la base de développ
 | 19 | Portail : page des offres (tarification avec avantages) | ✔ |
 | 20 | **Connexion directe par code** : activation refusée sans session WhatsApp, page de connexion, mauvais code refusé, bon code accepté, arrivée sur l'espace client en mobile | ✔ |
 | 21 | Indicateurs du projet (chiffres, courbes, créances, checklist) et fil d'Ariane sur chaque page | ✔ après corrections (défauts 4 et 6) |
+| 22 | **Gestion de comptes** : inviter un opérateur, l'invité active son compte sur la page dédiée (mauvais jeton, mot de passe trop court, jeton déjà utilisé refusés avec une phrase claire), configure son MFA (QR code scannable), se connecte | ✔ après correction (défauts 10 à 12) |
+| 23 | Changer le rôle d'un opérateur : effet immédiat sur sa session ouverte ; le révoquer : sa session meurt aussitôt | ✔ |
+| 24 | Un compte **ne peut pas se révoquer lui-même** ni révoquer le dernier administrateur de plateforme | ✔ après correction (défaut 13) |
+| 25 | Inviter un membre d'organisation (propriétaire), activation par la même page, cloisonnement (une seule organisation visible, opérateurs interdits), **protection du dernier propriétaire** | ✔ après correction (défauts 14 et 15) |
+| 26 | Portefeuilles : tiers affichés par leur référence, recherche par référence, montants séparés, détail d'un paiement | ✔ après correction (défauts 7, 8, 16) |
 
 ## Défauts trouvés par la session, corrigés avec un test
 
@@ -49,6 +54,14 @@ Ne **pas** lancer `make ci` pendant une session : il touche la base de développ
 | 7 | Colonne « Tiers » des portefeuilles : identifiant interne tronqué | référence du tiers (`escrow`, `partner:7`) via `PartyLookup::externalRefsOf` |
 | 8 | Montants console non séparés (« 50000 ») | `Money::groupedAmount()` sur tous les écrans de la console |
 | 9 | Message « seconde validation » faux (ADR-0095 : un seul compte valide) | « il attend sa validation » |
+| 10 | **Aucune page web n'acceptait une invitation** (opérateur ou membre d'organisation) : l'invité ne pouvait activer son compte que par l'API JSON | `/admin/invitation` : le jeton est collé dans un formulaire (jamais dans l'adresse), le mot de passe est choisi par l'invité, puis MFA ; lien depuis la connexion et depuis les pages d'invitation |
+| 11 | **Page MFA : une chaîne de texte immense traversait toute la page** — le générateur de QR renvoyait une URI `data:image/svg+xml;base64,…` imprimée comme du texte | SVG brut (`outputBase64 => false`), cadre de taille fixe, texte alternatif |
+| 12 | Bandeau « mode développement local » affiché même quand l'option qu'il décrit est désactivée | affiché seulement si `IDENTITY_DISABLE_TOTP_IN_LOCAL` est actif |
+| 13 | **Un administrateur pouvait révoquer son propre compte**, même le dernier : plus personne ne pouvait gérer les comptes (reprise possible seulement par la ligne de commande) | règle dans le cas d'usage (`CannotRevokeOwnAccount`, `LastPlatformAdmin`, 409), messages en français, test |
+| 14 | L'écran des membres d'une organisation n'était lié depuis aucune page | lien « Membres » dans la liste des organisations |
+| 15 | Refus affichés en anglais avec des identifiants bruts (dernier propriétaire, privilège, déjà membre) ; la page des opérateurs n'affichait aucune erreur | messages en français ; bloc d'erreurs |
+| 16 | Les tables larges étaient **coupées** à droite (colonne « Action » invisible) ; la recherche de portefeuille ne trouvait pas un tiers par sa référence | défilement horizontal ; `PartyLookup::idsMatchingRef` |
+| 17 | `make ci` **vidait la base de développement** (`migrate:fresh --env=testing` sans `.env.testing` retombe sur `.env`) et fermait les sessions | la commande vise explicitement la base de test (`TEST_DB`) |
 
 ## Constats non corrigés (à décider)
 

@@ -26,6 +26,8 @@ use Core\Billing\Domain\Exception\PlanVersionNotEditable;
 use Core\Billing\Domain\Exception\PlanVersionNotFound;
 use Core\Billing\Domain\Exception\SubscriptionNotFound;
 use Core\Billing\Domain\Exception\UnsupportedCurrency as BillingUnsupportedCurrency;
+use Core\Export\Contracts\ExportNotAvailable;
+use Core\Export\Contracts\ExportNotFound;
 use Core\Identity\Contracts\AlreadyOrganizationMember;
 use Core\Identity\Contracts\InvalidOrganizationRole;
 use Core\Identity\Contracts\InvitationAccountPasswordInvalid;
@@ -41,8 +43,10 @@ use Core\Identity\Contracts\OrganizationMemberNotFound;
 use Core\Identity\Contracts\OrganizationNotVisible;
 use Core\Identity\Contracts\OrganizationPrivilegeEscalation;
 use Core\Identity\Contracts\PlatformRoleAssignmentForbidden;
+use Core\Identity\Domain\Exception\CannotRevokeOwnAccount;
 use Core\Identity\Domain\Exception\InvalidMfaCode;
 use Core\Identity\Domain\Exception\InvalidOperatorCredentials;
+use Core\Identity\Domain\Exception\LastPlatformAdmin;
 use Core\Identity\Domain\Exception\MfaAlreadyEnrolled;
 use Core\Identity\Domain\Exception\MfaChallengeInvalid;
 use Core\Identity\Domain\Exception\MfaNotEnrolled;
@@ -111,6 +115,9 @@ final class ExceptionProblemMapping
      * @var array<class-string<Throwable>, array{type: string, title: string, status: int}>
      */
     private const MAP = [
+        // ADR-0088 §3 — the export of a project. Another project's export is « not found ».
+        ExportNotFound::class => ['type' => 'export-not-found', 'title' => 'Export not found', 'status' => 404],
+        ExportNotAvailable::class => ['type' => 'export-not-available', 'title' => 'The export has no file to download', 'status' => 409],
         WalletNotFound::class => ['type' => 'wallet-not-found', 'title' => 'Wallet not found', 'status' => 404],
         // ADR-0065 — same answer as not found: never reveal a wallet outside the caller's reach.
         WalletProjectMismatch::class => ['type' => 'wallet-not-found', 'title' => 'Wallet not found', 'status' => 404],
@@ -141,6 +148,8 @@ final class ExceptionProblemMapping
         NotificationCustomerInvalid::class => ['type' => 'customer-ref-invalid', 'title' => 'The metered customer is missing or unknown', 'status' => 422],
         MissingChannelSession::class => ['type' => 'missing-channel-session', 'title' => 'The WhatsApp session is missing', 'status' => 422],
         OperatorNotFound::class => ['type' => 'operator-not-found', 'title' => 'Operator not found', 'status' => 404],
+        CannotRevokeOwnAccount::class => ['type' => 'cannot-revoke-own-account', 'title' => 'An account cannot revoke itself', 'status' => 409],
+        LastPlatformAdmin::class => ['type' => 'last-platform-admin', 'title' => 'The last platform administrator cannot be revoked', 'status' => 409],
         InvalidOperatorCredentials::class => ['type' => 'unauthenticated', 'title' => 'Unauthenticated', 'status' => 401],
         OperatorRevoked::class => ['type' => 'forbidden', 'title' => 'Forbidden', 'status' => 403],
         MfaChallengeInvalid::class => ['type' => 'unauthenticated', 'title' => 'Unauthenticated', 'status' => 401],

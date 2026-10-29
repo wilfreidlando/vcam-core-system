@@ -16,6 +16,8 @@ use Core\Identity\Contracts\RevokeOperator;
 use Core\Identity\Contracts\RevokeOperatorCommand;
 use Core\Identity\Contracts\UpdateOperator;
 use Core\Identity\Contracts\UpdateOperatorCommand;
+use Core\Identity\Domain\Exception\CannotRevokeOwnAccount;
+use Core\Identity\Domain\Exception\LastPlatformAdmin;
 use Core\Identity\OperatorRole;
 use Core\Support\Access\AccessScope;
 use Illuminate\Http\RedirectResponse;
@@ -148,6 +150,10 @@ final class OperatorsController
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
             );
+        } catch (CannotRevokeOwnAccount) {
+            return back()->withErrors(['operatorId' => 'Vous ne pouvez pas révoquer votre propre compte : demandez à un autre administrateur.']);
+        } catch (LastPlatformAdmin) {
+            return back()->withErrors(['operatorId' => 'La console garde toujours un administrateur de plateforme actif : invitez-en un autre avant de révoquer celui-ci.']);
         } catch (RuntimeException $e) {
             return back()->withErrors(['operatorId' => $e->getMessage()]);
         }

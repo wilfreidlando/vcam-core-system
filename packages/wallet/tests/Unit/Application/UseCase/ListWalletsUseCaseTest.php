@@ -121,6 +121,11 @@ function noParties(): PartyLookup
             return null;
         }
 
+        public function idsMatchingRef(string $projectId, string $term, int $limit = 100): array
+        {
+            return [];
+        }
+
         public function externalRefsOf(string $projectId, array $partyIds): array
         {
             return array_combine($partyIds, array_map(static fn (string $id): string => 'ref-'.$id, $partyIds));

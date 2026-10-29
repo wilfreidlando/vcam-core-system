@@ -43,6 +43,12 @@
                    class="text-indigo-600 hover:text-indigo-800 font-medium">
                     Voir les projets →
                 </a>
+                @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermissionAnywhere('members:read'))
+                    <a href="{{ route('admin.organizations.members.index', ['organizationId' => $org->id]) }}"
+                       class="text-slate-500 hover:text-slate-700 font-medium">
+                        Membres
+                    </a>
+                @endif
                 @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('projects:write'))
                     <a href="{{ route('admin.organizations.edit', ['organizationId' => $org->id]) }}"
                        class="text-slate-500 hover:text-slate-700 font-medium">

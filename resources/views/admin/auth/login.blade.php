@@ -59,7 +59,11 @@
         </form>
     </div>
 
-    <p class="mt-6 text-sm text-slate-500 leading-relaxed text-center">
+    <p class="mt-6 text-sm text-slate-500 text-center">
+        Vous avez reçu une invitation ? <a href="{{ route('admin.invitation.show') }}" class="font-medium text-indigo-700 hover:text-indigo-900">Activer mon compte</a>
+    </p>
+
+    <p class="mt-3 text-sm text-slate-500 leading-relaxed text-center">
         Lors de leur première connexion, les opérateurs doivent
         enrôler un authentificateur (RFC 6238 TOTP) avant d'obtenir l'accès.
     </p>

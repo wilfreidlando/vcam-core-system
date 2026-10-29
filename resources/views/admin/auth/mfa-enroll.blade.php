@@ -13,7 +13,7 @@
         <p class="text-base text-slate-500">Console opérateur</p>
     </div>
 
-    @if (app()->environment('local'))
+    @if (app()->environment('local') && config('identity.disable_totp_in_local'))
         <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             <p class="font-semibold">Mode développement local</p>
             <p class="mt-1">
@@ -36,7 +36,9 @@
 
         <div class="grid sm:grid-cols-2 gap-6 mb-8">
             <div class="flex justify-center">
-                <div class="bg-white border border-slate-200 rounded-lg p-3 inline-block">
+                {{-- The SVG carries a viewBox and no size: left alone it fills its whole container. --}}
+                <div class="qr-box bg-white border border-slate-200 rounded-lg p-3" role="img" aria-label="QR code à scanner avec votre application d'authentification">
+                    <style>.qr-box{width:12rem;height:12rem;flex:none}.qr-box svg{display:block;width:100%;height:100%}</style>
                     {{-- Server-rendered QR (chillerlan/php-qrcode) — scans
                          directly into Google Authenticator / 1Password /
                          Bitwarden. No JS, no CDN, no flash of placeholder. --}}

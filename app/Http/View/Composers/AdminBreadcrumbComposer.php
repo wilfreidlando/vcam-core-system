@@ -61,7 +61,7 @@ final readonly class AdminBreadcrumbComposer
         'dead.web' => 'Livraisons en échec',
         'members.index' => 'Membres',
         'members.invite' => 'Inviter un membre',
-        'members.store' => 'Inviter un membre',
+        'members.store' => 'Membres',
         'run' => 'Résultat',
         'run-one' => 'Résultat',
     ];
@@ -89,6 +89,7 @@ final readonly class AdminBreadcrumbComposer
         'usage' => 'Usage et quotas',
         'indicators' => 'Indicateurs et créances',
         'ledger' => 'Grand livre',
+        'exports' => 'Export des données',
         'customers.index' => 'Clients',
         'customers.new' => ['Nouveau client', 'admin.projects.customers.index', 'Clients'],
         'customers.show' => ['{externalRef}', 'admin.projects.customers.index', 'Clients'],
@@ -146,6 +147,11 @@ final readonly class AdminBreadcrumbComposer
 
         foreach (self::SECTIONS as $prefix => [$label, $index]) {
             if ($route === $prefix.'.index' || $route === $prefix) {
+                return [...$trail, [$label, null]];
+            }
+
+            // A creation form's answer page is the section's own listing (it shows the one-time secret).
+            if (str_starts_with($route, $prefix.'.') && substr($route, strlen($prefix) + 1) === 'store') {
                 return [...$trail, [$label, null]];
             }
 

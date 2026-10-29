@@ -15,6 +15,14 @@ interface PartyLookup
     public function find(string $projectId, string $externalRef): ?PartyRef;
 
     /**
+     * The ids of the parties of one project whose own reference contains a term: what a
+     * listing's search box looks up, so an operator finds a party by the name they see.
+     *
+     * @return list<string>
+     */
+    public function idsMatchingRef(string $projectId, string $term, int $limit = 100): array;
+
+    /**
      * The caller's own references for a set of party ids of one project: what a
      * listing shows instead of an internal identifier.
      *

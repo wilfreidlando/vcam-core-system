@@ -225,6 +225,17 @@ amendé par [ADR-0068](docs/adr/0068-cible-plateforme-saas-trois-piliers.md)) �
 voir « Ce qui n'est PAS encore construit » ci-dessous. Détail de chaque lot :
 [docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.
 
+Le **lot 15** livre la réversibilité (ADR-0088, [ADR-0101](docs/adr/0101-export-par-projet-module-et-aretes.md)) :
+`GET /v1/payments`, `/v1/notifications` et `/v1/usage` rejoignent les listings par curseur opaque de `billing`
+(`{data, next_cursor}`, `limit` ≤ 100, ordre stable `(created_at, id)`, jamais les lignes d'un autre projet) ;
+le module **`export`** (hub de lecture, arêtes `export → identity, audit, ledger, billing, payment, notification,
+wallet` par `Contracts/`, personne ne dépend de lui) produit sur `POST /v1/exports` (portée `exports:write`,
+`Idempotency-Key`, ou console `org_owner`/`org_admin`/plateforme) une archive `.zip` de fichiers JSON Lines au format
+de l'API publique (chaque module expose `…ExportRecords`, qui réutilise ses sérialiseurs) + la balance à la date de
+l'export, construite par un job, chiffrée par blocs avec la clé de l'application sur le disque privé `exports`,
+téléchargée par un lien signé de 15 minutes (`403` si altéré ou expiré) et supprimée après 7 jours par
+`exports:purge-expired` (quotidienne).
+
 **Gouvernance des ADR** : la série ADR-0068 → ADR-0090 a été **ratifiée par le
 comité d'architecture le 2026-10-27** — sept de ces ADR avaient déjà leur code
 livré et conforme au moment de la décision, donc la décision a suivi le code

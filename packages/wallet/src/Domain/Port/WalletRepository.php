@@ -33,7 +33,9 @@ interface WalletRepository
      *                                      applied in the query, so the
      *                                      rows of another tenant are
      *                                      never materialised.
+     * @param list<string> $searchPartyIds parties found by their own reference: a wallet of one of them
+     *                                     matches the search too, whatever its id looks like
      * @return array{items: list<Wallet>, total: int}
      */
-    public function findByProject(string $projectId, int $page, int $perPage, ?string $search = null, ?array $projectIds = null): array;
+    public function findByProject(string $projectId, int $page, int $perPage, ?string $search = null, ?array $projectIds = null, array $searchPartyIds = []): array;
 }

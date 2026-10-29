@@ -22,6 +22,7 @@ use Core\Billing\Presentation\Http\Controllers\ListInvoicePaymentsController;
 use Core\Billing\Presentation\Http\Controllers\ListInvoicesController;
 use Core\Billing\Presentation\Http\Controllers\ListPlansController;
 use Core\Billing\Presentation\Http\Controllers\ListSubscriptionsController;
+use Core\Billing\Presentation\Http\Controllers\ListUsageController;
 use Core\Billing\Presentation\Http\Controllers\PayInvoiceController;
 use Core\Billing\Presentation\Http\Controllers\PublishPlanVersionController;
 use Core\Billing\Presentation\Http\Controllers\ReactivateCustomerController;
@@ -75,6 +76,8 @@ Route::middleware(['project.auth'])
         // Not a money route (G7): the idempotency of a metered call is its
         // own `idempotency_key`, part of the atomic admission.
         Route::post('/usage', ConsumeUsageController::class)->name('usage.consume');
+        // ADR-0088 §2 — the journal, by cursor; read-only.
+        Route::get('/usage', ListUsageController::class)->name('usage.list');
         Route::get('/customers/{externalRef}/entitlements', GetEntitlementsController::class)
             ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
             ->name('customers.entitlements');

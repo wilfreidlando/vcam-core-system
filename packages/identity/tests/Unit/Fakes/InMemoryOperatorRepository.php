@@ -6,6 +6,7 @@ namespace Core\Identity\Tests\Unit\Fakes;
 
 use Core\Identity\Domain\Model\Operator;
 use Core\Identity\Domain\Port\OperatorRepository;
+use Core\Identity\OperatorRole;
 
 final class InMemoryOperatorRepository implements OperatorRepository
 {
@@ -25,6 +26,11 @@ final class InMemoryOperatorRepository implements OperatorRepository
     public function find(string $id): ?Operator
     {
         return $this->operators[$id] ?? null;
+    }
+
+    public function countActiveWithRole(OperatorRole $role): int
+    {
+        return count(array_filter($this->operators, static fn (Operator $operator): bool => $operator->role === $role && ! $operator->isRevoked()));
     }
 
     public function findByEmail(string $email): ?Operator

@@ -17,7 +17,7 @@
 </div>
 
 <div class="mb-4">
-    <x-admin.search-box placeholder="Rechercher par ID de tiers ou devise…" :value="$search" />
+    <x-admin.search-box placeholder="Rechercher par tiers (référence ou ID) ou devise…" :value="$search" />
 </div>
 
 {{-- Stats — per-currency totals across this project's wallets (capped

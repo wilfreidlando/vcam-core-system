@@ -41,6 +41,8 @@ final readonly class ListWalletsUseCase implements ListWallets
             $command->perPage,
             $command->search,
             $scope->projectFilter(),
+            // The operator searches by the reference they see (« partner:7 »), not by an internal id.
+            $command->search === null || $command->search === '' ? [] : $this->parties->idsMatchingRef($command->projectId, $command->search),
         );
 
         $walletIds = array_map(static fn (Wallet $wallet): string => $wallet->id, $result['items']);

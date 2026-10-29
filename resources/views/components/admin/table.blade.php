@@ -26,7 +26,7 @@
     $hasRows = trim((string) $slot) !== '';
 @endphp
 
-<div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
+<div class="bg-white border border-slate-200 rounded-lg overflow-x-auto">
     <table class="min-w-full divide-y divide-slate-200">
         <thead class="bg-slate-50">
             <tr>

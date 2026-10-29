@@ -274,7 +274,11 @@ final class AuthController
             'quietzoneSize' => 2,
             'addQuietzone' => true,
             // outputInterface defaults to QRMarkupSVG::class — inline SVG
-            // output, no GD / Imagick dependency required.
+            // output, no GD / Imagick dependency required. By default that
+            // renderer returns a `data:image/svg+xml;base64,…` URI, which a
+            // template printing it as markup shows as a page-wide string of
+            // text (found by the browser session): ask for the SVG itself.
+            'outputBase64' => false,
         ]);
 
         // chillerlan/php-qrcode's QROutputInterface::render() is typed

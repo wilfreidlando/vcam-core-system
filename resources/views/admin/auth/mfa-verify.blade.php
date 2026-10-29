@@ -13,7 +13,7 @@
         <p class="text-base text-slate-500">Console opérateur</p>
     </div>
 
-    @if (app()->environment('local'))
+    @if (app()->environment('local') && config('identity.disable_totp_in_local'))
         <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             <p class="font-semibold">Mode développement local</p>
             <p class="mt-1">

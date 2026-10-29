@@ -75,4 +75,4 @@ Non corrigés (à trancher) :
 ## Recette par navigateur
 
 La session de bout en bout menée dans un navigateur, depuis la console de toute la plateforme, est dans
-[recette-navigateur.md](recette-navigateur.md) (21 scénarios, 9 défauts trouvés et corrigés).
+[recette-navigateur.md](recette-navigateur.md) (26 scénarios, 17 défauts trouvés et corrigés).

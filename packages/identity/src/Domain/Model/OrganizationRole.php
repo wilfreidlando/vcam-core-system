@@ -39,6 +39,8 @@ enum OrganizationRole: string
                 'invoices:read', 'invoices:write',
                 'usage:read',
                 'portal:write',
+                // ADR-0088 §3 — the export of the project's data.
+                'exports:write',
                 'members:read', 'members:write',
                 'audit:read',
             ],

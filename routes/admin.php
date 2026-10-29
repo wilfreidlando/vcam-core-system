@@ -39,6 +39,13 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
     });
     Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
+    // The invitee's door: an activation token becomes an account (ADR-0069 §4). Public — the token
+    // is the credential — and throttled by the dedicated limiter of the JSON acceptance routes.
+    Route::middleware(['throttle:invitation-accept'])->group(function (): void {
+        Route::get('invitation', [App\Http\Controllers\Admin\InvitationController::class, 'show'])->name('invitation.show');
+        Route::post('invitation', [App\Http\Controllers\Admin\InvitationController::class, 'accept'])->name('invitation.accept');
+    });
+
     // Authenticated: the whole operator console.
     Route::middleware(['operator.session'])->group(function (): void {
 
@@ -225,6 +232,12 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             Route::get('{projectId}/usage', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'usage'])->name('projects.usage');
             Route::get('{projectId}/indicators', [App\Http\Controllers\Admin\ProjectIndicatorsController::class, 'show'])->name('projects.indicators');
             Route::get('{projectId}/ledger', [App\Http\Controllers\Admin\ProjectLedgerController::class, 'show'])->name('projects.ledger');
+
+            // ADR-0088 §3 / ADR-0101 — « Export des données » of a project: ask for it,
+            // list the past ones, download one through a signed link made at the click.
+            Route::get('{projectId}/exports', [App\Http\Controllers\Admin\ProjectExportsController::class, 'index'])->name('projects.exports');
+            Route::post('{projectId}/exports', [App\Http\Controllers\Admin\ProjectExportsController::class, 'store'])->name('projects.exports.store');
+            Route::post('{projectId}/exports/{exportId}/download', [App\Http\Controllers\Admin\ProjectExportsController::class, 'download'])->name('projects.exports.download');
 
             Route::prefix('{projectId}/customers')->group(function (): void {
                 // The reference is format-checked in the route (the

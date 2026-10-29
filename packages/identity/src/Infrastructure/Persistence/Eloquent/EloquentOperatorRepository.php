@@ -33,6 +33,11 @@ final class EloquentOperatorRepository implements OperatorRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
+    public function countActiveWithRole(OperatorRole $role): int
+    {
+        return OperatorRecord::query()->toBase()->where('role', $role->value)->whereNull('revoked_at')->count();
+    }
+
     public function findByEmail(string $email): ?Operator
     {
         // ADR-0069 §1 — one console account per mailbox: the comparison

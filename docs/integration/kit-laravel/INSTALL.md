@@ -214,6 +214,9 @@ portail, jamais votre application.
 | Profil C : payer la facture | webhook `invoice.paid` → `TenantAccess::apply(…, 'active')` |
 | Profil C : dépasser un quota | `QuotaExceeded` ; rien n'est compté |
 
+Pour quitter ou archiver, `GET /v1/payments`, `/v1/notifications` et `/v1/usage` se lisent par curseur et
+`POST /v1/exports` (portée `exports:write`) produit l'archive de votre projet — voir le guide curl, §6 bis.
+
 ## Ce que le kit garantit pour vous
 
 * **Éprouvé contre le vrai Core** : `tests/Integration/IntegrationKitTest.php` exécute ces

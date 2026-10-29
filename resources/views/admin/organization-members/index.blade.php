@@ -17,7 +17,8 @@
         </p>
         <p class="mt-1 text-sm text-emerald-700">
             Expire le {{ $invitation['expires_at'] }} (72 h). Transmettez-le à l'invité : il choisit
-            son mot de passe (ou confirme celui de son compte existant) et enrôle son MFA à l'activation.
+            son mot de passe (ou confirme celui de son compte existant) et enrôle son MFA à l'activation, sur
+            <a class="font-mono underline" href="{{ route('admin.invitation.show') }}">{{ route('admin.invitation.show') }}</a>.
         </p>
     </div>
 @endif

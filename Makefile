@@ -10,6 +10,8 @@ export HOST_GID
 
 DC      := docker compose
 EXEC    := $(DC) exec -T app
+# The database every gate runs against; never the developer's own (`core`).
+TEST_DB ?= core_testing
 RUN     := $(DC) run --rm --no-deps app
 
 DC_PROD := docker compose -f compose.prod.yaml
@@ -90,7 +92,9 @@ arch-graph: ## Render the module dependency graph
 
 .PHONY: schema
 schema: ## Schema guardrails: anti-PII, money columns (CI job: schema)
-	$(EXEC) php artisan migrate:fresh --env=testing
+	# The test database, named explicitly: without a `.env.testing`, `--env=testing` falls back to `.env`
+	# and would wipe the developer's own database on every `make ci`.
+	$(DC) exec -T -e DB_DATABASE=$(TEST_DB) app php artisan migrate:fresh --env=testing
 	$(EXEC) vendor/bin/pest --group=schema
 
 .PHONY: test

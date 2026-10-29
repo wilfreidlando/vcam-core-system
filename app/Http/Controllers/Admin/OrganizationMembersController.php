@@ -222,6 +222,21 @@ final class OrganizationMembersController
             abort($refusal->httpStatus(), $refusal->getMessage());
         }
 
-        return back()->withInput()->withErrors(['organization' => $refusal->getMessage()]);
+        return back()->withInput()->withErrors(['organization' => $this->say($refusal)]);
+    }
+
+    /**
+     * The refusal in the console's language, without internal identifiers; the original message
+     * stays for a case nobody has translated yet.
+     */
+    private function say(OrganizationRefusal $refusal): string
+    {
+        return match ($refusal->errorCode()) {
+            'last-owner' => 'Une organisation garde toujours un propriétaire : nommez-en un autre avant de retirer ou de rétrograder celui-ci.',
+            'already-member' => 'Cette personne est déjà membre de l\'organisation.',
+            'privilege-escalation' => 'Vous ne pouvez pas attribuer un rôle supérieur au vôtre : seul un propriétaire attribue le rôle de propriétaire.',
+            'organization-member-not-found' => 'Ce membre n\'existe pas ou n\'est plus dans l\'organisation.',
+            default => $refusal->getMessage(),
+        };
     }
 }
