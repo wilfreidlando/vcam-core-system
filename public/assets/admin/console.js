@@ -93,7 +93,48 @@ document.addEventListener('alpine:init', () => {
 
         show() {
             this.open = true;
-            this.$nextTick(() => this.focusInitial());
+            // The focus can only move once the panel is really rendered:
+            // while the overlay is `display: none`, `focus()` on one of
+            // its fields does nothing at all.
+            //
+            // Alpine's CSP build does not flush the pending effects before
+            // running a `nextTick` callback (the standard build does), and
+            // `x-show` re-shows an element in a `setTimeout` — so the
+            // callback could run while the panel is still hidden. The
+            // wait is therefore explicit.
+            this.whenRendered(() => this.focusInitial());
+        },
+
+        /**
+         * Run a callback once the panel has boxes again.
+         *
+         * `requestAnimationFrame` is the frame in which the browser has
+         * applied the styles; the loop stops as soon as the panel is
+         * rendered, and gives up after a second — a dialog that is still
+         * not rendered after a second is broken anyway.
+         */
+        whenRendered(callback) {
+            let frames = 0;
+
+            const attempt = () => {
+                const panel = this.$refs.panel;
+
+                if (panel && panel.getClientRects().length > 0) {
+                    callback();
+
+                    return;
+                }
+
+                frames += 1;
+
+                if (frames > 60) {
+                    return;
+                }
+
+                requestAnimationFrame(attempt);
+            };
+
+            requestAnimationFrame(attempt);
         },
 
         close() {
