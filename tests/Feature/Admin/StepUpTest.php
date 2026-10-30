@@ -17,8 +17,13 @@ use Tests\TestCase;
 
 /**
  * Écarts #5 et #17 de la recette 2026-10-29 (annexe sécurité) : le MFA n'est qu'une porte
- * d'entrée ; une action sensible exige un code TOTP saisi dans les 5 dernières minutes
- * (`operator.step_up`), et la console plafonne ces actions (`console-sensitive`).
+ * d'entrée ; une action qui **déplace de l'argent** exige un code TOTP saisi dans les 5
+ * dernières minutes (`operator.step_up`), et la console plafonne ses écritures sensibles
+ * (`console-sensitive`).
+ *
+ * ADR-0105 : l'élévation est réservée à l'argent. Les autres écritures sensibles — endpoints
+ * webhook, clés d'API, opérateurs, membres d'organisation, effacement d'un client — ne
+ * redemandent plus de code : elles restent auditées et plafonnées.
  *
  * Les tests posent eux-mêmes l'état d'élévation (`unelevated()`), pour ne pas dépendre
  * de l'appel `markElevated()` du login (`AuthController::completeLogin()`).
@@ -28,18 +33,40 @@ final class StepUpTest extends TestCase
     use RefreshDatabase;
     use SignsInToConsole;
 
-    private const SENSITIVE_WRITE = '/admin/operators';
+    /**
+     * A write that moves money. The identifier does not need to exist: the
+     * step-up is checked before the controller.
+     */
+    private const MONEY_WRITE = '/admin/money-exceptions/01a0a1cc-0000-7000-8000-000000000401/resolve';
+
+    /** A write that does not move money — ADR-0105: no TOTP is asked again. */
+    private const PLAIN_WRITE = '/admin/operators';
 
     #[Test]
-    public function a_sensitive_write_without_a_recent_proof_redirects_to_the_step_up_screen_and_keeps_the_destination(): void
+    public function a_write_that_moves_money_without_a_recent_proof_redirects_to_the_step_up_screen_and_keeps_the_destination(): void
     {
         $this->signInToConsole();
         $this->unelevated();
 
-        $this->from('/admin/operators')
-            ->post(self::SENSITIVE_WRITE, ['email' => 'x@example.com', 'role' => 'platform_admin'])
+        $this->from('/admin/money-exceptions')
+            ->post(self::MONEY_WRITE, ['resolution' => 'no_action', 'note' => 'Rien à faire.'])
             ->assertRedirect(route('admin.step-up.show'))
-            ->assertSessionHas(StepUpGate::RETURN_KEY, '/admin/operators');
+            ->assertSessionHas(StepUpGate::RETURN_KEY, '/admin/money-exceptions');
+    }
+
+    #[Test]
+    public function a_write_that_does_not_move_money_is_not_blocked_by_the_step_up(): void
+    {
+        // ADR-0105 — l'élévation est réservée à l'argent. Les autres
+        // écritures sensibles (ici : inviter un opérateur) ne redemandent
+        // pas de code TOTP ; elles restent auditées et plafonnées.
+        $this->signInToConsole();
+        $this->unelevated();
+
+        $location = $this->post(self::PLAIN_WRITE, ['email' => 'x@example.com', 'role' => 'platform_admin'])
+            ->headers->get('Location');
+
+        self::assertNotSame(route('admin.step-up.show'), $location, 'une écriture qui ne bouge pas d\'argent ne demande pas de TOTP');
     }
 
     #[Test]
@@ -62,16 +89,16 @@ final class StepUpTest extends TestCase
         $operatorId = $this->signedInOperatorId();
         $this->unelevated();
 
-        $this->from('/admin/operators')->post(self::SENSITIVE_WRITE, ['email' => 'x@example.com']);
+        $this->from('/admin/money-exceptions')->post(self::MONEY_WRITE, ['resolution' => 'no_action', 'note' => 'Rien à faire.']);
         $before = $this->sessionId();
 
         $this->post('/admin/step-up', ['code' => $this->freshCode($operatorId)])
-            ->assertRedirect('/admin/operators')
+            ->assertRedirect('/admin/money-exceptions')
             ->assertSessionHasNoErrors();
 
         self::assertNotSame($before, $this->sessionId(), 'l\'élévation fait tourner l\'identifiant de session (ADR-0081)');
 
-        $location = $this->post(self::SENSITIVE_WRITE, ['email' => 'x@example.com'])->headers->get('Location');
+        $location = $this->post(self::MONEY_WRITE, ['email' => 'x@example.com'])->headers->get('Location');
         self::assertNotSame(route('admin.step-up.show'), $location, 'l\'action n\'est plus redirigée vers l\'élévation');
     }
 
@@ -86,7 +113,7 @@ final class StepUpTest extends TestCase
             ->assertRedirect('/admin/step-up')
             ->assertSessionHasErrors('code');
 
-        $this->post(self::SENSITIVE_WRITE, ['email' => 'x@example.com'])
+        $this->post(self::MONEY_WRITE, ['email' => 'x@example.com'])
             ->assertRedirect(route('admin.step-up.show'));
     }
 
@@ -104,7 +131,7 @@ final class StepUpTest extends TestCase
         $this->from('/admin/step-up')
             ->post('/admin/step-up', ['code' => $code])
             ->assertSessionHasErrors('code');
-        $this->post(self::SENSITIVE_WRITE, ['email' => 'x@example.com'])
+        $this->post(self::MONEY_WRITE, ['email' => 'x@example.com'])
             ->assertRedirect(route('admin.step-up.show'));
     }
 
@@ -116,11 +143,11 @@ final class StepUpTest extends TestCase
         $this->post('/admin/step-up', ['code' => $this->freshCode($operatorId)])->assertSessionHasNoErrors();
 
         $this->travel(4)->minutes();
-        $stillValid = $this->post(self::SENSITIVE_WRITE, ['email' => 'x@example.com'])->headers->get('Location');
+        $stillValid = $this->post(self::MONEY_WRITE, ['email' => 'x@example.com'])->headers->get('Location');
         self::assertNotSame(route('admin.step-up.show'), $stillValid, 'à 4 minutes l\'élévation tient encore');
 
         $this->travel(2)->minutes();
-        $this->post(self::SENSITIVE_WRITE, ['email' => 'x@example.com'])
+        $this->post(self::MONEY_WRITE, ['email' => 'x@example.com'])
             ->assertRedirect(route('admin.step-up.show'));
     }
 
@@ -140,7 +167,7 @@ final class StepUpTest extends TestCase
         $this->signInToConsole();
         $this->unelevated();
 
-        $this->postJson(self::SENSITIVE_WRITE, ['email' => 'x@example.com'])
+        $this->postJson(self::MONEY_WRITE, ['email' => 'x@example.com'])
             ->assertStatus(403)
             ->assertJsonPath('type', 'https://errors.core-system.internal/step-up-required');
     }
@@ -156,7 +183,7 @@ final class StepUpTest extends TestCase
             ->assertRedirect(route('admin.dashboard'));
         $this->unelevated();
 
-        $location = $this->post(self::SENSITIVE_WRITE, ['email' => 'x@example.com'])->headers->get('Location');
+        $location = $this->post(self::MONEY_WRITE, ['email' => 'x@example.com'])->headers->get('Location');
         self::assertNotSame(route('admin.step-up.show'), $location);
 
         $this->get('/admin/step-up')->assertRedirect();
@@ -177,10 +204,10 @@ final class StepUpTest extends TestCase
         $this->post('/admin/step-up', ['code' => $this->freshCode($operatorId)])->assertSessionHasNoErrors();
 
         for ($attempt = 1; $attempt <= 20; $attempt++) {
-            $this->post(self::SENSITIVE_WRITE, ['email' => 'x@example.com'])->assertStatus(302);
+            $this->post(self::MONEY_WRITE, ['email' => 'x@example.com'])->assertStatus(302);
         }
 
-        $this->post(self::SENSITIVE_WRITE, ['email' => 'x@example.com'])->assertStatus(429);
+        $this->post(self::MONEY_WRITE, ['email' => 'x@example.com'])->assertStatus(429);
     }
 
     #[Test]

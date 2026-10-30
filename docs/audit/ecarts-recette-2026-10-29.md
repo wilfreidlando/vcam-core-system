@@ -166,7 +166,8 @@ F-11 (aucune erreur de validation affichée), F-12 (chaîne → `int` sur l'API)
 **Soldés en sécurité** : en-têtes et CSP de la console (#1, CSP stricte
 `script-src 'self'` — ni `unsafe-inline` ni `unsafe-eval`, build CSP d'Alpine,
 ADR-0104), expurgation du TOTP et du MAC du prestataire (#2, #3), aucun secret dans le
-store de session (#4), élévation par second facteur sur les actions sensibles (#5),
+store de session (#4), élévation par second facteur sur les actions qui déplacent
+l'argent (#5, ADR-0105 — les autres écritures sensibles restent auditées et plafonnées),
 symétrie du dernier administrateur avec verrou de ligne (#6), écritures par cookie refusées
 (#7), jeton de sidecar obligatoire en production (#8), PII non journalisée (#9),
 `allowed_asset_origins` sur le portail (#10), `Str::isUuid` et limitation de débit (#11),

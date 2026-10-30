@@ -56,8 +56,14 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
         Route::get('/', [DashboardController::class, 'show'])->name('dashboard');
 
         // Écart #5 (annexe sécurité 2026-10-29, G-4) — l'élévation de privilège : avant une
-        // action sensible (`operator.step_up`), l'opérateur ressaisit un code TOTP, valable
-        // 5 minutes. 'console-step-up' (AdminServiceProvider) plafonne les essais de code.
+        // action qui **déplace de l'argent** (`operator.step_up`), l'opérateur ressaisit un
+        // code TOTP, valable 5 minutes. 'console-step-up' (AdminServiceProvider) plafonne
+        // les essais de code.
+        //
+        // ADR-0105 : l'élévation est réservée à l'argent. Les autres écritures sensibles
+        // (endpoints webhook, clés d'API, opérateurs, membres d'organisation, effacement
+        // d'un client) restent auditées et plafonnées (`throttle:console-sensitive`), mais ne
+        // redemandent plus de code TOTP : le MFA de la connexion reste la preuve.
         Route::get('step-up', [App\Http\Controllers\Admin\StepUpController::class, 'show'])->name('step-up.show');
         Route::post('step-up', [App\Http\Controllers\Admin\StepUpController::class, 'verify'])
             ->middleware(['throttle:console-step-up'])
@@ -110,15 +116,15 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
                 ->name('organizations.members.invite');
             Route::post('/', [App\Http\Controllers\Admin\OrganizationMembersController::class, 'store'])
                 ->whereUuid('organizationId')
-                ->name('organizations.members.store')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                ->name('organizations.members.store')->middleware(['throttle:console-sensitive']);
             Route::post('{operatorId}/revoke', [App\Http\Controllers\Admin\OrganizationMembersController::class, 'revoke'])
                 ->whereUuid('organizationId')
                 ->whereUuid('operatorId')
-                ->name('organizations.members.revoke.web')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                ->name('organizations.members.revoke.web')->middleware(['throttle:console-sensitive']);
             Route::put('{operatorId}/role', [App\Http\Controllers\Admin\OrganizationMembersController::class, 'updateRole'])
                 ->whereUuid('organizationId')
                 ->whereUuid('operatorId')
-                ->name('organizations.members.role.web')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                ->name('organizations.members.role.web')->middleware(['throttle:console-sensitive']);
         });
 
         // ADR-0080 §1 — the portfolio: every project the operator may see, with its indicators.
@@ -203,18 +209,18 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
             Route::get('{projectId}/webhook-endpoints/create', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'create'])
                 ->name('projects.webhook-endpoints.create');
             Route::post('{projectId}/webhook-endpoints', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'store'])
-                ->name('projects.webhook-endpoints.store')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                ->name('projects.webhook-endpoints.store')->middleware(['throttle:console-sensitive']);
             Route::put('{projectId}/webhook-endpoints/{endpointId}', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'update'])
-                ->name('projects.webhook-endpoints.update')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                ->name('projects.webhook-endpoints.update')->middleware(['throttle:console-sensitive']);
             Route::post('{projectId}/webhook-endpoints/{endpointId}/activate', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'activate'])
                 ->name('projects.webhook-endpoints.activate')->middleware(['throttle:console-sensitive']);
             Route::post('{projectId}/webhook-endpoints/{endpointId}/deactivate', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'deactivate'])
                 ->name('projects.webhook-endpoints.deactivate')->middleware(['throttle:console-sensitive']);
             // ADR-0082 §5 — secret rotation (double signature) and its early end.
             Route::post('{projectId}/webhook-endpoints/{endpointId}/rotate-secret', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'rotateSecret'])
-                ->name('projects.webhook-endpoints.rotate-secret')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                ->name('projects.webhook-endpoints.rotate-secret')->middleware(['throttle:console-sensitive']);
             Route::post('{projectId}/webhook-endpoints/{endpointId}/revoke-previous-secret', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'revokePreviousSecret'])
-                ->name('projects.webhook-endpoints.revoke-previous-secret')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                ->name('projects.webhook-endpoints.revoke-previous-secret')->middleware(['throttle:console-sensitive']);
             // Review finding: API key issuance/revocation was genuinely
             // CLI-only (`identity:issue-api-key`/`identity:revoke-api-key`),
             // unlike organizations/projects/operators which already had
@@ -223,11 +229,11 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
             Route::get('{projectId}/api-keys/create', [App\Http\Controllers\Admin\ApiKeysController::class, 'create'])
                 ->name('projects.api-keys.create');
             Route::post('{projectId}/api-keys', [App\Http\Controllers\Admin\ApiKeysController::class, 'store'])
-                ->name('projects.api-keys.store')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                ->name('projects.api-keys.store')->middleware(['throttle:console-sensitive']);
             Route::post('{projectId}/api-keys/{apiKeyId}/rotate', [App\Http\Controllers\Admin\ApiKeysController::class, 'rotate'])
-                ->name('projects.api-keys.rotate')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                ->name('projects.api-keys.rotate')->middleware(['throttle:console-sensitive']);
             Route::post('{projectId}/api-keys/{apiKeyId}/revoke', [App\Http\Controllers\Admin\ApiKeysController::class, 'revoke'])
-                ->name('projects.api-keys.revoke')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                ->name('projects.api-keys.revoke')->middleware(['throttle:console-sensitive']);
 
             // ADR-0070 / ADR-0071 / ADR-0072 — the commerce of a Project:
             // the customers it declares, its plan catalogue and its
@@ -282,7 +288,7 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
                     ->name('projects.customers.reactivate.web');
                 Route::post('{externalRef}/erase', [App\Http\Controllers\Admin\BillingCustomersController::class, 'erase'])
                     ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
-                    ->name('projects.customers.erase.web')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                    ->name('projects.customers.erase.web')->middleware(['throttle:console-sensitive']);
             });
 
             Route::prefix('{projectId}/plans')->group(function (): void {
@@ -340,7 +346,7 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
                 Route::get('create', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'create'])
                     ->name('projects.invoices.new');
                 Route::post('/', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'store'])
-                    ->name('projects.invoices.store');
+                    ->name('projects.invoices.store')->middleware(['throttle:console-sensitive']);
                 Route::get('{invoiceId}', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'show'])
                     ->whereUuid('invoiceId')
                     ->name('projects.invoices.show');
@@ -357,7 +363,7 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
                 // L'encaissement hors ligne — ADR-0073 §4, ADR-0095.
                 Route::post('{invoiceId}/receipts', [App\Http\Controllers\Admin\BillingInvoiceReceiptsController::class, 'store'])
                     ->whereUuid('invoiceId')
-                    ->name('projects.invoices.receipts.store');
+                    ->name('projects.invoices.receipts.store')->middleware(['throttle:console-sensitive']);
             });
 
             // Les encaissements hors ligne du projet — ADR-0073 §4.
@@ -477,10 +483,10 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
             Route::get('create', [App\Http\Controllers\Admin\OperatorsController::class, 'create'])
                 ->name('operators.new');
             Route::post('/', [App\Http\Controllers\Admin\OperatorsController::class, 'store'])
-                ->name('operators.store')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                ->name('operators.store')->middleware(['throttle:console-sensitive']);
             // `.revoke.web` — JSON owns `admin.operators.revoke` (also POST).
             Route::post('{operatorId}/revoke', [App\Http\Controllers\Admin\OperatorsController::class, 'revoke'])
-                ->name('operators.revoke.web')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                ->name('operators.revoke.web')->middleware(['throttle:console-sensitive']);
             // Literal segments (`create`, `{operatorId}/edit`) always win
             // over a parameter route for an exact match in Laravel, so
             // this doesn't collide with `operators/create` above.
@@ -488,7 +494,7 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
                 ->name('operators.edit');
             // `.update.web` — JSON owns `admin.operators.update` (also PUT).
             Route::put('{operatorId}', [App\Http\Controllers\Admin\OperatorsController::class, 'update'])
-                ->name('operators.update.web')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                ->name('operators.update.web')->middleware(['throttle:console-sensitive']);
         });
     });
 });

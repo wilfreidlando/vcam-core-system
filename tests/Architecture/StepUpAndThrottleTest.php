@@ -11,14 +11,19 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * Écarts #5 et #17 de la recette 2026-10-29 (annexe sécurité, G-4 et G-12) — une action
- * sensible de la console ne s'exécute ni sans preuve TOTP récente (`operator.step_up`)
- * ni sans plafond (`throttle:console-sensitive`).
+ * Écarts #5 et #17 de la recette 2026-10-29 (annexe sécurité, G-4 et G-12) — une écriture
+ * de la console ne s'exécute ni sans preuve TOTP récente (`operator.step_up`) quand elle
+ * **déplace de l'argent**, ni sans plafond (`throttle:console-sensitive`).
+ *
+ * ADR-0105 : l'élévation de privilège est réservée à l'argent. Les autres écritures
+ * sensibles (endpoints webhook, clés d'API, opérateurs, membres d'organisation,
+ * effacement d'un client) ne redemandent plus de code TOTP — le MFA de la connexion reste
+ * la preuve — mais elles restent auditées et plafonnées.
  *
  * Le garde-fou est structurel : il parcourt la table de routage. Une nouvelle route
  * mutante dans une famille sensible (clés d'API, webhooks, opérateurs, membres,
- * exceptions d'argent, corrections du grand livre, effacement) doit être classée ici,
- * sinon le build échoue avant la revue.
+ * exceptions d'argent, corrections du grand livre, factures, reçus, effacement) doit être
+ * classée ici, sinon le build échoue avant la revue.
  */
 #[Group('arch')]
 final class StepUpAndThrottleTest extends TestCase
@@ -29,25 +34,18 @@ final class StepUpAndThrottleTest extends TestCase
 
     private const WRITES = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
-    /** Routes mutantes qui exigent l'élévation ET le plafond. */
-    private const SENSITIVE = [
+    /**
+     * Routes mutantes qui exigent l'élévation ET le plafond : ce sont celles
+     * qui déplacent de l'argent (émettre, encaisser, approuver, résoudre).
+     */
+    private const MONEY = [
+        'admin.projects.invoices.issue.web',
+        'admin.projects.invoices.void.web',
+        'admin.projects.invoices.uncollectible.web',
+        'admin.projects.receipts.approve.web',
         'admin.money-exceptions.approve',
         'admin.money-exceptions.resolve',
         'admin.ledger-adjustments.approve',
-        'admin.projects.api-keys.store',
-        'admin.projects.api-keys.rotate',
-        'admin.projects.api-keys.revoke',
-        'admin.projects.webhook-endpoints.store',
-        'admin.projects.webhook-endpoints.update',
-        'admin.projects.webhook-endpoints.rotate-secret',
-        'admin.projects.webhook-endpoints.revoke-previous-secret',
-        'admin.projects.customers.erase.web',
-        'admin.operators.store',
-        'admin.operators.revoke.web',
-        'admin.operators.update.web',
-        'admin.organizations.members.store',
-        'admin.organizations.members.revoke.web',
-        'admin.organizations.members.role.web',
     ];
 
     /** Routes mutantes plafonnées (création, suppression, refus) sans élévation. */
@@ -68,28 +66,60 @@ final class StepUpAndThrottleTest extends TestCase
         'admin.projects.webhook-endpoints.deactivate',
         'admin.projects.exports.store',
         'admin.projects.exports.download',
+        // ADR-0105 — l'élévation est réservée à l'argent : ces écritures
+        // sensibles ne redemandent plus de code TOTP, mais restent auditées
+        // et plafonnées.
+        'admin.projects.webhook-endpoints.store',
+        'admin.projects.webhook-endpoints.update',
+        'admin.projects.webhook-endpoints.rotate-secret',
+        'admin.projects.webhook-endpoints.revoke-previous-secret',
+        'admin.projects.api-keys.store',
+        'admin.projects.api-keys.rotate',
+        'admin.projects.api-keys.revoke',
+        'admin.projects.customers.erase.web',
+        'admin.operators.store',
+        'admin.operators.revoke.web',
+        'admin.operators.update.web',
+        'admin.organizations.members.store',
+        'admin.organizations.members.revoke.web',
+        'admin.organizations.members.role.web',
+        'admin.projects.invoices.store',
+        'admin.projects.invoices.receipts.store',
     ];
 
     /** Familles de routes dont toute écriture doit être classée dans l'une des deux listes. */
-    private const SENSITIVE_FAMILY = '#/(api-keys|erase|operators|members|webhook-endpoints|money-exceptions|ledger-adjustments)(/|$)#';
+    private const SENSITIVE_FAMILY = '#/(api-keys|erase|operators|members|webhook-endpoints|money-exceptions|ledger-adjustments|invoices|receipts)(/|$)#';
 
     #[Test]
-    public function every_sensitive_console_mutation_requires_a_step_up_and_is_throttled(): void
+    public function every_write_that_moves_money_requires_a_step_up_and_is_throttled(): void
     {
-        foreach (self::SENSITIVE as $name) {
+        foreach (self::MONEY as $name) {
             $route = $this->route($name);
             $middleware = $route->gatherMiddleware();
 
-            self::assertContains(self::STEP_UP, $middleware, "{$name} doit porter operator.step_up (écart #5).");
+            self::assertContains(self::STEP_UP, $middleware, "{$name} doit porter operator.step_up (ADR-0105).");
             self::assertContains(self::THROTTLE, $middleware, "{$name} doit être plafonnée (écart #17).");
             self::assertNotEmpty(array_filter(self::WRITES, static fn (string $m): bool => in_array($m, $route->methods(), true)), "{$name} doit être une écriture.");
         }
     }
 
     #[Test]
+    public function only_the_writes_that_move_money_demand_the_step_up(): void
+    {
+        // ADR-0105 — le TOTP est demandé à la connexion et pour l'argent,
+        // pas pour les autres écritures sensibles.
+        foreach (self::THROTTLED_ONLY as $name) {
+            $middleware = $this->route($name)->gatherMiddleware();
+
+            self::assertNotContains(self::STEP_UP, $middleware, "{$name} ne déplace pas d'argent : pas d'élévation à redemander.");
+            self::assertContains(self::THROTTLE, $middleware, "{$name} doit être plafonnée (écart #17).");
+        }
+    }
+
+    #[Test]
     public function the_step_up_comes_after_the_operator_session(): void
     {
-        foreach (self::SENSITIVE as $name) {
+        foreach (self::MONEY as $name) {
             $middleware = $this->route($name)->gatherMiddleware();
 
             self::assertLessThan(
@@ -124,7 +154,7 @@ final class StepUpAndThrottleTest extends TestCase
     #[Test]
     public function a_new_write_in_a_sensitive_family_must_be_classified(): void
     {
-        $classified = [...self::SENSITIVE, ...self::THROTTLED_ONLY];
+        $classified = [...self::MONEY, ...self::THROTTLED_ONLY];
         $unclassified = [];
 
         foreach (RouteFacade::getRoutes()->getRoutes() as $route) {
