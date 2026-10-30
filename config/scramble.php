@@ -66,7 +66,7 @@ return [
          */
         'description' => 'Enterprise Core System — the cross-cutting capabilities (identity, ledger, '.
             'wallet, payment, notification, webhook) shared across every product. '.
-            'Authenticate with `Authorization: Bearer pk_<env>_<id>.<secret>` — see `GET /v1/whoami`. '.
+            'Authenticate with `Authorization: Bearer pk_<prefix>.<secret>` — see `GET /v1/whoami`. '.
             "\n\n".
             '## Reading this document '.
             "\n\n".
@@ -231,13 +231,15 @@ return [
      */
     // `project.auth` is the alias bootstrap/app.php binds to
     // ResolveProjectMiddleware (ADR-0033 §3) — every route that carries it
-    // requires `Authorization: Bearer pk_<env>_<id>.<secret>` (ADR-0028's
-    // API key scheme, not a JWT/OAuth bearer).
+    // requires `Authorization: Bearer pk_<prefix>.<secret>` (ADR-0028's
+    // API key scheme, not a JWT/OAuth bearer). The format is the one the
+    // Core issues today: `pk_` followed by eight base62 characters, a dot,
+    // then the secret (ADR-0066 dropped the environment from the prefix).
     'security_strategy' => [
         Dedoc\Scramble\SecurityDocumentation\MiddlewareAuthSecurityStrategy::class,
         [
             'middleware' => ['project.auth'],
-            'scheme' => Dedoc\Scramble\Support\Generator\SecurityScheme::http('bearer', 'pk_<env>_<id>.<secret>'),
+            'scheme' => Dedoc\Scramble\Support\Generator\SecurityScheme::http('bearer', 'pk_<prefix>.<secret>'),
         ],
     ],
 ];

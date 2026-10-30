@@ -12,6 +12,7 @@
 | **Comprendre l'architecture** d'un coup d'œil | [Vue d'ensemble](architecture/vue-ensemble.md) |
 | Savoir **pourquoi** une décision a été prise | [Index des ADR](adr/README.md) |
 | **Intégrer** un produit au Core (appels, clés, webhooks) | [Guide `curl` de l'intégrateur](integration/guide-curl-integrateur.md), [Webhooks et `callback_url`](integration/webhooks.md) |
+| **Apprendre à utiliser** la console opérateur, le portail client et l'API | [Manuel d'utilisation](manuel/README.md) |
 
 ## L'exploitation
 
