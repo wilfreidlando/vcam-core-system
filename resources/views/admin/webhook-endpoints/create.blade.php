@@ -48,7 +48,7 @@
                         );
                         $isAll = $endpoint->events === ['*'];
                     @endphp
-                    <li class="py-3 text-base" x-data="{ editing: false, secret: null }">
+                    <li class="py-3 text-base" x-data="endpointEditor">
                         <div class="flex items-center justify-between gap-2">
                             <span class="flex items-center gap-2 min-w-0"><span class="font-mono text-slate-900 truncate">{{ $endpoint->url }}</span></span>
                             <span @class([
@@ -70,10 +70,10 @@
                                 @endif
                             </p>
                             <div class="flex flex-wrap items-center gap-1 text-sm">
-                                <button type="button" @click="editing = ! editing"
-                                        aria-controls="endpoint-edit-{{ $endpoint->id }}" aria-expanded="false" :aria-expanded="editing ? 'true' : 'false'"
+                                <button type="button" @click="toggle"
+                                        aria-controls="endpoint-edit-{{ $endpoint->id }}" aria-expanded="false" :aria-expanded="ariaExpanded"
                                         class="rounded-md px-2.5 py-1.5 font-medium text-indigo-700 hover:bg-indigo-50">
-                                    <span x-show="! editing">Modifier</span>
+                                    <span x-show="notEditing">Modifier</span>
                                     <span x-show="editing" x-cloak>Fermer</span>
                                     <span class="sr-only"> l'endpoint {{ $endpoint->url }}</span>
                                 </button>
@@ -133,13 +133,13 @@
                                         class="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm font-mono" />
                                 </div>
 
-                                <div x-data="{ all: {{ $isAll ? 'true' : 'false' }} }">
+                                <div x-data="allCategories" data-all="{{ $isAll ? 'true' : 'false' }}">
                                     {{-- B8/B9 : un groupe de cases à cocher est un fieldset, son titre un legend. --}}
                                     <fieldset>
                                     <legend class="block text-sm font-medium text-slate-700 mb-1">Sur quoi être notifié ?</legend>
                                     <div class="space-y-1.5">
                                         @foreach ($categories as $key => $category)
-                                            <label class="flex items-center gap-2 text-sm text-slate-700" :class="{ 'opacity-50': all }">
+                                            <label class="flex items-center gap-2 text-sm text-slate-700" :class="dimmedClass">
                                                 <input
                                                     type="checkbox"
                                                     name="categories[]"
@@ -151,7 +151,7 @@
                                             </label>
                                         @endforeach
                                         <label class="flex items-center gap-2 text-sm text-slate-700 pt-1.5 border-t border-slate-100">
-                                            <input type="checkbox" name="all" value="1" x-model="all" @checked($isAll) class="rounded border-slate-300" />
+                                            <input type="checkbox" name="all" value="1" @checked($isAll) @change="toggleAll" class="rounded border-slate-300" />
                                             Tout recevoir
                                         </label>
                                     </div>
@@ -189,12 +189,12 @@
             <x-admin.field name="url" type="url" label="URL de réception" id="url" required autofocus
                            placeholder="https://exemple.com/webhooks/core" class="font-mono" />
 
-            <div x-data="{ all: {{ old('all') === '1' ? 'true' : 'false' }} }">
+            <div x-data="allCategories" data-all="{{ old('all') === '1' ? 'true' : 'false' }}">
                 <fieldset aria-describedby="categories-hint{{ $errors->has('categories') ? ' categories-error' : '' }}">
                     <legend class="block text-base font-medium text-slate-700 mb-1">Sur quoi voulez-vous être notifié ?</legend>
                     <div class="space-y-2">
                         @foreach ($categories as $key => $category)
-                            <label class="flex items-center gap-2 text-base text-slate-700" :class="{ 'opacity-50': all }">
+                            <label class="flex items-center gap-2 text-base text-slate-700" :class="dimmedClass">
                                 <input
                                     type="checkbox"
                                     name="categories[]"
@@ -206,7 +206,7 @@
                             </label>
                         @endforeach
                         <label class="flex items-center gap-2 text-base text-slate-700 pt-2 border-t border-slate-100">
-                            <input type="checkbox" name="all" value="1" x-model="all" class="rounded border-slate-300" />
+                            <input type="checkbox" name="all" value="1" @checked(old('all') === '1') @change="toggleAll" class="rounded border-slate-300" />
                             Tout recevoir
                         </label>
                     </div>

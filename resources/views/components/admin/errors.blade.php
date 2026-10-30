@@ -34,7 +34,7 @@
         id="{{ $id }}"
         role="alert"
         tabindex="-1"
-        @if ($focus) x-data x-init="$el.focus()" @endif
+        @if ($focus) x-data="errorSummary" @endif
         {{ $attributes->class(['mb-4 rounded-md border border-rose-300 bg-rose-50 p-4 text-rose-900']) }}>
         <p class="font-semibold">{{ $title }}</p>
         <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">

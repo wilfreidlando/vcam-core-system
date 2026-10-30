@@ -110,7 +110,7 @@
         @endforelse
     </section>
 
-    <section class="bg-white border border-slate-200 rounded-lg p-6" x-data='{ template: @js(old('template', 'server')) }'>
+    <section class="bg-white border border-slate-200 rounded-lg p-6" x-data="apiKeyTemplate" data-template="{{ old('template', 'server') }}">
         <h2 class="text-lg font-semibold text-slate-900">Nouvelle clé</h2>
         <form method="POST" action="{{ route('admin.projects.api-keys.store', ['projectId' => $project->id]) }}" class="mt-4 space-y-5">
             @csrf
@@ -122,7 +122,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     @foreach ($templates as $value => $label)
                         <label class="flex items-start gap-2 rounded-md border border-slate-200 px-3 py-2 cursor-pointer hover:bg-slate-50">
-                            <input type="radio" name="template" value="{{ $value }}" x-model="template" class="mt-1">
+                            <input type="radio" name="template" value="{{ $value }}" @checked(old('template', 'server') === $value) @change="selectTemplate" class="mt-1">
                             <span>
                                 <span class="block text-sm font-medium text-slate-900">{{ $label }}</span>
                                 <span class="block text-xs text-slate-600">{{ count($templateScopes[$value]) }} portée(s)@if ($value === 'payouts') · clé séparée conseillée, avec restriction réseau @endif</span>
@@ -130,11 +130,11 @@
                         </label>
                     @endforeach
                     <label class="flex items-start gap-2 rounded-md border border-slate-200 px-3 py-2 cursor-pointer hover:bg-slate-50">
-                        <input type="radio" name="template" value="custom" x-model="template" class="mt-1">
+                        <input type="radio" name="template" value="custom" @checked(old('template', 'server') === 'custom') @change="selectTemplate" class="mt-1">
                         <span class="block text-sm font-medium text-slate-900">Personnalisée</span>
                     </label>
                 </div>
-                <div x-show="template === 'custom'" x-cloak class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-1">
+                <div x-show="custom" x-cloak class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-1">
                     @foreach ($allScopes as $scope)
                         <label class="flex items-center gap-2 text-sm font-mono text-slate-700">
                             <input type="checkbox" name="scopes[]" value="{{ $scope }}" @checked(in_array($scope, old('scopes', []), true))>

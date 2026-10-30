@@ -24,21 +24,23 @@ use Symfony\Component\HttpFoundation\Response;
  * no other. A compromised CDN can no longer execute code on the console.
  *
  * `'unsafe-inline'` is GONE from `script-src` (ADR-0102): the layout's inline
- * script — the mobile-nav store — is now a file served by the application
+ * script — the mobile-nav state — is now a file served by the application
  * (`public/assets/admin/console.js`), and no view carries an inline `on*=`
- * handler any more. A script can therefore only come from our own origin.
+ * handler any more.
  *
- * `'unsafe-eval'` stays, deliberately and for now: the standard Alpine build
- * evaluates the expressions of the templates with `new Function`. Removing it
- * means Alpine's CSP build (`@alpinejs/csp`), which evaluates them by token
- * substitution instead — a rewrite of the ~60 expressions of the console.
- * That lot is described in ADR-0102, décision 3; its integration is subject to
- * the approval of the external source it comes from.
+ * `'unsafe-eval'` is GONE too (ADR-0104): the console runs Alpine's **CSP
+ * build** (`@alpinejs/csp`), which reads the expressions of the templates as
+ * property paths instead of evaluating them with `new Function`. Every state
+ * of the console lives in a component of `console.js`; `ConsoleCspExpressionsTest`
+ * fails as soon as a view carries an expression the CSP build cannot read.
+ *
+ * A script can therefore only come from our own origin, and it can only be
+ * one of the files the application serves.
  */
 final class AdminSecurityHeaders
 {
     public const CSP = "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; "
-        ."script-src 'self' 'unsafe-eval'";
+        ."script-src 'self'";
 
     public function handle(Request $request, Closure $next): Response
     {

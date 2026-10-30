@@ -53,7 +53,7 @@
              permanently expanded (review finding, live-tested). Multiple
              `<tbody>` per `<table>` is valid HTML — this is the standard
              way to group rows that need to share client-side state. --}}
-        <tbody class="divide-y divide-slate-100 bg-white" x-data="{ showDetails: false }">
+        <tbody class="divide-y divide-slate-100 bg-white" x-data="deliveryDetails">
         <tr>
             <td class="px-2 py-2">
                 {{-- Review finding: the ID text alone (same styling as
@@ -62,14 +62,14 @@
                      chevron is the standard "expand this row" affordance. --}}
                 <button
                     type="button"
-                    @click="showDetails = !showDetails"
+                    @click="toggle"
                     class="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-800"
                     aria-expanded="false"
-                    :aria-expanded="showDetails ? 'true' : 'false'"
+                    :aria-expanded="ariaExpanded"
                     aria-controls="delivery-detail-{{ $delivery->id }}"
                     aria-label="Voir le corps envoyé et la réponse reçue de la livraison {{ substr($delivery->id, 0, 8) }}"
                     title="Voir le corps envoyé et la réponse reçue">
-                    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="h-4 w-4 transition-transform" :class="{ 'rotate-90': showDetails }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="h-4 w-4 transition-transform" :class="chevronClass" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                     </svg>
                 </button>

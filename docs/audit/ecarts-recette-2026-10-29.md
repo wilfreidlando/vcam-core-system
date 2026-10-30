@@ -163,8 +163,9 @@ de sécurité), F-05 (CDN publics), F-06 (liens de menu), F-07 (rôle en valeur 
 F-08 (identifiants bruts), F-09 (erreur de connexion mal placée), F-10 (voile du tiroir),
 F-11 (aucune erreur de validation affichée), F-12 (chaîne → `int` sur l'API).
 
-**Soldés en sécurité** : en-têtes et CSP de la console (#1, `'unsafe-inline'` retiré de
-`script-src`), expurgation du TOTP et du MAC du prestataire (#2, #3), aucun secret dans le
+**Soldés en sécurité** : en-têtes et CSP de la console (#1, CSP stricte
+`script-src 'self'` — ni `unsafe-inline` ni `unsafe-eval`, build CSP d'Alpine,
+ADR-0104), expurgation du TOTP et du MAC du prestataire (#2, #3), aucun secret dans le
 store de session (#4), élévation par second facteur sur les actions sensibles (#5),
 symétrie du dernier administrateur avec verrou de ligne (#6), écritures par cookie refusées
 (#7), jeton de sidecar obligatoire en production (#8), PII non journalisée (#9),
@@ -187,7 +188,6 @@ production), G-8 (bornes d'entrée), G-9 (résolution par le serveur), G-10 (man
 | # | Écart | Nature |
 |---|---|---|
 | #18 | `return_url` accepte encore n'importe quel hôte `https://` | **Résiduel assumé et écrit** (ADR-0103) : `return_url` n'est atteignable que par une clé API du projet — l'adversaire a déjà l'accès métier, et le projet peut déjà rediriger son client où il veut. Le risque technique réel (schémas `javascript://`, `data:`) est fermé par `starts_with:https://`. L'allowlist par projet reste au portail, où la page de connexion est publique ; elle redevient obligatoire si le Core expose un paiement accessible à un utilisateur final. |
-| G-1 (résiduel) | `'unsafe-eval'` reste dans `script-src` | Le build standard d'Alpine évalue les expressions avec `new Function`. Le lot est décrit par ADR-0102 ; son intégration suppose l'approbation de la source externe du build CSP. |
 
 ## Cartouche
 

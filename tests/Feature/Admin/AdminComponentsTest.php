@@ -142,7 +142,9 @@ final class AdminComponentsTest extends TestCase
         self::assertStringContainsString('Le formulaire contient des erreurs.', $html);
         self::assertStringContainsString('<li>Premier problème.</li>', $html);
         self::assertStringContainsString('<li>Second problème.</li>', $html);
-        self::assertStringContainsString('x-init="$el.focus()"', $tag);
+        // The focus is taken by the `errorSummary` component (ADR-0104):
+        // Alpine's CSP build cannot evaluate `x-init="$el.focus()"`.
+        self::assertStringContainsString('x-data="errorSummary"', $tag);
     }
 
     public function test_errors_summary_accepts_explicit_messages_and_renders_nothing_when_empty(): void
@@ -150,7 +152,7 @@ final class AdminComponentsTest extends TestCase
         $html = $this->render('<x-admin.errors :messages="[\'Échec de la révocation.\']" title="Échec" :focus="false" />');
         self::assertStringContainsString('<li>Échec de la révocation.</li>', $html);
         self::assertStringContainsString('Échec', $html);
-        self::assertStringNotContainsString('x-init', $html);
+        self::assertStringNotContainsString('errorSummary', $html, 'sans focus, le composant qui le prend ne doit pas être rendu');
 
         self::assertSame('', trim($this->render('<x-admin.errors />')));
     }
@@ -198,9 +200,10 @@ final class AdminComponentsTest extends TestCase
         self::assertStringContainsString('aria-expanded="false"', $trigger);
 
         self::assertStringContainsString('x-cloak', $html);
-        self::assertStringContainsString('@keydown.escape.window="onEscape()"', $html);
-        self::assertStringContainsString('@keydown.tab="trap($event)"', $html);
-        self::assertStringContainsString('@click.self="close()"', $html);
+        self::assertStringContainsString('x-data="confirmDialog"', $html);
+        self::assertStringContainsString('@keydown.escape.window="onEscape"', $html);
+        self::assertStringContainsString('@keydown.tab="trap"', $html);
+        self::assertStringContainsString('@click.self="close"', $html);
         self::assertStringContainsString('x-ref="cancel"', $html);
 
         self::assertStringContainsString('action="/admin/x"', $html);
@@ -230,11 +233,14 @@ final class AdminComponentsTest extends TestCase
             </x-admin.confirm-dialog>
             BLADE);
 
-        self::assertStringContainsString('hasFields: true', $html);
+        // The initial focus is the first field of the dialog. The component
+        // finds it by querying the `[data-dialog-fields]` wrapper — there is
+        // no `hasFields` flag to keep in sync with the markup (ADR-0104).
+        self::assertStringContainsString('data-dialog-fields', $html);
         self::assertMatchesRegularExpression('/<form[^>]*>.*data-dialog-fields[^>]*>\s*<input type="text" name="reason" required>.*<\/form>/s', $html);
 
         $without = $this->render('<x-admin.confirm-dialog title="T" action="/a" />');
-        self::assertStringContainsString('hasFields: false', $without);
+        self::assertStringNotContainsString('data-dialog-fields', $without, 'sans champ, le conteneur des champs ne doit pas exister : le focus tombe sur « Annuler »');
     }
 
     public function test_confirm_dialog_buttons_meet_the_minimum_touch_target(): void

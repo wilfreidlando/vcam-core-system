@@ -54,18 +54,20 @@ final class AdminSecurityHeadersTest extends TestCase
     }
 
     #[Test]
-    public function the_script_policy_forbids_an_inline_script(): void
+    public function the_script_policy_forbids_an_inline_script_and_an_evaluated_one(): void
     {
-        // ADR-0102 — `'unsafe-inline'` is gone from `script-src`: the
-        // layout's only inline script (the mobile-nav store) is now a file
-        // served by the application, and no view carries an inline `on*=`
-        // handler. A script can therefore only come from our own origin.
+        // ADR-0102 removed `'unsafe-inline'`: the layout's only inline
+        // script (the mobile-nav state) is now a file served by the
+        // application, and no view carries an inline `on*=` handler.
         //
-        // `'unsafe-eval'` stays until Alpine's CSP build is integrated
-        // (ADR-0102, décision 3 bis) — the standard build evaluates the
-        // expressions of the templates with `new Function`.
+        // ADR-0104 removed `'unsafe-eval'`: the console now runs Alpine's
+        // CSP build, which reads the expressions of the templates as
+        // property paths instead of evaluating them with `new Function`.
+        // A script can therefore only come from our own origin, and only
+        // be one of the files the application serves.
         self::assertStringNotContainsString('\'unsafe-inline\'', self::scriptSource());
-        self::assertStringContainsString('\'unsafe-eval\'', self::scriptSource());
+        self::assertStringNotContainsString('\'unsafe-eval\'', self::scriptSource());
+        self::assertSame("'self'", trim(self::scriptSource()));
     }
 
     #[Test]

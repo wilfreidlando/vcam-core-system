@@ -26,37 +26,37 @@ final class ConsoleLayoutTest extends TestCase
     use SignsInToConsole;
 
     #[Test]
-    public function the_hamburger_and_the_sidebar_read_the_same_store(): void
+    public function the_hamburger_and_the_sidebar_read_the_same_state(): void
     {
         $this->signInToConsole();
         $html = $this->page('/admin');
 
         // F-01 — the button used to toggle a local `open` flag that nothing read.
-        self::assertStringContainsString('@click="$store.nav.toggle()"', $html);
-        self::assertStringContainsString(':class="{ \'is-open\': $store.nav.open }"', $html);
+        self::assertStringContainsString('@click="navToggle"', $html);
+        self::assertStringContainsString(':class="navOpenClass"', $html);
         self::assertStringNotContainsString('x-data="{ open: false }"', $html);
         self::assertStringNotContainsString('$store.navOpen', $html, 'the dead store must not come back');
 
-        // The store itself is defined, with the methods the templates call.
-        // It lives in a file served by the application, not in an inline
-        // <script>: an inline script would force 'unsafe-inline' into the
-        // console's CSP (ADR-0102). The layout loads it BEFORE Alpine —
-        // the store is read by the very first render of the drawer, and
-        // `alpine:init` fires when Alpine starts.
+        // The state itself is defined in a file served by the application,
+        // not in an inline <script>: an inline script would force
+        // 'unsafe-inline' into the console's CSP (ADR-0102). The layout
+        // loads it BEFORE Alpine — the components are looked up by the very
+        // first render of the drawer, and `alpine:init` fires when Alpine
+        // starts.
         self::assertStringContainsString('assets/admin/console.js', $html);
-        self::assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)[^>]*>.*?Alpine\.store/s', $html, 'the store must not be in an inline script');
+        self::assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)[^>]*>.*?Alpine\./s', $html, 'the components must not be in an inline script');
 
-        $store = (string) file_get_contents(public_path('assets/admin/console.js'));
-        self::assertStringContainsString("Alpine.store('nav'", $store);
-        foreach (['toggle()', 'close()', 'sync()'] as $method) {
-            self::assertStringContainsString($method, $store);
+        $components = (string) file_get_contents(public_path('assets/admin/console.js'));
+        self::assertStringContainsString("Alpine.data('adminShell'", $components);
+        foreach (['navToggle()', 'navClose()', 'navSync()'] as $method) {
+            self::assertStringContainsString($method, $components);
         }
 
         // Loaded before Alpine: both are deferred, the document order decides.
         self::assertLessThan(
-            strpos($html, 'assets/admin/vendor/alpine-3.14.1.min.js'),
+            strpos($html, 'assets/admin/vendor/alpine-csp-3.14.1.min.js'),
             strpos($html, 'assets/admin/console.js'),
-            'the store must be loaded before Alpine, or `alpine:init` has already fired',
+            'the components must be loaded before Alpine, or `alpine:init` has already fired',
         );
     }
 
@@ -67,7 +67,7 @@ final class ConsoleLayoutTest extends TestCase
         $html = $this->page('/admin');
 
         // A4 — a toggle that opens something says whether it is open and what it controls.
-        self::assertStringContainsString(':aria-expanded="$store.nav.open', $html);
+        self::assertStringContainsString(':aria-expanded="navAriaExpanded"', $html);
         self::assertStringContainsString('aria-controls="admin-sidebar"', $html);
         self::assertStringContainsString('id="admin-sidebar"', $html);
     }

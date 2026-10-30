@@ -22,7 +22,7 @@ final class AdminVendoredAssetsTest extends TestCase
 
     private const ASSETS = [
         'tailwindcss-3.4.16.js' => '3f81aa7f6ecdb1acc14c202e513dfee00b6c7703cd81ce1be25bf5215a92e8cb',
-        'alpine-3.14.1.min.js' => '358d9afbb1ab5befa2f48061a30776e5bcd7707f410a606ba985f98bc3b1c034',
+        'alpine-csp-3.14.1.min.js' => '40f00d7aaa543eabd17c3a0f79ce2ac62e6be17caa9564527c20ec39152bb157',
     ];
 
     #[Test]
@@ -45,6 +45,18 @@ final class AdminVendoredAssetsTest extends TestCase
         foreach (array_keys(self::ASSETS) as $file) {
             self::assertStringContainsString('assets/admin/vendor/'.$file, $html);
         }
+    }
+
+    #[Test]
+    public function the_standard_alpine_build_is_not_served_anymore(): void
+    {
+        // ADR-0104 — the standard build evaluates the expressions of the
+        // templates with `new Function`, which the console's CSP forbids
+        // (`'unsafe-eval'`). It is replaced by the CSP build, which reads
+        // them as property paths. The file must not stay in `public/`:
+        // it would remain downloadable, and could be swapped back for the
+        // CSP build by a later commit.
+        self::assertFileDoesNotExist(public_path('assets/admin/vendor/alpine-3.14.1.min.js'));
     }
 
     #[Test]

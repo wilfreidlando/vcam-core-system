@@ -34,7 +34,7 @@
             // opening onto an empty box.
             $hasDetail = ! empty($entry->before) || ! empty($entry->after) || ! empty($entry->context);
         @endphp
-        <tr x-data="{ expanded: false }">
+        <tr x-data="auditLog">
             <td class="px-4 py-2 text-sm font-mono text-slate-600 whitespace-nowrap">
                 {{ $entry->occurredAt->format('Y-m-d H:i:s') }}
             </td>
@@ -53,10 +53,10 @@
             </td>
             <td class="px-4 py-2 text-sm align-top">
                 @if ($hasDetail)
-                    <button type="button" @click="expanded = ! expanded"
-                            aria-controls="audit-detail-{{ $entry->id }}" aria-expanded="false" :aria-expanded="expanded ? 'true' : 'false'"
+                    <button type="button" @click="toggle"
+                            aria-controls="audit-detail-{{ $entry->id }}" aria-expanded="false" :aria-expanded="ariaExpanded"
                             class="inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-indigo-700 hover:text-indigo-900 font-medium whitespace-nowrap">
-                        <span x-text="expanded ? 'Masquer ▾' : 'Voir ▸'">Voir ▸</span><span class="sr-only"> le détail de l'entrée {{ $entry->id }}</span>
+                        <span x-text="label">Voir ▸</span><span class="sr-only"> le détail de l'entrée {{ $entry->id }}</span>
                     </button>
                     {{-- Kept inside this same <td> rather than a sibling
                          <tr> — Alpine's x-data scopes to an element and

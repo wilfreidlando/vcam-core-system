@@ -54,7 +54,7 @@
         : 'inline-flex items-center rounded-md border border-indigo-300 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50');
 
     $triggerHtml = trim((string) ($trigger ?? ''));
-    $ariaAttrs = 'aria-haspopup="dialog" aria-expanded="false" :aria-expanded="open ? \'true\' : \'false\'"';
+    $ariaAttrs = 'aria-haspopup="dialog" aria-expanded="false" :aria-expanded="ariaExpanded"';
     if ($triggerHtml !== '' && preg_match('/<(button|a)\b/i', $triggerHtml)) {
         // Le bouton fourni par l'appelant : on lui pose les attributs ARIA du motif « dialogue ».
         $triggerHtml = preg_replace('/<(button|a)\b/i', '<$1 '.$ariaAttrs, $triggerHtml, 1);
@@ -64,50 +64,25 @@
     }
 @endphp
 
+{{-- `confirmDialog` holds the state of the dialog: the focus trap, the
+     Escape key, the focus given back to the trigger. The component lives in
+     `public/assets/admin/console.js`: Alpine's CSP build cannot evaluate
+     an object literal, only a property path (ADR-0102).
+
+     One instance per dialog — `x-data` instantiates the component once per
+     element, so several dialogs on the same page each own their state. --}}
 <div
-    x-data="{
-        open: false,
-        hasFields: {{ $hasFields ? 'true' : 'false' }},
-        show() {
-            this.open = true;
-            this.$nextTick(() => this.focusInitial());
-        },
-        close() {
-            this.open = false;
-            const opener = this.$refs.wrapper.querySelector('[aria-haspopup]');
-            this.$nextTick(() => { if (opener) { opener.focus(); } });
-        },
-        onEscape() {
-            if (this.open) { this.close(); }
-        },
-        focusables() {
-            return Array.from(this.$refs.panel.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled])'));
-        },
-        focusInitial() {
-            const field = this.hasFields ? this.$refs.panel.querySelector('[data-dialog-fields] input:not([type=hidden]):not([disabled]), [data-dialog-fields] select, [data-dialog-fields] textarea') : null;
-            (field || this.$refs.cancel).focus();
-        },
-        trap(e) {
-            const items = this.focusables();
-            if (items.length === 0) { e.preventDefault(); return; }
-            const first = items[0];
-            const last = items[items.length - 1];
-            const inside = this.$refs.panel.contains(document.activeElement);
-            if (! inside) { e.preventDefault(); first.focus(); }
-            else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-            else if (! e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-        }
-    }"
-    @keydown.escape.window="onEscape()"
+    x-data="confirmDialog"
+    @keydown.escape.window="onEscape"
     class="inline-block">
-    <span x-ref="wrapper" class="inline-block" @click="show()">{!! $triggerHtml !!}</span>
+    <span x-ref="wrapper" class="inline-block" @click="show">{!! $triggerHtml !!}</span>
 
     <div
         x-show="open"
         x-cloak
         class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
-        @click.self="close()"
-        @keydown.tab="trap($event)">
+        @click.self="close"
+        @keydown.tab="trap">
         <div
             x-ref="panel"
             role="dialog"
@@ -131,7 +106,7 @@
                     <div data-dialog-fields class="mb-4 space-y-3">{{ $slot }}</div>
                 @endif
                 <div class="flex justify-end gap-2">
-                    <button type="button" x-ref="cancel" @click="close()"
+                    <button type="button" x-ref="cancel" @click="close"
                             class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">{{ $cancel }}</button>
                     <button type="submit"
                             class="rounded-md px-3 py-1.5 text-sm font-medium text-white {{ $confirmClass }}">{{ $confirm }}</button>

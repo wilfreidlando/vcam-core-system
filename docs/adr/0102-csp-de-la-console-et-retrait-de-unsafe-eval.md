@@ -1,6 +1,11 @@
 # ADR-0102 — CSP de la console opérateur : ce qui reste de `unsafe-eval`, et ce qui le fera disparaître
 
-- **Statut** : Proposé
+> **Remplacé par ADR-0104** (2026-10-30). Le lot est livré : la console utilise le
+> build CSP d'Alpine et sa CSP est `script-src 'self'` — plus ni `unsafe-inline` ni
+> `unsafe-eval`. Ce document reste le cadre de la décision et la trace de ce qui a
+> été fait ; il ne décrit plus la CSP en vigueur.
+
+- **Statut** : Remplacé par ADR-0104
 - **Date** : 2026-10-30
 - **Décideurs** : comité d'architecture (dérives D1 périmètre · D5 contrat)
 - **Dérives concernées** : D1 périmètre · D5 contrat

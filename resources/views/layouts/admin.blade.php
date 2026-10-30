@@ -35,7 +35,7 @@
     <script defer src="{{ asset('assets/admin/console.js') }}"></script>
     {{-- Alpine.js for the small interactive bits (mobile nav,
          confirmation dialogs). Loaded as a defer script. --}}
-    <script defer src="{{ asset('assets/admin/vendor/alpine-3.14.1.min.js') }}"></script>
+    <script defer src="{{ asset('assets/admin/vendor/alpine-csp-3.14.1.min.js') }}"></script>
 
     <style>
         /* Subtle scrollbar polish for the admin aesthetic. */
@@ -89,7 +89,10 @@
     </style>
 </head>
 
-<body class="h-full text-slate-800 antialiased">
+{{-- `adminShell` holds the state of the mobile drawer. It sits on <body>
+     because the hamburger (header) and the drawer (sidebar) are siblings:
+     only a common ancestor can hold a state both of them read. --}}
+<body class="h-full text-slate-800 antialiased" x-data="adminShell">
 
     {{-- Skip link (WCAG 2.4.1). The console repeats the same fifteen
          sidebar links on every page, plus a breadcrumb: without this
@@ -100,7 +103,7 @@
          via Alpine. Hidden on md+. Only shown when the operator is logged
          in — public pages (login, MFA) skip the chrome entirely.
 
-         The button drives `$store.nav`, the very store the sidebar
+         The button drives `adminShell`, the very component the sidebar
          reads: it used to toggle a local `open` flag that nothing else
          ever looked at, so on a phone the drawer never opened and the
          only visible effect was the icon turning into a cross. --}}
@@ -110,13 +113,13 @@
             <a href="{{ route('admin.dashboard') }}" class="font-semibold text-slate-900">Enterprise Core</a>
             <button
                 type="button"
-                @click="$store.nav.toggle()"
-                :aria-expanded="$store.nav.open ? 'true' : 'false'"
+                @click="navToggle"
+                :aria-expanded="navAriaExpanded"
                 aria-controls="admin-sidebar"
                 class="inline-flex items-center justify-center rounded-md p-2 text-slate-600 hover:bg-slate-100"
                 aria-label="Afficher/masquer le menu">
-                <svg x-show="!$store.nav.open" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-                <svg x-show="$store.nav.open" x-cloak xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                <svg x-show="navClosed" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                <svg x-show="navOpen" x-cloak xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </header>
     @endif
@@ -144,27 +147,26 @@
                  the operator has to hunt for the (now hidden) hamburger
                  to get out. --}}
             <div
-                x-show="$store.nav.open"
+                x-show="navOpen"
                 x-cloak
-                @click="$store.nav.close()"
+                @click="navClose"
                 aria-hidden="true"
                 class="fixed inset-0 z-30 bg-slate-900/50 md:hidden"></div>
 
             {{-- The sidebar. On md+ it is always shown (Tailwind `md:flex`);
                  below md it is hidden by the `#admin-sidebar` rule in the
-                 <style> above unless the store opens it (`is-open`).
-                 Every Alpine expression here is a single call or
-                 assignment — the previous resize handler,
-                 `window.innerWidth >= 768 && $store.navOpen = true`, was
-                 not valid JavaScript (`a && b = c` is a syntax error): it
-                 never ran and threw on every resize. The breakpoint logic
-                 now lives in `Alpine.store('nav').sync()`, plain JS below. --}}
+                 <style> above unless the shell opens it (`is-open`).
+                 Every Alpine expression here is a property path — the
+                 previous resize handler, `window.innerWidth >= 768 &&
+                 $store.navOpen = true`, was not valid JavaScript
+                 (`a && b = c` is a syntax error): it never ran and threw on
+                 every resize. The breakpoint logic now lives in
+                 `adminShell.navSync()`, plain JS in `console.js`. --}}
             <aside
                 id="admin-sidebar"
                 aria-label="Barre latérale"
-                x-data
-                @keydown.escape.window="$store.nav.close()"
-                :class="{ 'is-open': $store.nav.open }"
+                @keydown.escape.window="navClose"
+                :class="navOpenClass"
                 class="fixed inset-y-0 left-0 z-40 w-64 shrink-0 bg-slate-900 text-slate-100 md:relative md:flex md:flex-col md:h-screen md:overflow-y-auto">
 
                 {{-- Brand --}}
