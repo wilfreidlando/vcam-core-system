@@ -70,18 +70,6 @@ final class ApiDocsAccessTest extends TestCase
             ->assertHeader('Referrer-Policy', 'no-referrer');
     }
 
-    /**
-     * APP_ENV=production refuses to serve without the sidecar token (ADR-0064): give it one, as nginx does.
-     */
-    private function inProduction(): void
-    {
-        $token = str_repeat('a', 64);
-
-        config(['trustedproxy.sidecar_token' => $token]);
-        $this->app['env'] = 'production';
-        $this->withHeader(TrustProxiesFromSidecar::HEADER, $token);
-    }
-
     #[Test]
     public function the_documentation_carries_its_own_security_headers(): void
     {
@@ -101,7 +89,7 @@ final class ApiDocsAccessTest extends TestCase
         self::assertStringContainsString('https://cdn.jsdelivr.net', $csp);
 
         // No other host may run a script there.
-        preg_match("/script-src ([^;]+);/", $csp, $scriptSrc);
+        preg_match('/script-src ([^;]+);/', $csp, $scriptSrc);
         $allowed = array_map('trim', explode(' ', $scriptSrc[1] ?? ''));
         foreach ($allowed as $source) {
             self::assertContains(
@@ -136,5 +124,17 @@ final class ApiDocsAccessTest extends TestCase
         }
 
         self::assertGreaterThan(0, $thirdParty, 'the documentation loads third-party bundles');
+    }
+
+    /**
+     * APP_ENV=production refuses to serve without the sidecar token (ADR-0064): give it one, as nginx does.
+     */
+    private function inProduction(): void
+    {
+        $token = str_repeat('a', 64);
+
+        config(['trustedproxy.sidecar_token' => $token]);
+        $this->app['env'] = 'production';
+        $this->withHeader(TrustProxiesFromSidecar::HEADER, $token);
     }
 }

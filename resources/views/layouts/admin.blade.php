@@ -18,6 +18,21 @@
          token and the secrets it shows once (recette 2026-10-29, F-05).
          Provenance and SHA-256 in public/assets/admin/vendor/README.md. --}}
     <script src="{{ asset('assets/admin/vendor/tailwindcss-3.4.16.js') }}"></script>
+    {{-- The mobile-nav store: ONE source of truth for "is the drawer
+         open", read by the hamburger, the backdrop and the sidebar.
+         `sync()` closes the drawer when a resize crosses the md
+         breakpoint (768 px), and ignores resizes that do not — an
+         on-screen keyboard or a collapsing browser bar fires `resize`
+         too and must not slam the drawer shut.
+
+         It lives in a served file, not in an inline <script>: an inline
+         script would force `'unsafe-inline'` into the console's CSP
+         (ADR-0102). It is loaded BEFORE Alpine — the store is read by the
+         very first render of the drawer, and `alpine:init` fires when
+         Alpine starts: a listener registered after that event would
+         never run. Both scripts are deferred, and the document order
+         decides. --}}
+    <script defer src="{{ asset('assets/admin/console.js') }}"></script>
     {{-- Alpine.js for the small interactive bits (mobile nav,
          confirmation dialogs). Loaded as a defer script. --}}
     <script defer src="{{ asset('assets/admin/vendor/alpine-3.14.1.min.js') }}"></script>
@@ -463,29 +478,5 @@
 
     </div>
 
-    {{-- The mobile-nav store: ONE source of truth for "is the drawer
-         open", read by the hamburger, the backdrop and the sidebar.
-         `sync()` closes the drawer when a resize crosses the md
-         breakpoint (768 px), and ignores resizes that do not — an
-         on-screen keyboard or a collapsing browser bar fires `resize`
-         too and must not slam the drawer shut. --}}
-    <script>
-        document.addEventListener('alpine:init', () => {
-            Alpine.store('nav', {
-                open: false,
-                wide: window.innerWidth >= 768,
-                toggle() { this.open = !this.open; },
-                close() { this.open = false; },
-                sync() {
-                    const wide = window.innerWidth >= 768;
-                    if (wide !== this.wide) {
-                        this.wide = wide;
-                        this.open = false;
-                    }
-                },
-            });
-            window.addEventListener('resize', () => Alpine.store('nav').sync());
-        });
-    </script>
 </body>
 </html>

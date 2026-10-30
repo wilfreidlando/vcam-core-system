@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use SplFileInfo;
 
 /**
  * Recette du 2026-10-29 : un client lit « illimité(s) », « 2 factures(s) » — de la rédaction de
@@ -60,7 +61,7 @@ final class PortalTextHasNoPluralParenthesesTest extends TestCase
         $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator((string) realpath(self::PORTAL), RecursiveDirectoryIterator::SKIP_DOTS));
 
         foreach ($files as $file) {
-            if (! $file instanceof \SplFileInfo) {
+            if (! $file instanceof SplFileInfo) {
                 continue;
             }
 

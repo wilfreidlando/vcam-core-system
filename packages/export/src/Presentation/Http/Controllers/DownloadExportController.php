@@ -88,6 +88,11 @@ final class DownloadExportController
             'Content-Disposition' => 'attachment; filename="'.$file->filename.'"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
+            // The signed URL is a secret (audit 2026-10-29, G-11): this
+            // route is outside the `/admin` group, so the console's
+            // `Referrer-Policy` does not apply here — it must be carried
+            // by the response itself.
+            'Referrer-Policy' => 'no-referrer',
         ]);
     }
 }

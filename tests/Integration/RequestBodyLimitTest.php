@@ -55,18 +55,6 @@ final class RequestBodyLimitTest extends TestCase
         $this->postJson(self::ENDPOINT, ['reason' => str_repeat('a', 900_000)])->assertStatus(401);
     }
 
-    /** The `type` of a problem+json answer, always a string. */
-    /**
-     * @param \Illuminate\Testing\TestResponse<\Symfony\Component\HttpFoundation\Response> $response
-     */
-    private function problemType(\Illuminate\Testing\TestResponse $response): string
-    {
-        $type = $response->json('type');
-        self::assertIsString($type);
-
-        return $type;
-    }
-
     #[Test]
     public function a_json_nested_over_twenty_levels_is_a_400_problem(): void
     {
@@ -115,6 +103,18 @@ final class RequestBodyLimitTest extends TestCase
         $encoded = (string) json_encode($received[0]['context'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         self::assertStringNotContainsString('hunter2-do-not-log', $encoded);
         self::assertStringContainsString('non journalisé', $encoded);
+    }
+
+    /** The `type` of a problem+json answer, always a string. */
+    /**
+     * @param \Illuminate\Testing\TestResponse<\Symfony\Component\HttpFoundation\Response> $response
+     */
+    private function problemType(\Illuminate\Testing\TestResponse $response): string
+    {
+        $type = $response->json('type');
+        self::assertIsString($type);
+
+        return $type;
     }
 
     /**

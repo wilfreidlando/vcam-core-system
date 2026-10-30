@@ -53,6 +53,45 @@ final class AdminSecurityHeadersTest extends TestCase
         }
     }
 
+    #[Test]
+    public function the_script_policy_forbids_an_inline_script(): void
+    {
+        // ADR-0102 — `'unsafe-inline'` is gone from `script-src`: the
+        // layout's only inline script (the mobile-nav store) is now a file
+        // served by the application, and no view carries an inline `on*=`
+        // handler. A script can therefore only come from our own origin.
+        //
+        // `'unsafe-eval'` stays until Alpine's CSP build is integrated
+        // (ADR-0102, décision 3 bis) — the standard build evaluates the
+        // expressions of the templates with `new Function`.
+        self::assertStringNotContainsString('\'unsafe-inline\'', self::scriptSource());
+        self::assertStringContainsString('\'unsafe-eval\'', self::scriptSource());
+    }
+
+    #[Test]
+    public function no_page_of_the_console_carries_an_inline_script_or_an_inline_handler(): void
+    {
+        $this->signInToConsole();
+
+        foreach (['/admin', '/admin/projects', '/admin/operators', '/admin/audit-log', '/admin/payments'] as $path) {
+            // @phpstan-ignore-next-line — TestResponse::getContent() is a dynamic proxy to the underlying Symfony Response.
+            $html = (string) $this->get($path)->assertOk()->getContent();
+
+            // A <script> without a src: an inline script.
+            self::assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)[^>]*>/i', $html, "{$path} carries an inline script");
+            // An on*= handler attribute.
+            self::assertDoesNotMatchRegularExpression('/\son(click|change|submit|input|load|error|mouseover|focus)\s*=/i', $html, "{$path} carries an inline handler");
+        }
+    }
+
+    /** The value of the `script-src` directive, whatever its position in the policy. */
+    private static function scriptSource(): string
+    {
+        self::assertSame(1, preg_match('/script-src ([^;]+)/', AdminSecurityHeaders::CSP, $match));
+
+        return $match[1] ?? '';
+    }
+
     /**
      * @param \Illuminate\Testing\TestResponse<\Symfony\Component\HttpFoundation\Response> $response
      */

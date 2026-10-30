@@ -39,9 +39,22 @@ La CSP de la console reste `script-src 'self' 'unsafe-inline' 'unsafe-eval'` tan
 
 Le lot porte : (a) la migration de chaque expression Alpine vers le build CSP (les expressions évaluables statiquement deviennent des attributs, les autres deviennent des méthodes enregistrées via `Alpine.data()`) ; (b) le déplacement du script inline du layout vers un fichier servi par l'application, ce qui permet de retirer `'unsafe-inline'` ; (c) le remplacement des gestionnaires `onchange` en attribut par des écouteurs délégués ; (d) la mise à jour de la CSP.
 
-**Décision 3 — le déclencheur du lot est explicite et daté.**
+**Décision 3 — le déclencheur du lot est explicite, et sa date est celle de la mise en production.**
 
-Le lot « CSP stricte de la console » est livré **avant la mise en production**. Il n'a pas de déclencheur conditionnel : le produit passe en ligne une fois, et une CSP qui autorise l'exécution de JavaScript arbitraire sur l'origine de la console n'est pas un état de production acceptable pour un produit qui affiche des clés API en clair. Si le lot n'était pas livré, la mise en production serait bloquée, pas dégradée.
+Le lot « CSP stricte de la console » est livré **avec** la mise en production, pas après. Le produit passe en ligne une fois, et une CSP qui autorise l'exécution de JavaScript arbitraire sur l'origine de la console n'est pas un état de production acceptable pour un produit qui affiche des clés API en clair.
+
+Le lot est **faisable** : le build CSP d'Alpine (`@alpinejs/csp`, version 3.14.1, la même que celle du build standard déjà vendorisé) évalue les expressions des gabarits par **substitution de jetons** — il ne fait pas appel à `new Function` et se replie sur un évaluateur restreint quand le navigateur refuse le constructeur de fonctions. Les ~60 expressions de la console (13 `x-data`, 11 `x-show`, 7 `@click`, 5 `x-model`, 16 `:class`, 6 `:aria-expanded`, 3 `x-ref`, la capture de focus des modales) se réécrivent en méthodes déclarées par `Alpine.data()` ; le script inline du layout (le store `nav`) devient un fichier servi par l'application.
+
+**Décision 3 bis — l'intégration du build CSP est soumise à approbation, et le lot ne peut pas la contourner.**
+
+Le build CSP est un paquet tiers downloaded d'`unpkg.com`. Son intégration dans `public/assets/admin/vendor/` — comme celle de Tailwind et d'Alpine, qui y sont déjà, version épinglée et empreinte SHA-256 contrôlée par `AdminVendoredAssetsTest` — suppose que la **source externe soit nommée et approuvée**. Cette approbation fait partie du lot : tant qu'elle n'est pas donnée, le lot n'est pas livrable, et la CSP garde ses deux marqueurs.
+
+Ce qui est **déjà** acquis sur ce chemin, et qui n'attend pas cette approbation :
+- le script inline du layout est déplaçable dans un fichier servi par l'application — `'unsafe-inline'` n'est donc plus nécessaire à `script-src` pour cette raison ;
+- aucun gestionnaire `on*=` en attribut ne subsiste dans les vues de la console ;
+- les seules interpolations de valeurs dans des directives Alpine sont deux booléens calculés côté serveur (`webhook-endpoints/create.blade.php`), donc non injectables.
+
+Autrement dit : même si l'approbation tardait, **`'unsafe-inline'` peut être retiré dès maintenant** — c'est `'unsafe-eval'` qui dépend du build CSP.
 
 **Décision 4 — le garde-fou qui accompagne la décision.**
 

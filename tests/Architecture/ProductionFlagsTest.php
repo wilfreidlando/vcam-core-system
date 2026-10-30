@@ -55,6 +55,21 @@ final class ProductionFlagsTest extends TestCase
 
     #[Test]
     #[DataProvider('templates')]
+    public function a_deployment_template_never_ships_a_cross_site_session_cookie(string $template): void
+    {
+        // `SameSite=none` sends the console's session cookie with every
+        // cross-site request: a compromised sibling domain of the platform
+        // could then write to the console with the operator's session. The
+        // audit 2026-10-29 (G-6) asks for the value to be written down
+        // explicitly, not merely defaulted in the config.
+        $values = self::values($template);
+
+        self::assertArrayHasKey('SESSION_SAME_SITE', $values, $template.' doit déclarer SESSION_SAME_SITE.');
+        self::assertSame('lax', strtolower($values['SESSION_SAME_SITE']), sprintf('%s: SESSION_SAME_SITE doit valoir lax.', $template));
+    }
+
+    #[Test]
+    #[DataProvider('templates')]
     public function a_deployment_template_runs_in_the_production_environment(string $template): void
     {
         self::assertSame('production', self::values($template)['APP_ENV'] ?? null);

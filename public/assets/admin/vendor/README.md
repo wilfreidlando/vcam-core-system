@@ -15,6 +15,15 @@ Les deux sont sous licence MIT. `tests/Feature/Admin/AdminVendoredAssetsTest.php
 que les fichiers existent, que leur empreinte n'a pas changé et que le layout ne référence
 plus aucun hôte externe.
 
+## Le fichier voisin `../console.js`
+
+`public/assets/admin/console.js` n'est **pas** une bibliothèque : c'est le code de
+l'application (le store du tiroir mobile), qui vivait dans un `<script>` inline. Il est
+servi comme un fichier pour que la CSP de la console n'ait plus besoin de
+`'unsafe-inline'` dans `script-src` (ADR-0102). Il est chargé **avant** Alpine : le store
+est lu par le premier rendu du tiroir, et `alpine:init` se déclenche au démarrage
+d'Alpine.
+
 ## Mettre à jour une version
 
 1. Télécharger le nouveau fichier depuis l'origine ci-dessus, **à une version précise**
@@ -30,4 +39,7 @@ n'est pas destiné à la production (Tailwind l'écrit dans la console du naviga
 un CSS compilé (`tailwindcss` en CLI, sortie dans `public/assets/admin/`) supprimerait aussi
 le flash de contenu sans style ; ce serait un changement d'outillage (Node dans l'image de
 build) à décider par ADR. Alpine, lui, exige `'unsafe-eval'` dans sa version standard ; sa
-version « CSP » le supprimerait mais interdit les expressions inline des gabarits.
+version « CSP » (`@alpinejs/csp`) le supprime en évaluant les expressions par
+substitution de jetons, mais interdit les expressions en ligne des gabarits : c'est le lot
+décrit par ADR-0102, dont l'intégration est soumise à l'approbation de la source externe
+concernée.

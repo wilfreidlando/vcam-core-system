@@ -38,10 +38,26 @@ final class ConsoleLayoutTest extends TestCase
         self::assertStringNotContainsString('$store.navOpen', $html, 'the dead store must not come back');
 
         // The store itself is defined, with the methods the templates call.
-        self::assertStringContainsString("Alpine.store('nav'", $html);
+        // It lives in a file served by the application, not in an inline
+        // <script>: an inline script would force 'unsafe-inline' into the
+        // console's CSP (ADR-0102). The layout loads it BEFORE Alpine —
+        // the store is read by the very first render of the drawer, and
+        // `alpine:init` fires when Alpine starts.
+        self::assertStringContainsString('assets/admin/console.js', $html);
+        self::assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)[^>]*>.*?Alpine\.store/s', $html, 'the store must not be in an inline script');
+
+        $store = (string) file_get_contents(public_path('assets/admin/console.js'));
+        self::assertStringContainsString("Alpine.store('nav'", $store);
         foreach (['toggle()', 'close()', 'sync()'] as $method) {
-            self::assertStringContainsString($method, $html);
+            self::assertStringContainsString($method, $store);
         }
+
+        // Loaded before Alpine: both are deferred, the document order decides.
+        self::assertLessThan(
+            strpos($html, 'assets/admin/vendor/alpine-3.14.1.min.js'),
+            strpos($html, 'assets/admin/console.js'),
+            'the store must be loaded before Alpine, or `alpine:init` has already fired',
+        );
     }
 
     #[Test]
