@@ -269,7 +269,7 @@ final class LedgerAdjustmentsTest extends TestCase
         self::assertSame($transactionsBefore, DB::table('ledger_transactions')->count());
         self::assertSame($entriesBefore, DB::table('ledger_entries')->count());
         self::assertSame(0, $this->transactions());
-        self::assertSame(0, DB::table('ledger_accounts')->where('kind', 'wallet')->count());
+        self::assertSame(0, DB::table('ledger_accounts')->where('project_id', self::PROJECT_ID)->where('kind', 'wallet')->count());
         self::assertSame(0, DB::table('ledger_adjustments')->count());
         $balance = DB::table('wallet_balances')->where('wallet_id', $walletId)->value('available_minor');
         self::assertIsNumeric($balance);
@@ -300,7 +300,7 @@ final class LedgerAdjustmentsTest extends TestCase
         self::assertSame($transactionsBefore, DB::table('ledger_transactions')->count());
         self::assertSame($entriesBefore, DB::table('ledger_entries')->count());
         self::assertSame(0, $this->transactions());
-        self::assertSame(0, DB::table('ledger_accounts')->where('kind', 'wallet')->count());
+        self::assertSame(0, DB::table('ledger_accounts')->where('project_id', self::PROJECT_ID)->where('kind', 'wallet')->count());
         $balance = DB::table('wallet_balances')->where('wallet_id', $walletId)->value('available_minor');
         self::assertIsNumeric($balance);
         self::assertSame(7_000, (int) $balance);
@@ -459,7 +459,7 @@ final class LedgerAdjustmentsTest extends TestCase
         // Nothing was written to the ledger, no account of a party was
         // even created, and the balance of the party never moved.
         self::assertSame(0, $this->transactions());
-        self::assertSame(0, DB::table('ledger_accounts')->where('kind', 'wallet')->count());
+        self::assertSame(0, DB::table('ledger_accounts')->where('project_id', self::PROJECT_ID)->where('kind', 'wallet')->count());
         self::assertSame('proposed', DB::table('ledger_adjustments')->where('id', $row->id)->value('status'));
 
         $balance = DB::table('wallet_balances')->where('wallet_id', $walletId)->value('available_minor');
@@ -559,7 +559,7 @@ final class LedgerAdjustmentsTest extends TestCase
 
         self::assertNotNull($threw, 'Expected the correction to be refused: the balance of a party is the wallet module\'s.');
         self::assertSame(0, $this->transactions());
-        self::assertSame(0, DB::table('ledger_accounts')->where('kind', 'wallet')->count());
+        self::assertSame(0, DB::table('ledger_accounts')->where('project_id', self::PROJECT_ID)->where('kind', 'wallet')->count());
         self::assertSame('proposed', DB::table('ledger_adjustments')->where('id', $row->id)->value('status'));
 
         $balance = DB::table('wallet_balances')->where('wallet_id', $walletId)->value('available_minor');

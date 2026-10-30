@@ -40,6 +40,15 @@ final class OutboxRelayWakeUpTest extends TestCase
         config(['events.relay.on_commit' => false]);
         app(EventOutbox::class)->append($this->event('33333333-3333-7333-8333-333333333333'));
 
+        // The relay publishes every pending row, whoever wrote it. The
+        // rows another test left behind are not this test's business:
+        // mark them published so the count below is this test's row only.
+        // (The update is rolled back with the test's transaction.)
+        DB::table('event_outbox')
+            ->whereNull('published_at')
+            ->where('id', '!=', '33333333-3333-7333-8333-333333333333')
+            ->update(['published_at' => now()]);
+
         $relay = app(RelayOutboxEvents::class);
 
         self::assertSame(1, $relay->relay(10));

@@ -34,7 +34,7 @@ final class WalletOperationsHttpFlowTest extends TestCase
     public function a_payment_credit_is_settled_by_transfer_then_withdrawn_and_shows_in_history(): void
     {
         Http::preventStrayRequests();
-        [$token] = $this->authenticatedProject();
+        [$token, $projectId] = $this->authenticatedProject();
 
         $this->creditBySimulatedPayment($token, 'escrow', 50_000);
 
@@ -72,7 +72,7 @@ final class WalletOperationsHttpFlowTest extends TestCase
                 ['from' => 'escrow', 'to' => 'platform', 'amount' => 5_000],
             ],
         ], $this->auth($token) + ['Idempotency-Key' => $key])->assertStatus(201)->assertJsonPath('id', $transfer->json('id'));
-        self::assertSame(1, DB::table('wallet_operations')->count());
+        self::assertSame(1, DB::table('wallet_operations')->where('project_id', $projectId)->count());
 
         $withdrawal = $this->postJson('/v1/wallets/withdrawals', [
             'party' => 'merchant:01J9',
@@ -126,7 +126,7 @@ final class WalletOperationsHttpFlowTest extends TestCase
     public function an_insufficient_source_moves_nothing_at_all(): void
     {
         Http::preventStrayRequests();
-        [$token] = $this->authenticatedProject();
+        [$token, $projectId] = $this->authenticatedProject();
         $this->creditBySimulatedPayment($token, 'escrow', 10_000);
 
         $this->postJson('/v1/wallets/transfers', [
@@ -140,8 +140,8 @@ final class WalletOperationsHttpFlowTest extends TestCase
             ->assertJsonPath('type', 'https://errors.core-system.internal/insufficient-funds');
 
         $this->getJson('/v1/parties/escrow/wallets', $this->auth($token))->assertJsonPath('data.0.available_minor', 10_000);
-        self::assertSame(0, DB::table('wallet_operations')->count());
-        self::assertSame(0, DB::table('ledger_transactions')->where('type', 'wallet_transfer')->count());
+        self::assertSame(0, DB::table('wallet_operations')->where('project_id', $projectId)->count());
+        self::assertSame(0, DB::table('ledger_transactions')->where('project_id', $projectId)->where('type', 'wallet_transfer')->count());
     }
 
     #[Test]
