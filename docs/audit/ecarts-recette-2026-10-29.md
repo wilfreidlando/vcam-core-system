@@ -151,6 +151,44 @@ d'accessibilité — dont tout le portail.
 9. **Annexe C** — écrire les 12 garde-fous manquants (G-1 à G-12) comme des *fitness functions*, pas
    comme des correctifs ponctuels : c'est ce qui empêchera ces familles de revenir.
 
+## État après correction (2026-10-30)
+
+Les 193 écarts consignés ci-dessus ont été traités sur la branche
+`fix/ecarts-recette-2026-10-29`. La suite passe (1 875 tests), PHPStan niveau 10 est
+vert, et les 23 garde-fous actifs ont été prouvés mordants (`make guard-test`).
+
+**Soldés — les 4 bloquants et les 8 majeurs du pilotage navigateur** : F-01 (tiroir mobile
+inert), F-02 (expression Alpine invalide), F-03 (écran d'export en 500), F-04 (aucun en-tête
+de sécurité), F-05 (CDN publics), F-06 (liens de menu), F-07 (rôle en valeur technique),
+F-08 (identifiants bruts), F-09 (erreur de connexion mal placée), F-10 (voile du tiroir),
+F-11 (aucune erreur de validation affichée), F-12 (chaîne → `int` sur l'API).
+
+**Soldés en sécurité** : en-têtes et CSP de la console (#1, `'unsafe-inline'` retiré de
+`script-src`), expurgation du TOTP et du MAC du prestataire (#2, #3), aucun secret dans le
+store de session (#4), élévation par second facteur sur les actions sensibles (#5),
+symétrie du dernier administrateur avec verrou de ligne (#6), écritures par cookie refusées
+(#7), jeton de sidecar obligatoire en production (#8), PII non journalisée (#9),
+`allowed_asset_origins` sur le portail (#10), `Str::isUuid` et limitation de débit (#11),
+refus du contournement MFA hors local (#12), borne de taille et de profondeur des corps (#13),
+documentation épinglée et réservée en production (#14), défi MFA lié à la session (#15),
+lien d'export lié à l'opérateur et à usage unique (#16), plafond de débit de la console (#17),
+schéma `https` obligatoire sur `return_url` (#18), expurgation du nom du client (#19),
+manifeste IDOR du portail (#20).
+
+**Soldés en garde-fous** : G-1 (en-têtes par plan), G-3 (aucun secret en session),
+G-4 (élévation de privilège), G-5 (dernier administrateur **et** dernier `org_finance`),
+G-6 (CSRF sur le plan authentifié par cookie), G-7 (drapeaux refusés en production),
+G-8 (bornes d'entrée), G-9 (résolution par le serveur), G-10 (manifeste IDOR étendu),
+G-11 (le lien signé est un secret), G-12 (plafond webhook par projet).
+
+**Restent ouverts, et pourquoi** :
+
+| # | Écart | Nature |
+|---|---|---|
+| #18 | `return_url` accepte encore n'importe quel hôte `https://` | **Résiduel assumé et écrit** (ADR-0103) : `return_url` n'est atteignable que par une clé API du projet — l'adversaire a déjà l'accès métier, et le projet peut déjà rediriger son client où il veut. Le risque technique réel (schémas `javascript://`, `data:`) est fermé par `starts_with:https://`. L'allowlist par projet reste au portail, où la page de connexion est publique ; elle redevient obligatoire si le Core expose un paiement accessible à un utilisateur final. |
+| G-2 | La fitness function de symétrie entre en-têtes et clés JSON n'est pas écrite | Les listes sont complétées ; l'automatisation reste à faire. |
+| G-1 (résiduel) | `'unsafe-eval'` reste dans `script-src` | Le build standard d'Alpine évalue les expressions avec `new Function`. Le lot est décrit par ADR-0102 ; son intégration suppose l'approbation de la source externe du build CSP. |
+
 ## Cartouche
 
 | | |
