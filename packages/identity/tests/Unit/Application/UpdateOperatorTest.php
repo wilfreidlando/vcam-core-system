@@ -13,6 +13,7 @@ use Core\Identity\Domain\Model\Operator;
 use Core\Identity\OperatorRole;
 use Core\Identity\Tests\Unit\Fakes\FixedClock;
 use Core\Identity\Tests\Unit\Fakes\InMemoryOperatorRepository;
+use Core\Identity\Tests\Unit\Fakes\PassthroughUnitOfWork;
 use Core\Identity\Tests\Unit\Fakes\RecordingAuditLogger;
 
 function seedOperator(InMemoryOperatorRepository $operators): Operator
@@ -40,7 +41,7 @@ it('updates an operator profile, persists it, and audits only the changed fields
     $operator = seedOperator($operators);
 
     $audit = new RecordingAuditLogger;
-    $useCase = new UpdateOperator($operators, $audit, new FixedClock, new PlatformAdministratorPolicy($operators));
+    $useCase = new UpdateOperator($operators, $audit, new FixedClock, new PlatformAdministratorPolicy($operators), new PassthroughUnitOfWork);
 
     $useCase->update(
         new UpdateOperatorCommand(
@@ -71,7 +72,7 @@ it('updates an operator profile, persists it, and audits only the changed fields
 });
 
 it('throws when the operator does not exist', function (): void {
-    $useCase = new UpdateOperator($missing = new InMemoryOperatorRepository, new RecordingAuditLogger, new FixedClock, new PlatformAdministratorPolicy($missing));
+    $useCase = new UpdateOperator($missing = new InMemoryOperatorRepository, new RecordingAuditLogger, new FixedClock, new PlatformAdministratorPolicy($missing), new PassthroughUnitOfWork);
 
     $useCase->update(
         new UpdateOperatorCommand(operatorId: 'missing', email: 'x@example.com', name: 'X', role: 'finance_operator'),
@@ -84,7 +85,7 @@ it('throws when the role string is invalid', function (): void {
     $operators = new InMemoryOperatorRepository;
     seedOperator($operators);
 
-    $useCase = new UpdateOperator($operators, new RecordingAuditLogger, new FixedClock, new PlatformAdministratorPolicy($operators));
+    $useCase = new UpdateOperator($operators, new RecordingAuditLogger, new FixedClock, new PlatformAdministratorPolicy($operators), new PassthroughUnitOfWork);
 
     $useCase->update(
         new UpdateOperatorCommand(operatorId: 'op-1', email: 'ops@example.com', name: 'Ops', role: 'not_a_role'),
@@ -114,7 +115,7 @@ function seedAdmin(InMemoryOperatorRepository $operators, string $id): Operator
 
 function demote(InMemoryOperatorRepository $operators, string $operatorId, string $actor, string $role = 'support_operator'): void
 {
-    (new UpdateOperator($operators, new RecordingAuditLogger, new FixedClock, new PlatformAdministratorPolicy($operators)))->update(
+    (new UpdateOperator($operators, new RecordingAuditLogger, new FixedClock, new PlatformAdministratorPolicy($operators), new PassthroughUnitOfWork))->update(
         new UpdateOperatorCommand(operatorId: $operatorId, email: $operatorId.'@example.com', name: 'Admin '.$operatorId, role: $role),
         actor: $actor,
         correlationId: null,

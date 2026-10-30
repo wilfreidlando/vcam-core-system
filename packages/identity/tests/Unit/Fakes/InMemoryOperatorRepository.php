@@ -33,6 +33,15 @@ final class InMemoryOperatorRepository implements OperatorRepository
         return count(array_filter($this->operators, static fn (Operator $operator): bool => $operator->role === $role && ! $operator->isRevoked()));
     }
 
+    public function lockActiveWithRole(OperatorRole $role): int
+    {
+        // The in-memory fake has no rows to lock: the count is the same.
+        // The real guarantee (serialization) belongs to the Eloquent
+        // implementation; what this fake must reproduce is the refusal
+        // of the last administrator, which it does.
+        return $this->countActiveWithRole($role);
+    }
+
     public function findByEmail(string $email): ?Operator
     {
         // ADR-0069 §1 — case-insensitive, exactly like the Eloquent

@@ -303,19 +303,21 @@ final class AdminWebFlowTest extends TestCase
             'organization_id' => $organization->id,
             'name' => 'Web Console Project',
         ]);
-        $store->assertRedirect();
 
-        $location = $store->headers->get('Location');
-        self::assertIsString($location);
+        // ADR-0081 S-07 — the clear key travels in the response that
+        // creates it, never through the session store: the POST renders
+        // the project page itself.
+        $store->assertOk();
+        $store->assertSee('pk_');
 
-        // The one-shot keys are flashed to the very next request only.
-        $show = $this->get($location);
-        $show->assertOk();
-        $show->assertSee('pk_');
-
-        $again = $this->get($location);
+        // And it is not readable by any later request.
+        $projectId = $store->viewData('project')->id;
+        $again = $this->get(route('admin.projects.show', ['projectId' => $projectId]));
         $again->assertOk();
         $again->assertDontSee('pk_');
+
+        // Nor from the session store.
+        self::assertNull(session('admin.projects.created_api_key'));
     }
 
     #[Test]

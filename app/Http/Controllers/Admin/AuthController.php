@@ -178,6 +178,13 @@ final class AuthController
                 ->with('status', 'MFA déjà configurée. Merci de vérifier.');
         }
 
+        // Audit 2026-10-29 #15 — the challenge of the confirmation step is
+        // bound to THIS session: the token the form posts back is compared
+        // to the one held here. A token that leaked (shared screen,
+        // history, Referer) can no longer be replayed from another
+        // browser.
+        Session::put('admin.challenge_confirm_token', $enrolment->confirmChallengeToken);
+
         return $this->render('admin.auth.mfa-enroll', 'Configuration MFA', [
             'email' => $email,
             'secret' => $enrolment->secret,
@@ -199,6 +206,10 @@ final class AuthController
             'challenge_token' => ['required', 'string'],
             'code' => ['required', 'string', 'min:6', 'max:8'],
         ]);
+
+        if (! $this->challengeBelongsToThisSession($data['challenge_token'], 'admin.challenge_confirm_token')) {
+            return $this->redirectToLogin('Session MFA expirée ou invalide. Merci de vous reconnecter.');
+        }
 
         try {
             $session = ($this->confirmMfaEnrollment)(new ConfirmOperatorMfaEnrollmentCommand(
@@ -231,6 +242,13 @@ final class AuthController
             'challenge_token' => ['required', 'string'],
             'code' => ['required', 'string', 'min:6', 'max:8'],
         ]);
+
+        // Audit 2026-10-29 #15 — the challenge is bound to the session that
+        // opened the login: a token that leaked cannot be replayed from
+        // another browser.
+        if (! $this->challengeBelongsToThisSession($data['challenge_token'], 'admin.challenge_token')) {
+            return $this->redirectToLogin('Session MFA expirée ou invalide. Merci de vous reconnecter.');
+        }
 
         try {
             $session = ($this->verifyMfa)(new VerifyOperatorMfaCommand(
@@ -299,7 +317,7 @@ final class AuthController
     private function completeLogin(string $plaintext, string $message): RedirectResponse
     {
         Session::put(self::SESSION_KEY, $plaintext);
-        Session::forget(['admin.challenge_token', 'admin.challenge_purpose']);
+        Session::forget(['admin.challenge_token', 'admin.challenge_purpose', 'admin.challenge_confirm_token']);
         // The operator has just proved a fresh TOTP code: that IS an elevation (audit 2026-10-29 #5).
         // Without this, the first sensitive action after every login would ask for a second code.
         app(StepUpGate::class)->markElevated();
@@ -312,6 +330,24 @@ final class AuthController
     private function redirectToLogin(string $error): RedirectResponse
     {
         return redirect()->route('admin.login.show')->withErrors(['email' => $error]);
+    }
+
+    /**
+     * The challenge posted back by the form must be the one THIS session
+     * holds (audit 2026-10-29 #15). The challenge is a bearer: alone it
+     * would let anyone who obtained it (shared screen, browser history,
+     * a Referer) finish somebody else's login. Bound to the session, a
+     * leaked token is worthless from another browser.
+     */
+    private function challengeBelongsToThisSession(string $posted, string $sessionKey): bool
+    {
+        $expected = Session::get($sessionKey);
+
+        if (! is_string($expected) || $expected === '') {
+            return false;
+        }
+
+        return hash_equals($expected, $posted);
     }
 
     /**

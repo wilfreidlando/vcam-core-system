@@ -73,6 +73,11 @@ final readonly class PlatformAdministratorPolicy
     {
         return $operator->role === OperatorRole::PlatformAdmin
             && ! $operator->isRevoked()
-            && $this->operators->countActiveWithRole(OperatorRole::PlatformAdmin) <= 1;
+            // The count is taken **under a row lock**, so two concurrent
+            // revocations/demotions are serialized: the second one counts
+            // what the first left behind and refuses if none remains.
+            // Without the lock, both could see two administrators, both
+            // demote one, and the console would end up with zero.
+            && $this->operators->lockActiveWithRole(OperatorRole::PlatformAdmin) <= 1;
     }
 }

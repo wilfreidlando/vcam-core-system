@@ -23,6 +23,23 @@ interface OperatorRepository
     public function countActiveWithRole(OperatorRole $role): int;
 
     /**
+     * How many accounts hold this platform role and are not revoked —
+     * counting them under a **row lock** (`SELECT … FOR UPDATE`, in a
+     * stable order so two callers never deadlock).
+     *
+     * The lock is held until the surrounding transaction ends: two
+     * administrators revoking or demoting each other at the same time
+     * are serialized, and the second one counts what the first left
+     * behind. Without it, two concurrent calls both see two active
+     * administrators, both demote one, and the console ends up with
+     * **zero** — the last-administrator guard would be a race.
+     *
+     * Must be called inside a transaction, before the operator being
+     * changed is read.
+     */
+    public function lockActiveWithRole(OperatorRole $role): int;
+
+    /**
      * Newest first — the admin console's self-service listing. `$search`,
      * when given, matches a case-insensitive substring of `email` OR
      * `name`.

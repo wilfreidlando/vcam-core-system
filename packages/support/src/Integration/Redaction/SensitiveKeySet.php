@@ -109,6 +109,21 @@ final class SensitiveKeySet
         'full_name',
         'first_name',
         'last_name',
+        // Audit 2026-10-29 #9 / #19 — the customer's own name in the
+        // payment payload (`customer_name`, personal data ADR-0083 §1).
+        // The generic `name` is NOT added: it would blank every unrelated
+        // key that happens to end with it (plan_name, provider_name,
+        // method_name…) and cost the operator the signal. The names that
+        // actually carry a person are targeted instead.
+        'customer_name',
+        'contact_name',
+        'beneficiary_name',
+        'holder_name',
+        'payer_name',
+        // Audit 2026-10-29 #9 — the search terms of the console listings.
+        // They are usually an email address or a phone number typed by the
+        // operator: personal data written in clear in the access log.
+        'search',
     ];
 
     /**
@@ -125,6 +140,9 @@ final class SensitiveKeySet
         'code',
         'otp',
         'mac',
+        // Audit 2026-10-29 #9 — the wallet portfolio's search term (`?q=`).
+        // One letter: unusable as a substring, matched in full.
+        'q',
     ];
 
     /**

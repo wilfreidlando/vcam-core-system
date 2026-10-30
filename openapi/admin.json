@@ -3210,41 +3210,6 @@
                     "204": {
                         "description": "No content"
                     },
-                    "404": {
-                        "description": "",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "const": "https://errors.core-system.internal/operator-not-found"
-                                        },
-                                        "title": {
-                                            "type": "string",
-                                            "const": "Operator not found"
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "const": 404
-                                        },
-                                        "detail": {
-                                            "type": "string"
-                                        },
-                                        "correlation_id": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
-                                    ]
-                                }
-                            }
-                        }
-                    },
                     "422": {
                         "description": "The request payload is invalid",
                         "content": {
@@ -3335,35 +3300,113 @@
                         }
                     },
                     "409": {
-                        "description": "",
+                        "description": "The last platform administrator cannot be demoted\n\nAn account cannot change its own platform role",
                         "content": {
                             "application/problem+json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "const": "https://errors.core-system.internal/operator-email-already-taken"
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/operator-email-already-taken"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "This email address is already taken"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
                                         },
-                                        "title": {
-                                            "type": "string",
-                                            "const": "This email address is already taken"
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/last-platform-admin"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The last platform administrator cannot be demoted"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
                                         },
-                                        "status": {
-                                            "type": "integer",
-                                            "const": 409
-                                        },
-                                        "detail": {
-                                            "type": "string"
-                                        },
-                                        "correlation_id": {
-                                            "type": "string"
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/cannot-change-own-platform-role"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "An account cannot change its own platform role"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
                                         }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
                                     ]
                                 }
                             }
@@ -3428,41 +3471,6 @@
                 "responses": {
                     "204": {
                         "description": "No content"
-                    },
-                    "404": {
-                        "description": "",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "const": "https://errors.core-system.internal/operator-not-found"
-                                        },
-                                        "title": {
-                                            "type": "string",
-                                            "const": "Operator not found"
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "const": 404
-                                        },
-                                        "detail": {
-                                            "type": "string"
-                                        },
-                                        "correlation_id": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
-                                    ]
-                                }
-                            }
-                        }
                     },
                     "403": {
                         "description": "",

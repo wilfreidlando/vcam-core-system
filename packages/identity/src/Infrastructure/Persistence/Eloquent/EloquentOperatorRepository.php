@@ -38,6 +38,27 @@ final class EloquentOperatorRepository implements OperatorRepository
         return OperatorRecord::query()->toBase()->where('role', $role->value)->whereNull('revoked_at')->count();
     }
 
+    public function lockActiveWithRole(OperatorRole $role): int
+    {
+        // `FOR UPDATE` cannot carry an aggregate, so the rows are locked
+        // and counted here. Ordered by id: every caller locks the
+        // platform administrators in the same order, so two concurrent
+        // revocations wait on each other instead of deadlocking.
+        // In READ COMMITTED, a waiting `FOR UPDATE` re-checks its WHERE
+        // clause once the lock is granted: an administrator revoked or
+        // demoted by the transaction it waited for is no longer counted.
+        $lockedIds = OperatorRecord::query()
+            ->toBase()
+            ->where('role', $role->value)
+            ->whereNull('revoked_at')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->pluck('id')
+            ->all();
+
+        return count($lockedIds);
+    }
+
     public function findByEmail(string $email): ?Operator
     {
         // ADR-0069 §1 — one console account per mailbox: the comparison

@@ -12,7 +12,18 @@ use Core\Identity\Contracts\RevokeOperatorCommand;
 use Core\Identity\Domain\Exception\OperatorNotFound;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Support\Clock;
+use Core\Support\UnitOfWork;
 
+/**
+ * ADR-0069 §1 — revokes one console account.
+ *
+ * Concurrency: the whole mutation runs in one transaction that first
+ * **locks the active platform administrators**. Two administrators
+ * revoking each other at the same time are serialized; the second one
+ * counts what the first left behind (`409 last-platform-admin`) — never
+ * zero. Same discipline as `RevokeOrganizationMember` for the last owner
+ * of an organization.
+ */
 final readonly class RevokeOperator implements RevokeOperatorPort
 {
     public function __construct(
@@ -20,39 +31,44 @@ final readonly class RevokeOperator implements RevokeOperatorPort
         private AuditLogger $audit,
         private Clock $clock,
         private PlatformAdministratorPolicy $policy,
+        private UnitOfWork $unitOfWork,
     ) {}
 
     public function revoke(RevokeOperatorCommand $command, string $actor, ?string $correlationId): void
     {
-        $operator = $this->operators->find($command->operatorId)
-            ?? throw OperatorNotFound::withId($command->operatorId);
+        $this->unitOfWork->transactional(function () use ($command, $actor, $correlationId): void {
+            $operator = $this->operators->find($command->operatorId)
+                ?? throw OperatorNotFound::withId($command->operatorId);
 
-        $wasAlreadyRevoked = $operator->isRevoked();
+            $wasAlreadyRevoked = $operator->isRevoked();
 
-        // A console account never revokes itself, and the console keeps one
-        // active administrator — the guard shared with UpdateOperator (G-5).
-        $this->policy->assertCanRevoke($operator, $actor);
+            // A console account never revokes itself, and the console keeps one
+            // active administrator — the guard shared with UpdateOperator (G-5).
+            // It runs inside the transaction: the row lock it takes is held
+            // until the revocation is committed.
+            $this->policy->assertCanRevoke($operator, $actor);
 
-        $now = $this->clock->now();
-        $operator->revoke($now);
-        $this->operators->save($operator);
+            $now = $this->clock->now();
+            $operator->revoke($now);
+            $this->operators->save($operator);
 
-        if ($wasAlreadyRevoked) {
-            // Idempotent no-op (Operator::revoke()'s own ??= semantics) —
-            // don't write a second, misleading audit entry for a
-            // revocation that already happened.
-            return;
-        }
+            if ($wasAlreadyRevoked) {
+                // Idempotent no-op (Operator::revoke()'s own ??= semantics) —
+                // don't write a second, misleading audit entry for a
+                // revocation that already happened.
+                return;
+            }
 
-        $this->audit->record(new AuditEntry(
-            actor: $actor,
-            action: 'operator.revoked',
-            resource: 'operator:'.$operator->id,
-            before: null,
-            after: null,
-            context: [],
-            correlationId: $correlationId,
-            occurredAt: $now,
-        ));
+            $this->audit->record(new AuditEntry(
+                actor: $actor,
+                action: 'operator.revoked',
+                resource: 'operator:'.$operator->id,
+                before: null,
+                after: null,
+                context: [],
+                correlationId: $correlationId,
+                occurredAt: $now,
+            ));
+        });
     }
 }

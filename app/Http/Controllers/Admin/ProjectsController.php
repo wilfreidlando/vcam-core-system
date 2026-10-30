@@ -126,7 +126,9 @@ final class ProjectsController
         return response()->view('admin.projects.show', [
             'title' => 'Projet '.substr($project->id, 0, 8).'…',
             'project' => $project,
-            'createdApiKey' => session('admin.projects.created_api_key'),
+            // ADR-0081 S-07 — the key is never read back from the session
+            // store: it only travels in the response that created it.
+            'createdApiKey' => null,
         ]);
     }
 
@@ -148,7 +150,7 @@ final class ProjectsController
         ]);
     }
 
-    public function store(Request $request, OperatorContext $operator): RedirectResponse
+    public function store(Request $request, OperatorContext $operator): Response
     {
         $scope = $this->permittedScope($operator, 'projects:write');
 
@@ -179,13 +181,16 @@ final class ProjectsController
             return back()->withInput()->withErrors(['organization_id' => $e->getMessage()]);
         }
 
-        // One-shot display on the project page — same pattern as a
-        // standalone key/webhook-secret issuance, never retrievable again.
-        // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
-        session()->flash('admin.projects.created_api_key', $provisioned->apiKey->plaintextToken);
-
-        return redirect()->route('admin.projects.show', ['projectId' => $provisioned->project->id])
-            ->with('status', 'Projet créé : '.$provisioned->project->name);
+        // ADR-0081 S-07 — the clear API key is shown once, in THIS response,
+        // and nowhere else. It is rendered directly rather than flashed
+        // into the session for a redirect: a flash would write the clear
+        // token to the session store, where it would outlive the response
+        // that carries it (same pattern as `OrganizationMembersController`).
+        return response()->view('admin.projects.show', [
+            'title' => 'Projet '.substr($provisioned->project->id, 0, 8).'…',
+            'project' => $provisioned->project,
+            'createdApiKey' => $provisioned->apiKey->plaintextToken,
+        ]);
     }
 
     public function edit(string $projectId, OperatorContext $operator): Response

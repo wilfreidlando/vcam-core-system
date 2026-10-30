@@ -42,7 +42,9 @@ final class ConsoleSecretFlashTest extends TestCase
      * @var array<string, string>
      */
     private const KNOWN_DEBT = [
-        'ProjectsController.php' => 'la première clé du projet est flashée (admin.projects.created_api_key) — hors du périmètre du correctif #4, à rendre dans la réponse du POST',
+        // Aucun reliquat : la première clé du projet est désormais rendue
+        // dans la réponse du POST (2026-10-29, écart #4 / G-3), plus jamais
+        // écrite dans le store de session.
     ];
 
     #[Test]
@@ -69,7 +71,7 @@ final class ConsoleSecretFlashTest extends TestCase
     #[Test]
     public function the_four_secret_creating_controllers_of_the_audit_are_clean_and_do_not_read_the_session_for_a_secret(): void
     {
-        foreach (['ApiKeysController.php', 'WebhookEndpointsController.php', 'OperatorsController.php', 'OrganizationMembersController.php'] as $name) {
+        foreach (['ApiKeysController.php', 'WebhookEndpointsController.php', 'OperatorsController.php', 'OrganizationMembersController.php', 'ProjectsController.php'] as $name) {
             $code = $this->controllers()[$name] ?? null;
 
             self::assertNotNull($code, "{$name} est introuvable.");
@@ -81,14 +83,25 @@ final class ConsoleSecretFlashTest extends TestCase
     #[Test]
     public function the_known_debt_is_still_real(): void
     {
+        // Une entrée de KNOWN_DEBT qui ne décrit plus rien est une dette
+        // fantôme : elle continuerait d'exempter un contrôleur qui n'a plus
+        // besoin de l'être. La liste est vide aujourd'hui (2026-10-29,
+        // écart #4 soldé) ; le test le vérifie sans jamais devenir vide
+        // lui-même.
+        $stale = [];
+
         foreach (array_keys(self::KNOWN_DEBT) as $name) {
             $hits = array_filter(
                 $this->sessionCalls($this->controllers()[$name] ?? ''),
                 fn (string $call): bool => $this->bearsSecret($call),
             );
 
-            self::assertNotSame([], $hits, "{$name} n'écrit plus de secret en session : supprimez-le de KNOWN_DEBT.");
+            if ($hits === []) {
+                $stale[] = $name;
+            }
         }
+
+        self::assertSame([], $stale, "Ces entrées de KNOWN_DEBT ne sont plus réelles : supprimez-les (".implode(', ', $stale).').');
     }
 
     #[Test]

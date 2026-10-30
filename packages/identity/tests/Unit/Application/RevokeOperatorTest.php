@@ -11,6 +11,7 @@ use Core\Identity\Domain\Model\Operator;
 use Core\Identity\OperatorRole;
 use Core\Identity\Tests\Unit\Fakes\FixedClock;
 use Core\Identity\Tests\Unit\Fakes\InMemoryOperatorRepository;
+use Core\Identity\Tests\Unit\Fakes\PassthroughUnitOfWork;
 use Core\Identity\Tests\Unit\Fakes\RecordingAuditLogger;
 
 function revokeTestOperator(InMemoryOperatorRepository $operators, string $id, OperatorRole $role): Operator
@@ -34,7 +35,7 @@ function revokeTestOperator(InMemoryOperatorRepository $operators, string $id, O
 
 function revokeOperatorAs(InMemoryOperatorRepository $operators, string $operatorId, string $actor): void
 {
-    (new RevokeOperator($operators, new RecordingAuditLogger, new FixedClock, new PlatformAdministratorPolicy($operators)))
+    (new RevokeOperator($operators, new RecordingAuditLogger, new FixedClock, new PlatformAdministratorPolicy($operators), new PassthroughUnitOfWork))
         ->revoke(new RevokeOperatorCommand($operatorId), $actor, null);
 }
 

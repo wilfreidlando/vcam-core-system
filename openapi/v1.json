@@ -13024,6 +13024,12 @@
                                                 "type": "string"
                                             }
                                         },
+                                        "allowed_asset_origins": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
                                         "allow_self_cancel": {
                                             "type": "boolean"
                                         },
@@ -13053,6 +13059,7 @@
                                         "support_url",
                                         "locale",
                                         "allowed_return_urls",
+                                        "allowed_asset_origins",
                                         "allow_self_cancel",
                                         "allow_plan_change",
                                         "payment_channels",
@@ -13155,6 +13162,12 @@
                                                 "type": "string"
                                             }
                                         },
+                                        "allowed_asset_origins": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
                                         "allow_self_cancel": {
                                             "type": "boolean"
                                         },
@@ -13184,6 +13197,7 @@
                                         "support_url",
                                         "locale",
                                         "allowed_return_urls",
+                                        "allowed_asset_origins",
                                         "allow_self_cancel",
                                         "allow_plan_change",
                                         "payment_channels",
@@ -16177,6 +16191,23 @@
                         },
                         "maxItems": 20
                     },
+                    "allowed_asset_origins": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "description": "The https origins (`https://cdn.mon-site.cm`, no path) your\n`logo_url` and `support_url` may point to. Empty or omitted\non a project that never set it = no external URL accepted;\nomitted on a project that did = the list is kept.",
+                        "examples": [
+                            [
+                                "https://cdn.mon-auto-ecole.cm"
+                            ]
+                        ],
+                        "items": {
+                            "type": "string",
+                            "maxLength": 255
+                        },
+                        "maxItems": 20
+                    },
                     "allow_self_cancel": {
                         "type": [
                             "boolean",
@@ -16701,7 +16732,7 @@
                             "null"
                         ],
                         "format": "uri",
-                        "description": "Where to send the customer's browser after they\ncomplete (or cancel) the payment on the\nprovider-hosted page. Best-effort: this is\nbrowser-side only and may never fire (closed tab,\ndisabled JS, captive portal). For a reliable\nserver-to-server signal, use `callback_url` instead.",
+                        "description": "Where to send the customer's browser after they\ncomplete (or cancel) the payment on the\nprovider-hosted page. Best-effort: this is\nbrowser-side only and may never fire (closed tab,\ndisabled JS, captive portal). For a reliable\nserver-to-server signal, use `callback_url` instead. Must be an `https://` URL (audit de s\u00e9curit\u00e9 2026-10-29 #18): the\nprovider redirects the customer's browser to it as is.",
                         "examples": [
                             "https://example.com/payments/return"
                         ]

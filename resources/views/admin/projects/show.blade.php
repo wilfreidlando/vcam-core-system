@@ -11,9 +11,10 @@
     $operator = app(\Core\Identity\Contracts\OperatorContext::class);
     $allows = fn (string $permission): bool => $operator->scopeFor($permission)->allowsProject($project->id);
 
-    // H4 — la clé est rendue dans la réponse (variable de vue) OU lue du flash de session :
-    // les deux sources restent acceptées.
-    $apiKey = $createdApiKey ?? session('admin.projects.created_api_key');
+    // ADR-0081 S-07 — la clé n'est lue que dans la réponse qui la porte.
+    // Elle ne vient jamais du store de session : un flash y survivrait à
+    // la réponse qui le contient (écart #4 de la recette du 2026-10-29).
+    $apiKey = $createdApiKey ?? null;
 
     // [libellé, URL, permission requise (null = toujours affiché)]
     // ADR-0092 §4 — le commerce du projet : clients (ADR-0070), catalogue (ADR-0071)

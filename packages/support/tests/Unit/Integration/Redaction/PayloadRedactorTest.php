@@ -224,4 +224,33 @@ final class PayloadRedactorTest extends TestCase
         self::assertSame('kept', $redacted['machine']);
         self::assertSame('tx-1', $redacted['transaction_ref']);
     }
+
+    #[Test]
+    public function the_customers_own_name_and_the_search_terms_are_redacted(): void
+    {
+        // Audit 2026-10-29 #9 / #19 — the customer's name travels in the
+        // payment payload and the operator's search term in the query
+        // string: both are personal data (ADR-0083 §1) and both were
+        // logged in clear.
+        $redactor = new PayloadRedactor(new SensitiveKeySet);
+
+        /** @var array<string, mixed> $redacted */
+        $redacted = $redactor->redact([
+            'customer_name' => 'Marie Ngo Bell',
+            'contact_name' => 'Marie Ngo Bell',
+            'search' => 'marie@example.cm',
+            'q' => '+237699887766',
+            // Not personal data: the operator needs these in a log line.
+            'plan_name' => 'Mensuel',
+            'provider_name' => 'my-coolpay',
+            'method_name' => 'card',
+        ]);
+
+        foreach (['customer_name', 'contact_name', 'search', 'q'] as $key) {
+            self::assertSame('***REDACTED***', $redacted[$key], $key);
+        }
+        self::assertSame('Mensuel', $redacted['plan_name']);
+        self::assertSame('my-coolpay', $redacted['provider_name']);
+        self::assertSame('card', $redacted['method_name']);
+    }
 }
