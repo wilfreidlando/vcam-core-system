@@ -62,6 +62,7 @@ trait TranslatesOrganizationRefusals
     {
         return match ($code) {
             'last-owner' => 'The last owner of the organization cannot be removed',
+            'last-finance' => 'The last org_finance of the organization cannot be removed',
             'privilege-escalation' => 'Privilege escalation is refused',
             'platform-role-forbidden' => 'A platform role cannot be granted through an organization',
             'organization-members-forbidden' => 'Managing the members of this organization is not allowed',

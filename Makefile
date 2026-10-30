@@ -125,6 +125,7 @@ sectors: ## List the test sectors (one bounded context each)
 	  'events' 'outbox transactionnelle, relais' \
 	  'audit' 'journal infalsifiable, lecture scopee' \
 	  'admin' 'console operateur' \
+	  'portal' 'espace client heberge' \
 	  'support' 'socle partage' \
 	  'fees' 'moteur de frais (scaffold)' \
 	  'storage' 'fichiers (scaffold)' \
@@ -146,6 +147,9 @@ check-sector: ## The gate a sector agent runs: style, static analysis, its suite
 	  billing|identity|wallet|notification|payment|ledger|webhook) \
 	    $(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest \
 	      tests/Architecture/Idor/ConsoleIdorTest.php --filter='$(SECTOR)::' --parallel ;; \
+	  portal) \
+	    $(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest \
+	      tests/Architecture/Idor/PortalIdorTest.php --filter='portal::' --parallel ;; \
 	esac
 
 .PHONY: coverage

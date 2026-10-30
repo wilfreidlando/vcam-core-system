@@ -25,12 +25,14 @@ final readonly class PortalSettingsService
 
     public function get(string $projectId): PortalSettingsData
     {
-        return $this->toData($this->settings->find($projectId));
+        // A project that never chose anything reads the defaults: the API
+        // answers the same thing whether the settings exist or not.
+        return $this->toData($this->settings->find($projectId) ?? PortalSettings::defaultsFor($projectId));
     }
 
     public function save(string $projectId, PortalSettingsData $data, ?string $correlationId, ?string $actor = null): PortalSettingsData
     {
-        $existing = $this->settings->find($projectId);
+        $existing = $this->settings->find($projectId) ?? PortalSettings::defaultsFor($projectId);
         $before = $this->toData($existing);
 
         $validated = PortalSettings::validated(

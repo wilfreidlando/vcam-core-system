@@ -13,6 +13,9 @@ final class InMemoryOrganizationMembershipRepository implements OrganizationMemb
     /** Number of times the owner rows were locked — lets a test prove the lock is taken. */
     public int $ownerLocks = 0;
 
+    /** How many times the rows of a given role were locked (the role guard). */
+    public int $roleLocks = 0;
+
     /** @var array<string, OrganizationMembership> */
     private array $memberships = [];
 
@@ -60,6 +63,16 @@ final class InMemoryOrganizationMembershipRepository implements OrganizationMemb
         return count(array_filter(
             $this->findActiveByOrganization($organizationId),
             static fn (OrganizationMembership $m): bool => $m->role === OrganizationRole::Owner,
+        ));
+    }
+
+    public function lockActiveWithRole(string $organizationId, OrganizationRole $role): int
+    {
+        $this->roleLocks++;
+
+        return count(array_filter(
+            $this->findActiveByOrganization($organizationId),
+            static fn (OrganizationMembership $m): bool => $m->role === $role,
         ));
     }
 

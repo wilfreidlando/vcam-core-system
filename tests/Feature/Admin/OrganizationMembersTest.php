@@ -139,6 +139,24 @@ final class OrganizationMembersTest extends TestCase
         $this->api($owner['token'])
             ->putJson("/v1/admin/organizations/{$organizationId}/members/{$admin['id']}", ['role' => 'org_finance'])
             ->assertNoContent();
+
+        // ADR-0069, symétrie du dernier propriétaire — the `org_finance`
+        // role carries `money-exceptions:write`: it is the second pair of
+        // eyes on the money. The LAST one cannot be revoked either: the
+        // organization would have nobody able to resolve an exception.
+        $this->api($owner['token'])
+            ->postJson("/v1/admin/organizations/{$organizationId}/members/{$admin['id']}/revoke")
+            ->assertStatus(409)
+            ->assertJsonPath('type', 'https://errors.core-system.internal/last-finance');
+
+        // A second `org_finance` makes the revocation possible again.
+        $secondFinanceToken = $this->api($owner['token'])
+            ->postJson("/v1/admin/organizations/{$organizationId}/invitations", ['email' => 'finance@acme.test', 'role' => 'org_finance'])
+            ->assertCreated()
+            ->json('token');
+        self::assertIsString($secondFinanceToken);
+        $this->activate($secondFinanceToken, 'Finance Name', 'finance chosen passphrase');
+
         $this->api($owner['token'])
             ->postJson("/v1/admin/organizations/{$organizationId}/members/{$admin['id']}/revoke")
             ->assertNoContent();

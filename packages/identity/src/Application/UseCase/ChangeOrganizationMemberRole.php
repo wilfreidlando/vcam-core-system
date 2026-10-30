@@ -11,6 +11,7 @@ use Core\Identity\Contracts\ChangeOrganizationMemberRole as ChangeOrganizationMe
 use Core\Identity\Contracts\ChangeOrganizationMemberRoleCommand;
 use Core\Identity\Contracts\OrganizationMemberNotFound;
 use Core\Identity\Contracts\OrganizationNotVisible;
+use Core\Identity\Domain\Model\OrganizationRole;
 use Core\Identity\Domain\Port\OrganizationMembershipRepository;
 use Core\Identity\Domain\Port\OrganizationRepository;
 use Core\Support\Access\AccessScope;
@@ -52,6 +53,10 @@ final readonly class ChangeOrganizationMemberRole implements ChangeOrganizationM
 
         $this->unitOfWork->transactional(function () use ($organization, $role, $command, $actor, $correlationId): void {
             $activeOwners = $this->memberships->lockActiveOwners($organization->id);
+            // Same discipline for the second pair of eyes on the money: the
+            // last `org_finance` carries `money-exceptions:write` and cannot
+            // be demoted (ADR-0069, symétrie du dernier propriétaire).
+            $activeFinances = $this->memberships->lockActiveWithRole($organization->id, OrganizationRole::Finance);
 
             $actorRole = $this->policy->assertCanManageMembers($command->actorOperatorId, $organization->id);
             $this->policy->assertCanGrant($actorRole, $organization->id, $role);
@@ -67,6 +72,7 @@ final readonly class ChangeOrganizationMemberRole implements ChangeOrganizationM
             }
 
             $this->policy->assertNotLastOwner($membership, $activeOwners);
+            $this->policy->assertNotLastFinance($membership, $activeFinances);
 
             $now = $this->clock->now();
             $membership->role = $role;

@@ -11,6 +11,7 @@ use Core\Identity\Contracts\OrganizationMemberNotFound;
 use Core\Identity\Contracts\OrganizationNotVisible;
 use Core\Identity\Contracts\RevokeOrganizationMember as RevokeOrganizationMemberPort;
 use Core\Identity\Contracts\RevokeOrganizationMemberCommand;
+use Core\Identity\Domain\Model\OrganizationRole;
 use Core\Identity\Domain\Port\OrganizationMembershipRepository;
 use Core\Identity\Domain\Port\OrganizationRepository;
 use Core\Support\Access\AccessScope;
@@ -53,6 +54,10 @@ final readonly class RevokeOrganizationMember implements RevokeOrganizationMembe
 
         $this->unitOfWork->transactional(function () use ($organization, $command, $actor, $correlationId): void {
             $activeOwners = $this->memberships->lockActiveOwners($organization->id);
+            // Same discipline for the second pair of eyes on the money: the
+            // last `org_finance` carries `money-exceptions:write` and cannot
+            // be revoked (ADR-0069, symétrie du dernier propriétaire).
+            $activeFinances = $this->memberships->lockActiveWithRole($organization->id, OrganizationRole::Finance);
 
             // Permission before existence: an account that may not manage
             // the members learns nothing about who they are.
@@ -63,6 +68,7 @@ final readonly class RevokeOrganizationMember implements RevokeOrganizationMembe
 
             $this->policy->assertCanActOn($actorRole, $membership);
             $this->policy->assertNotLastOwner($membership, $activeOwners);
+            $this->policy->assertNotLastFinance($membership, $activeFinances);
 
             $now = $this->clock->now();
             $membership->revoke($now);

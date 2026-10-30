@@ -170,7 +170,7 @@ final class GuardRegistry
             'status' => self::ACTIVE,
         ],
         'G15' => [
-            'rule' => 'Every console route carrying an identifier gets a generated isolation case: another organization\'s resource answers 404, never 403 (ADR-0081 S-01/S-04)',
+            'rule' => 'Every route carrying an identifier, on every authenticated plane (console AND customer portal), gets a generated isolation case: another tenant\'s resource answers 404, never 403 (ADR-0081 S-01/S-04)',
             'tool' => 'Pest (generated cases)',
             'enforced_by' => 'tests/Architecture/IdorGuardTest.php',
             'status' => self::ACTIVE,

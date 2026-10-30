@@ -51,9 +51,18 @@ final class PortalPagesController
 
         // Before any session (the login page) the brand is the project's public
         // one, named in the query; it is only a colour, validated like the rest.
+        //
+        // Audit #11 (garde-fou G-9): the stylesheet is public — the browser of
+        // the customer fetches it before any session exists, so it cannot ask
+        // for a session. It must therefore answer the same thing to everything
+        // an anonymous caller may send: an unknown project, a project that
+        // never chose a portal look, a malformed value. Only a project that
+        // really has portal settings answers its own colour; the others get
+        // the neutral palette, byte for byte, or the endpoint would be an
+        // oracle telling those apart.
         $project = $request->query('project');
         $color = $principal?->branding->primaryColor
-            ?? (is_string($project) && Str::isUuid($project) ? $this->sessions->brandingOf($project)->primaryColor : null);
+            ?? (is_string($project) && Str::isUuid($project) ? $this->sessions->publicPrimaryColor($project) : null);
 
         // Strictly validated, derived tokens included (WCAG 1.4.3): see PortalPalette.
         return response(PortalPalette::css($color), 200, [

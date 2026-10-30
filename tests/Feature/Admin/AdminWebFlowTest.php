@@ -312,7 +312,7 @@ final class AdminWebFlowTest extends TestCase
 
         // And it is not readable by any later request.
         $project = $store->viewData('project');
-        self::assertNotNull($project);
+        self::assertInstanceOf(\Core\Identity\Contracts\ProjectView::class, $project);
         $projectId = $project->id;
         $again = $this->get(route('admin.projects.show', ['projectId' => $projectId]));
         $again->assertOk();

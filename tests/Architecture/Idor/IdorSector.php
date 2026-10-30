@@ -36,11 +36,27 @@ final class IdorSector
     ];
 
     /**
+     * The portal sector — the customer-facing surface (ADR-0075).
+     *
+     * It is not one of the console's bounded contexts: the tenant of the
+     * portal is the **customer**, not the organization, so it has its own
+     * fixtures and its own generated suite. It is run on its own
+     * (`--filter='portal::'`).
+     *
+     * @var list<string>
+     */
+    public const PORTAL = ['portal'];
+
+    /**
      * Route prefix (longest match wins) => the sector that owns it.
      *
      * @var array<string, string>
      */
     private const OWNERS = [
+        // The portal (ADR-0075) is a surface of its own: the console
+        // sectors own the console routes, the portal sector owns the
+        // customer-facing ones.
+        'portal.' => 'portal',
         'admin.projects.customers' => 'billing',
         'admin.projects.plans' => 'billing',
         'admin.projects.subscriptions' => 'billing',
@@ -112,5 +128,15 @@ final class IdorSector
     public static function sectors(): array
     {
         return self::ALL;
+    }
+
+    /**
+     * The sectors of the portal — the customer-facing suite.
+     *
+     * @return list<string>
+     */
+    public static function portalSectors(): array
+    {
+        return self::PORTAL;
     }
 }

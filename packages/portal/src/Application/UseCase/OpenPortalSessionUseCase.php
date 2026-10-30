@@ -23,6 +23,7 @@ use Core\Portal\Domain\Exception\InvalidPortalFlow;
 use Core\Portal\Domain\Exception\PortalCustomerNotFound;
 use Core\Portal\Domain\Exception\ReturnUrlNotAllowed;
 use Core\Portal\Domain\Model\PortalSession;
+use Core\Portal\Domain\Model\PortalSettings;
 use Core\Portal\Domain\Port\PortalSessionRepository;
 use Core\Portal\Domain\Port\PortalSettingsRepository;
 use Core\Portal\Domain\Port\SecretHasher;
@@ -78,7 +79,9 @@ final readonly class OpenPortalSessionUseCase
             throw InvalidPortalFlow::because('The pay_invoice flow requires an invoice_id.');
         }
 
-        if ($command->returnUrl !== null && ! $this->settings->find($command->projectId)->allowsReturnUrl($command->returnUrl)) {
+        // A project that never chose any setting allows no return URL: the
+        // defaults allow none, so the door stays closed.
+        if ($command->returnUrl !== null && ! ($this->settings->find($command->projectId) ?? PortalSettings::defaultsFor($command->projectId))->allowsReturnUrl($command->returnUrl)) {
             throw ReturnUrlNotAllowed::for($command->returnUrl);
         }
 

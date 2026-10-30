@@ -10,12 +10,12 @@ use Illuminate\Support\Facades\DB;
 
 final class DatabasePortalSettingsRepository implements PortalSettingsRepository
 {
-    public function find(string $projectId): PortalSettings
+    public function find(string $projectId): ?PortalSettings
     {
         $row = DB::table('portal_settings')->where('project_id', $projectId)->first();
 
         if ($row === null) {
-            return PortalSettings::defaultsFor($projectId);
+            return null;
         }
 
         $r = Row::of($row);

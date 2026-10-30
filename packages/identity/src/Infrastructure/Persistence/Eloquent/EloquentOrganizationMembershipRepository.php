@@ -86,6 +86,24 @@ final class EloquentOrganizationMembershipRepository implements OrganizationMemb
         return count($lockedIds);
     }
 
+    public function lockActiveWithRole(string $organizationId, OrganizationRole $role): int
+    {
+        // Same discipline as `lockActiveOwners()`, for any role: the rows
+        // are locked in a stable order (so two callers never deadlock) and
+        // counted in PHP (`FOR UPDATE` cannot carry an aggregate).
+        $lockedIds = OrganizationMembershipRecord::query()
+            ->toBase()
+            ->where('organization_id', $organizationId)
+            ->where('role', $role->value)
+            ->whereNull('revoked_at')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->pluck('id')
+            ->all();
+
+        return count($lockedIds);
+    }
+
     /**
      * The ids of the accounts that are active members of at least one of
      * the given organizations — the console's operator listing scope

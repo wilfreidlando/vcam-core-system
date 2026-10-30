@@ -8,6 +8,7 @@ use Core\Webhook\Domain\Model\WebhookEndpoint;
 use Core\Webhook\Domain\Port\WebhookEndpointRepository;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 
 /**
  * `secret` is encrypted at rest (ADR-0040 §5) — plaintext only ever exists
@@ -64,6 +65,35 @@ final class EloquentWebhookEndpointRepository implements WebhookEndpointReposito
                 ->map(fn (WebhookEndpointRecord $record): WebhookEndpoint => $this->toDomain($record))
                 ->all(),
         );
+    }
+
+    public function countActiveByProject(string $projectId): int
+    {
+        return DB::table('webhook_endpoints')
+            ->where('project_id', $projectId)
+            ->where('active', true)
+            ->count();
+    }
+
+    public function lockProject(string $projectId): void
+    {
+        // The anchor row is created on the fly: `insertOrIgnore` is an
+        // INSERT ... ON CONFLICT DO NOTHING, so two concurrent
+        // registrations of a project that has no anchor yet cannot both
+        // create it — the second waits for the first, then does nothing.
+        DB::table('webhook_project_locks')->insertOrIgnore([
+            'project_id' => $projectId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // The row lock is held until the end of the transaction: a
+        // concurrent registration waits here, and only then counts the
+        // endpoints the first one created (audit 2026-10-29 #17 / G-12).
+        DB::table('webhook_project_locks')
+            ->where('project_id', $projectId)
+            ->lockForUpdate()
+            ->first();
     }
 
     public function purgeExpiredPreviousSecrets(DateTimeImmutable $now): int

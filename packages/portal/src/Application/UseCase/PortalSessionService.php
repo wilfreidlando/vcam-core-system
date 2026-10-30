@@ -10,6 +10,7 @@ use Core\Portal\Application\Dto\ExchangedPortalSession;
 use Core\Portal\Application\Dto\PortalBranding;
 use Core\Portal\Application\Dto\PortalPrincipal;
 use Core\Portal\Domain\Model\PortalSession;
+use Core\Portal\Domain\Model\PortalSettings;
 use Core\Portal\Domain\Port\PortalSessionRepository;
 use Core\Portal\Domain\Port\PortalSettingsRepository;
 use Core\Portal\Domain\Port\SecretHasher;
@@ -117,7 +118,7 @@ final readonly class PortalSessionService
         }
 
         $this->sessions->touch($session->id, $now);
-        $settings = $this->settings->find($session->projectId);
+        $settings = $this->settings->find($session->projectId) ?? PortalSettings::defaultsFor($session->projectId);
 
         return new PortalPrincipal(
             $session->id,
@@ -164,8 +165,26 @@ final readonly class PortalSessionService
      */
     public function brandingOf(string $projectId): PortalBranding
     {
-        $settings = $this->settings->find($projectId);
+        $settings = $this->settings->find($projectId) ?? PortalSettings::defaultsFor($projectId);
 
         return new PortalBranding($settings->displayName, $settings->publicLogoUrl(), $settings->primaryColor, $settings->publicSupportUrl(), $settings->locale, $settings->allowSelfCancel, $settings->paymentChannels, $settings->allowPlanChange);
+    }
+
+    /**
+     * The brand colour the public pages may paint before any session, for
+     * the project the page belongs to.
+     *
+     * Audit #11 (garde-fou G-9) — the stylesheet is public: it is fetched
+     * by the browser of the customer, before any session exists, on a
+     * project named in the query. It must therefore answer the same thing
+     * to everything an anonymous caller may send — an unknown project, a
+     * project that never chose a portal look, a malformed value — or it
+     * would be an oracle telling those apart. Only a project that really
+     * has portal settings answers its own colour; the others answer the
+     * neutral palette, which is the very same bytes.
+     */
+    public function publicPrimaryColor(string $projectId): ?string
+    {
+        return $this->settings->find($projectId)?->primaryColor;
     }
 }

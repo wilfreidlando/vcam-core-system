@@ -8,6 +8,7 @@ use Core\Identity\Contracts\ProjectContext;
 use Core\Support\Http\ProblemDetails;
 use Core\Webhook\Contracts\RegisterWebhookEndpoint;
 use Core\Webhook\Contracts\RegisterWebhookEndpointCommand;
+use Core\Webhook\Contracts\TooManyWebhookEndpoints;
 use Core\Webhook\Presentation\Http\Requests\RegisterWebhookEndpointRequest;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,6 +31,8 @@ final class RegisterWebhookEndpointController
      * (`X-Signature`/`X-Timestamp` headers, HMAC-SHA256) and is shown
      * exactly once — store it, it cannot be retrieved again. Requires the
      * `webhooks:write` scope.
+     *
+     * @throws TooManyWebhookEndpoints the project already holds the maximum number of active endpoints (422)
      */
     public function __invoke(RegisterWebhookEndpointRequest $request, ProjectContext $project): JsonResponse|Response
     {

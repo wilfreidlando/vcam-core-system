@@ -44,6 +44,22 @@ final class InMemoryWebhookEndpointRepository implements WebhookEndpointReposito
         ));
     }
 
+    public function countActiveByProject(string $projectId): int
+    {
+        return count(array_filter(
+            $this->endpoints,
+            static fn (WebhookEndpoint $endpoint): bool => $endpoint->projectId === $projectId && $endpoint->active,
+        ));
+    }
+
+    public function lockProject(string $projectId): void
+    {
+        // No real lock here: the in-memory collection is single-threaded,
+        // so there is nothing to serialise. The lock itself is proven
+        // against PostgreSQL, in
+        // packages/webhook/tests/Integration/Application/WebhookEndpointCapConcurrencyTest.php.
+    }
+
     public function findForUpdate(string $id): ?WebhookEndpoint
     {
         return $this->find($id);

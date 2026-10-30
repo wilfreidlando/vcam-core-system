@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Identity\Domain\Port;
 
 use Core\Identity\Domain\Model\OrganizationMembership;
+use Core\Identity\Domain\Model\OrganizationRole;
 
 interface OrganizationMembershipRepository
 {
@@ -43,6 +44,19 @@ interface OrganizationMembershipRepository
      * being changed is read.
      */
     public function lockActiveOwners(string $organizationId): int;
+
+    /**
+     * How many accounts hold this role in this organization and are still
+     * active — the last `org_finance` cannot be revoked nor demoted (it
+     * carries the second pair of eyes on the money exceptions).
+     *
+     * The active rows of that role are **locked** until the surrounding
+     * transaction ends (`SELECT … FOR UPDATE`, in a stable order so two
+     * callers never deadlock), exactly like `lockActiveOwners()`. Must be
+     * called inside a transaction, before the membership being changed is
+     * read.
+     */
+    public function lockActiveWithRole(string $organizationId, OrganizationRole $role): int;
 
     /**
      * The ids of the accounts that are **active members** of at least one

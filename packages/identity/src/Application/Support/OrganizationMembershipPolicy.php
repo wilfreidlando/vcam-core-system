@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Identity\Application\Support;
 
 use Core\Identity\Contracts\InvalidOrganizationRole;
+use Core\Identity\Contracts\LastOrganizationFinance;
 use Core\Identity\Contracts\LastOrganizationOwner;
 use Core\Identity\Contracts\OrganizationMemberManagementForbidden;
 use Core\Identity\Contracts\OrganizationNotVisible;
@@ -164,6 +165,26 @@ final readonly class OrganizationMembershipPolicy
     {
         if ($target->role === OrganizationRole::Owner && $activeOwners <= 1) {
             throw LastOrganizationOwner::forOrganization($target->organizationId);
+        }
+    }
+
+    /**
+     * The same guard, for the second pair of eyes on the money: the
+     * `org_finance` role carries `money-exceptions:write`, and the
+     * four-eyes rule (ADR-0081 S-15) needs a **second** account. An
+     * `org_admin` — which holds `members:write` — could otherwise demote
+     * the last `org_finance` and leave the organization with nobody able
+     * to resolve an exception of money.
+     *
+     * `$activeFinances` is the count `lockActiveWithRole()` returned at
+     * the start of the transaction — with those rows still locked.
+     *
+     * @throws LastOrganizationFinance
+     */
+    public function assertNotLastFinance(OrganizationMembership $target, int $activeFinances): void
+    {
+        if ($target->role === OrganizationRole::Finance && $activeFinances <= 1) {
+            throw LastOrganizationFinance::forOrganization($target->organizationId);
         }
     }
 }

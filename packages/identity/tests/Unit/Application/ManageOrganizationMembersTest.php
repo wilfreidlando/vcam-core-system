@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Core\Identity\Contracts\AlreadyOrganizationMember;
 use Core\Identity\Contracts\InvalidOrganizationRole;
+use Core\Identity\Contracts\LastOrganizationFinance;
 use Core\Identity\Contracts\LastOrganizationOwner;
 use Core\Identity\Contracts\ListOrganizationMembersCommand;
 use Core\Identity\Contracts\OrganizationInvitationAlreadyExists;
@@ -316,11 +317,68 @@ it('lets an owner be demoted once another owner exists', function (): void {
     expect($world->memberships->findActive($org->id, $owner->id)?->role)->toBe(OrganizationRole::Admin);
 });
 
+// --- Dernier org_finance : la seconde paire d'yeux sur l'argent ------------
+//
+// Le rôle `org_finance` porte `money-exceptions:write` : c'est lui qui
+// résout les exceptions d'argent, et la règle des quatre yeux (ADR-0081
+// S-15) exige un second compte. Un `org_admin` — qui porte
+// `members:write` — pouvait rétrograder le dernier `org_finance` : plus
+// personne dans l'organisation ne pouvait résoudre une exception.
+
+it('refuses demoting the last org_finance (409 last-finance)', function (): void {
+    [$world, $org, $owner] = OrganizationMembersWorld::seeded();
+    $finance = $world->account('finance@acme.test');
+    $world->member($org, $finance, OrganizationRole::Finance);
+
+    $refusal = OrganizationMembersWorld::refusal(
+        LastOrganizationFinance::class,
+        fn () => $world->changeRoleAs($owner, $org, $finance, 'org_viewer'),
+    );
+
+    expect($refusal->httpStatus())->toBe(409)
+        ->and($refusal->errorCode())->toBe('last-finance');
+    expect($world->memberships->findActive($org->id, $finance->id)?->role)->toBe(OrganizationRole::Finance);
+});
+
+it('refuses revoking the last org_finance (409 last-finance)', function (): void {
+    [$world, $org, $owner] = OrganizationMembersWorld::seeded();
+    $finance = $world->account('finance@acme.test');
+    $world->member($org, $finance, OrganizationRole::Finance);
+
+    expect(fn () => $world->revokeAs($owner, $org, $finance))->toThrow(LastOrganizationFinance::class);
+    expect($world->memberships->findActive($org->id, $finance->id))->not->toBeNull();
+});
+
+it('lets an org_finance be demoted once another one exists', function (): void {
+    [$world, $org, $owner] = OrganizationMembersWorld::seeded();
+    $finance = $world->account('finance@acme.test');
+    $world->member($org, $finance, OrganizationRole::Finance);
+    $second = $world->account('finance2@acme.test');
+    $world->member($org, $second, OrganizationRole::Finance);
+
+    $world->changeRoleAs($owner, $org, $finance, 'org_viewer');
+
+    expect($world->memberships->findActive($org->id, $finance->id)?->role)->toBe(OrganizationRole::Viewer)
+        ->and($world->memberships->lockActiveWithRole($org->id, OrganizationRole::Finance))->toBe(1);
+});
+
+it('does not count a revoked org_finance as the second one', function (): void {
+    [$world, $org, $owner] = OrganizationMembersWorld::seeded();
+    $finance = $world->account('finance@acme.test');
+    $world->member($org, $finance, OrganizationRole::Finance);
+    $revoked = $world->account('gone@acme.test');
+    $world->member($org, $revoked, OrganizationRole::Finance)->revoke($world->clock->now());
+
+    expect(fn () => $world->changeRoleAs($owner, $org, $finance, 'org_viewer'))
+        ->toThrow(LastOrganizationFinance::class);
+});
+
 it('publishes every refusal with a stable code and status', function (OrganizationRefusal $refusal, string $code, int $status): void {
     expect($refusal->errorCode())->toBe($code)
         ->and($refusal->httpStatus())->toBe($status);
 })->with([
     'last owner' => [LastOrganizationOwner::forOrganization('o'), 'last-owner', 409],
+    'last finance' => [LastOrganizationFinance::forOrganization('o'), 'last-finance', 409],
     'escalation' => [OrganizationPrivilegeEscalation::forRole('o', 'org_owner'), 'privilege-escalation', 403],
     'escalation on owner' => [OrganizationPrivilegeEscalation::onOwnerMembership('o'), 'privilege-escalation', 403],
     'platform role' => [PlatformRoleAssignmentForbidden::forRole('o', 'platform_admin'), 'platform-role-forbidden', 403],

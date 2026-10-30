@@ -17,6 +17,7 @@ use Core\Portal\Application\Dto\ExchangedPortalSession;
 use Core\Portal\Application\Dto\LoginAdmission;
 use Core\Portal\Domain\Exception\LoginThrottleUnavailable;
 use Core\Portal\Domain\Model\PortalLoginCode;
+use Core\Portal\Domain\Model\PortalSettings;
 use Core\Portal\Domain\Port\LoginThrottle;
 use Core\Portal\Domain\Port\PortalLoginCodeRepository;
 use Core\Portal\Domain\Port\PortalSettingsRepository;
@@ -72,7 +73,7 @@ final readonly class DirectLoginService
      */
     public function isOffered(string $projectId): bool
     {
-        return $this->settings->find($projectId)->offersDirectLogin();
+        return ($this->settings->find($projectId) ?? PortalSettings::defaultsFor($projectId))->offersDirectLogin();
     }
 
     /**
@@ -204,7 +205,8 @@ final readonly class DirectLoginService
         $settings = $this->settings->find($projectId);
         $normalized = $this->normalize($phone);
 
-        if (! $settings->offersDirectLogin() || $normalized === null) {
+        // A project that never chose the login by code has nothing to send.
+        if ($settings === null || ! $settings->offersDirectLogin() || $normalized === null) {
             return;
         }
 

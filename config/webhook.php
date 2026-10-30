@@ -18,4 +18,20 @@ return [
 
     // Terminal deliveries older than this are pruned (audit 2026-10-03 §4.6).
     'retention_days' => (int) env('WEBHOOK_RETENTION_DAYS', 90),
+
+    /**
+     * Audit 2026-10-29 #17 / G-12 — the number of **active** endpoints a
+     * project may hold at once.
+     *
+     * Every active endpoint receives every event of the project, so the
+     * ceiling is per project — on the model of ADR-0082 §1's ten API keys
+     * per project, which the audit names as the reference. Ten is the same
+     * order of magnitude as that ceiling: a project rarely needs more than
+     * a couple of receivers (one per consumer system, one per environment
+     * of the integrator), and every endpoint beyond the ceiling widens the
+     * exfiltration surface for no gain.
+     *
+     * A deactivated endpoint does not count (it receives nothing).
+     */
+    'max_active_endpoints_per_project' => (int) env('WEBHOOK_MAX_ACTIVE_ENDPOINTS_PER_PROJECT', 10),
 ];

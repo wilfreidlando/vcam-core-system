@@ -34,6 +34,7 @@ use Core\Identity\Contracts\InvalidOrganizationRole;
 use Core\Identity\Contracts\InvitationAccountPasswordInvalid;
 use Core\Identity\Contracts\InvitationNotUsable;
 use Core\Identity\Contracts\InvitationPasswordTooWeak;
+use Core\Identity\Contracts\LastOrganizationFinance;
 use Core\Identity\Contracts\LastOrganizationOwner;
 use Core\Identity\Contracts\LastPlatformAdminDemotion;
 use Core\Identity\Contracts\OperatorAlreadyExists;
@@ -83,6 +84,7 @@ use Core\Wallet\Domain\Exception\InsufficientFunds;
 use Core\Wallet\Domain\Exception\InvalidWalletOperation;
 use Core\Wallet\Domain\Exception\WalletNotFound;
 use Core\Wallet\Domain\Exception\WalletProjectMismatch;
+use Core\Webhook\Contracts\TooManyWebhookEndpoints;
 use Core\Webhook\Domain\Exception\InvalidWebhookSecretRotation;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotDead;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
@@ -137,6 +139,10 @@ final class ExceptionProblemMapping
         WebhookDeliveryNotFound::class => ['type' => 'webhook-delivery-not-found', 'title' => 'Webhook delivery not found', 'status' => 404],
         WebhookDeliveryNotDead::class => ['type' => 'webhook-delivery-not-dead', 'title' => 'Only a dead webhook delivery can be replayed', 'status' => 409],
         WebhookEndpointInactive::class => ['type' => 'webhook-endpoint-inactive', 'title' => 'The webhook endpoint is deactivated', 'status' => 409],
+        // Audit 2026-10-29 #17 / G-12 — the ceiling of active endpoints per
+        // project: the caller asks for one receiver too many. 422, not 409:
+        // the request itself is refused, the project is not in conflict.
+        TooManyWebhookEndpoints::class => ['type' => 'too-many-webhook-endpoints', 'title' => 'Too many webhook endpoints', 'status' => 422],
         NotificationNotFound::class => ['type' => 'notification-not-found', 'title' => 'Notification not found', 'status' => 404],
         MissingRecipientPhoneNumber::class => ['type' => 'missing-recipient-phone-number', 'title' => 'The recipient phone number is missing', 'status' => 422],
         ChannelDoesNotSupportSessions::class => ['type' => 'channel-does-not-support-sessions', 'title' => 'This channel has no linked-device session to manage', 'status' => 422],
@@ -180,6 +186,7 @@ final class ExceptionProblemMapping
         OrganizationPrivilegeEscalation::class => ['type' => 'privilege-escalation', 'title' => 'Privilege escalation is refused', 'status' => 403],
         PlatformRoleAssignmentForbidden::class => ['type' => 'platform-role-forbidden', 'title' => 'A platform role cannot be granted through an organization', 'status' => 403],
         LastOrganizationOwner::class => ['type' => 'last-owner', 'title' => 'The last owner of the organization cannot be removed', 'status' => 409],
+        LastOrganizationFinance::class => ['type' => 'last-finance', 'title' => 'The last org_finance of the organization cannot be removed', 'status' => 409],
         AlreadyOrganizationMember::class => ['type' => 'already-member', 'title' => 'Already a member of the organization', 'status' => 409],
         OrganizationInvitationAlreadyExists::class => ['type' => 'invitation-already-exists', 'title' => 'An invitation is already pending for this email', 'status' => 409],
         InvitationNotUsable::class => ['type' => 'invitation-not-usable', 'title' => 'This invitation can no longer be used', 'status' => 409],

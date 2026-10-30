@@ -24,6 +24,7 @@ use Core\Webhook\Contracts\RevokePreviousWebhookSecret;
 use Core\Webhook\Contracts\RevokePreviousWebhookSecretCommand;
 use Core\Webhook\Contracts\RotateWebhookSecret;
 use Core\Webhook\Contracts\RotateWebhookSecretCommand;
+use Core\Webhook\Contracts\TooManyWebhookEndpoints;
 use Core\Webhook\Contracts\UpdateWebhookEndpoint;
 use Core\Webhook\Contracts\UpdateWebhookEndpointCommand;
 use Illuminate\Http\RedirectResponse;
@@ -132,11 +133,17 @@ final class WebhookEndpointsController
             return back()->withInput()->withErrors(['categories' => 'Choisissez au moins une catégorie, ou « Tout recevoir ».']);
         }
 
-        $view = $this->registerWebhookEndpoint->register(new RegisterWebhookEndpointCommand(
-            projectId: $projectId,
-            url: $data['url'],
-            events: $events,
-        ));
+        try {
+            $view = $this->registerWebhookEndpoint->register(new RegisterWebhookEndpointCommand(
+                projectId: $projectId,
+                url: $data['url'],
+                events: $events,
+            ));
+        } catch (TooManyWebhookEndpoints $refusal) {
+            // Audit 2026-10-29 #17 / G-12 — the ceiling of active endpoints
+            // per project: the operator stays on the form, with the reason.
+            return $this->refuseTooManyEndpoints($refusal, 'url');
+        }
 
         $this->audit->record(new AuditEntry(
             actor: 'operator:'.$operator->operatorId,
@@ -320,6 +327,20 @@ final class WebhookEndpointsController
     }
 
     /**
+     * Audit 2026-10-29 #17 / G-12 — the ceiling of active endpoints a
+     * project may hold. The console answers a refused write the way it
+     * answers any invalid input: the operator stays on the page, with the
+     * reason (never a crash, never a bare 500).
+     */
+    private function refuseTooManyEndpoints(TooManyWebhookEndpoints $refusal, string $key): RedirectResponse
+    {
+        return back()->withErrors([$key => sprintf(
+            'Ce projet atteint déjà son plafond de %d endpoints webhook actifs. Désactivez-en un avant d\'en enregistrer un autre.',
+            $refusal->limit,
+        )]);
+    }
+
+    /**
      * ADR-0069 §2 — the project must be in the account's scope (404), and
      * the account's role in its organization must carry the permission
      * (403).
@@ -354,6 +375,11 @@ final class WebhookEndpointsController
             } else {
                 $this->deactivateWebhookEndpoint->deactivate(new DeactivateWebhookEndpointCommand($projectId, $endpointId));
             }
+        } catch (TooManyWebhookEndpoints $refusal) {
+            // Audit 2026-10-29 #17 / G-12 — re-activating an endpoint adds
+            // one to the project's active count: it is refused at the
+            // ceiling, exactly like a registration.
+            return $this->refuseTooManyEndpoints($refusal, 'endpoint');
         } catch (RuntimeException $e) {
             return back()->withErrors(['endpoint' => $e->getMessage()]);
         }

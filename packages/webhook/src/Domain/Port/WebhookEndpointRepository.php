@@ -44,6 +44,25 @@ interface WebhookEndpointRepository
     public function findAllForProject(string $projectId): array;
 
     /**
+     * Audit 2026-10-29 #17 / G-12 — the endpoints that count against the
+     * per-project ceiling: the **active** ones. A deactivated endpoint
+     * receives nothing, so it does not widen the fan-out and must not
+     * block a registration.
+     *
+     * Call it inside a transaction, after `lockProject()`: the count is
+     * only meaningful while the project's registrations are serialised.
+     */
+    public function countActiveByProject(string $projectId): int;
+
+    /**
+     * Serialises the registrations of one project until the end of the
+     * current transaction, so two concurrent registrations cannot both
+     * pass the ceiling — the same discipline as the API-key cap
+     * (ADR-0082 §1).
+     */
+    public function lockProject(string $projectId): void;
+
+    /**
      * ADR-0082 §5 — erases every previous secret whose overlap has ended.
      *
      * @return int how many were erased

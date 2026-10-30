@@ -117,6 +117,19 @@ final class WebhookServiceProvider extends ServiceProvider
 
             return new WebhookRetryPolicy($maxAttempts, $baseDelaySeconds, $multiplier, $maxDelaySeconds);
         });
+
+        // Audit 2026-10-29 #17 / G-12 — the ceiling of ACTIVE endpoints a
+        // project may hold, set by the platform: on the model of ADR-0082
+        // §1's ten API keys per project. Every active endpoint receives
+        // every event of the project, so the fan-out is bounded per
+        // project — not only per operator (the console's
+        // `console-sensitive` throttle bounds the rate, not the total).
+        $this->app->when(RegisterWebhookEndpointUseCase::class)
+            ->needs('$maxActiveEndpointsPerProject')
+            ->give(static fn (): int => self::maxActiveEndpointsPerProject());
+        $this->app->when(ActivateWebhookEndpointUseCase::class)
+            ->needs('$maxActiveEndpointsPerProject')
+            ->give(static fn (): int => self::maxActiveEndpointsPerProject());
     }
 
     public function boot(): void
@@ -134,5 +147,17 @@ final class WebhookServiceProvider extends ServiceProvider
                 PurgeExpiredWebhookSecretsCommand::class,
             ]);
         }
+    }
+
+    /**
+     * The ceiling comes from the configuration, but a value that is not a
+     * positive number must never open the ceiling: a misconfiguration
+     * falls back to the documented default rather than to "no limit".
+     */
+    private static function maxActiveEndpointsPerProject(): int
+    {
+        $limit = config('webhook.max_active_endpoints_per_project', 10);
+
+        return is_numeric($limit) ? max(1, (int) $limit) : 10;
     }
 }
