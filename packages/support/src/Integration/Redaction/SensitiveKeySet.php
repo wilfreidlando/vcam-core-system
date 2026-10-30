@@ -34,6 +34,7 @@ final class SensitiveKeySet
         'api-key',
         'x-token',
         'x-auth-token',
+        'x-access-token',
         'auth-token',
         'x-access-token',
         'access-token',
@@ -48,6 +49,7 @@ final class SensitiveKeySet
         'x-hub-signature',
         'x-hub-signature-256',
         'cookie',
+        'set-cookie',
         'set-cookie',
     ];
 
@@ -69,13 +71,30 @@ final class SensitiveKeySet
         'token',
         'apikey',
         'api_key',
+        // The header names are `x-api-key` and `api-key` (with a dash): the
+        // substring `apikey` above does not match them, so a JSON key of
+        // that name was logged in clear. The two lists must describe the
+        // same family (guard-rail G-2).
+        'api-key',
+        'x-api-key',
         'apiSecret',
         'client_secret',
         'private_key',
         'authorization',
+        // The proxy's own credential: same family as `authorization`.
+        'proxy-authorization',
         'authentication',
         'authentication_token',
+        // The header is `x-auth-token`: the substring `token` alone does not
+        // cover the name as a whole (a JSON key of that name would be
+        // logged in clear).
+        'x-auth-token',
+        'x-access-token',
         'credential',
+        // The cookie header carries the portal's session: a JSON key of
+        // that name would carry it too.
+        'cookie',
+        'set-cookie',
         'confirmation',
         'salt',
         // Audit 2026-10-29 #2 (ADR-0081 S-17) — the one-time codes (TOTP,
@@ -86,6 +105,9 @@ final class SensitiveKeySet
         // an operator needs in a log line. The bare `code` / `otp` field
         // names are matched exactly instead (see EXACT_KEYS).
         'totp',
+        // The portal's one-time login code (its field is named
+        // `login_pin`); the console's MFA field is `code` (EXACT_KEYS).
+        'login_code',
         'otp_code',
         'verification_code',
         'mfa_code',
@@ -94,6 +116,11 @@ final class SensitiveKeySet
         // (MyCoolPay: md5 of fields + private key) is a credential that
         // replays a forged callback; `signature` was only a header name.
         'signature',
+        // The webhook providers' signature headers (`x-hub-signature`,
+        // `x-hub-signature-256`): a JSON key of that name was not covered
+        // by the substring `signature` alone.
+        'x-hub-signature',
+        'x-hub-signature-256',
         'hmac',
         'checksum',
         // ADR-0083 §1 / ADR-0081 S-17 — the **personal data**: a name,
