@@ -51,7 +51,13 @@ jobs:
             run: vendor/bin/pest --group=schema
 
           - name: tests
-            run: vendor/bin/pest --group=unit,integration,invariants,default
+            # `--group` repeated, NOT comma-separated: PHPUnit takes one
+            # group name per option and does not split a list on commas,
+            # so `--group=a,b` filters on a group literally named "a,b"
+            # and selects nothing — this job used to run zero tests and
+            # report success. These three groups plus `arch` and `schema`
+            # cover the whole suite (1 885 tests), without overlap.
+            run: vendor/bin/pest --group=default --group=integration --group=invariants
 
     services:
       postgres:
