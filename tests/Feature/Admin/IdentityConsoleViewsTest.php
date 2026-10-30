@@ -63,10 +63,12 @@ final class IdentityConsoleViewsTest extends TestCase
         self::assertDoesNotMatchRegularExpression('/<h1[^>]*>\s*Enterprise Core/', $html);
 
         // Un jeton absent : le bandeau d'erreurs est une région `alert` et le champ désigne son message.
-        $failed = $this->from('/admin/invitation')->followingRedirects()->post('/admin/invitation', [
+        $response = $this->from('/admin/invitation')->followingRedirects()->post('/admin/invitation', [
             'token' => '', 'password' => 'x', 'password_confirmation' => 'y',
-        ])->getContent(); // @phpstan-ignore staticMethod.dynamicCall
-        $failed = is_string($failed) ? $failed : '';
+        ]);
+        /** @var string|false $failed */
+        $failed = $response->getContent(); // @phpstan-ignore staticMethod.dynamicCall
+        self::assertIsString($failed);
         self::assertStringContainsString('role="alert"', $failed);
         self::assertStringContainsString('aria-invalid="true"', $failed);
         self::assertMatchesRegularExpression('/aria-describedby="[^"]*(token|password)-error/', $failed);
@@ -161,8 +163,9 @@ final class IdentityConsoleViewsTest extends TestCase
         // B30 — l'email d'un opérateur est un identifiant : jamais `autocomplete="off"`.
         $html = $this->page('/admin/operators/create');
         self::assertSame(1, preg_match('/<input\b[^>]*name="email"[^>]*>/', $html, $emailInput));
-        self::assertStringContainsString('autocomplete="email"', $emailInput[0]);
-        self::assertStringNotContainsString('autocomplete="off"', $emailInput[0]);
+        $emailTag = $emailInput[0] ?? '';
+        self::assertStringContainsString('autocomplete="email"', $emailTag);
+        self::assertStringNotContainsString('autocomplete="off"', $emailTag);
     }
 
     #[Test]

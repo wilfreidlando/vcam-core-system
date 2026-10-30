@@ -311,7 +311,9 @@ final class AdminWebFlowTest extends TestCase
         $store->assertSee('pk_');
 
         // And it is not readable by any later request.
-        $projectId = $store->viewData('project')->id;
+        $project = $store->viewData('project');
+        self::assertNotNull($project);
+        $projectId = $project->id;
         $again = $this->get(route('admin.projects.show', ['projectId' => $projectId]));
         $again->assertOk();
         $again->assertDontSee('pk_');

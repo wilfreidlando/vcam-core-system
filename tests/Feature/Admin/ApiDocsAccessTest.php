@@ -81,4 +81,60 @@ final class ApiDocsAccessTest extends TestCase
         $this->app['env'] = 'production';
         $this->withHeader(TrustProxiesFromSidecar::HEADER, $token);
     }
+
+    #[Test]
+    public function the_documentation_carries_its_own_security_headers(): void
+    {
+        // Audit 2026-10-29 #14 / G-1 — the pages used to carry only two
+        // headers. The CSP names the two CDNs the bundles come from and
+        // nothing else; the documentation describes the API, so it must not
+        // sit in a cache either.
+        $response = $this->get('/docs/api')->assertOk();
+
+        $response->assertHeader('X-Content-Type-Options', 'nosniff');
+        $response->assertHeader('Cache-Control', 'no-store, private');
+
+        $csp = (string) $response->headers->get('Content-Security-Policy');
+        self::assertStringContainsString("frame-ancestors 'none'", $csp);
+        self::assertStringContainsString("object-src 'none'", $csp);
+        self::assertStringContainsString('https://unpkg.com', $csp);
+        self::assertStringContainsString('https://cdn.jsdelivr.net', $csp);
+
+        // No other host may run a script there.
+        preg_match("/script-src ([^;]+);/", $csp, $scriptSrc);
+        $allowed = array_map('trim', explode(' ', $scriptSrc[1] ?? ''));
+        foreach ($allowed as $source) {
+            self::assertContains(
+                $source,
+                ["'self'", "'unsafe-inline'", 'https://unpkg.com', 'https://cdn.jsdelivr.net'],
+                "A source non prévue est autorisée dans script-src : {$source}",
+            );
+        }
+    }
+
+    #[Test]
+    public function the_third_party_bundles_of_the_documentation_are_pinned(): void
+    {
+        // `integrity` pins the content of the bundles cryptographically: a
+        // compromised CDN can no longer execute on the API's origin. The
+        // version must stay exact for the hash to hold — `@latest` would
+        // break it (and was itself a mutable dependency).
+        $html = (string) $this->get('/docs/api')->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
+
+        preg_match_all('/<(script|link)\b[^>]*>/', $html, $tags);
+        $thirdParty = 0;
+
+        foreach ($tags[0] as $tag) {
+            if (! str_contains($tag, 'https://')) {
+                continue;
+            }
+
+            $thirdParty++;
+            self::assertStringContainsString('integrity="sha384-', $tag, "Bundle tiers sans empreinte : {$tag}");
+            self::assertStringContainsString('crossorigin="anonymous"', $tag, "Bundle tiers sans crossorigin : {$tag}");
+            self::assertDoesNotMatchRegularExpression('/@\b(latest|next)\b/', $tag, "Bundle tiers sur une version mutable : {$tag}");
+        }
+
+        self::assertGreaterThan(0, $thirdParty, 'the documentation loads third-party bundles');
+    }
 }

@@ -60,7 +60,12 @@ final class PortalTextHasNoPluralParenthesesTest extends TestCase
         $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator((string) realpath(self::PORTAL), RecursiveDirectoryIterator::SKIP_DOTS));
 
         foreach ($files as $file) {
+            if (! $file instanceof \SplFileInfo) {
+                continue;
+            }
+
             $path = $file->getPathname();
+
             $relative = str_replace((string) realpath(self::PORTAL), '', $path);
 
             if (str_contains($relative, '/vendor/') || str_contains($relative, '/tests/')) {

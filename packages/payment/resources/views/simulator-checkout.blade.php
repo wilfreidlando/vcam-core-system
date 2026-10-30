@@ -9,6 +9,7 @@
         body { font-family: system-ui, sans-serif; background: #f8fafc; color: #0f172a; margin: 0; padding: 24px 16px; }
         .card { max-width: 420px; margin: 0 auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; }
         .badge { display: inline-block; background: #fef3c7; color: #92400e; font-weight: 600; font-size: 12px; border-radius: 6px; padding: 2px 8px; }
+        h1 { font-size: 18px; font-weight: 700; margin: 12px 0 0; }
         .amount { font-size: 32px; font-weight: 700; margin: 12px 0 4px; }
         .muted { color: #64748b; font-size: 14px; }
         button { width: 100%; border: 0; border-radius: 8px; padding: 12px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; }
@@ -17,7 +18,10 @@
     </style>
 </head>
 <body>
-<div class="card">
+{{-- I1 — la page a un <main> et un <h1> : le titre de page est le premier repère
+     lu par un lecteur d'écran (SC 1.3.1 / 2.4.6). --}}
+<main class="card">
+    <h1>Simulateur de paiement</h1>
     <span class="badge">SIMULATEUR — aucun argent réel</span>
     @if ($payment !== null)
         <p class="amount">{{ \Core\Support\Money\Money::ofMinor($payment->amount, $payment->currency)->formattedAmount() }} {{ $payment->currency }}</p>
@@ -38,14 +42,15 @@
     @elseif ($action !== null && $payment !== null && ! $payment->status->isTerminal())
         <p class="muted">Choisissez le résultat à simuler :</p>
         <form method="POST" action="{{ $action }}">
-            <button class="ok" name="status" value="succeeded">Payer (succès)</button>
-            <button class="ko" name="status" value="failed">Échec du paiement</button>
-            <button class="neutral" name="status" value="canceled">Annuler</button>
-            <button class="neutral" name="status" value="expired">Laisser expirer</button>
+            {{-- B35 — `type="submit"` explicite sur les quatre boutons de simulation. --}}
+            <button type="submit" class="ok" name="status" value="succeeded">Payer (succès)</button>
+            <button type="submit" class="ko" name="status" value="failed">Échec du paiement</button>
+            <button type="submit" class="neutral" name="status" value="canceled">Annuler</button>
+            <button type="submit" class="neutral" name="status" value="expired">Laisser expirer</button>
         </form>
     @elseif ($payment !== null)
         <div class="result">Ce paiement est déjà final : <strong>{{ $payment->status->value }}</strong>.</div>
     @endif
-</div>
+</main>
 </body>
 </html>

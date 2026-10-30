@@ -148,8 +148,11 @@ final class ConsoleSecretsAreNotSessionedTest extends TestCase
      */
     private function assertNotInSessionStore(string $secret): void
     {
+        /** @var \Illuminate\Session\Store $store */
         $store = $this->app->make('session')->driver();
-        $written = $store->getHandler()->read($store->getId());
+        $handler = $store->getHandler();
+        $written = $handler->read($store->getId());
+        self::assertIsString($written);
 
         self::assertStringNotContainsString($secret, $written, 'the secret was written to the session store');
         self::assertStringNotContainsString($secret, (string) json_encode($store->all()), 'the secret is in the live session');

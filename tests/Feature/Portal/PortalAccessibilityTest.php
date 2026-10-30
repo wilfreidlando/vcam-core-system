@@ -229,7 +229,10 @@ final class PortalAccessibilityTest extends TestCase
      */
     private function render(string $view, array $data): string
     {
-        return view('portal::'.$view, $data + ['principal' => $this->principal(), 'csrf' => 'tok'])->render();
+        /** @var \Illuminate\View\View $view */
+        $view = view('portal::'.$view, $data + ['principal' => $this->principal(), 'csrf' => 'tok']); // @phpstan-ignore argument.type
+
+        return $view->render();
     }
 
     /**
@@ -237,7 +240,10 @@ final class PortalAccessibilityTest extends TestCase
      */
     private function renderGuest(string $view, array $data): string
     {
-        return view('portal::'.$view, $data)->render();
+        /** @var \Illuminate\View\View $view */
+        $view = view('portal::'.$view, $data); // @phpstan-ignore argument.type
+
+        return $view->render();
     }
 
     private function branding(): stdClass

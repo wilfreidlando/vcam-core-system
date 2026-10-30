@@ -35,18 +35,13 @@ final class ConsoleSecretFlashTest extends TestCase
     private const SECRET_MARKER = '/plaintext|secret|token|api[-_]?key|password|mot_?de_?passe/i';
 
     /**
-     * Dette connue et nommée : le contrôleur et la raison. Ce test refuse qu'elle grandisse ;
-     * quand le contrôleur est corrigé, la ligne se supprime (le test vérifie qu'elle est encore
-     * utile et le dit sinon).
-     *
-     * @var array<string, string>
+     * Aucune exception : le garde-fou est absolu. Une dette connue avait
+     * été tolérée pour `ProjectsController` (la première clé du projet
+     * flashée en session) — elle est corrigée depuis le 2026-10-29 (écart
+     * #4 / G-3) : la clé est rendue dans la réponse du POST qui la crée.
+     * Un contrôleur qui écrirait de nouveau un secret en session doit
+     * faire échouer le build, pas être exempté.
      */
-    private const KNOWN_DEBT = [
-        // Aucun reliquat : la première clé du projet est désormais rendue
-        // dans la réponse du POST (2026-10-29, écart #4 / G-3), plus jamais
-        // écrite dans le store de session.
-    ];
-
     #[Test]
     public function no_console_controller_writes_a_secret_into_the_session_store(): void
     {
@@ -54,7 +49,7 @@ final class ConsoleSecretFlashTest extends TestCase
 
         foreach ($this->controllers() as $name => $code) {
             foreach ($this->sessionCalls($code) as $call) {
-                if ($this->bearsSecret($call) && ! isset(self::KNOWN_DEBT[$name])) {
+                if ($this->bearsSecret($call)) {
                     $offenders[] = $name.' : '.preg_replace('/\s+/', ' ', $call);
                 }
             }
@@ -81,30 +76,6 @@ final class ConsoleSecretFlashTest extends TestCase
     }
 
     #[Test]
-    public function the_known_debt_is_still_real(): void
-    {
-        // Une entrée de KNOWN_DEBT qui ne décrit plus rien est une dette
-        // fantôme : elle continuerait d'exempter un contrôleur qui n'a plus
-        // besoin de l'être. La liste est vide aujourd'hui (2026-10-29,
-        // écart #4 soldé) ; le test le vérifie sans jamais devenir vide
-        // lui-même.
-        $stale = [];
-
-        foreach (array_keys(self::KNOWN_DEBT) as $name) {
-            $hits = array_filter(
-                $this->sessionCalls($this->controllers()[$name] ?? ''),
-                fn (string $call): bool => $this->bearsSecret($call),
-            );
-
-            if ($hits === []) {
-                $stale[] = $name;
-            }
-        }
-
-        self::assertSame([], $stale, "Ces entrées de KNOWN_DEBT ne sont plus réelles : supprimez-les (".implode(', ', $stale).').');
-    }
-
-    #[Test]
     public function the_scan_actually_sees_the_calls_it_is_looking_for(): void
     {
         // Un scan qui ne trouve rien passerait tous les tests ci-dessus.
@@ -122,7 +93,10 @@ final class ConsoleSecretFlashTest extends TestCase
      */
     private function controllers(): array
     {
-        $files = glob(self::CONTROLLERS.'/*.php') ?: [];
+        $files = glob(self::CONTROLLERS.'/*.php');
+        if ($files === false) {
+            $files = [];
+        }
         $out = [];
 
         foreach ($files as $file) {

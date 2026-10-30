@@ -73,7 +73,7 @@ final class PortalHardeningTest extends TestCase
 
         $last = 0;
         for ($i = 0; $i < 241; $i++) {
-            $last = $this->get('/portal/theme.css')->getStatusCode();
+            $last = $this->get('/portal/theme.css')->getStatusCode(); // @phpstan-ignore staticMethod.dynamicCall
         }
 
         self::assertSame(429, $last, 'the 241st request of the minute is refused');

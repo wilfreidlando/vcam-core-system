@@ -370,7 +370,7 @@ final class AdminComponentsTest extends TestCase
         $found = preg_match('/<[a-z][^<>]*'.preg_quote($needle, '/').'[^<>]*>/s', $html, $m);
         self::assertSame(1, $found, "Aucune balise ne contient « {$needle} ».");
 
-        return $m[0] ?? '';
+        return $m[0];
     }
 
     /**

@@ -80,7 +80,7 @@
 
     <div class="bg-white border border-slate-200 rounded-lg p-6">
         <h2 class="text-lg font-semibold text-slate-900 mb-3">Tentatives provider</h2>
-        <x-admin.table :headers="['#', 'Date', 'Provider', 'Statut', 'ID message', 'Erreur']" :empty="'Aucune tentative enregistrée.'">
+        <x-admin.table caption="Tentatives provider" :headers="['#', 'Date', 'Provider', 'Statut', 'ID message', 'Erreur']" :empty="'Aucune tentative enregistrée.'">
             <tbody class="divide-y divide-slate-100 bg-white">
             @foreach ($notification->attempts as $attempt)
                 <tr>

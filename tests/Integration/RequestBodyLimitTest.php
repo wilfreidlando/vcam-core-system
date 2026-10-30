@@ -30,8 +30,13 @@ final class RequestBodyLimitTest extends TestCase
     #[Test]
     public function the_limiter_heads_the_api_group_and_has_an_alias(): void
     {
-        self::assertSame(LimitRequestBody::class, Route::getMiddlewareGroups()['api'][0] ?? null);
-        self::assertSame(LimitRequestBody::class, Route::getMiddleware()['body.limit'] ?? null);
+        $groups = Route::getMiddlewareGroups();
+        /** @var array<int, string> $api */
+        $api = $groups['api'] ?? [];
+        self::assertSame(LimitRequestBody::class, $api[0] ?? null);
+
+        $aliases = Route::getMiddleware();
+        self::assertSame(LimitRequestBody::class, $aliases['body.limit'] ?? null);
     }
 
     #[Test]
@@ -40,7 +45,7 @@ final class RequestBodyLimitTest extends TestCase
         $response = $this->postJson(self::ENDPOINT, ['reason' => str_repeat('a', LimitRequestBody::MAX_BYTES + 1)]);
 
         $response->assertStatus(413)->assertHeader('Content-Type', 'application/problem+json');
-        self::assertStringEndsWith('/payload-too-large', (string) $response->json('type'));
+        self::assertStringEndsWith('/payload-too-large', $this->problemType($response));
     }
 
     #[Test]
@@ -50,13 +55,25 @@ final class RequestBodyLimitTest extends TestCase
         $this->postJson(self::ENDPOINT, ['reason' => str_repeat('a', 900_000)])->assertStatus(401);
     }
 
+    /** The `type` of a problem+json answer, always a string. */
+    /**
+     * @param \Illuminate\Testing\TestResponse<\Symfony\Component\HttpFoundation\Response> $response
+     */
+    private function problemType(\Illuminate\Testing\TestResponse $response): string
+    {
+        $type = $response->json('type');
+        self::assertIsString($type);
+
+        return $type;
+    }
+
     #[Test]
     public function a_json_nested_over_twenty_levels_is_a_400_problem(): void
     {
         $response = $this->rawJson(str_repeat('[', 21).str_repeat(']', 21));
 
         $response->assertStatus(400)->assertHeader('Content-Type', 'application/problem+json');
-        self::assertStringEndsWith('/json-too-deep', (string) $response->json('type'));
+        self::assertStringEndsWith('/json-too-deep', $this->problemType($response));
     }
 
     #[Test]

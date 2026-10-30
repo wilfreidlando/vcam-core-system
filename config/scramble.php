@@ -126,7 +126,10 @@ return [
          */
         'scalar' => [
             'view' => 'scramble::scalar',
-            'cdn' => 'https://cdn.jsdelivr.net/npm/@scalar/api-reference',
+            // Version figée : `@latest` est une dépendance mutable — le CDN pouvait
+            // servir n'importe quoi, et l'empreinte `integrity` de la vue ne tenait
+            // plus (audit 2026-10-29 #14 / G-1).
+            'cdn' => 'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.39.1',
             'theme' => 'laravel',
             'proxyUrl' => 'https://proxy.scalar.com',
             'darkMode' => false,

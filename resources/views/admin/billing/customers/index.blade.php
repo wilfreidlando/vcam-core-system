@@ -74,11 +74,19 @@
                                 </x-slot:trigger>
                             </x-admin.confirm-dialog>
                         @elseif ($customer->status === 'suspended')
-                            <form method="POST" class="inline"
-                                  action="{{ route('admin.projects.customers.reactivate.web', [$projectId, $customer->externalRef]) }}">
-                                @csrf
-                                <button type="submit" class="rounded-md px-2.5 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50 hover:text-emerald-900">Réactiver</button>
-                            </form>
+                            {{-- R28 — « Réactiver » demande confirmation comme « Suspendre » :
+                                 le geste rend ses droits au client ET publie `customer.reactivated`
+                                 (webhooks aval) : un clic sur le mauvais lien le fait sans prévenir. --}}
+                            <x-admin.confirm-dialog
+                                :title="'Réactiver '.$customer->displayName.' ?'"
+                                message="Le client récupère ses droits : ses abonnements et ses factures redeviennent actifs. L'intégrateur en est informé par webhook."
+                                :action="route('admin.projects.customers.reactivate.web', [$projectId, $customer->externalRef])"
+                                confirm="Réactiver"
+                                variant="primary">
+                                <x-slot:trigger>
+                                    <button type="button" class="rounded-md px-2.5 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50 hover:text-emerald-900">Réactiver</button>
+                                </x-slot:trigger>
+                            </x-admin.confirm-dialog>
                         @endif
 
                         @if ($customer->status !== 'erased')

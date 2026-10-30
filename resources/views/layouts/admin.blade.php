@@ -155,7 +155,7 @@
                 {{-- Brand --}}
                 <div class="flex items-center h-14 px-5 border-b border-slate-800/60">
                     <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/></svg>
                         <span class="font-semibold tracking-tight">Administration Core</span>
                     </a>
                 </div>
@@ -174,7 +174,7 @@
                     @if($canDashboard)
                         <p class="text-sm font-semibold uppercase tracking-wider text-slate-400 px-3 pt-4 pb-1">Vue d'ensemble</p>
                         <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.dashboard') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                             <span class="truncate">Tableau de bord</span>
                         </a>
                     @endif
@@ -185,21 +185,21 @@
 
                         @if($canOrganizations)
                             <a href="{{ route('admin.organizations.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.organizations.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h2"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h2"/></svg>
                                 <span class="truncate">Organisations</span>
                             </a>
                         @endif
 
                         @if($canProjects)
                             <a href="{{ route('admin.projects.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.projects.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                                 <span class="truncate">Projets</span>
                             </a>
                         @endif
 
                         @if($canOperators)
                             <a href="{{ route('admin.operators.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.operators.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                 <span class="truncate">Opérateurs</span>
                             </a>
                         @endif
@@ -211,7 +211,7 @@
 
                         @if($canPayments)
                             <a href="{{ route('admin.payments.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.payments.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h2m5 0h2M11 17h2m5 0h2M3 7h18"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h2m5 0h2M11 17h2m5 0h2M3 7h18"/></svg>
                                 <span class="truncate">Paiements</span>
                             </a>
                         @endif
@@ -235,7 +235,7 @@
                         @if($canMoneyExceptions)
                             <a href="{{ route('admin.money-exceptions.index') }}" class="flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.money-exceptions.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
                                 <span class="flex items-center gap-3 min-w-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
                                     <span class="truncate">Exceptions d'argent</span>
                                 </span>
                                 @if($moneyExceptionsCount !== null && $moneyExceptionsCount > 0)
@@ -250,7 +250,7 @@
                                  exceptions d'argent. Même permission
                                  (money-exceptions:read), même public. --}}
                             <a href="{{ route('admin.ledger-adjustments.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.ledger-adjustments.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 <span class="leading-snug">Corrections d'exploitation</span>
                             </a>
                         @endif
@@ -258,7 +258,7 @@
                         @if($canReconciliation)
                             <a href="{{ route('admin.reconciliation.new') }}" class="flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.reconciliation.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
                                 <span class="flex items-center gap-3 min-w-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5.197m0 0v5.197M15 4v5h.582M19.418 15A8.003 8.003 0 0115 19.418M4.582 9H9"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5.197m0 0v5.197M15 4v5h.582M19.418 15A8.003 8.003 0 0115 19.418M4.582 9H9"/></svg>
                                     <span class="truncate">Réconciliation</span>
                                 </span>
                                 @if($stuckPaymentsCount !== null && $stuckPaymentsCount > 0)
@@ -296,7 +296,7 @@
                         @if($canWebhooks)
                             <a href="{{ route('admin.webhook-deliveries.dead.web') }}" class="flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.webhook-deliveries.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
                                 <span class="flex items-center gap-3 min-w-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                                     <span class="truncate">Webhooks</span>
                                 </span>
                                 @if($deadWebhookCount !== null && $deadWebhookCount > 0)
@@ -307,21 +307,21 @@
 
                         @if($canSessions)
                             <a href="{{ route('admin.channel-sessions.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.channel-sessions.*') || request()->routeIs('admin.projects.channel-sessions.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
                                 <span class="truncate">Sessions WhatsApp</span>
                             </a>
                         @endif
 
                         @if($canAudit)
                             <a href="{{ route('admin.audit-log.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.audit-log.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                 <span class="truncate">Journal d'audit</span>
                             </a>
                         @endif
 
                         @if($canQueues)
                             <a href="{{ url(config('horizon.path', 'horizon')) }}" target="_blank" rel="noopener" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 text-slate-300">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"/></svg>
                                 <span class="truncate">Files (Horizon)</span>
                             </a>
                         @endif

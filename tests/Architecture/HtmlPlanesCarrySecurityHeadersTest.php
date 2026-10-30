@@ -55,9 +55,17 @@ final class HtmlPlanesCarrySecurityHeadersTest extends TestCase
         $missing = [];
         foreach ($this->routesUnder($prefix) as $route) {
             /** @var array<int, string> $middleware */
-            $middleware = array_map(strval(...), $route->gatherMiddleware());
+            $middleware = array_map(
+                static fn (mixed $name): string => is_scalar($name) ? (string) $name : '',
+                $route->gatherMiddleware(),
+            );
             if (! $isProtected($middleware)) {
-                $missing[] = implode('|', $route->methods()).' '.$route->uri();
+                /** @var list<string> $methods */
+                $methods = array_values(array_map(
+                    static fn (mixed $method): string => is_scalar($method) ? (string) $method : '',
+                    $route->methods(),
+                ));
+                $missing[] = implode('|', $methods).' '.$route->uri();
             }
         }
 

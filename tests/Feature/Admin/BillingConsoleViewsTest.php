@@ -278,6 +278,7 @@ final class BillingConsoleViewsTest extends TestCase
         // Lecture des sources : un <label> sans `for` est un libellé orphelin (1.3.1 / 3.3.2).
         $files = glob(resource_path('views/admin/billing').'/{,*/}*.blade.php', GLOB_BRACE);
         self::assertNotEmpty($files);
+        self::assertIsArray($files);
         foreach ($files as $file) {
             $source = (string) file_get_contents($file);
             preg_match_all('/<label\b[^>]*>/s', $source, $labels);
@@ -309,7 +310,8 @@ final class BillingConsoleViewsTest extends TestCase
             preg_match_all('/<label\b[^>]*>/s', $html, $labels);
             foreach ($labels[0] as $label) {
                 self::assertSame(1, preg_match('/\bfor="([^"]+)"/', $label, $target), "$path : libellé sans for : $label");
-                self::assertStringContainsString('id="'.$target[1].'"', $html, "$path : for=\"{$target[1]}\" ne pointe aucun id");
+                $for = $target[1] ?? '';
+                self::assertStringContainsString('id="'.$for.'"', $html, "$path : for=\"{$for}\" ne pointe aucun id");
             }
             // Chaque tableau porte un nom accessible (<caption>).
             $tables = substr_count($html, '<table');

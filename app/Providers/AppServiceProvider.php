@@ -41,6 +41,19 @@ use Laravel\Horizon\Horizon;
  */
 final class AppServiceProvider extends ServiceProvider
 {
+    /**
+     * The CSP of the documentation pages (`/docs/api`). The two third-party
+     * bundles it loads are named explicitly; everything else is refused.
+     * The pages carry inline scripts (the theme watcher, the CSRF header
+     * interceptor), hence `'unsafe-inline'` — the alternative, a nonce per
+     * script, is part of the CSP work described in ADR-0102.
+     */
+    private const DOCS_CSP = "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; "
+        ."default-src 'self'; "
+        ."script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; "
+        ."style-src 'self' 'unsafe-inline' https://unpkg.com; "
+        ."img-src 'self' data: https:; connect-src 'self' https://proxy.scalar.com";
+
     public function register(): void
     {
         $this->app->bind(Clock::class, SystemClock::class);
@@ -255,8 +268,19 @@ final class AppServiceProvider extends ServiceProvider
                 return;
             }
 
+            // Audit 2026-10-29 #14 / G-1 — the documentation pages load two
+            // third-party bundles on the API's own origin. The CSP names
+            // exactly those two hosts and nothing else: no inline script
+            // beyond what the page declares, no frame, no plugin, no
+            // form target elsewhere. `integrity` (in the views) pins the
+            // content of each bundle cryptographically.
+            $handled->response->headers->set('Content-Security-Policy', self::DOCS_CSP);
             $handled->response->headers->set('X-Frame-Options', 'DENY');
             $handled->response->headers->set('Referrer-Policy', 'no-referrer');
+            $handled->response->headers->set('X-Content-Type-Options', 'nosniff');
+            // The documentation describes the API: it must not sit in a
+            // cache (browser or proxy) between a revision and the next.
+            $handled->response->headers->set('Cache-Control', 'no-store, private');
         });
     }
 
