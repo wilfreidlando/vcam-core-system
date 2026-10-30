@@ -175,18 +175,18 @@ lien d'export lié à l'opérateur et à usage unique (#16), plafond de débit d
 schéma `https` obligatoire sur `return_url` (#18), expurgation du nom du client (#19),
 manifeste IDOR du portail (#20).
 
-**Soldés en garde-fous** : G-1 (en-têtes par plan), G-3 (aucun secret en session),
-G-4 (élévation de privilège), G-5 (dernier administrateur **et** dernier `org_finance`),
-G-6 (CSRF sur le plan authentifié par cookie), G-7 (drapeaux refusés en production),
-G-8 (bornes d'entrée), G-9 (résolution par le serveur), G-10 (manifeste IDOR étendu),
-G-11 (le lien signé est un secret), G-12 (plafond webhook par projet).
+**Soldés en garde-fous** : G-1 (en-têtes par plan), G-2 (symétrie entre les en-têtes
+sensibles et les clés JSON, fitness function `SensitiveKeySetGuardTest`), G-3 (aucun secret
+en session), G-4 (élévation de privilège), G-5 (dernier administrateur **et** dernier
+`org_finance`), G-6 (CSRF sur le plan authentifié par cookie), G-7 (drapeaux refusés en
+production), G-8 (bornes d'entrée), G-9 (résolution par le serveur), G-10 (manifeste IDOR
+étendu), G-11 (le lien signé est un secret), G-12 (plafond webhook par projet).
 
 **Restent ouverts, et pourquoi** :
 
 | # | Écart | Nature |
 |---|---|---|
 | #18 | `return_url` accepte encore n'importe quel hôte `https://` | **Résiduel assumé et écrit** (ADR-0103) : `return_url` n'est atteignable que par une clé API du projet — l'adversaire a déjà l'accès métier, et le projet peut déjà rediriger son client où il veut. Le risque technique réel (schémas `javascript://`, `data:`) est fermé par `starts_with:https://`. L'allowlist par projet reste au portail, où la page de connexion est publique ; elle redevient obligatoire si le Core expose un paiement accessible à un utilisateur final. |
-| G-2 | La fitness function de symétrie entre en-têtes et clés JSON n'est pas écrite | Les listes sont complétées ; l'automatisation reste à faire. |
 | G-1 (résiduel) | `'unsafe-eval'` reste dans `script-src` | Le build standard d'Alpine évalue les expressions avec `new Function`. Le lot est décrit par ADR-0102 ; son intégration suppose l'approbation de la source externe du build CSP. |
 
 ## Cartouche
