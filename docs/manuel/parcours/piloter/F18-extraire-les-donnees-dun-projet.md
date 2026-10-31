@@ -14,7 +14,8 @@ temps: 10 minutes
   produit : ses clients, ses offres, ses abonnements, ses factures, ses
   paiements, ses notifications, son usage, ses portefeuilles et ses écritures,
   plus la balance. Il n’existe pas d’export partiel, et un client que vous avez
-  effacé n’y réapparaît pas.
+  effacé n’y réapparaît pas. Les notifications, elles, y sont listées sans le
+  texte des messages ni leurs destinataires.
 - **La demande part tout de suite, le fichier non.** L’archive est préparée en
   tâche de fond : comptez quelques minutes. Vous pouvez fermer la page et
   revenir — la demande reste dans la liste.
