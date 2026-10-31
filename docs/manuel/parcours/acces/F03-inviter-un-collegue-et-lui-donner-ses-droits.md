@@ -106,6 +106,7 @@ Sur l’écran **« Membres »**, la colonne **« Rôle »** porte une liste dé
 
 | Ce que vous lisez | Ce que ça veut dire | Ce que vous faites |
 |-------------------|---------------------|-------------------|
+| La console refuse une deuxième invitation pour la même adresse | Une invitation est encore en attente pour cette adresse : il n’y en a qu’une à la fois. | Si vous avez perdu le jeton, attendez la fin des 72 heures : il n’y a aucun écran pour annuler une invitation en attente. |
 | Un message vous disant qu’un compte existe déjà pour cette adresse — la console l’affiche en anglais | Cette personne a déjà un compte console. | Ne la réinvitez pas : elle se connecte avec ce qu’elle a déjà. Pour lui donner des droits dans une organisation, passez par **« Membres »** et invitez-la de ce côté. |
 | **« Vous êtes déjà membre de cette organisation. »** | Elle y est déjà. | Changez son rôle depuis la liste des membres, au lieu de l’inviter de nouveau. |
 | **« Une organisation garde toujours un propriétaire : nommez-en un autre avant de retirer ou de rétrograder celui-ci. »** | Vous êtes en train de laisser une organisation sans propriétaire. | Nommez d’abord un autre propriétaire, puis retirez ou rétrogradez le premier. |
