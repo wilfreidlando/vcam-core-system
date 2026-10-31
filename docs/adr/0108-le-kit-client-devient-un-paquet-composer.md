@@ -5,6 +5,7 @@
 - **Décideurs** : commanditaire (« je te laisse prendre vraiment les meilleures décisions » ; « ça doit vraiment être flexible car l'auto-école n'est qu'un exemple de client »), comité d'architecture
 - **Dérives concernées** : D1 périmètre · D5 contrat
 - **Précise** : ADR-0097 §2 (kit Laravel), ADR-0075 (portail), ADR-0084 (le locataire du SaaS est un client du Core)
+- **Amendé par** : ADR-0109 (décision 3 — le dépôt du paquet est la source, pas un extrait généré)
 
 ## Contexte
 
