@@ -167,7 +167,7 @@ Trois règles structurelles, qui ne sont pas des choix d'implémentation mais de
 | Savoir **pourquoi** une décision a été prise | [Index des ADR](../adr/README.md) |
 | Comprendre **comment** c'est construit | [Vue d'ensemble de l'architecture](../architecture/vue-ensemble.md) |
 | Connaître les **écarts de la recette** du 2026-10-29 | [Registre des écarts](../audit/ecarts-recette-2026-10-29.md) |
-| **Brancher** un produit | [Guide `curl`](../integration/guide-curl-integrateur.md), [Webhooks](../integration/webhooks.md), [Kit Laravel](../integration/kit-laravel/INSTALL.md) |
+| **Brancher** un produit | [Brancher une application cliente](../integration/brancher-une-application-cliente.md), [Guide `curl`](../integration/guide-curl-integrateur.md), [Webhooks](../integration/webhooks.md), [Kit Laravel](../integration/kit-laravel/INSTALL.md) |
 | **Déployer** le Core | [Fiche de déploiement](../DEPLOIEMENT.md) |
 | **Suivre** ce qui se passe en production | [Observabilité](../operations/observabilite.md) |
 

@@ -7,7 +7,12 @@ return [
     'base_url' => env('CORE_BASE_URL', 'https://core.example.com'),
 
     // The project's API key (`pk_…`). Give it only the scopes you use
-    // (templates: « Serveur complet », « Paiements », « Portail »…).
+    // (templates: « Serveur complet », « Lecture seule », « Portail
+    // uniquement », « Application cliente », « Versements »).
+    //
+    // A client application takes « Application cliente »: it reads its
+    // rights, counts its usage, opens its portal — and holds **no** write
+    // scope on the commerce (ADR-0107 §5).
     'api_key' => env('CORE_API_KEY'),
 
     // Seconds. A payment start waits for the provider: keep `timeout` generous.

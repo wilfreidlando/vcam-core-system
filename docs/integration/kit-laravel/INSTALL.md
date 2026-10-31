@@ -25,6 +25,9 @@ Un opérateur de la console Core fait ces gestes pour votre projet :
 
 1. **Créer le projet** et émettre une clé d'API (`pk_…`, montrée une seule fois) avec le
    modèle de portées qui correspond à votre profil — « Serveur complet » pour tout prendre.
+   **Une application cliente prend « Application cliente »** (ADR-0107 §5) : elle lit ses
+   droits, compte son usage, ouvre son portail — et n'a aucune écriture sur le commerce,
+   que le propriétaire fait dans le portail.
 2. **Profil A** : rien d'autre. **Profil B** : lier le téléphone WhatsApp du projet
    (console › Sessions WhatsApp, QR ou code d'appairage) et noter le nom de la session.
    **Profil C** : publier un plan (`POST /v1/plans`, `/versions`, `/publish`) avec vos quotas,

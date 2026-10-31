@@ -29,10 +29,18 @@ export SESSION="ma-boutique"                               # nom de la session W
 - **Clés API** ([ADR-0082](../adr/0082-cles-d-api-portees-rotation-et-secrets-de-webhook.md)) :
   un projet a **plusieurs clés nommées** (10 au plus), une par composant — serveur,
   portail, versements… Chaque clé ne porte que ses **portées** (modèles : *Serveur
-  complet*, *Lecture seule*, *Portail uniquement*, *Versements*) ; un appel hors portée
+  complet*, *Lecture seule*, *Portail uniquement*, *Application cliente*, *Versements*) ;
+  un appel hors portée
   reçoit `403`. La première clé, « Clé principale » (*Serveur complet* : tout sauf
   `payouts:write`), est créée avec le projet. Toute clé est affichée **une seule fois**,
   dans la console (`/admin/projects/<id>/api-keys/create`).
+
+  > **Vous branchez un logiciel au Core ?** Lisez d'abord
+  > **[Brancher une application cliente](brancher-une-application-cliente.md)** : c'est
+  > le parcours d'une application cliente (déclarer son locataire, lire ses droits,
+  > compter son usage, ouvrir le portail, recevoir ses événements). Le présent guide
+  > couvre les **paiements**, les **portefeuilles**, les **notifications** et les
+  > **exports**.
   - **Restriction réseau** (facultative) : une clé limitée à des blocs (`203.0.113.0/24`,
     `2001:db8::/32`) répond `403` avec `type` …`/key-origin-not-allowed` depuis toute
     autre adresse.
