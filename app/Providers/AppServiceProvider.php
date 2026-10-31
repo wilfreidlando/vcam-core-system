@@ -9,6 +9,8 @@ use App\Http\View\Composers\AdminBreadcrumbComposer;
 use App\Http\View\Composers\AdminSidebarComposer;
 use App\Infrastructure\DatabaseIdempotencyStore;
 use App\Infrastructure\DatabaseUnitOfWork;
+use App\Infrastructure\Guide\GuideCatalog;
+use App\Infrastructure\Guide\GuideRenderer;
 use App\Infrastructure\ProjectIdempotencyScope;
 use App\OpenApi\ExceptionProblemResponseExtension;
 use App\OpenApi\ProblemDetailsStaticMethodReturnTypeExtension;
@@ -60,6 +62,17 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->bind(UnitOfWork::class, DatabaseUnitOfWork::class);
         $this->app->bind(IdempotencyStore::class, DatabaseIdempotencyStore::class);
         $this->app->bind(IdempotencyScope::class, ProjectIdempotencyScope::class);
+
+        // ADR-0113 — the operator guide. The catalogue reads the Markdown
+        // of `docs/manuel/parcours/`; the root is a path, so the binding
+        // is explicit: the container cannot guess a string. A singleton
+        // because the guide does not change while a request is served.
+        $this->app->singleton(GuideCatalog::class, static fn (): GuideCatalog => new GuideCatalog(
+            base_path('docs/manuel/parcours'),
+        ));
+        $this->app->singleton(GuideRenderer::class, static fn ($app): GuideRenderer => new GuideRenderer(
+            $app->make(GuideCatalog::class),
+        ));
     }
 
     public function boot(): void

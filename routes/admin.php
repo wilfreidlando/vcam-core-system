@@ -55,6 +55,25 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
 
         Route::get('/', [DashboardController::class, 'show'])->name('dashboard');
 
+        // ADR-0113 — le guide de l'opérateur, rendu depuis le Markdown de
+        // `docs/manuel/parcours/`. Des segments littéraux, pas de paramètre :
+        // un parcours est un document, il n'appartient à aucun client et ne
+        // porte aucun identifiant de ressource — il n'y a donc rien à
+        // isoler, et le manifeste IDOR n'a pas à le connaître.
+        Route::prefix('guide')->group(function (): void {
+            Route::get('/', [App\Http\Controllers\Admin\GuideController::class, 'index'])->name('guide.index');
+
+            foreach (['acces', 'vendre', 'argent', 'livraisons', 'piloter'] as $famille) {
+                Route::get($famille, [App\Http\Controllers\Admin\GuideController::class, 'famille'])
+                    ->defaults('famille', $famille)
+                    ->name('guide.'.$famille);
+            }
+
+            // Les captures vivent avec le Markdown, dans le dépôt : une
+            // seule copie, versionnée avec le texte qui la décrit.
+            Route::get('image', [App\Http\Controllers\Admin\GuideController::class, 'image'])->name('guide.image');
+        });
+
         // Écart #5 (annexe sécurité 2026-10-29, G-4) — l'élévation de privilège : avant une
         // action qui **déplace de l'argent** (`operator.step_up`), l'opérateur ressaisit un
         // code TOTP, valable 5 minutes. 'console-step-up' (AdminServiceProvider) plafonne

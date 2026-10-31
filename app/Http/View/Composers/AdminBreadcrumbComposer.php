@@ -43,6 +43,8 @@ final readonly class AdminBreadcrumbComposer
         'ledger-adjustments' => ['Corrections d\'exploitation', 'admin.ledger-adjustments.index'],
         'channel-sessions' => ['Sessions WhatsApp', 'admin.channel-sessions.index'],
         'operators' => ['Opérateurs', 'admin.operators.index'],
+        // ADR-0113 — le guide de l'opérateur.
+        'guide' => ['Guide', 'admin.guide.index'],
     ];
 
     /**

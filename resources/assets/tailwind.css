@@ -12,3 +12,33 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Le guide de l'opérateur (ADR-0113) est écrit en Markdown et rendu par
+ * la console : ses balises ne portent aucune classe, ce sont celles du
+ * Markdown. On leur donne ici l'apparence du reste de la console —
+ * le guide doit se lire comme une page du produit, pas comme du HTML nu.
+ */
+@layer components {
+    .guide h2 { @apply mt-6 mb-2 text-lg font-semibold text-slate-900; }
+    .guide h3 { @apply mt-5 mb-2 text-base font-semibold text-slate-800; }
+    .guide h4 { @apply mt-4 mb-1 text-sm font-semibold text-slate-800; }
+    .guide p { @apply my-3 text-base leading-relaxed text-slate-700; }
+    .guide ul { @apply my-3 list-disc space-y-1 pl-6 text-base text-slate-700; }
+    .guide ol { @apply my-3 list-decimal space-y-1 pl-6 text-base text-slate-700; }
+    .guide li > p { @apply my-1; }
+    .guide a { @apply text-indigo-700 underline underline-offset-2 hover:text-indigo-900; }
+    .guide strong { @apply font-semibold text-slate-900; }
+    .guide code { @apply rounded bg-slate-100 px-1 py-0.5 font-mono text-sm text-slate-800; }
+    .guide pre { @apply my-4 overflow-x-auto rounded-lg bg-slate-900 p-4 text-sm text-slate-100; }
+    .guide pre code { @apply bg-transparent p-0 text-slate-100; }
+    .guide blockquote { @apply my-4 border-l-4 border-indigo-200 bg-indigo-50 px-4 py-2 text-base text-slate-700; }
+    .guide blockquote p { @apply my-1; }
+    .guide .guide-note { @apply my-4 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-base text-slate-700; }
+    .guide table { @apply my-4 w-full border-collapse text-sm; }
+    .guide thead { @apply bg-slate-50; }
+    .guide th { @apply border border-slate-200 px-3 py-2 text-left font-semibold text-slate-800; }
+    .guide td { @apply border border-slate-200 px-3 py-2 align-top text-slate-700; }
+    .guide img { @apply my-5 w-full rounded-lg border border-slate-200; }
+    .guide hr { @apply my-6 border-slate-200; }
+}
