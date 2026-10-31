@@ -7,14 +7,14 @@
     <div class="rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3.5 text-sm text-indigo-900 leading-relaxed">
         <p class="font-semibold mb-1">Quatre yeux, toujours</p>
         <p>
-            La correction que vous proposez n'écrit rien au grand livre tant qu'une seconde
+            La correction que vous proposez ne comptabilise rien tant qu'une seconde
             personne ne l'a pas validée. Elle ne modifie aucune écriture existante : elle
             produit une nouvelle transaction équilibrée, à partir du seul montant et des
             seuls comptes que vous choisissez.
         </p>
         <p class="mt-2">
-            ADR-0076 : une correction est une contre-passation — elle nomme la transaction
-            qu'elle corrige. Choisissez d'abord le projet, puis la transaction à contrer-passer.
+            Une correction est toujours une contre-passation : elle nomme l'opération
+            qu'elle corrige. Choisissez d'abord le projet, puis l'opération à contrer-passer.
         </p>
     </div>
 

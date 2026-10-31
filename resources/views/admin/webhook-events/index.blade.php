@@ -6,12 +6,12 @@
 <div class="max-w-4xl space-y-6">
 
     <div class="rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3.5 text-sm text-indigo-900 leading-relaxed">
-        <p class="font-semibold mb-1">Un endpoint reçoit plusieurs types d'événements sur la même URL</p>
+        <p class="font-semibold mb-1">Un point d'entrée reçoit plusieurs types d'événements sur la même adresse</p>
         <p>
-            Si votre endpoint est abonné à <span class="font-mono">*</span> (tous les événements) ou à
+            Si votre point d'entrée est abonné à <span class="font-mono">*</span> (tous les événements) ou à
             plusieurs types à la fois, chaque livraison peut être d'un type différent. Le corps JSON
             s'auto-décrit toujours — vérifiez le champ <span class="font-mono">type</span> avant d'interpréter
-            <span class="font-mono">data</span>, ne devinez jamais la forme du payload.
+            <span class="font-mono">data</span>, ne devinez jamais la forme du contenu.
         </p>
     </div>
 
@@ -36,7 +36,7 @@
         </ul>
         <p class="text-base text-slate-600 mt-3">
             <span class="font-semibold">Vérification de signature :</span> <span class="font-mono">X-Signature = HMAC-SHA256(secret, "{X-Timestamp}.{corps brut}")</span>,
-            en hexadécimal minuscule. Le secret est celui affiché une seule fois à l'enregistrement de l'endpoint.
+            en hexadécimal minuscule. Le secret est celui affiché une seule fois à l'enregistrement du point d'entrée.
         </p>
     </div>
 
@@ -59,12 +59,12 @@
   }
 }</pre>
             <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
-                <span class="font-semibold">Priorité au callback_url du paiement.</span> Si le paiement qui a
-                déclenché ce statut portait un <span class="font-mono">callback_url</span> (fourni à
-                l'initiation), <span class="font-semibold">cette livraison n'est PAS envoyée</span> aux endpoints
-                webhook du projet — seule la notification directe au <span class="font-mono">callback_url</span>
-                a lieu. Un endpoint abonné à ce type ne voit donc que les paiements initiés
-                <em>sans</em> callback_url propre.
+                <span class="font-semibold">Priorité à l'adresse de notification directe du paiement.</span> Si le paiement qui a
+                déclenché ce statut portait une <span class="font-mono">callback_url</span> (fournie à
+                l'initiation), <span class="font-semibold">cette livraison n'est PAS envoyée</span> aux points
+                d'entrée du projet — seule la notification directe à cette adresse
+                a lieu. Un point d'entrée abonné à ce type ne voit donc que les paiements initiés
+                <em>sans</em> adresse de notification propre.
             </div>
         </div>
     </div>
@@ -141,7 +141,7 @@
                 Les trois types partagent exactement cette forme (seul <span class="font-mono">status</span>
                 change : <span class="font-mono">delivered</span>, <span class="font-mono">read</span> ou
                 <span class="font-mono">failed</span>) — y compris quand l'échec vient de l'épuisement de tous
-                les providers en cascade à l'envoi, pas seulement d'un callback provider tardif.
+                les prestataires de la cascade, pas seulement d'une confirmation tardive d'un prestataire.
             </p>
         </div>
     </div>

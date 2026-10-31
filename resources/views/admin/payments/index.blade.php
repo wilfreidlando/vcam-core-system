@@ -11,8 +11,17 @@
                 $projectOptions[$project->id] = $project->name;
             }
             $statusOptions = ['' => '(tous)'];
-            foreach (['pending', 'processing', 'succeeded', 'failed', 'expired', 'refunded', 'canceled'] as $s) {
-                $statusOptions[$s] = ucfirst($s);
+            $statusLabels = [
+                'pending' => 'En cours',
+                'processing' => 'En traitement',
+                'succeeded' => 'Réussi',
+                'failed' => 'Échec',
+                'expired' => 'Expiré',
+                'refunded' => 'Remboursé',
+                'canceled' => 'Annulé',
+            ];
+            foreach ($statusLabels as $value => $label) {
+                $statusOptions[$value] = $label;
             }
         @endphp
         <x-admin.field name="project_id" type="select" label="Projet" :value="$filters['project_id'] ?? ''" :options="$projectOptions" />

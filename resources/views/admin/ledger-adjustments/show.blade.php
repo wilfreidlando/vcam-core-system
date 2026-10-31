@@ -60,7 +60,7 @@
                 <p class="text-slate-800 tabular-nums">{{ $fmt($adjustment->approvedAt) }}</p>
             </div>
             <div class="md:col-span-2">
-                <p class="{{ $field }}">Transaction au grand livre</p>
+                <p class="{{ $field }}">Transaction dans les comptes</p>
                 @if ($adjustment->ledgerTransactionId !== null)
                     <p class="font-mono text-slate-700 break-all">{{ $adjustment->ledgerTransactionId }}</p>
                 @else
@@ -87,18 +87,18 @@
                 <div class="flex flex-wrap gap-3">
                     {{-- #26 : écrire au grand livre / refuser sont irréversibles → confirmation en dialogue. --}}
                     <x-admin.confirm-dialog
-                        title="Valider et écrire au grand livre ?"
-                        message="La correction sera écrite au grand livre. Cette action est définitive."
+                        title="Valider et comptabiliser ?"
+                        message="La correction sera comptabilisée. Cette action est définitive."
                         :action="route('admin.ledger-adjustments.approve', $adjustment->id)"
                         confirm="Valider et écrire"
                         variant="primary">
                         <x-slot:trigger>
-                            <button type="button" class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Valider et écrire au grand livre</button>
+                            <button type="button" class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Valider et comptabiliser</button>
                         </x-slot:trigger>
                     </x-admin.confirm-dialog>
                     <x-admin.confirm-dialog
                         title="Refuser cette correction ?"
-                        message="La correction proposée est écartée : rien n'est écrit au grand livre."
+                        message="La correction proposée est écartée : rien n'est comptabilisé."
                         :action="route('admin.ledger-adjustments.reject', $adjustment->id)"
                         confirm="Refuser">
                         <x-slot:trigger>

@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Usage et quotas')
+@section('title', 'Usage et limites')
 
 @section('content')
 <div class="space-y-6">
@@ -29,14 +29,14 @@
                     <td class="px-4 py-2 font-mono text-sm">{{ $row->customerRef }}</td>
                     <td class="px-4 py-2 text-sm">{{ $row->meter }}</td>
                     <td class="px-4 py-2 w-72">
-                        <x-admin.meter :label="$row->meter.' de '.$row->customerRef" :used="(int) $row->used" :limit="$row->limit === null ? null : (int) $row->limit" :id="'meter-usage-'.$loop->index" />
+                        <x-admin.meter :label="'Compteur '.$row->meter.' — '.$row->customerRef" :used="(int) $row->used" :limit="$row->limit === null ? null : (int) $row->limit" :id="'meter-usage-'.$loop->index" />
                     </td>
                     <td class="px-4 py-2 text-sm text-slate-600">{{ $row->windowEnd ? \Illuminate\Support\Carbon::parse($row->windowEnd)->format('d/m/Y') : '—' }}</td>
                 </tr>
             @endforeach
         </x-admin.table>
     @else
-        <x-admin.table caption="Journal d'usage" :headers="['Enregistré', 'Client', 'Compteur', 'Quantité', 'Source', 'Clé']" empty="Aucune ligne dans le journal.">
+        <x-admin.table caption="Journal d'usage" :headers="['Enregistré', 'Client', 'Compteur', 'Quantité', 'Source', 'Référence de la requête']" empty="Aucune ligne dans le journal.">
             @foreach ($items as $row)
                 <tr>
                     <td class="px-4 py-2 text-sm text-slate-600">{{ \Illuminate\Support\Carbon::parse($row->recordedAt)->format('d/m/Y H:i') }}</td>

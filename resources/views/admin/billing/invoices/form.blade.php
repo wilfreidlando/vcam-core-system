@@ -10,8 +10,8 @@
     <div class="rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3.5 text-sm text-indigo-900 leading-relaxed">
         <p class="font-semibold mb-1">La facture naît en brouillon</p>
         <p>
-            Elle reçoit son numéro à l'émission, et sa créance n'est inscrite au
-            grand livre qu'à ce moment-là. Une facture en brouillon peut encore être
+            Elle reçoit son numéro à l'émission, et sa créance n'est comptabilisée
+            qu'à ce moment-là. Une facture en brouillon peut encore être
             corrigée — une facture émise, non.
         </p>
     </div>
@@ -52,8 +52,8 @@
             @endfor
 
             <p class="text-sm text-slate-600">
-                Les montants sont exprimés en unités mineures (G5) : 50000 XAF se saisit
-                « 50000 ». Les lignes vides sont ignorées par l'API.
+                Les montants sont exprimés en unités mineures : 50000 XAF se saisit
+                « 50000 ». Les lignes vides sont ignorées.
             </p>
         </fieldset>
 

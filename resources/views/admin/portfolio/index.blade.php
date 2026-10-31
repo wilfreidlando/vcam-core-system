@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Portefeuille')
+@section('title', 'Synthèse par projet')
 
 @section('content')
 @php
@@ -19,7 +19,7 @@
 <div class="space-y-6">
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <x-admin.stat label="Revenu récurrent mensuel" :text="$money($totals['mrr'])" hint="contrats actifs et impayés, au mois"/>
-        <x-admin.stat label="Encaissé" :text="$money($totals['collected'])" hint="lu au grand livre" tone="emerald"/>
+        <x-admin.stat label="Encaissé" :text="$money($totals['collected'])" hint="lu dans la comptabilité" tone="emerald"/>
         <x-admin.stat label="Créances" :text="$money($totals['receivables'])" hint="ce qu'on vous doit" :tone="$totals['receivables'] === [] ? 'slate' : 'amber'"/>
         <x-admin.stat label="Clients actifs" :text="$totals['active'].' / '.$totals['customers']" :hint="$totals['pastDue'].' impayé(s)'" :tone="$totals['pastDue'] > 0 ? 'rose' : 'slate'"/>
     </div>
@@ -29,7 +29,7 @@
         <button class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Rechercher</button>
     </form>
 
-    <x-admin.table caption="Portefeuille par projet" :headers="['Projet', 'MRR', 'Tendance', 'Actifs', 'Essais', 'Impayés', 'Nouveaux / perdus', 'Encaissé', 'Créances', 'À surveiller']" empty="Aucun projet.">
+    <x-admin.table caption="Synthèse par projet" :headers="['Projet', 'MRR', 'Tendance', 'Actifs', 'Essais', 'Impayés', 'Nouveaux / perdus', 'Encaissé', 'Créances', 'À surveiller']" empty="Aucun projet.">
         <tbody class="divide-y divide-slate-100 bg-white">
         @foreach ($rows as $row)
             @php $m = $row['metrics']; @endphp

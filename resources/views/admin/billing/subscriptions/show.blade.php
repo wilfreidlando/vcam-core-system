@@ -3,6 +3,17 @@
 @section('title', 'Abonnement')
 
 @section('content')
+@php
+    $statusLabels = [
+        'incomplete' => 'Incomplet',
+        'trialing' => 'Essai',
+        'active' => 'Actif',
+        'past_due' => 'Impayé',
+        'paused' => 'En pause',
+        'canceled' => 'Annulé',
+        'expired' => 'Expiré',
+    ];
+@endphp
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -18,7 +29,7 @@
     <div class="grid gap-4 sm:grid-cols-3">
         <div class="rounded-lg border border-slate-200 bg-white px-4 py-3">
             <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Statut</p>
-            <p class="mt-1 text-base font-semibold text-slate-900">{{ $subscription->status }}</p>
+            <p class="mt-1 text-base font-semibold text-slate-900">{{ $statusLabels[$subscription->status] ?? $subscription->status }}</p>
             <p class="mt-0.5 text-xs text-slate-500">
                 @if ($subscription->hasAccess) Droits ouverts @else Aucun droit @endif
             </p>
@@ -123,14 +134,14 @@
         </div>
 
         <div class="rounded-lg border border-slate-200 bg-white p-5">
-            <h2 class="text-base font-semibold text-slate-900">Changer de plan</h2>
+            <h2 class="text-base font-semibold text-slate-900">Changer d'offre</h2>
             <p class="mt-1 text-sm text-slate-600">
                 À l'échéance par défaut ; immédiat sans prorata.
             </p>
             <form method="POST" action="{{ route('admin.projects.subscriptions.change-plan.web', [$projectId, $subscription->id]) }}"
                   class="mt-3 flex flex-wrap items-end gap-3">
                 @csrf
-                <x-admin.field name="plan_code" label="Code du plan" required maxlength="64" pattern="[a-z0-9][a-z0-9_\-]*" class="font-mono" wrapper-class="min-w-48 flex-1" />
+                <x-admin.field name="plan_code" label="Code de l'offre" required maxlength="64" pattern="[a-z0-9][a-z0-9_\-]*" class="font-mono" wrapper-class="min-w-48 flex-1" />
                 <x-admin.field name="effective" type="select" label="Prise d'effet" value="period_end"
                                :options="['period_end' => 'à l\'échéance', 'immediate' => 'immédiat']" />
                 <button type="submit" class="rounded-md bg-indigo-700 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
@@ -142,7 +153,7 @@
         <div class="rounded-lg border border-amber-200 bg-amber-50 p-5">
             <h2 class="text-base font-semibold text-amber-900">Déclarer un règlement</h2>
             <p class="mt-1 text-sm text-amber-800">
-                Cette déclaration <strong>n'écrit aucun mouvement au grand livre</strong> :
+                Cette déclaration <strong>ne comptabilise aucun mouvement</strong> :
                 la facture et l'imputation arrivent avec la facturation. Elle marque la
                 période comme réglée.
             </p>

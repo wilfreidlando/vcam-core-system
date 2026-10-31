@@ -3,6 +3,15 @@
 @section('title', 'Opérateurs')
 
 @section('content')
+@php
+    $roleLabels = [
+        'platform_admin' => 'Administrateur de plateforme',
+        'finance_operator' => 'Opérateur financier',
+        'support_operator' => 'Opérateur support',
+        'provider_manager' => 'Responsable des prestataires',
+        'read_only_auditor' => 'Auditeur (lecture seule)',
+    ];
+@endphp
 {{-- Les erreurs de validation sont affichées par le layout (role="alert") :
      un second bloc ici les annoncerait deux fois. --}}
 
@@ -40,8 +49,8 @@
             <td class="px-4 py-2 text-base text-slate-900">{{ $op->email }}</td>
             <td class="px-4 py-2 text-base text-slate-700">{{ $op->name }}</td>
             <td class="px-4 py-2 text-sm">
-                <span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 font-mono text-slate-700">
-                    {{ $op->role }}
+                <span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-slate-700" title="{{ $op->role }}">
+                    {{ $roleLabels[$op->role] ?? $op->role }}
                 </span>
             </td>
             <td class="px-4 py-2 text-sm">

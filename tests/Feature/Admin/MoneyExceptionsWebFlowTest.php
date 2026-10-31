@@ -147,7 +147,7 @@ final class MoneyExceptionsWebFlowTest extends TestCase
         // The resolution is offered, with its label.
         $this->get(route('admin.money-exceptions.show', $exceptionId))
             ->assertOk()
-            ->assertSee('Imputé à un wallet');
+            ->assertSee('Imputé à un portefeuille');
 
         $this->post(route('admin.money-exceptions.resolve', $exceptionId), [
             'resolution' => 'allocated_to_wallet',

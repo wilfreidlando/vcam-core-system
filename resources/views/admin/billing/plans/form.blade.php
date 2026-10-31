@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Nouveau plan')
+@section('title', 'Nouvelle offre')
 
 @section('content')
 {{-- Les erreurs de validation sont listées une fois par le layout (role="alert") ;
@@ -26,7 +26,7 @@
         <div class="flex items-center gap-3 pt-2">
             <button type="submit"
                     class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
-                Créer le plan
+                Créer l'offre
             </button>
             <a href="{{ route('admin.projects.plans.index', $projectId) }}"
                class="inline-block px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">Annuler</a>
@@ -36,7 +36,7 @@
     <div class="rounded-lg border border-slate-200 bg-white p-6">
         <h2 class="text-base font-semibold text-slate-900">Ajouter une version</h2>
         <p class="mt-1 text-sm text-slate-600">
-            Le plan doit exister : une version porte le prix, la période, l'essai, le délai
+            L'offre doit exister : une version porte le prix, la période, l'essai, le délai
             de grâce et les fonctionnalités. Elle reste <strong>brouillon</strong> jusqu'à sa
             publication.
         </p>
@@ -45,7 +45,7 @@
               class="mt-4 space-y-4">
             @csrf
             <div class="grid gap-4 sm:grid-cols-3">
-                <x-admin.field name="plan_code" label="Plan (code)" required maxlength="64" pattern="[a-z0-9][a-z0-9_\-]*" class="font-mono" />
+                <x-admin.field name="plan_code" label="Offre (code)" required maxlength="64" pattern="[a-z0-9][a-z0-9_\-]*" class="font-mono" />
                 <x-admin.field name="price_minor" label="Prix (unités mineures)" type="number" min="0" required :value="0" />
                 <x-admin.field name="currency" label="Devise" required minlength="3" maxlength="3" class="font-mono uppercase" value="XAF" />
             </div>

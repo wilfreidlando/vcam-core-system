@@ -14,7 +14,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-sm text-slate-600">
             {{ $project->name }} — @if ($mayReadMoney)
-                chiffres du grand livre et des contrats, au jour le jour.
+                chiffres de la comptabilité et des contrats, au jour le jour.
             @else
                 état de branchement du projet.
             @endif
@@ -33,7 +33,7 @@
     @if ($metrics)
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <x-admin.stat label="Revenu récurrent mensuel" :text="$money($metrics->mrrMinor)" hint="contrats actifs et impayés, au mois"/>
-            <x-admin.stat label="Encaissé ce mois" :text="$money($metrics->collectedMinor)" hint="lu au grand livre" tone="emerald"/>
+            <x-admin.stat label="Encaissé ce mois" :text="$money($metrics->collectedMinor)" hint="lu dans la comptabilité" tone="emerald"/>
             <x-admin.stat label="Créances" :text="$money($metrics->receivablesMinor)" hint="ce qu'on vous doit" :tone="$metrics->receivablesMinor === [] ? 'slate' : 'amber'"/>
             <x-admin.stat label="Attrition du mois" :text="number_format($metrics->churnBps / 100, 1, ',', ' ').' %'" :hint="$metrics->lostThisMonth.' perdu(s), '.$metrics->newThisMonth.' nouveau(x)'" :tone="$metrics->churnBps > 500 ? 'rose' : 'slate'"/>
         </div>
@@ -79,7 +79,7 @@
             </x-admin.table>
             <p class="mt-2 text-sm text-slate-500">
                 Le détail est dans <a class="text-indigo-700 hover:text-indigo-900" href="{{ route('admin.projects.invoices.index', ['projectId' => $projectId]) }}">les factures du projet</a> ;
-                la relance d'un client passe par son portail ou par votre propre message (ADR-0098).
+                pour relancer un client, passez par son espace client ou envoyez-lui votre propre message.
             </p>
         </section>
     @endif

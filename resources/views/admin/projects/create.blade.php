@@ -9,7 +9,7 @@
         <h2 class="text-lg font-semibold text-slate-900 mb-1">Nouveau projet</h2>
         <p class="text-base text-slate-600 mb-4">
             Un projet appartient à exactement une organisation et sert
-            d'unité à tout le reste (clés API, paiements, wallets).
+            d'unité à tout le reste (clés API, paiements, portefeuilles).
         </p>
 
         <form method="POST" action="{{ route('admin.projects.store') }}" class="space-y-4">

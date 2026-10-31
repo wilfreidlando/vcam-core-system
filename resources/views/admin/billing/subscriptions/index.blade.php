@@ -13,7 +13,7 @@
         </p>
     </div>
 
-    <x-admin.table caption="Abonnements du projet" :headers="['Client', 'Plan', 'Prix', 'Statut', 'Période courante', 'Échéance', '']" empty="Aucun abonnement.">
+    <x-admin.table caption="Abonnements du projet" :headers="['Client', 'Offre', 'Prix', 'Statut', 'Période courante', 'Échéance', '']" empty="Aucun abonnement.">
         @if (count($subscriptions) > 0)
             <tbody class="divide-y divide-slate-100 bg-white">
             @foreach ($subscriptions as $subscription)

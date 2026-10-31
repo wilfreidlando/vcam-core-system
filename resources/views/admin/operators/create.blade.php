@@ -3,6 +3,15 @@
 @section('title', 'Nouvel opérateur')
 
 @section('content')
+@php
+    $roleLabels = [
+        'platform_admin' => 'Administrateur de plateforme',
+        'finance_operator' => 'Opérateur financier',
+        'support_operator' => 'Opérateur support',
+        'provider_manager' => 'Responsable des prestataires',
+        'read_only_auditor' => 'Auditeur (lecture seule)',
+    ];
+@endphp
 <div class="max-w-md mx-auto">
     <div class="bg-white border border-slate-200 rounded-lg p-6">
 
@@ -30,7 +39,7 @@
                 type="select"
                 required
                 placeholder="Choisir un rôle…"
-                :options="collect($roles)->mapWithKeys(fn ($role) => [$role->value => $role->value])->all()" />
+                :options="collect($roles)->mapWithKeys(fn ($role) => [$role->value => $roleLabels[$role->value] ?? $role->value])->all()" />
 
             <button
                 type="submit"

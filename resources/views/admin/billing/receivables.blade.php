@@ -13,13 +13,13 @@
 <div class="space-y-6">
     <p class="text-sm text-slate-600">
         {{ $project->name }} — ce qui est dû, ce qui est en retard et ce qui a été abandonné.
-        Les montants sont lus au grand livre, pas dans un compteur de facture.
+        Les montants sont lus dans la comptabilité du projet, pas calculés facture par facture.
     </p>
 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <x-admin.stat label="Créances" :text="$money($owed)" hint="ce qu'on vous doit" tone="amber"/>
         <x-admin.stat label="En retard" :text="$money($late)" hint="échue, non encaissée" tone="rose"/>
-        <x-admin.stat label="Irrécouvrables" :text="$money($badDebt)" hint="acte de l'exploitant (ADR-0094 §12)"/>
+        <x-admin.stat label="Irrécouvrables" :text="$money($badDebt)" hint="décidé par vous, jamais par le temps"/>
     </div>
 
     <section aria-labelledby="open-invoices">

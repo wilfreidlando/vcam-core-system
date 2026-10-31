@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Grand livre')
+@section('title', 'Comptabilité')
 
 @section('content')
 @php
@@ -13,11 +13,12 @@
     <p class="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
         Lecture seule. Chaque ligne est une écriture <strong>immuable</strong> en partie double : une correction est
         toujours une nouvelle transaction (<a class="text-indigo-700 hover:text-indigo-900" href="{{ route('admin.ledger-adjustments.index') }}">Corrections d'exploitation</a>),
-        jamais la modification d'une écriture existante. Pour chaque devise, la somme des soldes nets doit être nulle.
+        jamais la modification d'une écriture existante. Pour chaque devise, la somme des soldes nets doit être nulle :
+        c'est ce qui garantit que l'argent comptabilisé est bien l'argent encaissé.
     </p>
 
     <section aria-labelledby="balance">
-        <h2 id="balance" class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Balance de vérification</h2>
+        <h2 id="balance" class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Balance des comptes</h2>
 
         @forelse ($currencies as $currency => $block)
             <div class="mb-6 overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -29,7 +30,7 @@
                         <span class="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-medium text-rose-800">Déséquilibre de {{ $fmt($block['net'], $currency) }} {{ $currency }}</span>
                     @endif
                 </div>
-                <x-admin.table :caption="'Balance de vérification en '.$currency" :headers="['Compte', 'Référence', 'Débit', 'Crédit', 'Solde net (débit)']" empty="Aucun compte.">
+                <x-admin.table :caption="'Balance des comptes en '.$currency" :headers="['Compte', 'Référence', 'Débit', 'Crédit', 'Solde net (débit)']" empty="Aucun compte.">
                     @if (count($block['accounts']) > 0)
                         <tbody class="divide-y divide-slate-100 bg-white">
                             @foreach ($block['accounts'] as $account)
@@ -61,7 +62,7 @@
             </form>
         </div>
 
-        <x-admin.table caption="Transactions du grand livre, les plus récentes d'abord" :headers="['Date', 'Type', 'Référence', 'Écritures']" empty="Aucune transaction.">
+        <x-admin.table caption="Transactions de la comptabilité, les plus récentes d'abord" :headers="['Date', 'Type', 'Référence', 'Écritures']" empty="Aucune transaction.">
             @if (count($transactions) > 0)
                 <tbody class="divide-y divide-slate-100 bg-white">
                     @foreach ($transactions as $transaction)

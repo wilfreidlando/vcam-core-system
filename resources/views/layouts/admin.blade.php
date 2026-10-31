@@ -241,18 +241,18 @@
                         @endif
 
                         @if($canWallets)
-                            {{-- Pas de liste globale des wallets : leur
+                            {{-- Pas de liste globale des portefeuilles : leur
                                  visibilité est toujours rattachée à un
                                  projet — ce lien envoie d'abord choisir un
                                  projet, comme "Organisations -> Voir les
-                                 projets", puis l'onglet Wallets de la fiche
-                                 projet prend le relais. Le libellé le dit :
-                                 "Wallets" seul faisait croire à un écran
+                                 projets", puis l'onglet portefeuilles de la
+                                 fiche projet prend le relais. Le libellé le dit :
+                                 "Portefeuilles" seul faisait croire à un écran
                                  dédié alors qu'on atterrissait sur la liste
                                  des projets. --}}
                             <a href="{{ route('admin.projects.index') }}" title="Choisissez un projet pour voir ses portefeuilles" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 text-slate-300">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12V7H5a2 2 0 010-4h14v4M3 5v14a2 2 0 002 2h16v-5M18 12a2 2 0 100 4 2 2 0 000-4z"/></svg>
-                                <span class="truncate">Wallets par projet</span>
+                                <span class="truncate">Portefeuilles par projet</span>
                             </a>
                         @endif
 
@@ -299,12 +299,12 @@
                         {{-- Un client, une offre et un abonnement
                              appartiennent à un projet : ce lien envoie
                              d'abord choisir un projet (comme
-                             "Wallets par projet"), puis la fiche projet
+                             "Portefeuilles par projet"), puis la fiche projet
                              porte les trois entrées. --}}
                         @if($canPortfolio)
                             <a href="{{ route('admin.portfolio') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.portfolio') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg>
-                                <span class="truncate">Portefeuille</span>
+                                <span class="truncate">Synthèse par projet</span>
                             </a>
                         @endif
                         <a href="{{ route('admin.projects.index') }}" title="Choisissez un projet pour voir sa facturation" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 text-slate-300">
@@ -313,43 +313,49 @@
                         </a>
                     @endif
 
-                    {{-- Plateforme --}}
-                    @if($canWebhooks || $canAudit || $canSessions || $canQueues)
-                        <p class="text-sm font-semibold uppercase tracking-wider text-slate-400 px-3 pt-4 pb-1">Plateforme</p>
+                    {{-- Plateforme — le guide est ouvert à tout opérateur ; les autres
+                         entrées dépendent des droits de l'opérateur. --}}
+                    <p class="text-sm font-semibold uppercase tracking-wider text-slate-400 px-3 pt-4 pb-1">Plateforme</p>
 
-                        @if($canWebhooks)
-                            <a href="{{ route('admin.webhook-deliveries.dead.web') }}" class="flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.webhook-deliveries.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
-                                <span class="flex items-center gap-3 min-w-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                                    <span class="truncate">Webhooks</span>
-                                </span>
-                                @if($deadWebhookCount !== null && $deadWebhookCount > 0)
-                                    <span class="inline-flex items-center justify-center rounded-full bg-rose-500/20 text-rose-300 text-xs font-semibold px-1.5 py-0.5 min-w-[1.375rem] shrink-0">{{ $deadWebhookCount }}</span>
-                                @endif
-                            </a>
-                        @endif
-
-                        @if($canSessions)
-                            <a href="{{ route('admin.channel-sessions.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.channel-sessions.*') || request()->routeIs('admin.projects.channel-sessions.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
-                                <span class="truncate">Sessions WhatsApp</span>
-                            </a>
-                        @endif
-
-                        @if($canAudit)
-                            <a href="{{ route('admin.audit-log.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.audit-log.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                <span class="truncate">Journal d'audit</span>
-                            </a>
-                        @endif
-
-                        @if($canQueues)
-                            <a href="{{ url(config('horizon.path', 'horizon')) }}" target="_blank" rel="noopener" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 text-slate-300">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"/></svg>
-                                <span class="truncate">Files (Horizon)</span>
-                            </a>
-                        @endif
+                    @if($canWebhooks)
+                        <a href="{{ route('admin.webhook-deliveries.dead.web') }}" class="flex items-center justify-between gap-2 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.webhook-deliveries.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
+                            <span class="flex items-center gap-3 min-w-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                <span class="truncate">Notifications automatiques</span>
+                            </span>
+                            @if($deadWebhookCount !== null && $deadWebhookCount > 0)
+                                <span class="inline-flex items-center justify-center rounded-full bg-rose-500/20 text-rose-300 text-xs font-semibold px-1.5 py-0.5 min-w-[1.375rem] shrink-0">{{ $deadWebhookCount }}</span>
+                            @endif
+                        </a>
                     @endif
+
+                    @if($canSessions)
+                        <a href="{{ route('admin.channel-sessions.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.channel-sessions.*') || request()->routeIs('admin.projects.channel-sessions.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                            <span class="truncate">Sessions WhatsApp</span>
+                        </a>
+                    @endif
+
+                    @if($canAudit)
+                        <a href="{{ route('admin.audit-log.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.audit-log.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <span class="truncate">Journal d'audit</span>
+                        </a>
+                    @endif
+
+                    @if($canQueues)
+                        <a href="{{ url(config('horizon.path', 'horizon')) }}" target="_blank" rel="noopener" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 text-slate-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"/></svg>
+                            <span class="truncate">Files (Horizon)</span>
+                        </a>
+                    @endif
+
+                    {{-- Le guide : la dernière entrée de la navigation, ouverte à
+                         tout opérateur. Elle se marque active sur toutes ses pages. --}}
+                    <a href="{{ route('admin.guide.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/60 {{ request()->routeIs('admin.guide.*') ? 'bg-slate-800 text-white' : 'text-slate-300' }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 6.253 9.504 6 8 6c-2.305 0-4.408.867-5.5 2.253m9.5 12.494c.167.94.552 1.821 1.128 2.6M12 6.253C13.168 6.253 14.496 6 16 6c2.305 0 4.408.867 5.5 2.253m0 0a17.919 17.919 0 01-3 2.175m-2.5 10.075a17.919 17.919 0 01-3-2.175m0 0a11.06 11.06 0 01-2.625-.675M15 12a3 3 0 11-6 0 3 3 0 016 0zm0 0c1.332.09 2.6.356 3.75.844m-3.75-.844a17.919 17.919 0 00-3.75.844m9.5 1.075A17.919 17.919 0 0112 15c-2.648 0-5.195-.429-7.5-1.225m0-11.5a17.919 17.919 0 0112 0c0 1.442-.244 2.804-.693 4.055"/></svg>
+                        <span class="truncate">Guide</span>
+                        </a>
                 </nav>
 
                 {{-- Carte opérateur en bas de sidebar. C'est le landmark

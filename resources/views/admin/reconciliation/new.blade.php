@@ -15,14 +15,14 @@
     <div class="rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3.5 text-sm text-indigo-900 leading-relaxed">
         <p class="font-semibold mb-1">Que fait concrètement une réconciliation ?</p>
         <p>
-            Pour chaque paiement resté bloqué en <span class="font-mono">pending</span>/<span class="font-mono">processing</span>,
-            le Core appelle directement le provider de paiement (vérification de
-            statut) pour connaître son statut réel. Si ce statut diffère de
-            celui enregistré ici, le Core se met à jour exactement comme si le
-            webhook du provider venait d'arriver — y compris le crédit du
-            wallet si le paiement le prévoyait. C'est utile quand un webhook a
-            probablement été perdu : le paiement est peut-être déjà terminé
-            côté provider sans que le Core l'ait jamais su.
+            Pour chaque paiement resté bloqué (en cours de traitement),
+            la plateforme demande son statut réel au prestataire de paiement.
+            Si le statut obtenu diffère de celui enregistré ici, la plateforme
+            se met à jour comme si la confirmation du prestataire venait
+            d'arriver — y compris le versement sur le portefeuille prévu par le
+            paiement. C'est utile quand une confirmation a probablement été
+            perdue : le paiement est peut-être déjà terminé chez le
+            prestataire sans que la plateforme l'ait jamais su.
         </p>
     </div>
 
@@ -83,7 +83,7 @@
                         <td class="px-4 py-2 text-sm whitespace-nowrap">
                             <x-admin.confirm-dialog
                                 title="Réconcilier ce paiement ?"
-                                message="Vérifie son statut réel directement auprès du provider et met à jour le Core si le statut a changé."
+                                message="Vérifie son statut réel directement auprès du prestataire et met à jour la plateforme si le statut a changé."
                                 :action="route('admin.reconciliation.run-one', ['payment' => $payment->id])"
                                 confirm="Réconcilier"
                                 variant="primary">
@@ -103,12 +103,12 @@
 
         <h2 class="text-lg font-semibold text-slate-900 mb-1">Réconciliation groupée</h2>
         <p class="text-base text-slate-600 mb-4">
-            Exécute de façon synchrone, sur tous les paiements bloqués listés
+            Exécute de façon immédiate, sur tous les paiements bloqués listés
             ci-dessus (dans la limite ci-dessous), le même traitement que la
             tâche planifiée
             (<code class="text-sm bg-slate-100 px-1.5 py-0.5 rounded">admin:reconcile-stuck-payments</code>),
-            avec un plafond strict de 20 lignes par appel pour garder une
-            réponse HTTP rapide.
+            avec un plafond strict de 20 paiements par appel pour que la page
+            reste rapide.
         </p>
 
         <form method="POST" action="{{ route('admin.reconciliation.run') }}" class="space-y-4">
@@ -117,7 +117,7 @@
             <x-admin.errors />
 
             <x-admin.field name="limit_override" type="number" id="limit" label="Nombre de lignes (max 20)" value="20" min="1" max="20"
-                           hint="Combien de paiements bloqués vérifier auprès de leur provider lors de cette exécution — pas un seuil d'ancienneté ; ce seuil est un paramètre fixe de la plateforme." />
+                           hint="Combien de paiements bloqués vérifier auprès de leur prestataire lors de cette exécution — pas un seuil d'ancienneté ; ce seuil est un paramètre fixe de la plateforme." />
 
             {{-- B29 : `aria-disabled` plutôt que `disabled` (reste focalisable, sa raison est lue) ; le type
                  `button` quand il n'y a rien à vérifier empêche l'envoi. --}}

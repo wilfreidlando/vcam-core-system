@@ -225,7 +225,8 @@ final class BillingConsoleViewsTest extends TestCase
 
         $plans = $this->get("/admin/projects/{$projectId}/plans")->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($plans);
-        self::assertStringContainsString('Archiver le plan pro ?', $plans);
+        // « Archiver l'offre pro ? » : Blade échappe l'apostrophe de « l'offre ».
+        self::assertStringContainsString('Archiver l&#039;offre pro ?', $plans);
         self::assertStringContainsString('Publier la version 1 de pro ?', $plans);
         self::assertSame(2, substr_count($plans, 'role="dialog"'));
 

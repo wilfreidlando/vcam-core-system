@@ -12,8 +12,15 @@
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
         @php
             $statusOptions = ['' => '(tous)'];
+            $statusLabels = [
+                'pending' => 'En cours',
+                'sent' => 'Envoyé',
+                'delivered' => 'Livré',
+                'read' => 'Lu',
+                'failed' => 'Échec',
+            ];
             foreach ($statuses as $s) {
-                $statusOptions[$s] = ucfirst($s);
+                $statusOptions[$s] = $statusLabels[$s] ?? ucfirst($s);
             }
         @endphp
         <x-admin.field name="status" type="select" label="Statut" :value="$filters['status'] ?? ''" :options="$statusOptions" />
@@ -26,7 +33,7 @@
 
 <x-admin.table
     caption="Notifications du projet"
-    :headers="['Créée le', 'ID', 'Canal', 'Type', 'Destinataire', 'Statut', 'Provider', '']"
+    :headers="['Créée le', 'Identifiant', 'Canal', 'Type', 'Destinataire', 'Statut', 'Prestataire', '']"
     :empty="'Aucune notification ne correspond aux filtres.'">
     <tbody class="divide-y divide-slate-100 bg-white">
     @foreach ($notifications as $notification)

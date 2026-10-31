@@ -77,9 +77,9 @@
         <p class="text-sm font-semibold uppercase tracking-wider text-slate-600 mb-2">Livraison</p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-            <x-admin.stat label="Webhooks en échec"
+            <x-admin.stat label="Notifications automatiques en échec"
                 :value="$stats['dead_webhooks'] ?? 0"
-                hint="à rejouer"
+                hint="à renvoyer"
                 :tone="($stats['dead_webhooks'] ?? 0) > 0 ? 'rose' : 'slate'">
                 <x-slot:icon>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -151,8 +151,8 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             </div>
             <div>
-                <p class="text-lg font-medium text-slate-900">Webhooks en échec</p>
-                <p class="text-sm text-slate-600">Rejouer les livraisons échouées.</p>
+                <p class="text-lg font-medium text-slate-900">Notifications automatiques en échec</p>
+                <p class="text-sm text-slate-600">Renvoyer les notifications qui n'ont pas abouti.</p>
             </div>
         </a>
 

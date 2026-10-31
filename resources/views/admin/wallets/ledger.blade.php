@@ -1,24 +1,24 @@
 @extends('layouts.admin')
 
-@section('title', 'Écritures du wallet')
+@section('title', 'Écritures du portefeuille')
 @section('subtitle', $project->name)
 
 @section('content')
 <div class="mb-4 flex items-start justify-between gap-4">
     <div class="rounded-md border border-slate-200 bg-white px-4 py-3 text-base text-slate-600">
-        Historique en partie double de ce wallet — chaque ligne est une écriture
+        Historique en partie double de ce portefeuille — chaque ligne est une écriture
         immuable (débit ou crédit) sur son compte, jamais modifiée ni supprimée
         après coup. Une correction est toujours une nouvelle transaction
         compensatoire, jamais une modification d'une écriture existante.
     </div>
     <a href="{{ route('admin.projects.wallets.index', ['projectId' => $project->id]) }}" class="shrink-0 text-base font-medium text-indigo-700 hover:text-indigo-900 whitespace-nowrap">
-        ← Retour aux wallets
+        ← Retour aux portefeuilles
     </a>
 </div>
 
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
     <div class="bg-white border border-slate-200 rounded-lg p-4">
-        <p class="text-sm font-semibold uppercase tracking-wider text-slate-600">Wallet</p>
+        <p class="text-sm font-semibold uppercase tracking-wider text-slate-600">Portefeuille</p>
         <p class="mt-1 font-mono text-slate-900 break-all">{{ $walletId }}</p>
     </div>
     <div class="bg-white border border-slate-200 rounded-lg p-4">
@@ -38,9 +38,9 @@
 </div>
 
 <x-admin.table
-    caption="Écritures du wallet"
-    :headers="['Date', 'Type de transaction', 'Référence externe', 'Sens', 'Montant', 'ID transaction']"
-    :empty="'Aucune écriture pour ce wallet pour le moment.'">
+    caption="Écritures du portefeuille"
+    :headers="['Date', 'Type de transaction', 'Référence externe', 'Sens', 'Montant', 'Identifiant']"
+    :empty="'Aucune écriture pour ce portefeuille pour le moment.'">
     <tbody class="divide-y divide-slate-100 bg-white">
     @foreach ($entries as $entry)
         <tr>

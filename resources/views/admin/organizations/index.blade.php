@@ -3,6 +3,9 @@
 @section('title', 'Organisations')
 
 @section('content')
+@php
+    $statusLabels = ['active' => 'Actif', 'suspended' => 'Suspendu', 'archived' => 'Archivé'];
+@endphp
 {{-- `$has` from the layout's <aside> scope isn't visible here — Blade
      renders a child's @section content before the parent layout (and its
      @php block) runs, so a permission gate in a child view must resolve
@@ -36,7 +39,7 @@
                     'bg-emerald-100 text-emerald-700' => $org->status === 'active',
                     'bg-slate-100 text-slate-700' => $org->status !== 'active',
                 ])>
-                    {{ $org->status }}
+                    {{ $statusLabels[$org->status] ?? $org->status }}
                 </span>
             </td>
             <td class="px-4 py-2 text-base whitespace-nowrap">

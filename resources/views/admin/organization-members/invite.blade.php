@@ -3,6 +3,15 @@
 @section('title', 'Inviter un membre — '.$organization->name)
 
 @section('content')
+@php
+    $roleLabels = [
+        'org_owner' => 'Propriétaire',
+        'org_admin' => 'Administrateur',
+        'org_finance' => 'Financier',
+        'org_support' => 'Support',
+        'org_viewer' => 'Lecture seule',
+    ];
+@endphp
 <div class="max-w-md mx-auto">
     <div class="bg-white border border-slate-200 rounded-lg p-6">
 
@@ -12,7 +21,7 @@
         <p class="text-base text-slate-600 mb-4">
             L'invité reçoit un jeton d'activation à usage unique, valable 72 h. Il choisit lui-même
             son mot de passe et enrôle son MFA à l'activation — aucun mot de passe n'est choisi par
-            le système ni transmis (ADR-0069 §4).
+            le système ni transmis.
         </p>
 
         <form method="POST" action="{{ route('admin.organizations.members.store', ['organizationId' => $organization->id]) }}" class="space-y-4">
@@ -25,8 +34,8 @@
                 label="Rôle"
                 type="select"
                 required
-                hint="Seul un org_owner peut attribuer org_owner ; aucun rôle de plateforme ne s'attribue ici."
-                :options="collect($roles)->mapWithKeys(fn ($role) => [$role => $role])->all()" />
+                hint="Seul un propriétaire peut attribuer ce rôle ; aucun rôle de plateforme ne s'attribue ici."
+                :options="collect($roles)->mapWithKeys(fn ($role) => [$role => $roleLabels[$role] ?? $role])->all()" />
 
             <button
                 type="submit"

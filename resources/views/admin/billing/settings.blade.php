@@ -20,7 +20,7 @@
                            hint="Au-dessus, un reçu hors ligne attend une validation explicite. 0 = toujours." wrapper-class="sm:col-span-2" />
         </div>
 
-        <h2 class="text-base font-semibold text-slate-900 pt-2">Quotas</h2>
+        <h2 class="text-base font-semibold text-slate-900 pt-2">Limites d'usage</h2>
         <x-admin.field name="meter_mappings" type="textarea" :rows="3" label="Ce que la plateforme compte pour vous"
                        :value="collect($settings->meterMappings)->map(fn ($meter, $capability) => $capability.' = '.$meter)->implode(PHP_EOL)"
                        placeholder="notification.whatsapp = whatsapp_messages" class="font-mono"
@@ -34,7 +34,7 @@
                 <input id="require_customer_ref" type="checkbox" name="require_customer_ref" value="1" aria-describedby="require_customer_ref-hint" @checked(old('require_customer_ref', $settings->requireCustomerRef)) class="h-4 w-4 rounded border border-slate-400">
                 <label for="require_customer_ref" class="text-sm text-slate-800">Exiger <code>customer_ref</code> sur tout appel mesuré</label>
             </div>
-            <p id="require_customer_ref-hint" class="text-sm text-slate-600">Conseillé dès qu'une offre publiée porte une limite : sans cela, un oubli de référence contourne le quota.</p>
+            <p id="require_customer_ref-hint" class="text-sm text-slate-600">Conseillé dès qu'une offre publiée porte une limite : sans cela, un oubli de référence contourne la limite.</p>
         </div>
 
         <div class="flex items-center gap-3 pt-2">

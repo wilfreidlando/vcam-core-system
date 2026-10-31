@@ -79,7 +79,7 @@
                                  (webhooks aval) : un clic sur le mauvais lien le fait sans prévenir. --}}
                             <x-admin.confirm-dialog
                                 :title="'Réactiver '.$customer->displayName.' ?'"
-                                message="Le client récupère ses droits : ses abonnements et ses factures redeviennent actifs. L'intégrateur en est informé par webhook."
+                                message="Le client récupère ses droits : ses abonnements et ses factures redeviennent actifs. L'intégrateur en est informé par une notification automatique."
                                 :action="route('admin.projects.customers.reactivate.web', [$projectId, $customer->externalRef])"
                                 confirm="Réactiver"
                                 variant="primary">

@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Applications provider')
+@section('title', 'Applications prestataire')
 @section('subtitle', $project->name)
 
 {{-- ADR-0066 — une application par provider. La clé privée
@@ -14,16 +14,16 @@
     <div class="bg-white border border-slate-200 rounded-lg p-6">
         <h2 class="text-lg font-semibold text-slate-900 mb-1">Applications enregistrées</h2>
         <p class="text-sm text-slate-600 mb-4">
-            Une application = les identifiants marchands de ce projet chez un provider.
-            Sur un déploiement où le simulateur de paiement est activé (staging), un projet sans application
-            passe par le simulateur intégré (aucun appel au provider, aucun argent réel).
+            Une application = les identifiants marchands de ce projet chez un prestataire.
+            Sur un environnement de test, un projet sans application passe par le simulateur
+            intégré (aucun appel au prestataire, aucun argent réel).
         </p>
 
         @if (count($applications) === 0)
             <p class="text-base text-slate-600">Aucune application enregistrée pour ce projet.</p>
         @else
             {{-- D2 : x-admin.table (légende, en-têtes, défilement horizontal) au lieu d'un <table> écrit à la main. --}}
-            <x-admin.table caption="Applications provider enregistrées" :headers="['Provider', 'Libellé', 'Clé publique', 'Mise à jour', '']">
+            <x-admin.table caption="Applications prestataire enregistrées" :headers="['Prestataire', 'Libellé', 'Clé publique', 'Mise à jour', '']">
                 <tbody class="divide-y divide-slate-100 bg-white">
                     @foreach ($applications as $application)
                         <tr>
@@ -37,7 +37,7 @@
                                        class="rounded-md px-2.5 py-1.5 text-indigo-700 hover:bg-indigo-50 font-medium">Modifier<span class="sr-only"> l'application {{ $application->providerCode }}</span></a>
                                     <x-admin.confirm-dialog
                                         title="Supprimer l'application {{ $application->providerCode }} ?"
-                                        message="Les paiements de ce projet ne pourront plus passer par ce provider tant qu'une autre application n'est pas enregistrée."
+                                        message="Les paiements de ce projet ne pourront plus passer par ce prestataire tant qu'une autre application n'est pas enregistrée."
                                         :action="route('admin.projects.provider-applications.delete', ['projectId' => $project->id, 'applicationId' => $application->id])"
                                         confirm="Supprimer">
                                         <x-slot:trigger>
@@ -59,7 +59,7 @@
         </h2>
 
         @if (count($availableProviders) === 0)
-            <p class="text-base text-rose-700">Aucun adaptateur de provider de paiement n'est enregistré dans ce Core.</p>
+            <p class="text-base text-rose-700">Aucun prestataire de paiement n'est enregistré sur cette plateforme.</p>
         @else
             <form method="POST" action="{{ route('admin.projects.provider-applications.store', ['projectId' => $project->id]) }}" class="space-y-4">
                 @csrf
@@ -69,9 +69,9 @@
                 @if ($editing !== null)
                     <input type="hidden" name="provider" value="{{ $editing->providerCode }}">
                 @else
-                    <x-admin.field name="provider" type="select" label="Provider" required class="font-mono"
+                    <x-admin.field name="provider" type="select" label="Prestataire" required class="font-mono"
                                    :options="array_combine($availableProviders, $availableProviders)"
-                                   hint="Si l'application existe déjà pour ce provider, ses clés sont remplacées." />
+                                   hint="Le code du prestataire est celui que votre application envoie. Si l'application existe déjà pour ce prestataire, ses clés sont remplacées." />
                 @endif
 
                 <x-admin.field name="label" label="Libellé" optional maxlength="120" :value="$editing?->label" placeholder="ex. Boutique principale" />

@@ -8,7 +8,7 @@
         <h2 id="export-request-title" class="text-base font-semibold text-slate-900">Demander un export</h2>
         <p class="text-sm text-slate-600">
             Une archive <code>.zip</code> de fichiers JSON Lines, un par type d'objet (clients, offres, abonnements, factures,
-            paiements, notifications, usage, portefeuilles, grand livre) au format de l'API publique, plus la balance du
+            paiements, notifications, usage, portefeuilles, comptabilité) au format de l'API publique, plus la balance du
             projet à la date de l'export. Elle est préparée en arrière-plan, chiffrée au repos, et supprimée au bout de
             7 jours. Les données personnelles d'un client effacé restent effacées.
         </p>

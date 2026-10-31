@@ -9,8 +9,8 @@
         <p>
             Une exception est de l'argent que la plateforme n'a pas pu imputer automatiquement
             (par exemple : le prestataire confirme un autre montant que celui demandé), ou un
-            contrôle comptable en échec. L'argent concerné est mis en attente au compte des
-            exceptions du grand livre ; rien n'est crédité tant qu'une personne n'a pas décidé.
+            contrôle comptable en échec. L'argent concerné est mis en attente dans un compte
+            d'attente ; rien n'est crédité tant qu'une personne n'a pas décidé.
             Au-delà du seuil de validation, la décision doit être confirmée par une seconde personne.
         </p>
     </div>
@@ -42,7 +42,7 @@
         @endforeach
     </nav>
 
-    <x-admin.table caption="Exceptions d'argent" :headers="['Statut', 'Gravité', 'Type', 'Projet', 'Montant', 'En attente au grand livre', 'Ouverte le', '']" empty="Aucune exception d'argent.">
+    <x-admin.table caption="Exceptions d'argent" :headers="['Statut', 'Gravité', 'Type', 'Projet', 'Montant', 'Montant en attente', 'Ouverte le', '']" empty="Aucune exception d'argent.">
         @if (count($exceptions) > 0)
             <tbody class="divide-y divide-slate-100 bg-white">
             @foreach ($exceptions as $exception)

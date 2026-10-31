@@ -181,7 +181,7 @@
             </div>
             <p class="mt-1 text-sm text-slate-600">
                 L'encaissement hors ligne porte une méthode, une référence et un montant : il
-                est inscrit au grand livre du client. Au-dessus du seuil du projet, il
+                est inscrit dans les comptes du client. Au-dessus du seuil du projet, il
                 attend une validation explicite avant de compter.
             </p>
             <form method="POST" action="{{ route('admin.projects.invoices.receipts.store', [$projectId, $invoice->id]) }}"
@@ -207,13 +207,13 @@
         <div class="rounded-lg border border-slate-200 bg-white p-5">
             <p class="font-semibold text-slate-900">Émettre la facture</p>
             <p class="mt-1 text-sm text-slate-600">
-                L'émission attribue le numéro et inscrit la créance au grand livre. La
+                L'émission attribue le numéro et inscrit la créance dans les comptes. La
                 facture devient alors figée.
             </p>
             <div class="mt-3">
                 <x-admin.confirm-dialog
                     title="Émettre cette facture ?"
-                    message="L'émission attribue un numéro sans trou, inscrit la créance au grand livre et fige le document. Elle est irréversible : seule l'annulation, elle aussi auditée, permet de revenir en arrière."
+                    message="L'émission attribue un numéro sans trou, inscrit la créance dans les comptes et fige le document. Elle est irréversible : seule l'annulation, elle aussi auditée, permet de revenir en arrière."
                     :action="route('admin.projects.invoices.issue.web', [$projectId, $invoice->id])"
                     confirm="Émettre la facture"
                     variant="primary">
@@ -230,13 +230,13 @@
             <div class="rounded-lg border border-slate-200 bg-white p-5">
                 <p class="font-semibold text-slate-900">Annuler la facture</p>
                 <p class="mt-1 text-sm text-slate-600">
-                    L'annulation contre-passe l'écriture d'émission. Elle est refusée
-                    si quelque chose a déjà été réglé.
+                    L'annulation contre-passe l'écriture d'émission : la créance revient
+                    dans les comptes. Elle est refusée si quelque chose a déjà été réglé.
                 </p>
                 <div class="mt-3">
                     <x-admin.confirm-dialog
                         title="Annuler cette facture ?"
-                        message="L'écriture d'émission est contre-passée au grand livre. Cette action est irréversible et journalisée."
+                        message="L'écriture d'émission est contre-passée dans les comptes. Cette action est irréversible et journalisée."
                         :action="route('admin.projects.invoices.void.web', [$projectId, $invoice->id])"
                         confirm="Annuler la facture">
                         <x-slot:trigger>

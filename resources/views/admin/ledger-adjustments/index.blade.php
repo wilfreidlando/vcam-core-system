@@ -10,7 +10,7 @@
             Une correction d'exploitation est un mouvement comptable décidé en console :
             un montant, un compte source, un compte destination, un motif. Elle n'écrit jamais
             dans une écriture existante — elle produit une nouvelle transaction équilibrée
-            au grand livre, et seulement après la validation d'une seconde personne.
+            dans les comptes, et seulement après la validation d'une seconde personne.
         </p>
     </div>
 

@@ -3,6 +3,9 @@
 @section('title', 'Livraisons de webhooks')
 
 @section('content')
+@php
+    $statusLabels = ['pending' => 'En attente', 'delivered' => 'Livré', 'dead' => 'En échec'];
+@endphp
 
 {{-- Les erreurs de `replay()` (id invalide / introuvable / pas en échec) sont rendues par le bloc
      d'erreurs global du layout (`role="alert"`) : pas de bandeau local en double. --}}
@@ -35,7 +38,7 @@
 
 <x-admin.table
     caption="Livraisons de webhooks"
-    :headers="['', 'ID', 'URL du endpoint', 'Projet', 'Statut', 'Type d\'événement', 'Tentatives', 'Dernière erreur', 'Dernière tentative', 'Action']"
+    :headers="['', 'Identifiant', 'Adresse de réception', 'Projet', 'Statut', 'Type d\'événement', 'Tentatives', 'Dernière erreur', 'Dernière tentative', 'Action']"
     :empty="'Aucune livraison ne correspond aux filtres.'">
     @foreach ($deliveries as $delivery)
         @php
@@ -90,7 +93,7 @@
                     'bg-emerald-100 text-emerald-700' => $delivery->status === 'delivered',
                     'bg-slate-100 text-slate-700' => $delivery->status === 'pending',
                 ])>
-                    {{ $delivery->status }}
+                    {{ $statusLabels[$delivery->status] ?? $delivery->status }}
                 </span>
             </td>
             <td class="px-4 py-2 text-sm">
@@ -152,7 +155,7 @@
                             <pre class="text-xs font-mono text-slate-800 bg-white border border-slate-200 rounded-md p-3 overflow-x-auto whitespace-pre-wrap break-all">{{ $delivery->lastResponseBody }}</pre>
                         @else
                             <p class="text-sm text-slate-500 italic">
-                                {{ $delivery->lastResponseStatus === null ? "Aucune réponse reçue — la requête n'a jamais atteint l'endpoint." : '(corps de réponse vide)' }}
+                                {{ $delivery->lastResponseStatus === null ? "Aucune réponse reçue — la requête n'a jamais atteint le destinataire." : '(corps de réponse vide)' }}
                             </p>
                         @endif
                     </div>

@@ -12,9 +12,10 @@
         $resolutionLabels = [
             'refunded_outside' => 'Remboursé hors plateforme',
             'recognized_as_revenue' => 'Passé en revenu du projet',
-            'allocated_to_wallet' => 'Imputé à un wallet',
+            'allocated_to_wallet' => 'Imputé à un portefeuille',
             'no_action' => "Aucun mouvement (rien n'était écrit)",
         ];
+        $severityLabels = ['critical' => 'Critique', 'high' => 'Haute', 'medium' => 'Moyenne', 'low' => 'Basse'];
     @endphp
 
     {{-- Statut et erreurs : rendus par le layout (role="status" / role="alert"). --}}
@@ -32,12 +33,12 @@
                 <p class="text-slate-900 tabular-nums">{{ $money($exception->amountMinor) }}</p>
             </div>
             <div>
-                <p class="{{ $field }}">En attente au grand livre</p>
+                <p class="{{ $field }}">Encore en attente</p>
                 <p class="text-slate-900 tabular-nums">{{ $money($exception->bookedAmountMinor) }}</p>
             </div>
             <div>
                 <p class="{{ $field }}">Gravité</p>
-                <p class="text-slate-700">{{ $exception->severity }}</p>
+                <p class="text-slate-700">{{ $severityLabels[$exception->severity] ?? $exception->severity }}</p>
             </div>
             <div>
                 <p class="{{ $field }}">Projet</p>
@@ -114,13 +115,13 @@
                 <div class="flex flex-wrap gap-3">
                     {{-- #26 : écrire au grand livre / refuser sont irréversibles → confirmation en dialogue. --}}
                     <x-admin.confirm-dialog
-                        title="Valider et écrire au grand livre ?"
-                        message="Le mouvement d'argent sera écrit au grand livre. Cette action est définitive."
+                        title="Valider et comptabiliser ?"
+                        message="Le mouvement d'argent sera comptabilisé. Cette action est définitive."
                         :action="route('admin.money-exceptions.approve', $exception->id)"
                         confirm="Valider et écrire"
                         variant="primary">
                         <x-slot:trigger>
-                            <button type="button" class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Valider et écrire au grand livre</button>
+                            <button type="button" class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Valider et comptabiliser</button>
                         </x-slot:trigger>
                     </x-admin.confirm-dialog>
                     <x-admin.confirm-dialog

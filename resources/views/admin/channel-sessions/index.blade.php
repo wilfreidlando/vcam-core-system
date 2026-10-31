@@ -74,7 +74,7 @@
     <div class="bg-white border border-slate-200 rounded-lg p-6">
         <h2 class="text-lg font-semibold text-slate-900 mb-1">Créer une session</h2>
         <p class="text-base text-slate-600 mb-3">
-            La session est créée et démarrée chez le fournisseur WhatsApp, puis enregistrée ici. Elle
+            La session est créée et démarrée côté WhatsApp, puis enregistrée ici. Elle
             reste inutilisable pour l'envoi tant que le téléphone n'est pas lié (scan du QR).
         </p>
         <form method="POST" action="{{ $routeFor('store') }}" class="space-y-3">

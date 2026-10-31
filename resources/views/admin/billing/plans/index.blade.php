@@ -1,14 +1,14 @@
 @extends('layouts.admin')
 
-@section('title', 'Plans')
+@section('title', 'Offres')
 
 @section('content')
 <div class="space-y-6">
     <div class="rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3.5 text-sm text-indigo-900 leading-relaxed">
-        <p class="font-semibold mb-1">Un plan est stable, ses versions portent les termes</p>
+        <p class="font-semibold mb-1">Une offre est stable, ses versions portent les conditions</p>
         <p>
             Le prix, l'intervalle, l'essai et les fonctionnalités vivent dans une
-            <strong>version</strong>, pas dans le plan. Une version publiée est
+            <strong>version</strong>, pas dans l'offre. Une version publiée est
             <strong>figée</strong> : changer un prix, c'est publier une nouvelle version —
             les abonnements déjà signés gardent leurs conditions.
         </p>
@@ -17,7 +17,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <a href="{{ route('admin.projects.plans.new', $projectId) }}"
            class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
-            Nouveau plan
+            Nouvelle offre
         </a>
     </div>
 
@@ -32,8 +32,8 @@
                     @endif
                 </div>
                 <x-admin.confirm-dialog
-                    :title="'Archiver le plan '.$plan->code.' ?'"
-                    message="Le plan n'est plus proposé aux nouvelles souscriptions. Les abonnements en cours gardent leurs conditions."
+                    :title="'Archiver l\'offre '.$plan->code.' ?'"
+                    message="L'offre n'est plus proposée aux nouvelles souscriptions. Les abonnements en cours gardent leurs conditions."
                     :action="route('admin.projects.plans.archive.web', [$projectId, $plan->code])"
                     confirm="Archiver">
                     <x-slot:trigger>
@@ -42,7 +42,7 @@
                 </x-admin.confirm-dialog>
             </div>
 
-            <x-admin.table :caption="'Versions du plan '.$plan->code" :headers="['Version', 'Prix', 'Période', 'Essai', 'Grâce', 'Statut', '']" empty="Aucune version.">
+            <x-admin.table :caption="'Versions de l\'offre '.$plan->code" :headers="['Version', 'Prix', 'Période', 'Essai', 'Grâce', 'Statut', '']" empty="Aucune version.">
                 @if (count($plan->versions) > 0)
                     <tbody class="divide-y divide-slate-100 bg-white">
                     @foreach ($plan->versions as $version)
@@ -92,7 +92,7 @@
             </x-admin.table>
         </div>
     @empty
-        <x-admin.table caption="Plans du projet" :headers="['Plan']" empty="Aucun plan." />
+        <x-admin.table caption="Offres du projet" :headers="['Offre']" empty="Aucune offre." />
     @endforelse
 
     @include('admin.billing.partials.cursor-pager', ['routeName' => 'admin.projects.plans.index', 'routeParams' => [$projectId], 'nextCursor' => $nextCursor])

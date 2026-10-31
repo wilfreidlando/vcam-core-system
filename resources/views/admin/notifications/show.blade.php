@@ -39,16 +39,18 @@
                 <p class="font-mono text-slate-700 break-all">{{ $notification->toPartyRef }}</p>
             </div>
             <div>
-                <p class="{{ $field }}">Provider</p>
+                <p class="{{ $field }}">Prestataire</p>
                 <p class="font-mono text-slate-700">{{ $notification->providerCode ?? '—' }}</p>
+                <p class="mt-0.5 text-sm text-slate-500">Le service qui a envoyé le message.</p>
             </div>
             <div class="md:col-span-2">
-                <p class="{{ $field }}">ID message provider</p>
+                <p class="{{ $field }}">Identifiant du message chez le prestataire</p>
                 <p class="font-mono text-slate-700 break-all">{{ $notification->providerMessageId ?? '—' }}</p>
             </div>
             <div class="md:col-span-3">
-                <p class="{{ $field }}">Référence de l'intégrateur (Idempotency-Key)</p>
+                <p class="{{ $field }}">Référence de l'intégrateur</p>
                 <p class="font-mono text-slate-700 break-all">{{ $notification->clientReference }}</p>
+                <p class="mt-0.5 text-sm text-slate-500">La clé que l'intégrateur a envoyée dans l'en-tête <code class="font-mono">Idempotency-Key</code> : elle empêche qu'un même message soit envoyé deux fois.</p>
             </div>
             @if ($notification->errorMessage !== null)
                 <div class="md:col-span-3">
@@ -63,7 +65,7 @@
         <div class="bg-white border border-slate-200 rounded-lg p-6">
             <h2 class="text-lg font-semibold text-slate-900 mb-3">Contenu envoyé</h2>
             @if ($notification->content === [])
-                <p class="text-slate-600">Non conservé (notification antérieure à ADR-0062).</p>
+                <p class="text-slate-600">Non conservé : les messages envoyés avant la mise en place de la traçabilité ne gardent pas leur contenu.</p>
             @else
                 <pre class="bg-slate-50 rounded-md p-3 text-sm font-mono text-slate-800 overflow-x-auto whitespace-pre-wrap break-all">{{ $json($notification->content) }}</pre>
             @endif
@@ -79,8 +81,8 @@
     </div>
 
     <div class="bg-white border border-slate-200 rounded-lg p-6">
-        <h2 class="text-lg font-semibold text-slate-900 mb-3">Tentatives provider</h2>
-        <x-admin.table caption="Tentatives provider" :headers="['#', 'Date', 'Provider', 'Statut', 'ID message', 'Erreur']" :empty="'Aucune tentative enregistrée.'">
+        <h2 class="text-lg font-semibold text-slate-900 mb-3">Tentatives d'envoi</h2>
+        <x-admin.table caption="Tentatives d'envoi" :headers="['#', 'Date', 'Prestataire', 'Statut', 'Identifiant du message', 'Erreur']" :empty="'Aucune tentative enregistrée.'">
             <tbody class="divide-y divide-slate-100 bg-white">
             @foreach ($notification->attempts as $attempt)
                 <tr>

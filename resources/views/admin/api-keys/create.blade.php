@@ -20,7 +20,7 @@
             }
         }
 
-        return 'Personnalisée · '.count($scopes).' portée(s)';
+        return 'Personnalisée · '.count($scopes).' droit(s)';
     };
     $now = new DateTimeImmutable();
 @endphp
@@ -63,13 +63,13 @@
                             <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">Active</span>
                         @endif
                         @if ($key->hasFullAccess())
-                            <span class="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-medium text-rose-800" title="Clé à accès total : préférez un modèle de portées.">Accès total</span>
+                            <span class="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-medium text-rose-800" title="Clé à accès total : préférez des droits précis.">Accès total</span>
                         @endif
                     </div>
                 </div>
 
                 <dl class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-                    <div class="flex justify-between gap-2"><dt class="text-slate-600">Portées</dt><dd class="text-slate-900 text-right" title="{{ implode(', ', $key->scopes) }}">{{ $scopeLabel($key->scopes) }}</dd></div>
+                    <div class="flex justify-between gap-2"><dt class="text-slate-600">Droits accordés</dt><dd class="text-slate-900 text-right" title="{{ implode(', ', $key->scopes) }}">{{ $scopeLabel($key->scopes) }}</dd></div>
                     <div class="flex justify-between gap-2"><dt class="text-slate-600">Réseau</dt><dd class="font-mono text-xs text-slate-700 text-right">{{ $key->allowedCidrs === [] ? 'toute adresse' : implode(', ', $key->allowedCidrs) }}</dd></div>
                     <div class="flex justify-between gap-2"><dt class="text-slate-600">Créée le</dt><dd class="text-slate-900">{{ $key->createdAt->format('d/m/Y H:i') }}</dd></div>
                     <div class="flex justify-between gap-2"><dt class="text-slate-600">Dernière utilisation</dt><dd class="text-slate-900">{{ $key->lastUsedAt?->format('d/m/Y H:i') ?? 'jamais' }}@if ($key->lastUsedIp) <span class="font-mono text-xs text-slate-600">· {{ $key->lastUsedIp }}</span>@endif</dd></div>
@@ -80,7 +80,7 @@
                         <x-admin.confirm-dialog
                             :id="'rotate-'.$key->id"
                             title="Faire tourner « {{ $key->name }} » ?"
-                            :message="'Une nouvelle clé, avec les mêmes portées et la même restriction réseau, s\'affichera une seule fois. '.$key->prefix.' reste valide le temps de déployer la nouvelle, puis cesse de fonctionner seule.'"
+                            :message="'Une nouvelle clé, avec les mêmes droits et la même restriction réseau, s\'affichera une seule fois. '.$key->prefix.' reste valide le temps de déployer la nouvelle, puis cesse de fonctionner seule.'"
                             :action="route('admin.projects.api-keys.rotate', ['projectId' => $project->id, 'apiKeyId' => $key->id])"
                             confirm="Créer la remplaçante"
                             variant="primary">
@@ -118,14 +118,14 @@
             <x-admin.field name="name" label="Nom" required maxlength="80" placeholder="Serveur de facturation" />
 
             <fieldset>
-                <legend class="block text-sm font-medium text-slate-700 mb-2">Portées</legend>
+                <legend class="block text-sm font-medium text-slate-700 mb-2">Droits accordés</legend>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     @foreach ($templates as $value => $label)
                         <label class="flex items-start gap-2 rounded-md border border-slate-200 px-3 py-2 cursor-pointer hover:bg-slate-50">
                             <input type="radio" name="template" value="{{ $value }}" @checked(old('template', 'server') === $value) @change="selectTemplate" class="mt-1">
                             <span>
                                 <span class="block text-sm font-medium text-slate-900">{{ $label }}</span>
-                                <span class="block text-xs text-slate-600">{{ count($templateScopes[$value]) }} portée(s)@if ($value === 'payouts') · clé séparée conseillée, avec restriction réseau @endif</span>
+                                <span class="block text-xs text-slate-600">{{ count($templateScopes[$value]) }} droit(s)@if ($value === 'payouts') · clé séparée conseillée, avec restriction réseau @endif</span>
                             </span>
                         </label>
                     @endforeach

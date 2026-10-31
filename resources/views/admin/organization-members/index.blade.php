@@ -3,12 +3,21 @@
 @section('title', 'Membres — '.$organization->name)
 
 @section('content')
+@php
+    $roleLabels = [
+        'org_owner' => 'Propriétaire',
+        'org_admin' => 'Administrateur',
+        'org_finance' => 'Financier',
+        'org_support' => 'Support',
+        'org_viewer' => 'Lecture seule',
+    ];
+@endphp
 {{-- ADR-0069 §4 — the activation token is shown ONCE, right after the
      invitation is created. It is never stored in clear and never
      retrievable again afterwards. `$invitation` is rendered in the POST
      response itself. H3 — la région est `role="status"` (x-admin.alert). --}}
 @if (! empty($invitation))
-    <x-admin.alert variant="success" title="Invitation créée pour {{ $invitation['email'] }} ({{ $invitation['role'] }})">
+    <x-admin.alert variant="success" title="Invitation créée pour {{ $invitation['email'] }} ({{ $roleLabels[$invitation['role']] ?? $invitation['role'] }})">
         <p class="mt-1 text-base">
             Jeton d'activation — affiché uniquement maintenant, jamais stocké en clair ni relu :
             <code class="ml-1 break-all rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900">{{ $invitation['token'] }}</code>
@@ -26,8 +35,8 @@
 <div class="mb-4 flex items-center justify-between gap-4">
     <p class="text-base text-slate-600">
         {{ count($members) }} membre{{ count($members) > 1 ? 's' : '' }} — les membres sont gérés par
-        un <code class="font-mono">org_owner</code> ou un <code class="font-mono">org_admin</code> ; seul un
-        <code class="font-mono">org_owner</code> attribue ce rôle (ADR-0069).
+        un propriétaire ou un administrateur de l'organisation ; seul un propriétaire
+        attribue ce rôle.
     </p>
     @if ($canManage)
     <a href="{{ route('admin.organizations.members.invite', ['organizationId' => $organization->id]) }}"
@@ -58,7 +67,7 @@
                     <select id="role-{{ $member->operatorId }}" name="role"
                             class="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm font-mono text-slate-700">
                         @foreach ($roles as $role)
-                            <option value="{{ $role }}" @selected($role === $member->role)>{{ $role }}</option>
+                            <option value="{{ $role }}" @selected($role === $member->role)>{{ $roleLabels[$role] ?? $role }}</option>
                         @endforeach
                     </select>
                     <button type="submit" class="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -67,7 +76,7 @@
                     </button>
                 </form>
                 @else
-                <span class="font-mono text-slate-700">{{ $member->role }}</span>
+                <span class="text-slate-700">{{ $roleLabels[$member->role] ?? $member->role }}</span>
                 @endif
             </td>
             <td class="px-4 py-2 text-sm font-mono text-slate-600 whitespace-nowrap">

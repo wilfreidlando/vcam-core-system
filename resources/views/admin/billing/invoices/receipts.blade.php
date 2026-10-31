@@ -27,7 +27,7 @@
 
     <div class="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
         Un encaissement hors ligne est un acte comptable : il porte une méthode, une référence
-        et un montant, et il est inscrit au grand livre du client. Au-dessus du seuil du
+        et un montant, et il est inscrit dans les comptes du client. Au-dessus du seuil du
         projet, il attend une validation explicite avant de compter.
     </div>
 

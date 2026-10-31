@@ -181,7 +181,7 @@ final class ConsoleLayoutTest extends TestCase
 
         // F-06 — « Wallets » and « Facturation » both led to the list of projects, with a label
         // that promised a screen of their own.
-        self::assertStringContainsString('Wallets par projet', $html);
+        self::assertStringContainsString('Portefeuilles par projet', $html);
         self::assertStringContainsString('Facturation par projet', $html);
     }
 
