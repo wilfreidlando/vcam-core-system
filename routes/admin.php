@@ -68,10 +68,6 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
                     ->defaults('famille', $famille)
                     ->name('guide.'.$famille);
             }
-
-            // Les captures vivent avec le Markdown, dans le dépôt : une
-            // seule copie, versionnée avec le texte qui la décrit.
-            Route::get('image', [App\Http\Controllers\Admin\GuideController::class, 'image'])->name('guide.image');
         });
 
         // Écart #5 (annexe sécurité 2026-10-29, G-4) — l'élévation de privilège : avant une

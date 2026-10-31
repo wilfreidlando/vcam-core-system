@@ -1,8 +1,8 @@
 # ADR-0113 — Le guide de l'opérateur est dans la console
 
-- **Statut** : Accepté
+- **Statut** : Accepté — **amendé le 2026-10-31, le jour même**, à la demande du commanditaire : les captures d'écran sont abandonnées (décision 3)
 - **Date** : 2026-10-31
-- **Décideurs** : commanditaire (il a demandé une documentation visuelle), comité d'architecture
+- **Décideurs** : commanditaire (il a demandé une documentation visuelle, puis a renuncié aux captures), comité d'architecture
 - **Dérives concernées** : D3 utilisabilité · D5 contrat
 - **Précise** : ADR-0075 (le portail, l'espace du client), ADR-0104 (la console sans JavaScript)
 
@@ -23,7 +23,7 @@ Il y a trois autres problèmes, tous vus dans le manuel lui-même :
 1. **Les écrans parlent technique.** Une page d'indicateurs dit à l'opérateur « la
    relance d'un client passe par son portail ou par votre propre message
    (ADR-0098) ». Un numéro de décision ne dit pas quoi faire ; il dit qu'un
-   engineer a déjà décidé. La lecture d'un écran doit être une consigne, pas un
+   ingénieur a déjà décidé. La lecture d'un écran doit être une consigne, pas un
    renvoi à l'architecture.
 2. **Le manuel est technique.** Il présente des API, des portées, des en-têtes. Le
    lecteur visé — un opérateur qui prend la console en main, un commercial qui
@@ -38,8 +38,8 @@ Il y a trois autres problèmes, tous vus dans le manuel lui-même :
 
 Une entrée « Guide » dans la barre latérale ouvre la page des parcours. Chaque
 parcours est une page à part, adressable, partageable, imprimable. Le guide est là
-où l'opérateur travaille déjà ; l'y faire?vient un lien permanent, et non une
-chose à retrouver dans un dépôt.
+où l'opérateur travaille déjà ; le lien y reste permanent, et non une chose à
+retrouver dans un dépôt.
 
 **Décision 2 — une seule source : le Markdown, rendu par la console.**
 
@@ -48,13 +48,17 @@ rend (CommonMark, `league/commonmark`, déjà présent dans l'image via Laravel)
 dépôt et la console montrent **le même texte** ; il ne peut pas y en avoir un qui
 dérive de l'autre. Le guide se relit, se corrige et se versionne comme du code.
 
-**Décision 3 — les captures sont versionnées avec le code.**
+**Décision 3 — pas de captures d'écran : le guide se lit sans images.**
 
-Elles vivent dans `docs/manuel/parcours/images/` et sont servies par la console.
-Une capture périmée n'est pas un détail : c'est un défaut de la documentation. Les
-parcours nomment l'écran qu'ils décrivent, et le nom du bouton dans le texte est le
-nom du bouton **tel qu'il est écrit à l'écran** — la documentation et l'interface
-sont donc le même objet à garder d'accord.
+Le commanditaire a demandé un guide « visuel », puis a mesuré le coût : une capture
+se refait à chaque retouche d'un écran, elle vieillit en silence, et elle ne dit
+pas ce que l'écran ne dit pas. « Si la fonctionnalité est déjà expliquée dans le
+manuel, ça va. »
+
+Le guide est donc **un texte** : des tableaux, des encadrés, une navigation par
+situation. Il décrit l'écran **avec des mots précis** — « la colonne *Payé* montre
+le montant déjà réglé, en face du total » — et non avec une image. Une capture ne
+prouvait rien de plus qu'une phrase juste ; elle coûtait une image à refaire.
 
 **Décision 4 — le rendu n'autorise pas le HTML brut.**
 
@@ -78,12 +82,19 @@ un opérateur qui les ouvre n'y trouvera pas ce qu'il cherche.
 
 **Décision 7 — le guide est protégé par un garde-fou.**
 
-Un test vérifie que **chaque chemin d'écran nommé dans le guide est bien routé**,
-et que chaque parcours du guide existe. Une capture qui montre un écran
-disparu, ou un parcours qui parle d'une page qui n'existe plus, fait échouer la
-build — le guide ne peut pas mentir en silence.
+Un test vérifie que **chaque libellé d'interface cité par un parcours est un
+libellé que le produit affiche vraiment** : si le bouton « Nouvelle facture »
+s'appelle « Créer une facture » et que le guide n'a pas suivi, la build échoue.
+Un test vérifie aussi que chaque parcours porte son front matter complet et que
+l'index les liste tous. Le guide ne peut pas mentir en silence.
 
 ## Alternatives écartées
+
+**Des captures d'écran.** — Rejeté : le commanditaire a mesuré le coût et l'a
+trouvé trop lourd. Une capture se refait à chaque retouche d'écran, elle vieillit
+en silence, et une phrase juste fait le même travail. *C'est l'alternative que le
+commanditaire avait d'abord demandée (« un guide visuel »), puis a écartée
+lui-même.*
 
 **Un site HTML séparé, hébergé ailleurs.** — Rejeté : il vit dans un autre
 dépôt, il n'est pas versionné avec le code, il ne se met pas à jour au déploiement,
@@ -107,20 +118,20 @@ n'est pas la qualité des chapitres, c'est leur **ordre de lecture**.
 ## Conséquences
 
 **Ce qui est gagné.** — Un guide que l'opérateur atteint en un clic depuis l'outil
-qu'il utilise, rangé par la question qu'il se pose, et dont les captures ne
-peuvent pas mentir.
+qu'il utilise, rangé par la question qu'il se pose, et dont les mots ne peuvent pas
+diverger des écrans.
 
 **Ce qui est engagé.**
 
 - `league/commonmark` devient une dépendance **explicite** du projet (elle est
   déjà dans l'image comme dépendance de Laravel ; l'utiliser sans la déclarer
   serait compter sur le hasard).
-- Les images du guide entrent dans l'image Docker. Elles doivent rester
-  raisonnables (format PNG, un poids léger, pas de GIF).
 - Le guide devient une **charge à tenir** : chaque écran modifié impose de mettre
-  sa capture et son texte à jour. C'est le prix de la vérité.
-- Le garde-fou du parcours (décision 7) impose que le guide ne cite que des
-  écrans existants — donc que le guide soit écrit **avec** le code, pas après.
+  son texte à jour. C'est le prix de la vérité — et c'est le garde-fou de la
+  décision 7 qui le rend tenable.
+- Les mots du guide doivent être **vérifiés** : le test de la décision 7 échoue si
+  le guide cite un libellé que le produit n'affiche plus. Un parcours écrit à
+  l'arrache, avec des libellés inventés, ne passe pas.
 
 **Point de réévaluation.** — Si le guide doit devenir éditable par un non-développeur
 (une équipe de rédaction qui publie ses propres parcours), le Markdown cesse d'être

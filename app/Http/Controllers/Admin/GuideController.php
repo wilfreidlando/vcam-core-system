@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Admin;
 use App\Infrastructure\Guide\GuideCatalog;
 use App\Infrastructure\Guide\GuideFlow;
 use App\Infrastructure\Guide\GuideRenderer;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -76,25 +75,6 @@ final class GuideController
             'title' => $titre,
             'famille' => $famille,
             'parcours' => $parcours,
-        ]);
-    }
-
-    /**
-     * A screenshot of the guide. The images live next to the Markdown,
-     * in the repository — one copy, versioned with the text that
-     * describes them (ADR-0113, decision 3).
-     */
-    public function image(Request $request): Response
-    {
-        $chemin = $this->catalog->imagePath((string) $request->query('fichier', ''));
-
-        if ($chemin === null) {
-            abort(404, 'Cette image n’existe pas.');
-        }
-
-        return response()->file($chemin, [
-            'Content-Type' => 'image/png',
-            'Cache-Control' => 'private, max-age=3600',
         ]);
     }
 }

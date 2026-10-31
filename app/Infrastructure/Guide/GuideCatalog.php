@@ -115,33 +115,6 @@ final class GuideCatalog
     }
 
     /**
-     * The absolute path of an image of the guide, or null when the name
-     * is not one we serve.
-     *
-     * The name is a path relative to the guide root (`1-acces/images/F01-01.png`).
-     * It is checked twice: it must look like a path of images, and the
-     * resolved file must really sit under the guide root — a name like
-     * `../../.env` never becomes a served file.
-     */
-    public function imagePath(string $relative): ?string
-    {
-        if (preg_match('#\A[a-z0-9]+/[a-z0-9\-_/]+\.png\z#', $relative) !== 1) {
-            return null;
-        }
-
-        $path = $this->root.'/'.$relative;
-
-        $real = realpath($path);
-        $rootReal = realpath($this->root);
-
-        if ($real === false || $rootReal === false || ! str_starts_with($real, $rootReal.'/')) {
-            return null;
-        }
-
-        return $real;
-    }
-
-    /**
      * @return list<string>
      */
     private function filesOf(string $famille): array

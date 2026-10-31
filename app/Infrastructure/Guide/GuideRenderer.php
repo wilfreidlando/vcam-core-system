@@ -33,7 +33,6 @@ final class GuideRenderer
     public function render(GuideFlow $flow): string
     {
         $html = $this->converter()->convert($flow->contenu)->getContent();
-        $html = $this->rewriteImages($html, $flow);
         $html = $this->rewriteNotes($html);
 
         return $this->rewriteLinks($html);
@@ -57,22 +56,6 @@ final class GuideRenderer
         $environment->addExtension(new StrikethroughExtension());
 
         return new MarkdownConverter($environment);
-    }
-
-    private function rewriteImages(string $html, GuideFlow $flow): string
-    {
-        $url = route('admin.guide.image');
-        $prefix = $flow->famille.'/images/';
-
-        return (string) preg_replace_callback(
-            '/src="images\/([^"]+)"/',
-            static fn (array $matches): string => sprintf(
-                'src="%s?fichier=%s"',
-                $url,
-                rawurlencode($prefix.$matches[1]),
-            ),
-            $html,
-        );
     }
 
     /**
