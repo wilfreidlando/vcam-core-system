@@ -1,6 +1,6 @@
 # ADR-0109 — Le paquet client est publié dans `saas-commerce-dep`, et sa source y vit
 
-- **Statut** : Accepté
+- **Statut** : Accepté — amendé par [ADR-0112](0112-le-paquet-client-s-appelle-core-adapter.md) (décision 3 : le paquet s'appelle `core-adapter`)
 - **Date** : 2026-10-31
 - **Décideurs** : commanditaire (il a fourni le dépôt), comité d'architecture
 - **Dérives concernées** : D1 périmètre · D5 contrat · D7 organisationnelle

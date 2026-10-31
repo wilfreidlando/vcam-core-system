@@ -28,6 +28,10 @@ final class ClientApplicationContractTest extends TestCase
 
         foreach (Route::getRoutes()->getRoutes() as $route) {
             foreach ($route->methods() as $method) {
+                if (! is_string($method)) {
+                    continue;
+                }
+
                 $routed[strtolower($method).' '.$route->uri()] = true;
             }
         }

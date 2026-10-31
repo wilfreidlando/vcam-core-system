@@ -6,7 +6,7 @@ namespace Tests\Contract;
 
 /**
  * ADR-0109 §3 — the contract between the Core and the client package
- * (`wilfreidlando/saas-commerce-dep`).
+ * (`wilfreidlando/core-adapter` — ADR-0109 §3, amendé par ADR-0112).
  *
  * The package is a separate repository: it proves itself against a **deployed**
  * Core, in its own CI. This fixture is the Core's half of the same

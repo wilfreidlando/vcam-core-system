@@ -79,6 +79,12 @@
         <testsuite name="admin">
             <directory>packages/admin/tests</directory>
         </testsuite>
+        <!-- The hosted customer space (ADR-0075). The sector already
+             existed in the Makefile; the suite was never declared here,
+             so the portal's own tests were run by no named suite. -->
+        <testsuite name="portal">
+            <directory>packages/portal/tests</directory>
+        </testsuite>
         <testsuite name="support">
             <directory>packages/support/tests</directory>
         </testsuite>
