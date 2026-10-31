@@ -25,7 +25,7 @@
         ['Wallets de ce projet', route('admin.projects.wallets.index', ['projectId' => $project->id]), null],
         ['Notifications de ce projet', route('admin.projects.notifications.index', ['projectId' => $project->id]), 'notifications:read'],
         ['Enregistrer une application provider de paiement', route('admin.projects.provider-applications.create', ['projectId' => $project->id]), 'provider-applications:write'],
-        ['Enregistrer un endpoint webhook', route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]), 'webhook-endpoints:write'],
+        ['Enregistrer un endpoint webhook', route('admin.projects.webhook-endpoints.index', ['projectId' => $project->id]), 'webhook-endpoints:write'],
         ['Sessions WhatsApp', route('admin.projects.channel-sessions.index', ['projectId' => $project->id]), 'channel-sessions:write'],
         ['Clés API', route('admin.projects.api-keys.create', ['projectId' => $project->id]), 'api-keys:write'],
         ['Clients de ce projet', route('admin.projects.customers.index', ['projectId' => $project->id]), 'customers:read'],

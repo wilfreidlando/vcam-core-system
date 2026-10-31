@@ -77,13 +77,13 @@ final class ConsoleSecretsAreNotSessionedTest extends TestCase
 
         $response = $this->post("/admin/projects/{$project}/webhook-endpoints", [
             'url' => 'https://example.com/webhooks/core',
-            'categories' => ['payments'],
+            'events' => ['payment.status_changed'],
         ])->assertOk()->assertSessionMissing('admin.webhook-endpoints.created');
 
         $secret = $this->secretIn($response, '/Secret de signature.*?<code[^>]*>([^<]+)<\/code>/s');
         $this->assertNotInSessionStore($secret);
 
-        $this->get("/admin/projects/{$project}/webhook-endpoints/create")->assertOk()->assertDontSee($secret);
+        $this->get("/admin/projects/{$project}/webhook-endpoints")->assertOk()->assertDontSee($secret);
     }
 
     #[Test]

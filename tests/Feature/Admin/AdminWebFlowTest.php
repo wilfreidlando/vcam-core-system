@@ -323,7 +323,7 @@ final class AdminWebFlowTest extends TestCase
     }
 
     #[Test]
-    public function registering_a_webhook_endpoint_through_the_web_console_expands_categories_into_event_types(): void
+    public function registering_a_webhook_endpoint_through_the_web_console_subscribes_to_the_chosen_event_types(): void
     {
         $this->withoutMiddleware(PreventRequestForgery::class);
 
@@ -349,7 +349,7 @@ final class AdminWebFlowTest extends TestCase
             // unlike `.com`/`.org`/`.net`, IANA's stable, always-resolving
             // documentation domains.
             'url' => 'https://example.com/webhooks/core',
-            'categories' => ['payments', 'wallets'],
+            'events' => ['payment.status_changed', 'wallet.credited', 'wallet.debited'],
         ]);
         $store->assertOk();
         $store->assertSessionMissing('admin.webhook-endpoints.created');
@@ -364,7 +364,7 @@ final class AdminWebFlowTest extends TestCase
             $endpoints[0]->events,
         );
 
-        $again = $this->get(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+        $again = $this->get(route('admin.projects.webhook-endpoints.index', ['projectId' => $project->id]));
         $again->assertOk();
         $again->assertSee('Paiements');
     }
@@ -395,9 +395,9 @@ final class AdminWebFlowTest extends TestCase
         // endpoint's URL or events at all once registered.
         $update = $this->put("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}", [
             'url' => 'https://example.com/hooks/updated',
-            'categories' => ['wallets'],
+            'events' => ['wallet.credited', 'wallet.debited'],
         ]);
-        $update->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+        $update->assertRedirect(route('admin.projects.webhook-endpoints.index', ['projectId' => $project->id]));
 
         $afterUpdate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id), AccessScope::platform());
         self::assertCount(1, $afterUpdate);
@@ -410,19 +410,19 @@ final class AdminWebFlowTest extends TestCase
         // and the listing used to query active-only, so a deactivated
         // endpoint would have simply vanished instead of showing inactive.
         $deactivate = $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/deactivate");
-        $deactivate->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+        $deactivate->assertRedirect(route('admin.projects.webhook-endpoints.index', ['projectId' => $project->id]));
 
         $afterDeactivate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id), AccessScope::platform());
         self::assertCount(1, $afterDeactivate, 'a deactivated endpoint must still be listed, not vanish');
         self::assertFalse($afterDeactivate[0]->active);
 
-        $listPage = $this->get(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+        $listPage = $this->get(route('admin.projects.webhook-endpoints.index', ['projectId' => $project->id]));
         $listPage->assertOk();
         $listPage->assertSee('inactif');
 
         // Reactivate.
         $activate = $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/activate");
-        $activate->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+        $activate->assertRedirect(route('admin.projects.webhook-endpoints.index', ['projectId' => $project->id]));
 
         $afterActivate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id), AccessScope::platform());
         self::assertTrue($afterActivate[0]->active);

@@ -57,12 +57,12 @@ final class WebhookEndpointCapConsoleTest extends TestCase
 
         $this->post("/admin/projects/{$project->id}/webhook-endpoints", [
             'url' => 'https://example.com/webhooks/core',
-            'categories' => ['payments'],
+            'events' => ['payment.status_changed'],
         ])->assertOk();
 
         $refused = $this->post("/admin/projects/{$project->id}/webhook-endpoints", [
             'url' => 'https://example.com/webhooks/second',
-            'categories' => ['payments'],
+            'events' => ['payment.status_changed'],
         ]);
 
         $refused->assertRedirect();
@@ -93,12 +93,12 @@ final class WebhookEndpointCapConsoleTest extends TestCase
 
         $this->post("/admin/projects/{$project->id}/webhook-endpoints", [
             'url' => 'https://example.com/webhooks/core',
-            'categories' => ['payments'],
+            'events' => ['payment.status_changed'],
         ])->assertOk();
 
         $this->post("/admin/projects/{$project->id}/webhook-endpoints", [
             'url' => 'https://example.com/webhooks/second',
-            'categories' => ['payments'],
+            'events' => ['payment.status_changed'],
         ])->assertOk();
 
         self::assertSame(2, DB::table('webhook_endpoints')->where('project_id', $project->id)->count());

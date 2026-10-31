@@ -82,6 +82,7 @@ final readonly class AdminBreadcrumbComposer
         'channel-sessions.index' => 'Sessions WhatsApp',
         'provider-applications.create' => 'Applications prestataire',
         'provider-applications.edit' => 'Applications prestataire',
+        'webhook-endpoints.index' => 'Endpoints webhook',
         'webhook-endpoints.create' => 'Endpoints webhook',
         'api-keys.create' => 'Clés API',
         'portal' => 'Portail client',

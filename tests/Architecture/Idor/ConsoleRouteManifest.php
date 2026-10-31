@@ -106,12 +106,18 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.provider-applications.delete', Nature::ProviderApplication, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
 
             // ── Webhook endpoints ──────────────────────────────────────────
+            // ADR-0110 §5 / ADR-0107 §6 — the page where an operator
+            // registers the endpoint of a client application.
+            Entry::isolated('admin.projects.webhook-endpoints.index', Nature::WebhookEndpoint, Outcome::NotFound, control: true),
             Entry::isolated('admin.projects.webhook-endpoints.create', Nature::WebhookEndpoint, Outcome::NotFound, control: true),
             Entry::isolated('admin.projects.webhook-endpoints.store', Nature::WebhookEndpoint, Outcome::NotFound),
             Entry::isolated('admin.projects.webhook-endpoints.update', Nature::WebhookEndpoint, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.webhook-endpoints.activate', Nature::WebhookEndpoint, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.webhook-endpoints.deactivate', Nature::WebhookEndpoint, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.webhook-endpoints.rotate-secret', Nature::WebhookEndpoint, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            // ADR-0063 — the test event: it calls the receiver, so it is a
+            // gesture like the others, and it is audited like the others.
+            Entry::isolated('admin.projects.webhook-endpoints.test', Nature::WebhookEndpoint, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect, control: true),
             Entry::isolated('admin.projects.webhook-endpoints.revoke-previous-secret', Nature::WebhookEndpoint, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
 
             // ── WhatsApp sessions of a project ─────────────────────────────

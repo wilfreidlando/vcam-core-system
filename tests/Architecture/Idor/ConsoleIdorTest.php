@@ -320,7 +320,7 @@ final class ConsoleIdorTest extends TestCase
             'admin.projects.api-keys.rotate' => ['grace_days' => 7],
             'admin.projects.api-keys.revoke' => ['reason' => 'Révocation IDOR'],
             'admin.projects.provider-applications.store' => ['provider' => 'my-coolpay', 'public_key' => 'pub-idor', 'private_key' => 'private-idor'],
-            'admin.projects.webhook-endpoints.store', 'admin.projects.webhook-endpoints.update' => ['url' => 'https://example.com/idor-hook', 'categories' => ['payments']],
+            'admin.projects.webhook-endpoints.store', 'admin.projects.webhook-endpoints.update' => ['url' => 'https://example.com/idor-hook', 'events' => ['payment.status_changed']],
             'admin.projects.webhook-endpoints.rotate-secret' => ['overlap_hours' => 24],
             'admin.projects.webhook-endpoints.revoke-previous-secret' => ['reason' => 'Révocation IDOR'],
             'admin.projects.channel-sessions.store' => ['session_ref' => 'session-idor'],

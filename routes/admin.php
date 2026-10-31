@@ -206,6 +206,14 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
             // `webhook-endpoints.register`/`.list` — those are unprefixed
             // (the Project/API-key plane), these are `admin.projects.*`
             // (the operator console plane).
+            // ADR-0110 §5 / ADR-0107 §6 — the page where an operator
+            // registers the webhook endpoint of a client application: the
+            // application never registers it itself, the operator hands it
+            // the secret out of band.
+            Route::get('{projectId}/webhook-endpoints', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'index'])
+                ->name('projects.webhook-endpoints.index');
+            // The historical URL of the same page — it still answers, with
+            // the same page: the links already handed out keep working.
             Route::get('{projectId}/webhook-endpoints/create', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'create'])
                 ->name('projects.webhook-endpoints.create');
             Route::post('{projectId}/webhook-endpoints', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'store'])
@@ -219,6 +227,11 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
             // ADR-0082 §5 — secret rotation (double signature) and its early end.
             Route::post('{projectId}/webhook-endpoints/{endpointId}/rotate-secret', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'rotateSecret'])
                 ->name('projects.webhook-endpoints.rotate-secret')->middleware(['throttle:console-sensitive']);
+            // ADR-0063 — one signed test event, sent now, so the operator
+            // can tell a wrong URL from a wrong secret before the first
+            // real event exists.
+            Route::post('{projectId}/webhook-endpoints/{endpointId}/test', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'test'])
+                ->name('projects.webhook-endpoints.test')->middleware(['throttle:console-sensitive']);
             Route::post('{projectId}/webhook-endpoints/{endpointId}/revoke-previous-secret', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'revokePreviousSecret'])
                 ->name('projects.webhook-endpoints.revoke-previous-secret')->middleware(['throttle:console-sensitive']);
             // Review finding: API key issuance/revocation was genuinely

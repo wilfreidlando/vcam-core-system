@@ -235,13 +235,13 @@ document.addEventListener('alpine:init', () => {
 
     /**
      * The "receive everything" checkbox of a webhook endpoint: checking it
-     * disables the per-category checkboxes (they would contradict it).
+     * disables the per-event checkboxes (they would contradict it).
      *
      * The initial value is a server-side fact (`data-all`), not a client-side
      * guess: the endpoint already stored in the database may already
      * receive everything.
      */
-    Alpine.data('allCategories', () => ({
+    Alpine.data('eventSelection', () => ({
         all: false,
 
         init() {

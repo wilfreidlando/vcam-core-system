@@ -73,6 +73,9 @@ final class StepUpAndThrottleTest extends TestCase
         'admin.projects.webhook-endpoints.update',
         'admin.projects.webhook-endpoints.rotate-secret',
         'admin.projects.webhook-endpoints.revoke-previous-secret',
+        // ADR-0063 — l'événement de test est un envoi vers l'extérieur :
+        // il est plafonné comme les autres écritures de la famille.
+        'admin.projects.webhook-endpoints.test',
         'admin.projects.api-keys.store',
         'admin.projects.api-keys.rotate',
         'admin.projects.api-keys.revoke',
