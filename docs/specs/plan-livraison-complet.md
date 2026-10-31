@@ -26,9 +26,9 @@ ADR » — il n'existe pas d'autre état final.
 | `parties` | grand livre | 12 | 5 | 1 | 2 | **livré** | — |
 | `ledger` | grand livre | 70 | 32 | 8 | 12 | **livré** | niveaux B/C du rapprochement (lot 18) |
 | `wallet` | grand livre | 67 | 27 | 3 | 8 | **livré** | — |
-| `billing` | commerce | 303 | 103 | 11 | 8 | **livré** (lots 10–12) | indicateurs ✔ ; instantanés quotidiens, `lost_at`, rendu du reçu, PDF (lot 14, ADR-0094 §14) |
+| `billing` | commerce | 303 | 103 | 11 | 8 | **livré** (lots 10–12) | indicateurs ✔ ; instantanés quotidiens ✔ ; `lost_at` ✔ ; reste le rendu du reçu et le PDF (ADR-0094 §14) |
 | `portal` | commerce | 48 | 3 | 1 | 0 propres (couvert par `tests/Integration`) | **livré** (lot 13) ; connexion directe par code ✔ (lot 17, ADR-0100) | amendements ADR-0098 et ADR-0100 |
-| `admin` | pilotage | 26 | 1 | 0 | 0 propres (couvert par `tests/Feature`) | **partiel** | lot 14 : instantanés + courbes, checklist d'onboarding, droits |
+| `admin` | pilotage | 26 | 1 | 0 | 0 propres (couvert par `tests/Feature`) | **partiel** | lot 14 : instantanés ✔, courbes ✔, checklist d'onboarding complète ✔, écran Créances ✔, cloisonnement prouvé ✔ ; restent le rejeu des instantanés sur une plage, les droits d'ADR-0080 §1 et le contenu de la fiche client |
 | `developer-platform` | plateforme | 1 | 1 | 0 | 0 | **scaffold** | non nécessaire pour le moment (ADR-0099) |
 | `payout` | grand livre | — | — | — | — | **absent** | lot 19 (ADR-0079) |
 | `fees` | grand livre | 1 | 1 | 0 | 0 | **scaffold** | non nécessaire pour le moment (ADR-0099) |
@@ -60,7 +60,7 @@ Estimations en jours de développeur senior, ±30 %, **non contraignantes** (ADR
 | **14** | **Console de portefeuille** | `billing_daily_metrics` + job nocturne idempotent + courbes SVG serveur ; checklist d'onboarding calculée ; droits de lecture alignés sur ADR-0080 §1 ; fiche client ✔ ; écran Créances (lecture seule) ; `lost_at` indexé | `admin` | 0080 | 8 j |
 | **15** ✔ | **Exploitation** (✔ débit par projet/clé/classe + `RateLimit-*` ; ✔ relais de l'outbox après commit, `SKIP LOCKED` ; ✔ listings par curseur publics paiements/notifications/usage ; ✔ export par projet, module `export`, ADR-0101) | débit par projet/clé/classe + en-têtes `RateLimit-*` ; métriques par projet et alertes ; relais de l'outbox après commit ; listings par curseur pour paiements/usage/notifications/endpoints ; **export** par projet (JSONL, lien signé 15 min, `exports:write`) | `events`, `support` | 0085, 0088, 0090, 0101 | 10 j |
 | **16** ✘ | **(retiré : developer-platform non nécessaire, ADR-0099)** Contrat et expérience développeur | `developer-platform` : registre de capacités + `GET /v1/capabilities` + test registre↔OpenAPI ; pages de démarrage exécutées ; politique `Deprecation`/`Sunset` ; `api_version` dans les événements ; horloges de test | `developer-platform` | 0086, 0087, 0096 | 7 j |
-| **17** | **Recette et bascule** | connexion directe par code (portail) ✔ (ADR-0100) ; recette R-01…R-15 automatisée de bout en bout ; guide d'intégration unique vérifié sur une application de démonstration (30 min chronométrées) ; plan de bascule exécutable ; retrait des secrets de la plateforme transitoire | `portal`, plan d'extinction | 0084, 0089, 0075 §2, 0100 | 8 j |
+| **17** | **Recette et bascule** | connexion directe par code (portail) ✔ (ADR-0100) ; recette R-01…R-15 automatisée de bout en bout ✔ (`make recette` + porte CI « recette », concurrence R-07 comprise) ; guide d'intégration unique vérifié sur une application de démonstration (30 min chronométrées) ; plan de bascule exécutable ; retrait des secrets de la plateforme transitoire | `portal`, plan d'extinction | 0084, 0089, 0075 §2, 0100 | 8 j |
 | **18** | **Rapprochement prestataire** | capacités `listTransactions`/`balance` des adaptateurs ; niveaux B et C ; écrans | `payment`, `ledger` | 0078 | 10 j |
 | **19** | **Versements sortants** | module `payout`, adaptateur testable, double validation, plafonds, destination chiffrée | `payout` | 0079 | 15 j |
 | **D** | **Décisions de périmètre** | ADR pour `fees` et `storage` (§6) ; ADR pour chaque extension demandée (relances, codes promo, e-mail) | `fees`, `storage` | 0048, 0068, 0090 | 1 j |
@@ -75,7 +75,7 @@ sont livrés ensuite, mais le plan n'est « terminé » qu'avec eux (ou leur ref
 - **14** : tests de définition des indicateurs (MRR à intervalles mixtes, attrition, créances par ancienneté, encaissé du mois), cloisonnement `org_viewer` A / projet de B, rejouabilité du job d'instantanés sur une plage, test IDOR généré sur chaque route.
 - **15** : charge staging (200 req/s mixtes 15 min, ADR-0090), deux workers du relais ne livrent jamais deux fois, export refusé hors portée, 429 `rate-limit-exceeded` avec `Retry-After`.
 - **16** : le registre de capacités et `openapi/v1.json` ne peuvent pas diverger (test CI) ; chaque page de démarrage est un test.
-- **17** : R-01…R-15 verts sur staging ; coexistence 14 jours sans appel métier à la plateforme transitoire ; installation du kit chronométrée.
+- **17** : R-01…R-15 verts sur staging, **hors R-02 et R-12** (ils exigent le module `payout`, livré au lot 19 — `docs/specs/recette-matrice.md`) ; coexistence 14 jours sans appel métier à la plateforme transitoire ; installation du kit chronométrée. La recette est jouable d'une commande : `make recette`, et `make recette-concurrence` prouve la concurrence réelle de R-07 (la CI les joue toutes les deux).
 - **18/19** : niveaux B/C sur un jeu de relevés avec écart volontaire ; versement refusé au-delà du plafond, à un seul compte, sans motif.
 
 ## 5. Documents à mettre à jour à chaque fin de lot

@@ -1,6 +1,6 @@
 # ADR-0100 — Connexion directe du portail par code : l'arête `portal → notification` et les choix de réalisation
 
-- **Statut** : Proposé — réalisation d'ADR-0075 §2 ; à ratifier par le comité d'architecture
+- **Statut** : Accepté — réalisation d'ADR-0075 §2, ratifiée après livraison du code
 - **Date** : 2026-10-29
 - **Décideurs** : commanditaire (cadrage de livraison) ; comité d'architecture (ratification)
 - **Dérives concernées** : D1 périmètre · D3 données/PII · D5 contrat

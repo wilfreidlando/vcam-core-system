@@ -58,7 +58,7 @@ sont **livrés** : leurs lignes sont passées de **◐** à **●**. Les lots 12
 | Usage idempotent, quotas atomiques, seuils | ● (lot 12) | ADR-0074 |
 | Décompte automatique des notifications | ● (lot 12) | ADR-0074 §5 |
 | Facturation à l'usage | ○ (le journal en est la source) | ADR-0090 |
-| Portail client hébergé, personnalisable (tableau de bord, offres, paiement, renouvellement) | ● (lot 13) ; connexion directe par code ◐ lot 17 | ADR-0075, ADR-0097, ADR-0098 |
+| Portail client hébergé, personnalisable (tableau de bord, offres, paiement, renouvellement) | ● (lot 13) ; connexion directe par code ● (ADR-0100) | ADR-0075, ADR-0097, ADR-0098 |
 | Domaine personnalisé du portail | ○ | ADR-0090 |
 | Facturation des projets par la plateforme elle-même | ○ | ADR-0090 |
 
