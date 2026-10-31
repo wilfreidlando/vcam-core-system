@@ -63,6 +63,11 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
         'scope' => '/\bscopes?\b/i',
         'idempotence' => '/\bidempoten\w*/i',
         'tenant' => '/\btenants?\b/i',
+        // Les quatre mots de la même famille : le code, encore.
+        'wallet' => '/\bwallets?\b/i',
+        'plan' => '/\bplans?\b/i',
+        'quota' => '/\bquotas?\b/i',
+        'grand livre' => '/grand[\s-]?livre/i',
     ];
 
     /**
@@ -86,6 +91,7 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
             'callback' => 'le champ `callback_url` figure dans la requête que l\'intégrateur envoie : le mot est celui du contrat qu\'il écrit.',
             'webhook' => 'l\'écran montre le catalogue des événements de la fonctionnalité elle-même : le mot nomme la chose que l\'opérateur a enregistrée.',
             'endpoint' => 'idem : le mot nomme l\'adresse que l\'opérateur a enregistrée pour son application.',
+            'wallet' => 'les noms des événements (`wallet.credited`, `wallet.debited`) figurent dans le contrat que le destinataire reçoit : le mot est celui du contrat qu\'il lit.',
         ],
         'resources/views/admin/webhook-deliveries/dead.blade.php' => [
             'webhook' => 'l\'écran montre les livraisons de la fonctionnalité elle-même : le mot nomme la chose que l\'opérateur a enregistrée.',
@@ -191,8 +197,8 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
      * @var array<string, list<string>>
      */
     private const NOT_YET_REWRITTEN = [
-        'resources/views/admin/webhook-endpoints/index.blade.php' => ['ADR', 'endpoint', 'webhook'],
-        'resources/views/admin/projects/show.blade.php' => ['endpoint', 'provider', 'webhook'],
+        'resources/views/admin/webhook-endpoints/index.blade.php' => ['ADR', 'endpoint', 'quota', 'webhook'],
+        'resources/views/admin/projects/show.blade.php' => ['endpoint', 'grand livre', 'provider', 'quota', 'wallet', 'webhook'],
         'resources/views/admin/billing/customers/show.blade.php' => [],
     ];
 

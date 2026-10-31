@@ -9,7 +9,7 @@
         <h2 class="text-lg font-semibold text-slate-900 mb-1">Modifier l'organisation</h2>
         <p class="text-base text-slate-600 mb-4">
             Nom et statut. Une organisation suspendue reste visible ici,
-            mais ses projets et wallets ne sont pas eux-mêmes suspendus
+            mais ses projets et portefeuilles ne sont pas eux-mêmes suspendus
             automatiquement.
         </p>
 

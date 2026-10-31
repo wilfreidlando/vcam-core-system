@@ -72,7 +72,7 @@
     <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
         <div class="px-5 py-3.5 border-b border-slate-200 bg-slate-50/60">
             <h2 class="font-semibold text-slate-900">wallet.credited</h2>
-            <p class="text-sm text-slate-600 mt-0.5">Un wallet vient d'être crédité — aujourd'hui, toujours en conséquence directe et synchrone d'un paiement réussi qui portait <span class="font-mono">wallet_recipient_external_ref</span>.</p>
+            <p class="text-sm text-slate-600 mt-0.5">Un portefeuille vient d'être crédité — aujourd'hui, toujours en conséquence directe et synchrone d'un paiement réussi qui portait <span class="font-mono">wallet_recipient_external_ref</span>.</p>
         </div>
         <div class="p-5 space-y-3">
             <pre class="text-sm font-mono bg-slate-50 border border-slate-200 rounded px-3 py-2.5 overflow-x-auto">{
@@ -88,9 +88,9 @@
             <p class="text-sm text-slate-600">
                 <span class="font-semibold">Redondant avec payment.status_changed pour un paiement que vous avez
                 vous-même initié</span> : vous savez déjà, au moment où vous initiez le paiement avec
-                <span class="font-mono">wallet_recipient_external_ref</span>, qu'un succès créditera le wallet — la
+                <span class="font-mono">wallet_recipient_external_ref</span>, qu'un succès créditera le portefeuille — la
                 confirmation du paiement suffit. Cet événement sert surtout à un abonnement transverse
-                (tableau de bord de trésorerie, réconciliation comptable) qui suit tous les mouvements de wallets,
+                (tableau de bord de trésorerie, réconciliation comptable) qui suit tous les mouvements de portefeuilles,
                 indépendamment du paiement à l'origine.
             </p>
         </div>
@@ -99,7 +99,7 @@
     <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
         <div class="px-5 py-3.5 border-b border-slate-200 bg-slate-50/60">
             <h2 class="font-semibold text-slate-900">wallet.debited</h2>
-            <p class="text-sm text-slate-600 mt-0.5">Un wallet vient d'être débité.</p>
+            <p class="text-sm text-slate-600 mt-0.5">Un portefeuille vient d'être débité.</p>
         </div>
         <div class="p-5 space-y-3">
             <pre class="text-sm font-mono bg-slate-50 border border-slate-200 rounded px-3 py-2.5 overflow-x-auto">{
@@ -114,7 +114,7 @@
 }</pre>
             <div class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-900">
                 <span class="font-semibold">Ne vous abonnez pas à celui-ci pour l'instant.</span> Aucun flux
-                métier réel ne débite un wallet aujourd'hui — le seul déclencheur existant est un outil interne
+                métier réel ne débite un portefeuille aujourd'hui — le seul déclencheur existant est un outil interne
                 de test de concurrence. Cet événement ne fera rien en pratique tant qu'aucune fonctionnalité de
                 paiement sortant n'existe.
             </div>
