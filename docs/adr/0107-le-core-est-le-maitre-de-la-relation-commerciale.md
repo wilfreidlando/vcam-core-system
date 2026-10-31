@@ -5,6 +5,7 @@
 - **Décideurs** : commanditaire (« je ne vois pas pourquoi il est dans le kit alors que le portail le permet de gérer tout ça » ; « le but c'est que l'application client ne fasse vraiment pas trop d'intégration d'api » ; « quand on crée un projet ou client sur le core il crée le tenant dans l'application cliente en question »), comité d'architecture
 - **Dérives concernées** : D1 périmètre · D5 contrat
 - **Précise** : ADR-0075 (portail), ADR-0084 (le locataire du SaaS est un client du Core), ADR-0070 §3 (aucune donnée personnelle dans les charges utiles)
+- **Amendé par** : ADR-0110 (§2 — le Core crée le locataire et le pousse ; l'application ne l'écrit pas)
 
 ## Contexte
 
