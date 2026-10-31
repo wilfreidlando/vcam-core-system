@@ -162,7 +162,11 @@ final readonly class PortalWorkspace
         $subscriptions = $this->subscriptions($who);
         $changeable = null;
 
-        if ($who->branding->allowPlanChange) {
+        // A read-only session shows the catalogue but moves nothing: the
+        // button would be a lie the workspace would refuse.
+        $mayAct = ! $who->readOnly;
+
+        if ($mayAct && $who->branding->allowPlanChange) {
             foreach ($subscriptions as $subscription) {
                 if (in_array($subscription->status, ['active', 'trialing', 'past_due'], true) && ! $subscription->cancelAtPeriodEnd) {
                     $changeable = $subscription->id;
@@ -183,7 +187,7 @@ final readonly class PortalWorkspace
         return new PortalPlans(
             $this->planOptions($who, $subscriptions),
             $changeable,
-            $who->branding->allowPlanChange && ! $hasLive,
+            $mayAct && $who->branding->allowPlanChange && ! $hasLive,
             bin2hex(random_bytes(16)),
         );
     }
@@ -194,6 +198,8 @@ final readonly class PortalWorkspace
      */
     public function changePlan(PortalPrincipal $who, string $subscriptionId, string $planCode): void
     {
+        $this->assertWritable($who, 'le changement d\'offre');
+
         if (! $who->branding->allowPlanChange) {
             throw PortalActionRefused::because('Le changement d\'offre n\'est pas disponible depuis cet espace.');
         }
@@ -239,6 +245,8 @@ final readonly class PortalWorkspace
      */
     public function subscribe(PortalPrincipal $who, string $planCode, string $nonce): void
     {
+        $this->assertWritable($who, 'la souscription');
+
         if (! $who->branding->allowPlanChange) {
             throw PortalActionRefused::because('La souscription n\'est pas disponible depuis cet espace.');
         }
@@ -293,6 +301,8 @@ final readonly class PortalWorkspace
      */
     public function keepRenewing(PortalPrincipal $who, string $subscriptionId): void
     {
+        $this->assertWritable($who, 'la reprise du renouvellement');
+
         if (! $who->branding->allowSelfCancel) {
             throw PortalActionRefused::because('Cette action n\'est pas disponible depuis cet espace.');
         }
@@ -319,6 +329,8 @@ final readonly class PortalWorkspace
      */
     public function renew(PortalPrincipal $who, string $subscriptionId, string $nonce): void
     {
+        $this->assertWritable($who, 'le renouvellement');
+
         $ended = $this->subscription->get(new GetSubscriptionCommand($who->projectId, $subscriptionId), $this->scope($who));
 
         if ($ended === null || $ended->customerId !== $who->customerId || ! in_array($ended->status, ['canceled', 'expired'], true)) {
@@ -398,7 +410,9 @@ final readonly class PortalWorkspace
         }
 
         $payments = $this->invoicePayments->list(new ListInvoicePaymentsCommand($who->projectId, $invoice->id, null, 50), $this->scope($who))->items;
-        $channels = $invoice->status === 'open' ? $this->channels($who) : [];
+        // A read-only session is offered no rail: the payment it would
+        // start is refused by `pay()`.
+        $channels = ($invoice->status === 'open' && ! $who->readOnly) ? $this->channels($who) : [];
 
         return new PortalInvoiceDetail(
             $invoice,
@@ -423,6 +437,8 @@ final readonly class PortalWorkspace
      */
     public function pay(PortalPrincipal $who, string $invoiceId, string $channel, string $phone, string $nonce): PortalPaymentOutcome
     {
+        $this->assertWritable($who, 'le paiement');
+
         $invoice = $this->ownInvoice($who, $invoiceId);
 
         if ($invoice === null || $invoice->status === 'draft') {
@@ -482,6 +498,8 @@ final readonly class PortalWorkspace
      */
     public function cancelAtPeriodEnd(PortalPrincipal $who, string $subscriptionId): void
     {
+        $this->assertWritable($who, 'la résiliation');
+
         if (! $who->branding->allowSelfCancel) {
             throw PortalActionRefused::because('La résiliation n\'est pas disponible depuis cet espace.');
         }
@@ -505,6 +523,26 @@ final readonly class PortalWorkspace
 
             throw PortalActionRefused::because('Cet abonnement ne peut plus être résilié.');
         }
+    }
+
+    /**
+     * ADR-0075 §1 — the refusal of a **read-only** session.
+     *
+     * The guard lives here, in the code that performs the mutation, and
+     * not only in the view that hides the button: a caller who crafts the
+     * POST by hand must be refused exactly like the button that is not
+     * drawn. The sentence is safe to show — it tells the operator the
+     * session is a window, and nothing about the customer's data.
+     *
+     * @param string $gesture what the gesture would have done, in a phrase
+     */
+    private function assertWritable(PortalPrincipal $who, string $gesture): void
+    {
+        if (! $who->readOnly) {
+            return;
+        }
+
+        throw PortalActionRefused::because('Cette session est en consultation seule : '.$gesture.' n\'est pas possible.');
     }
 
     /**

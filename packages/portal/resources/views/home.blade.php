@@ -48,7 +48,9 @@
                 </div>
                 <div class="row__side">
                     <span class="amount amount--sm">{{ F::money($invoice->totalMinor - $invoice->amountPaidMinor, $invoice->currency) }}</span>
-                    <span class="button button--sm" aria-hidden="true">Payer</span>
+                    @unless (($principal->readOnly ?? false))
+                        <span class="button button--sm" aria-hidden="true">Payer</span>
+                    @endunless
                 </div>
             </a>
         @endforeach

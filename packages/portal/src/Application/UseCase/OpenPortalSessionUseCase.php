@@ -79,6 +79,14 @@ final readonly class OpenPortalSessionUseCase
             throw InvalidPortalFlow::because('The pay_invoice flow requires an invoice_id.');
         }
 
+        // A read session is a window: it must not cause a contract to
+        // appear under the customer's feet. The subscription is refused
+        // here, at the door, rather than silently ignored — a caller that
+        // asked for it deserves to know it will not happen.
+        if ($command->flow === PortalSession::FLOW_READ && $command->planCode !== null) {
+            throw InvalidPortalFlow::because('The read flow cannot subscribe a customer: it opens a session that changes nothing.');
+        }
+
         // A project that never chose any setting allows no return URL: the
         // defaults allow none, so the door stays closed.
         if ($command->returnUrl !== null && ! ($this->settings->find($command->projectId) ?? PortalSettings::defaultsFor($command->projectId))->allowsReturnUrl($command->returnUrl)) {

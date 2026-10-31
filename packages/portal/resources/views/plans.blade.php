@@ -38,13 +38,13 @@
 
                 @if ($plan->isCurrent)
                     <p class="tier__state">Offre actuelle</p>
-                @elseif ($plans->canSubscribe)
+                @elseif (! ($principal->readOnly ?? false) && $plans->canSubscribe)
                     <form method="post" action="/portal/plans/{{ $plan->code }}/subscribe">
                         <input type="hidden" name="_csrf" value="{{ $csrf }}">
                         <input type="hidden" name="nonce" value="{{ $plans->formNonce }}">
                         <button type="submit" class="button button--block" aria-describedby="plan-{{ $loop->index }}-name">Souscrire</button>
                     </form>
-                @elseif ($plans->canChange())
+                @elseif (! ($principal->readOnly ?? false) && $plans->canChange())
                     <form method="post" action="/portal/subscriptions/{{ $plans->changeableSubscriptionId }}/change-plan">
                         <input type="hidden" name="_csrf" value="{{ $csrf }}">
                         <input type="hidden" name="plan" value="{{ $plan->code }}">
@@ -54,8 +54,10 @@
             </article>
         @endforeach
     </div>
-    @unless ($plans->canChange() || $plans->canSubscribe)
+    @if (($principal->readOnly ?? false))
+        <p class="muted small pricing-note">Consultation seule : aucune offre ne peut être souscrite ni changée depuis cette session.</p>
+    @elseif (! $plans->canChange() && ! $plans->canSubscribe)
         <p class="muted small pricing-note">Pour changer d'offre, contactez {{ $principal->branding->displayName }}.</p>
-    @endunless
+    @endif
 @endif
 @endsection

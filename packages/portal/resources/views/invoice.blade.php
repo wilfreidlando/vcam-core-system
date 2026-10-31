@@ -67,6 +67,8 @@
             <button type="submit" class="button button--block">Payer {{ F::money($invoice->totalMinor - $invoice->amountPaidMinor, $invoice->currency) }}</button>
         </form>
     </section>
+@elseif ($invoice->status === 'open' && ($principal->readOnly ?? false))
+    <p class="note">Consultation seule : cette facture ne peut pas être payée depuis cette session.</p>
 @elseif ($invoice->status === 'open')
     <p class="note">Le paiement en ligne n'est pas disponible pour cette facture. Contactez le support pour la régler.</p>
 @endif

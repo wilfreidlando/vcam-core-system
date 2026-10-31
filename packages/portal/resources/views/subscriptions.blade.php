@@ -1,7 +1,12 @@
 @extends('portal::layout')
 @section('title', 'Abonnement')
 @section('content')
-@php use Core\Portal\Application\Support\PortalFormat as F; @endphp
+@php
+    use Core\Portal\Application\Support\PortalFormat as F;
+    // A read session shows the contract and refuses every gesture: the
+    // buttons that would be refused are not drawn.
+    $readOnly = ($principal->readOnly ?? false);
+@endphp
 <h1>Mon abonnement</h1>
 @forelse ($subscriptions as $sub)
     @php [$label, $tone] = F::subscriptionStatus($sub->status); @endphp
@@ -27,20 +32,20 @@
 
         @if ($sub->cancelAtPeriodEnd)
             <p class="note">Ce contrat ne sera pas renouvelé : il se termine le {{ F::date($sub->currentPeriodEnd) }}. Vous gardez l'accès jusque-là.</p>
-            @if ($principal->branding->allowSelfCancel)
+            @if ($principal->branding->allowSelfCancel && ! $readOnly)
                 <form method="post" action="/portal/subscriptions/{{ $sub->id }}/keep" class="inline">
                     <input type="hidden" name="_csrf" value="{{ $csrf }}">
                     <button type="submit" class="button">Reprendre le renouvellement</button>
                 </form>
             @endif
-        @elseif ($principal->branding->allowPlanChange && in_array($sub->status, ['canceled', 'expired'], true))
+        @elseif (! $readOnly && $principal->branding->allowPlanChange && in_array($sub->status, ['canceled', 'expired'], true))
             <form method="post" action="/portal/subscriptions/{{ $sub->id }}/renew" class="inline">
                 <input type="hidden" name="_csrf" value="{{ $csrf }}">
                 <input type="hidden" name="nonce" value="{{ $nonce }}">
                 <button type="submit" class="button">Renouveler mon abonnement</button>
                 <span class="muted small">Un nouveau contrat sur la même offre ; sa facture vous attend ensuite.</span>
             </form>
-        @elseif ($principal->branding->allowSelfCancel && in_array($sub->status, ['active', 'trialing', 'past_due'], true))
+        @elseif (! $readOnly && $principal->branding->allowSelfCancel && in_array($sub->status, ['active', 'trialing', 'past_due'], true))
             <form method="post" action="/portal/subscriptions/{{ $sub->id }}/cancel" class="inline">
                 <input type="hidden" name="_csrf" value="{{ $csrf }}">
                 <button type="submit" class="button button--danger-ghost">Ne pas renouveler</button>

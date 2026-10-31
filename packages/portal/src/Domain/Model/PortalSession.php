@@ -21,7 +21,18 @@ final readonly class PortalSession
 
     public const FLOW_PAY_INVOICE = 'pay_invoice';
 
-    public const FLOWS = [self::FLOW_MANAGE, self::FLOW_PAY_INVOICE];
+    /**
+     * ADR-0075 §1 — the operator's window: the very same portal, with
+     * every gesture removed.
+     *
+     * The support operator must be able to see **exactly** what the
+     * customer sees — to answer a question, to check a configuration —
+     * without touching the customer's subscription. The flow is not a
+     * lighter `manage`: it is a session that may read and never write.
+     */
+    public const FLOW_READ = 'read';
+
+    public const FLOWS = [self::FLOW_MANAGE, self::FLOW_PAY_INVOICE, self::FLOW_READ];
 
     public const TOKEN_TTL_SECONDS = 600;
 

@@ -83,6 +83,12 @@
 
     <div class="main">
         <main class="page" id="main" tabindex="-1">
+            @isset($principal)
+                {{-- A read session is a window: say so, on every page. --}}
+                @if (($principal->readOnly ?? false))
+                    <p class="note">Consultation seule : cette session montre le portail du client, sans permettre aucune action.</p>
+                @endif
+            @endisset
             @yield('content')
         </main>
     </div>

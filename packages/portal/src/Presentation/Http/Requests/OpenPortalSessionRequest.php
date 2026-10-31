@@ -30,12 +30,14 @@ final class OpenPortalSessionRequest extends FormRequest
             'customer_ref' => ['required', 'string', 'max:128', 'regex:/^[A-Za-z0-9._:-]+$/'],
             /**
              * Where the customer lands: `manage` (the home of the portal,
-             * default) or `pay_invoice` (straight to an invoice, which needs
-             * `invoice_id`).
+             * default), `pay_invoice` (straight to an invoice, which needs
+             * `invoice_id`) or `read` (the very same portal, read-only —
+             * for a support operator who must see what the customer sees
+             * without touching anything).
              *
              * @example "manage"
              */
-            'flow' => ['nullable', 'string', 'in:manage,pay_invoice'],
+            'flow' => ['nullable', 'string', 'in:manage,pay_invoice,read'],
             /**
              * The invoice to open with the `pay_invoice` flow.
              */
