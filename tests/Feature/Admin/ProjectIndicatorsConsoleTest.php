@@ -22,8 +22,10 @@ use Core\Identity\Contracts\CreateProjectCommand;
 use Core\Identity\Domain\Model\Operator;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Identity\OperatorRole;
+use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
 use Tests\Support\OperatorFactory;
@@ -71,6 +73,79 @@ final class ProjectIndicatorsConsoleTest extends TestCase
     }
 
     #[Test]
+    public function the_checklist_is_computed_from_the_project_and_signals_an_active_project_that_is_not_ready(): void
+    {
+        $projectId = $this->projectWithOneSubscriber();
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $page = $this->get("/admin/projects/{$projectId}/indicators")->assertOk();
+
+        // The seven items ADR-0080 §4 asks for.
+        $page->assertSee('Une clé d\'API a déjà servi')
+            ->assertSee('Un webhook actif et testé')
+            ->assertSee('Une application prestataire enregistrée')
+            ->assertSee('Une offre publiée')
+            ->assertSee('Un portail personnalisé')
+            ->assertSee('Une session de notification enregistrée')
+            ->assertSee('Attribution des usages obligatoire');
+
+        // Nothing is wired yet and the project is active: it is signalled.
+        // The sentence is static text in the template, so the apostrophe is
+        // not escaped there — the comparison must not escape it either.
+        $page->assertSee('Ce projet est actif, mais il n\'est pas encore prêt à encaisser.', false);
+
+        // The published plan carries no limit, so the attribution setting
+        // does not concern this project: it is not a failure.
+        // @phpstan-ignore-next-line — TestResponse::getContent() is a dynamic proxy to the underlying Symfony Response.
+        $content = $page->getContent();
+        $html = is_string($content) ? $content : '';
+        self::assertMatchesRegularExpression(
+            '/Attribution des usages obligatoire\s*<span class="sr-only">\(sans objet\)<\/span>/',
+            $html,
+        );
+
+        // Wire the two mandatory items the project is missing.
+        $this->wireApiKey($projectId);
+        $this->wireWebhook($projectId);
+
+        $wired = $this->get("/admin/projects/{$projectId}/indicators")->assertOk();
+
+        // @phpstan-ignore-next-line — TestResponse::getContent() is a dynamic proxy to the underlying Symfony Response.
+        $wiredContent = $wired->getContent();
+        $wiredHtml = is_string($wiredContent) ? $wiredContent : '';
+        self::assertMatchesRegularExpression('/Une clé d(&#039;|\')API a déjà servi\s*<span class="sr-only">\(fait\)<\/span>/', $wiredHtml);
+        self::assertMatchesRegularExpression('/Un webhook actif et testé\s*<span class="sr-only">\(fait\)<\/span>/', $wiredHtml);
+        self::assertStringNotContainsString('Ce projet est actif, mais il n\'est pas encore prêt à encaisser.', $wiredHtml);
+    }
+
+    #[Test]
+    public function a_key_that_has_not_served_recently_does_not_count_as_used(): void
+    {
+        $projectId = $this->projectWithOneSubscriber();
+
+        // A key that served eight months ago: ADR-0080 §4 asks for a key
+        // « utilisée récemment », not one that merely exists.
+        $issued = app(\Core\Identity\Contracts\IssueApiKey::class)->issue(
+            new \Core\Identity\Contracts\IssueApiKeyCommand($projectId, \Core\Identity\Contracts\ApiKeyScopes::ALL),
+            actor: 'test',
+            correlationId: null,
+        );
+        DB::table('api_keys')->where('id', $issued->apiKeyId)->update([
+            'last_used_at' => now()->subMonths(8),
+        ]);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $page = $this->get("/admin/projects/{$projectId}/indicators")->assertOk();
+
+        // @phpstan-ignore-next-line — TestResponse::getContent() is a dynamic proxy to the underlying Symfony Response.
+        $content = $page->getContent();
+        $html = is_string($content) ? $content : '';
+        self::assertMatchesRegularExpression('/Une clé d(&#039;|\')API a déjà servi\s*<span class="sr-only">\(à faire\)<\/span>/', $html);
+    }
+
+    #[Test]
     public function a_stat_tile_shows_an_amount_with_its_currency_as_written_not_as_a_number(): void
     {
         // Found by the browser session: « 85 000 XAF » was cast to a number and shown as « 85 ».
@@ -79,6 +154,41 @@ final class ProjectIndicatorsConsoleTest extends TestCase
         self::assertStringContainsString('85 000 XAF', $html);
         self::assertStringContainsString('2 / 3', $html);
         self::assertStringContainsString('12,345', $html);
+    }
+
+    private function wireApiKey(string $projectId): void
+    {
+        $issued = app(\Core\Identity\Contracts\IssueApiKey::class)->issue(
+            new \Core\Identity\Contracts\IssueApiKeyCommand($projectId, \Core\Identity\Contracts\ApiKeyScopes::ALL),
+            actor: 'test',
+            correlationId: null,
+        );
+
+        DB::table('api_keys')->where('id', $issued->apiKeyId)->update(['last_used_at' => now()]);
+    }
+
+    private function wireWebhook(string $projectId): void
+    {
+        $endpoint = app(\Core\Webhook\Contracts\RegisterWebhookEndpoint::class)->register(
+            new \Core\Webhook\Contracts\RegisterWebhookEndpointCommand($projectId, 'https://example.com/hook', ['*']),
+        );
+
+        // A delivery that actually landed — an endpoint that was never
+        // called proves nothing (ADR-0080 §4).
+        app(\Core\Webhook\Domain\Port\WebhookDeliveryRepository::class)->create(new \Core\Webhook\Domain\Model\WebhookDelivery(
+            id: (string) Str::uuid(),
+            endpointId: $endpoint->id,
+            projectId: $projectId,
+            eventId: (string) Str::uuid(),
+            eventType: 'payment.status_changed',
+            payload: [],
+            status: \Core\Webhook\Domain\Model\WebhookDeliveryStatus::Delivered,
+            attempts: 1,
+            nextRetryAt: null,
+            lastAttemptAt: new DateTimeImmutable,
+            lastError: null,
+            deliveredAt: new DateTimeImmutable,
+        ));
     }
 
     private function projectWithOneSubscriber(): string

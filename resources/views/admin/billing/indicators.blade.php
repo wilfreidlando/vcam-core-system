@@ -107,13 +107,25 @@
 
     <section aria-labelledby="checklist">
         <h2 id="checklist" class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Ce projet est-il prêt à encaisser ?</h2>
+
+        @if ($blocked)
+            <div role="alert" class="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
+                <p class="text-sm font-semibold text-amber-900">Ce projet est actif, mais il n'est pas encore prêt à encaisser.</p>
+                <ul class="mt-1 list-inside list-disc text-sm text-amber-800">
+                    @foreach ($missing as $item)
+                        <li>{{ $item['label'] }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <ul class="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
             @foreach ($checklist as $item)
-                <li class="flex items-start gap-3 px-4 py-3">
-                    <span @class(['mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full text-xs font-bold', 'bg-emerald-100 text-emerald-700' => $item['done'], 'bg-amber-100 text-amber-700' => ! $item['done']])
-                          aria-hidden="true">{{ $item['done'] ? '✓' : '!' }}</span>
+                <li @class(['flex items-start gap-3 px-4 py-3', 'opacity-60' => ! $item['applicable']])>
+                    <span @class(['mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full text-xs font-bold', 'bg-emerald-100 text-emerald-700' => $item['done'], 'bg-amber-100 text-amber-700' => ! $item['done'] && $item['applicable'], 'bg-slate-100 text-slate-500' => ! $item['applicable']])
+                          aria-hidden="true">{{ $item['done'] ? '✓' : ($item['applicable'] ? '!' : '–') }}</span>
                     <div>
-                        <p class="text-sm font-medium text-slate-900">{{ $item['label'] }} <span class="sr-only">{{ $item['done'] ? '(fait)' : '(à faire)' }}</span></p>
+                        <p class="text-sm font-medium text-slate-900">{{ $item['label'] }} <span class="sr-only">{{ ! $item['applicable'] ? '(sans objet)' : ($item['done'] ? '(fait)' : '(à faire)') }}</span></p>
                         <p class="text-sm text-slate-500">{{ $item['hint'] }}</p>
                     </div>
                 </li>
