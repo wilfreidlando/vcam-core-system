@@ -170,6 +170,63 @@ final class ProjectIndicatorsConsoleTest extends TestCase
     }
 
     #[Test]
+    public function the_pass_can_be_replayed_over_a_range_of_days(): void
+    {
+        $projectId = $this->projectWithOneSubscriber();
+
+        // ADR-0080 §3 — the pass is recalculable over a range: the days the
+        // nightly job missed are filled by replaying it.
+        $report = app(SnapshotMetricsUseCase::class)->snapshot('2026-10-27', '2026-10-29');
+
+        self::assertSame(3, $report['days']);
+        self::assertSame(1, $report['projects']);
+
+        $days = DB::table('billing_daily_metrics')->where('project_id', $projectId)->pluck('day')->all();
+        sort($days);
+        self::assertSame(['2026-10-27', '2026-10-28', '2026-10-29'], $days);
+
+        // ADR-0080 §Vérification — replaying the same range overwrites the
+        // rows, it never doubles them.
+        $again = app(SnapshotMetricsUseCase::class)->snapshot('2026-10-27', '2026-10-29');
+
+        self::assertSame($report, $again);
+        self::assertSame(3, DB::table('billing_daily_metrics')->where('project_id', $projectId)->count());
+    }
+
+    #[Test]
+    public function a_day_that_was_reconstructed_says_so_on_the_curve(): void
+    {
+        $projectId = $this->projectWithOneSubscriber();
+
+        // A row computed on another day: the figures are those of the day
+        // of the pass, not of the day displayed.
+        DB::table('billing_daily_metrics')->insert([
+            'id' => (string) Str::uuid(),
+            'project_id' => $projectId,
+            'day' => '2026-10-20',
+            'currency' => 'XAF',
+            'mrr_minor' => 25_000,
+            'collected_minor' => 0,
+            'receivables_minor' => 0,
+            'customers' => 1,
+            'active_customers' => 1,
+            'trialing' => 0,
+            'past_due' => 0,
+            'paused' => 0,
+            'new_this_month' => 0,
+            'lost_this_month' => 0,
+            'churn_bps' => 0,
+            'computed_at' => now(),
+        ]);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $page = $this->get("/admin/projects/{$projectId}/indicators?days=365")->assertOk();
+
+        $page->assertSee('ont été reconstruits le');
+    }
+
+    #[Test]
     public function a_stat_tile_shows_an_amount_with_its_currency_as_written_not_as_a_number(): void
     {
         // Found by the browser session: « 85 000 XAF » was cast to a number and shown as « 85 ».

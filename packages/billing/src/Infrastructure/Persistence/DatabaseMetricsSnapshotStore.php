@@ -72,6 +72,7 @@ final class DatabaseMetricsSnapshotStore implements MetricsSnapshotStore
                 pastDue: $this->int($row->past_due),
                 newThisMonth: $this->int($row->new_this_month),
                 lostThisMonth: $this->int($row->lost_this_month),
+                computedAt: $this->string($row->computed_at),
             );
         }
 

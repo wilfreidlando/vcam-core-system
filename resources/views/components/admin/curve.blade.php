@@ -35,6 +35,15 @@
     $lastPoint = $line === '' ? ['160', '82'] : explode(',', (string) last(explode(' ', $line)));
     $firstDay = $points->first()?->day;
     $lastDay = $points->last()?->day;
+
+    // ADR-0080 §3 — a row computed on another day was **reconstructed**,
+    // not observed: the pass replays a range with the figures of the
+    // moment it runs. The curve says so, rather than letting a filled
+    // day be read as a recorded one.
+    $reconstructed = $points->first(
+        fn ($p): bool => $p->computedAt !== '' && substr($p->computedAt, 0, 10) !== $p->day,
+    );
+    $reconstructedAt = $reconstructed === null ? '' : substr($reconstructed->computedAt, 0, 10);
 @endphp
 
 @if ($compact)
@@ -58,5 +67,10 @@
         <div class="mt-1 flex justify-between text-xs text-slate-500">
             <span>{{ $firstDay }}</span><span>max {{ $amount($max) }}</span><span>{{ $lastDay }}</span>
         </div>
+        @if ($reconstructedAt !== '')
+            <p class="mt-1 text-xs text-amber-700">
+                Certains jours ont été reconstruits le {{ $reconstructedAt }} : leurs chiffres sont ceux du jour de la reprise, pas ceux du jour affiché.
+            </p>
+        @endif
     </figure>
 @endif

@@ -20,5 +20,11 @@ final readonly class MetricsPoint
         public int $pastDue,
         public int $newThisMonth,
         public int $lostThisMonth,
+        /**
+         * ADR-0080 §3 — the instant the row was **computed**, which is not
+         * necessarily its day: a replay over a range fills the days the
+         * nightly job missed with the figures of the moment of the pass.
+         */
+        public string $computedAt = '',
     ) {}
 }
