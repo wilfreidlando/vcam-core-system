@@ -15669,10 +15669,11 @@
                             "string",
                             "null"
                         ],
-                        "description": "Where the customer lands: `manage` (the home of the portal,\ndefault) or `pay_invoice` (straight to an invoice, which needs\n`invoice_id`).",
+                        "description": "Where the customer lands: `manage` (the home of the portal,\ndefault), `pay_invoice` (straight to an invoice, which needs\n`invoice_id`) or `read` (the very same portal, read-only \u2014\nfor a support operator who must see what the customer sees\nwithout touching anything).",
                         "enum": [
                             "manage",
                             "pay_invoice",
+                            "read",
                             null
                         ],
                         "examples": [
