@@ -47,6 +47,11 @@
                     <td class="px-4 py-2 text-sm">
                         @php
                             $labels = ['active' => 'Actif', 'suspended' => 'Suspendu', 'erased' => 'Effacé'];
+                            // The customer's sheet shows the same words:
+                            // one fact, one word — otherwise the operator
+                            // wonders whether they are looking at the same
+                            // customer.
+                            $labels = array_map(\App\Http\View\CustomerLabels::status(...), $labels);
                             $classes = [
                                 'active' => 'bg-emerald-100 text-emerald-700',
                                 'suspended' => 'bg-amber-100 text-amber-700',

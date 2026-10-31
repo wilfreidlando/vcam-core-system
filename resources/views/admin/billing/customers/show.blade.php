@@ -17,7 +17,7 @@
             <p class="font-mono text-sm text-slate-500">{{ $customer->externalRef }}</p>
         </div>
         <div class="flex items-center gap-3">
-            <span @class(['rounded-md px-2 py-0.5 text-xs font-medium', 'bg-emerald-100 text-emerald-800' => $customer->status === 'active', 'bg-amber-100 text-amber-800' => $customer->status === 'suspended', 'bg-slate-100 text-slate-700' => ! in_array($customer->status, ['active', 'suspended'], true)])>{{ $customer->status }}</span>
+            <span @class(['rounded-md px-2 py-0.5 text-xs font-medium', 'bg-emerald-100 text-emerald-800' => $customer->status === 'active', 'bg-amber-100 text-amber-800' => $customer->status === 'suspended', 'bg-slate-100 text-slate-700' => ! in_array($customer->status, ['active', 'suspended'], true)])>{{ \App\Http\View\CustomerLabels::status($customer->status) }}</span>
             <a href="{{ route('admin.projects.customers.edit', [$projectId, $customer->externalRef]) }}" class="inline-block px-2.5 py-1.5 text-sm font-medium text-indigo-700 hover:text-indigo-900">Modifier</a>
         </div>
     </div>
