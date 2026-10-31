@@ -52,7 +52,7 @@ Sur la facture ouverte, la carte **« Encaissement hors ligne »**.
   vous enregistrez le reçu.
 - **« Note »** — facultatif. Une précision libre, si vous en avez une.
 
-Cliquez sur **« Enregistrer l'encaissement »**.
+Cliquez sur **« Enregistrer l’encaissement »**.
 
 → **Ce qui se passe** : le reçu est enregistré et il apparaît dans le tableau
 **« Encaissements de la facture »**. S’il est sous le seuil du projet, il est
@@ -112,8 +112,8 @@ a déjà payé, et ce qui ne l’est pas encore.
 
 | Ce que vous lisez | Ce que ça veut dire | Ce que vous faites |
 |-------------------|---------------------|-------------------|
-| **« Le formulaire n'a pas pu être enregistré »** et une liste de messages | Le reçu a été refusé : une méthode ou une date manque, le montant n’est pas un nombre. | Corrigez les champs signalés et enregistrez de nouveau. |
-| Un bandeau rouge après **« Enregistrer l'encaissement »**, sans champ en cause | La facture n’accepte pas ce reçu : elle n’est plus ouverte, elle est déjà payée, le montant dépasse ce qui reste dû, ou la devise ne va pas. | Vérifiez le statut et le **« Déjà réglé »** de la facture, et saisissez le montant exact qui reste. |
+| **« Le formulaire n’a pas pu être enregistré »** et une liste de messages | Le reçu a été refusé : une méthode ou une date manque, le montant n’est pas un nombre. | Corrigez les champs signalés et enregistrez de nouveau. |
+| Un bandeau rouge après **« Enregistrer l’encaissement »**, sans champ en cause | La facture n’accepte pas ce reçu : elle n’est plus ouverte, elle est déjà payée, le montant dépasse ce qui reste dû, ou la devise ne va pas. | Vérifiez le statut et le **« Déjà réglé »** de la facture, et saisissez le montant exact qui reste. |
 | **« Ressource introuvable. »** | La facture n’existe pas dans ce projet. | Revenez à la page **« Factures »** et rouvrez-la par **« Ouvrir »**. |
 | Votre reçu n’apparaît pas dans le filtre **« À valider »** | Il est sous le seuil du projet : il a été comptabilisé au moment de l’enregistrement. | Consultez le filtre **« Comptabilisés »**. |
 | **« Confirmez votre identité »** s’ouvre à la place de la page | Valider un reçu est un acte sensible : la console veut une preuve fraîche que c’est bien vous. | Saisissez le code à 6 chiffres de votre application d’authentification et cliquez sur **« Confirmer »**. Vous revenez ensuite sur la page des encaissements : cliquez encore une fois sur **« Valider »**. |
@@ -122,4 +122,4 @@ a déjà payé, et ce qui ne l’est pas encore.
 ## Et ensuite
 
 - Vous voulez **facturer une période** : parcourez [F07 — Émettre une facture](F07-emettre-une-facture.md).
-- Vous voulez **voir ce qui reste dû et relancer les clients** : parcourez [F09 — Voir ce qui m'est dû et relancer](../argent/F09-voir-ce-qui-mest-du-et-relancer.md).
+- Vous voulez **voir ce qui reste dû et relancer les clients** : parcourez [F09 — Voir ce qui m’est dû et relancer](../argent/F09-voir-ce-qui-mest-du-et-relancer.md).

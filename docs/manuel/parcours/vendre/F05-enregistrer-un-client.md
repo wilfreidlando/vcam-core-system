@@ -71,7 +71,7 @@ règlements.
 → **Ce qui se passe** : la carte **« Droits et usage »** montre ce à quoi le
 client a droit aujourd’hui ; les cartes **« Abonnements »**,
 **« Factures récentes »** et **« Règlements »** montrent son historique. C’est
-aussi là que vous souscrivez une offre, avec le bouton **« Créer l'abonnement »**.
+aussi là que vous souscrivez une offre, avec le bouton **« Créer l’abonnement »**.
 
 ## Ce que vous voyez
 
@@ -87,13 +87,13 @@ aussi là que vous souscrivez une offre, avec le bouton **« Créer l'abonnement
 | **« Droits et usage »** | Ce à quoi le client a droit aujourd’hui, et combien il a déjà consommé de chaque quota. |
 | **« Règlements »** | Tout ce que le client a réglé, dans l’ordre : les paiements en ligne et les reçus hors ligne. |
 | Un bandeau vert en haut de la page | L’acte a été fait. |
-| Un bandeau rouge en haut de la page, avec **« Le formulaire n'a pas pu être enregistré »** et une liste de messages | L’acte a été refusé. Les messages sont aussi attachés aux champs, dans le formulaire. |
+| Un bandeau rouge en haut de la page, avec **« Le formulaire n’a pas pu être enregistré »** et une liste de messages | L’acte a été refusé. Les messages sont aussi attachés aux champs, dans le formulaire. |
 
 ## Si ça ne marche pas
 
 | Ce que vous lisez | Ce que ça veut dire | Ce que vous faites |
 |-------------------|---------------------|-------------------|
-| **« Le formulaire n'a pas pu être enregistré »** et une liste de messages | La fiche a été refusée : un champ obligatoire est vide, la référence contient un caractère interdit, ou une autre fiche du projet porte déjà cette adresse de contact. | Corrigez ce qui est signalé, champ par champ, et validez de nouveau. |
+| **« Le formulaire n’a pas pu être enregistré »** et une liste de messages | La fiche a été refusée : un champ obligatoire est vide, la référence contient un caractère interdit, ou une autre fiche du projet porte déjà cette adresse de contact. | Corrigez ce qui est signalé, champ par champ, et validez de nouveau. |
 | La fiche que vous venez de créer ne porte pas le nom que vous avez saisi | La référence existait déjà : vous avez modifié l’ancienne fiche, pas créé une nouvelle. | Cliquez sur **« Fiche »**, vérifiez, puis remettez le bon nom avec **« Modifier »**. |
 | Un bandeau rouge après **« Modifier »**, sans détail sur le champ | Quelqu’un d’autre a modifié la fiche entre-temps. | Rechargez la page, vérifiez la modification, puis enregistrez à nouveau. |
 | Le client n’apparaît pas, même après une recherche | Il appartient à un autre projet. | Chaque projet a ses propres clients : ouvrez le bon projet. |

@@ -16,7 +16,7 @@ temps: 10 minutes
   les abonnements déjà signés gardent les conditions qu’ils ont signées.
 - **On ne paie pas un abonnement : on paie des périodes.** Un abonnement est une
   suite de périodes, et c’est la période qui porte le prix signé. Le tableau
-  **« Périodes de l'abonnement »** est l’histoire de ce que le client a dû et de
+  **« Périodes de l’abonnement »** est l’histoire de ce que le client a dû et de
   ce qu’il a réglé.
 - **Changer d’offre ne se fait jamais au hasard.** Par défaut, le nouveau tarif
   s’applique à la période suivante et la période en cours n’est pas touchée. Si
@@ -43,14 +43,14 @@ facturée ; c’est elle que l’abonnement reprend.
 Si l’offre n’existe pas encore, le bouton **« Nouvelle offre »** ouvre un
 formulaire : **« Code »** (le nom court et stable de l’offre), **« Nom »**,
 **« Visibilité »** — **« Proposé publiquement »** ou **« Attribué seulement »** —
-et **« Description »**. Le bouton **« Créer l'offre »** enregistre l’offre
+et **« Description »**. Le bouton **« Créer l’offre »** enregistre l’offre
 seule.
 
 Le bloc **« Ajouter une version »** porte le prix et les conditions :
 **« Offre (code) »**, **« Prix (unités mineures) »**, **« Devise »**,
 **« Unité »** (jour, semaine, mois ou an), **« Nombre »** (combien de fois),
 **« Essai (jours) »**, **« Grâce (jours) »** et la case
-**« Maintenir l'accès pendant la grâce »**. Le bouton
+**« Maintenir l’accès pendant la grâce »**. Le bouton
 **« Ajouter la version »** enregistre une version **« Brouillon »**.
 
 Sur la page **« Offres »**, le bouton **« Publier »** fige cette version.
@@ -63,7 +63,7 @@ Sur la page **« Offres »**, le bouton **« Publier »** fige cette version.
 Ouvrez la fiche du client (parcours [F05](F05-enregistrer-un-client.md)), puis
 la carte **« Abonnements »**. Le champ **« Souscrire à une offre »** propose
 les offres du projet ; **« Essai (jours) »** offers, si vous le voulez, des
-jours d’essai avant le premier règlement. Le bouton **« Créer l'abonnement »**
+jours d’essai avant le premier règlement. Le bouton **« Créer l’abonnement »**
 valide.
 
 → **Ce qui se passe** : le contrat est signé. Il porte le prix et la devise de
@@ -75,7 +75,7 @@ proposée est archivée ou n’a aucune version publiée, l’abonnement est ref
 Sur la page **« Abonnements »**, le lien **« Ouvrir »** en face de la ligne du
 client. La page de l’abonnement affiche son **« Statut »**, son **« Prix signé »**
 et sa **« Période courante »**, puis le tableau
-**« Périodes de l'abonnement »**.
+**« Périodes de l’abonnement »**.
 
 → **Ce qui se passe** : vous êtes sur la page qui porte tous les gestes :
 changer d’offre, suspendre, reprendre, offrir une période, arrêter. Chaque
@@ -83,8 +83,8 @@ carte est un geste distinct, avec ses propres champs.
 
 ### 4. Changer d’offire
 
-Dans la carte **« Changer d'offre »**, saisissez le **« Code de l'offre »** —
-le nom court de la nouvelle offre — et choisissez la **« Prise d'effet »** : à la
+Dans la carte **« Changer d’offre »**, saisissez le **« Code de l’offre »** —
+le nom court de la nouvelle offre — et choisissez la **« Prise d’effet »** : à la
 fin de la période en cours, ou immédiatement. Le bouton **« Changer »** valide.
 
 → **Ce qui se passe** : si le changement prend effet à la fin de la période en
@@ -115,8 +115,8 @@ colonne **« Réglée »** affiche **« oui »**.
 ### 7. Arrêter l’abonnement
 
 La carte **« Annuler »** demande un **« Motif »** (facultatif) et une
-**« Prise d'effet »** : à la fin de la période en cours, ou immédiatement. Le
-bouton **« Annuler l'abonnement »** valide.
+**« Prise d’effet »** : à la fin de la période en cours, ou immédiatement. Le
+bouton **« Annuler l’abonnement »** valide.
 
 → **Ce qui se passe** : à la fin de la période en cours, le contrat s’arrête
 et la fiche du client affiche **« ne sera pas renouvelé »**. En application
@@ -130,7 +130,7 @@ vie, créez un nouvel abonnement.
 |-------------|--------------------|
 | **« Prix signé »** | Le prix et la devise inscrits au contrat. Ils ne suivent pas les changements de tarif : une nouvelle version ne touche pas les abonnements existants. |
 | **« Période courante »** | Les dates de la période en cours. À la suspension, elle est repoussée d’autant de jours que la pause a duré. |
-| **« Prise d'effet »** | Quand le geste s’applique : à la fin de la période en cours, ou tout de suite. C’est ce que vous choisissez quand vous changez d’offre ou quand vous arrêtez l’abonnement. |
+| **« Prise d’effet »** | Quand le geste s’applique : à la fin de la période en cours, ou tout de suite. C’est ce que vous choisissez quand vous changez d’offre ou quand vous arrêtez l’abonnement. |
 | **« Type »** (colonne des périodes) | La nature de la période : `trial` (l’essai offert à la signature), `paid` (la période facturée) ou `complimentary` (une période offerte par vous). |
 | **« Réglée »** (colonne des périodes) | **« oui »** : la période est réglée. **« non »** : elle ne l’est pas encore. |
 | **« Motif »** (colonne des périodes) | Pourquoi la période a été offerte. Le motif est obligatoire pour une période offerte. |
@@ -141,7 +141,7 @@ vie, créez un nouvel abonnement.
 | **« Statut »** — **« En pause »** | Vous avez suspendu le contrat : les droits sont coupés, la période est allongée. |
 | **« Statut »** — **« Annulé »** ou **« Expiré »** | Le contrat est terminé. Il ne repartira pas. |
 | **« Déclarer un règlement »** (encadré de l’abonnement) | Vous déclarez qu’une période a été réglée. Cela ne fait entrer aucune somme : pour l’argent, voir [F08](F08-encaisser-un-reglement-recu-par-ailleurs.md). |
-| **« Archiver »** (sur la page des offres) | L’offre n’est plus proposée aux nouvelles souscriptions : **« L'offre n'est plus proposée aux nouvelles souscriptions. Les abonnements en cours gardent leurs conditions. »** |
+| **« Archiver »** (sur la page des offres) | L’offre n’est plus proposée aux nouvelles souscriptions : **« L’offre n’est plus proposée aux nouvelles souscriptions. Les abonnements en cours gardent leurs conditions. »** |
 
 ## Si ça ne marche pas
 

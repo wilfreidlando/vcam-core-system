@@ -81,7 +81,7 @@ comptes.
 En bas de la page, la carte **« Émettre la facture »** et son bouton
 **« Émettre »**. Une confirmation s’ouvre ; cliquez sur **« Émettre la facture »**.
 
-**« L'émission attribue un numéro sans trou, inscrit la créance dans les comptes et fige le document. Elle est irréversible : seule l'annulation, elle aussi auditée, permet de revenir en arrière. »**
+**« L’émission attribue un numéro sans trou, inscrit la créance dans les comptes et fige le document. Elle est irréversible : seule l’annulation, elle aussi auditée, permet de revenir en arrière. »**
 
 → **Ce qui se passe** : avant de faire le geste, la console vous demande de
 confirmer votre identité : **« Confirmez votre identité »**, avec le code à
@@ -115,7 +115,7 @@ ouverte, pas payée.
 
 | Ce que vous lisez | Ce que ça veut dire | Ce que vous faites |
 |-------------------|---------------------|-------------------|
-| **« Le formulaire n'a pas pu être enregistré »** et une liste de messages | La facture a été refusée : une ligne est vide, la quantité ou le prix ne sont pas des nombres, ou la date d’échéance est illisible. | Corrigez ce qui est signalé dans le formulaire, puis enregistrez de nouveau. |
+| **« Le formulaire n’a pas pu être enregistré »** et une liste de messages | La facture a été refusée : une ligne est vide, la quantité ou le prix ne sont pas des nombres, ou la date d’échéance est illisible. | Corrigez ce qui est signalé dans le formulaire, puis enregistrez de nouveau. |
 | **« Ressource introuvable. »** | Le client saisi n’existe pas dans ce projet. | Vérifiez la référence du client, ou créez d’abord sa fiche (parcours [F05](F05-enregistrer-un-client.md)). |
 | Le bouton **« Émettre »** n’apparaît pas | La facture n’est plus en brouillon : elle est déjà émise, annulée ou payée. | Une facture émise ne se modifie plus : annulez-la si elle est fausse, puis refaites-la. |
 | **« Confirmez votre identité »** s’ouvre à la place de la facture | L’émission est un acte sensible : la console veut une preuve fraîche que c’est bien vous. | Saisissez le code à 6 chiffres de votre application d’authentification et cliquez sur **« Confirmer »**. Vous revenez ensuite à la facture : cliquez encore une fois sur **« Émettre »**. |
@@ -125,4 +125,4 @@ ouverte, pas payée.
 ## Et ensuite
 
 - L’argent est arrivé **par virement, en espèces ou par chèque** : parcourez [F08 — Encaisser un règlement reçu par ailleurs](F08-encaisser-un-reglement-recu-par-ailleurs.md).
-- Vous voulez **savoir ce qui vous est dû et relancer** : parcourez [F09 — Voir ce qui m'est dû et relancer](../argent/F09-voir-ce-qui-mest-du-et-relancer.md).
+- Vous voulez **savoir ce qui vous est dû et relancer** : parcourez [F09 — Voir ce qui m’est dû et relancer](../argent/F09-voir-ce-qui-mest-du-et-relancer.md).
