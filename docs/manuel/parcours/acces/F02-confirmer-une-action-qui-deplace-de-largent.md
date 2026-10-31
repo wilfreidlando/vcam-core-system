@@ -17,8 +17,9 @@ temps: 1 minute
   la fiche d’un client ne demandent **rien** : votre connexion a déjà prouvé qui vous
   êtes.
 - **La confirmation vaut cinq minutes.** Une fois le code saisi, vous pouvez enchaîner
-  plusieurs gestes d’argent sans ressaisir de code. Passé cinq minutes, il faut
-  recommencer.
+  plusieurs gestes d’argent sans ressaisir de code. C’est aussi le cas juste après votre
+  connexion : le code que vous avez saisi pour vous connecter vaut pour les cinq minutes
+  qui suivent. Passé ce délai, il faut recommencer.
 - **Le code ne sert qu’une fois.** Un code déjà utilisé est refusé. Votre application
   d’authentification en affiche un nouveau toutes les trente secondes.
 - **La confirmation est liée à votre session.** L’ouvrir dans un autre navigateur, ou
