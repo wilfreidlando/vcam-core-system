@@ -28,6 +28,11 @@ temps: 5 minutes
 
 ### 1. Ouvrir la page des indicateurs
 
+La page d’accueil de la console — le tableau de bord — parle de la plateforme
+entière : les organisations et les projets qu’elle héberge, les paiements des
+dernières vingt-quatre heures, ceux qui sont bloqués, les notifications
+automatiques en échec. Pour juger **un** projet, il faut sa page d’indicateurs.
+
 Dans la barre latérale, **« Projets »** mène à la liste des projets. Cliquez sur
 **« Voir → »** pour le projet qui vous intéresse, puis sur **« Indicateurs »**.
 
@@ -108,6 +113,7 @@ l’état réel du projet. Vous n’avez rien à cocher.
 | Les quatre cartes en haut | L’état du projet aujourd’hui : revenu récurrent, encaissé, créances, clients perdus. |
 | **« Courbes »** | L’évolution sur la période choisie, une courbe par devise. |
 | Un encadré gris à la place des courbes | Le projet n’a pas encore d’historique : les courbes se traceront à partir de la nuit. |
+| Une phrase en ambre sous un graphique | **« Certains jours ont été reconstruits »** : ces jours-là ont été recalculés plus tard, leurs chiffres sont ceux du jour de la reprise, pas ceux du jour affiché. |
 | **« Créances par ancienneté »** | Le retard de paiement, par tranche et par devise. |
 | **« Ce projet est-il prêt à encaisser ? »** | La liste de contrôle : ce qui reste à brancher pour que le projet puisse encaisser. |
 | Une coche verte | Le point est fait. |

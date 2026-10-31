@@ -18,9 +18,10 @@ temps: 10 minutes
 - **La demande part tout de suite, le fichier non.** L’archive est préparée en
   tâche de fond : comptez quelques minutes. Vous pouvez fermer la page et
   revenir — la demande reste dans la liste.
-- **Le lien de téléchargement vit quinze minutes, et ne sert qu’une fois.**
-  S’il expire, ou s’il a déjà servi, cliquez de nouveau sur **« Télécharger »** :
-  un lien neuf est fabriqué à ce moment-là.
+- **Le lien de téléchargement vit quinze minutes, et ne sert qu’une fois.** Il
+  est lié à votre session : si vous le transmettez à un collègue, il ne lui
+  ouvrira rien. S’il expire, ou s’il a déjà servi, cliquez de nouveau sur
+  **« Télécharger »** : un lien neuf est fabriqué à ce moment-là.
 - **Le fichier est effacé au bout de sept jours.** Ensuite, la ligne reste dans
   la liste : c’est la trace d’une demande, plus une archive à récupérer.
 - **Ce que vous sortez est confidentiel, et votre sortie est tracée.** La copie
@@ -67,7 +68,8 @@ l’archive. Tant qu’elle n’est pas prête, il n’y a rien à prendre.
 
 Quand le statut affiche **« Prêt »**, cliquez sur **« Télécharger »**, tout à
 droite de la ligne. La colonne qui suit le statut vous dit jusqu’à quelle date
-et quelle heure le fichier peut être pris.
+et à quelle heure le fichier peut être pris ; elle affiche un tiret quand il
+n’y a plus rien à prendre.
 
 → **Ce qui se passe** : le navigateur enregistre le fichier. Son nom reprend les
 premiers caractères de l’identifiant du projet, puis la date et l’heure de la
@@ -105,6 +107,7 @@ fichiers ont été lus pendant la préparation.
 | **« Demandé le »** | Le jour et l’heure de la demande. |
 | **« Par »** | Le compte de la console qui a demandé l’export. |
 | **« Statut »** | Où en est la préparation : **« En attente »**, **« En cours »**, **« Prêt »**, **« Échec »**, ou **« Fichier supprimé »** quand le fichier a été effacé. |
+| Une date et une heure, ou un tiret, dans la colonne qui suit le statut | La date et l’heure limite du téléchargement ; un tiret quand il n’y a plus de fichier. |
 | **« Télécharger »** | Le bouton qui fabrique un lien de téléchargement, puis l’ouvre. |
 | **« Export demandé »** (bandeau vert) | La demande est enregistrée ; l’archive se prépare en tâche de fond. |
 | **« Le lien de téléchargement est généré au clic et valable 15 minutes. »** | Le lien n’existe qu’au moment où vous cliquez, et il ne sert qu’une fois. |
