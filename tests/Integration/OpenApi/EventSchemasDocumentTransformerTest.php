@@ -105,6 +105,16 @@ it('publishes WebhookEventType schema with the closed enum of emitted types', fu
         'invoice.voided',
         'customer.suspended',
         'customer.reactivated',
+        // ADR-0107 §3 — the Core emitted these eight without ever naming
+        // them: a project could only receive them through the `*` wildcard.
+        'customer.created',
+        'customer.updated',
+        'customer.erased',
+        'invoice.created',
+        'invoice.receipt_recorded',
+        'invoice.uncollectible',
+        'plan.archived',
+        'plan.version_published',
         'usage.threshold_reached',
         'usage.limit_reached',
     ], $schema->type->enum);

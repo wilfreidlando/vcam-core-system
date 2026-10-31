@@ -58,11 +58,14 @@ final class ApiKeyScopes
 
     public const TEMPLATE_PAYOUTS = 'payouts';
 
+    public const TEMPLATE_CLIENT_APP = 'client_app';
+
     /** Console labels, in display order. */
     public const TEMPLATES = [
         self::TEMPLATE_SERVER => 'Serveur complet',
         self::TEMPLATE_READ_ONLY => 'Lecture seule',
         self::TEMPLATE_PORTAL => 'Portail uniquement',
+        self::TEMPLATE_CLIENT_APP => 'Application cliente',
         self::TEMPLATE_PAYOUTS => 'Versements',
     ];
 
@@ -76,6 +79,20 @@ final class ApiKeyScopes
             self::TEMPLATE_SERVER => array_values(array_diff(self::ALL, ['payouts:write'])),
             self::TEMPLATE_READ_ONLY => array_values(array_filter(self::ALL, static fn (string $s): bool => str_ends_with($s, ':read'))),
             self::TEMPLATE_PORTAL => ['portal:write', 'customers:read'],
+            // ADR-0107 §5 — what a client application needs, and the exact
+            // limit of its power: it reads its rights, counts its usage,
+            // opens its portal, reads its commercial state. It holds
+            // **no** write scope on the commerce — not `customers:write`,
+            // not `subscriptions:write`, not `invoices:write`. The commerce
+            // happens in the portal, by the owner.
+            self::TEMPLATE_CLIENT_APP => [
+                'customers:read',
+                'usage:read',
+                'usage:write',
+                'portal:write',
+                'subscriptions:read',
+                'invoices:read',
+            ],
             self::TEMPLATE_PAYOUTS => ['payouts:read', 'payouts:write'],
             default => [],
         };

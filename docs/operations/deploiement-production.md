@@ -215,7 +215,7 @@ qu'on mérite de garder pour une clé dédiée — ADR-0082 §2).
 Un projet peut détenir **plusieurs clés nommées** (10 au plus), une par
 composant : serveur, portail, versements… Chacune ne porte que ses portées.
 Dans la console, on choisit un modèle (Serveur complet / Lecture seule /
-Portail uniquement / Versements / Personnalisée), éventuellement une
+Portail uniquement / Application cliente / Versements / Personnalisée), éventuellement une
 restriction réseau (blocs CIDR) et une expiration ; la clé s'affiche **une
 seule fois**.
 

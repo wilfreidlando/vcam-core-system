@@ -5,6 +5,7 @@
 - **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D2 couplage · D5 contrat · D7 organisationnelle
 - **Amende** : ADR-0066 (« une seule clé par projet » devient « plusieurs clés nommées par projet »), ADR-0044 (toute clé reçoit `ApiKeyScopes::ALL`)
+- **Amendé par** : ADR-0107 (ajout du modèle de portées « Application cliente », §5)
 
 ## Contexte
 

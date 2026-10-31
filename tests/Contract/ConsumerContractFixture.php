@@ -63,6 +63,14 @@ final class ConsumerContractFixture
         'invoice.paid',
         'invoice.payment_failed',
         'invoice.voided',
+        // ADR-0107 §3 — the lifecycle of the tenant itself. `customer.created`
+        // is the signal that a tenant now exists: it is what a client
+        // application waits for before it opens a portal for it.
+        'customer.created',
+        'customer.updated',
+        'customer.suspended',
+        'customer.reactivated',
+        'customer.erased',
         'usage.threshold_reached',
         'usage.limit_reached',
     ];
