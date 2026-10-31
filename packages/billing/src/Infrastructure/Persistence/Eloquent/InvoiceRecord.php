@@ -32,6 +32,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Illuminate\Support\Carbon|null $paid_at
  * @property \Illuminate\Support\Carbon|null $voided_at
  * @property string|null $void_reason
+ * @property \Illuminate\Support\Carbon|null $lost_at
  * @property string|null $ledger_transaction_id
  * @property int $version
  * @property \Illuminate\Support\Carbon $created_at
@@ -62,6 +63,7 @@ final class InvoiceRecord extends Model
         'paid_at',
         'voided_at',
         'void_reason',
+        'lost_at',
         'ledger_transaction_id',
         'version',
         'created_at',
@@ -78,6 +80,7 @@ final class InvoiceRecord extends Model
         'issued_at' => 'datetime',
         'paid_at' => 'datetime',
         'voided_at' => 'datetime',
+        'lost_at' => 'datetime',
         // `customer_snapshot` is deliberately NOT cast to `array`: the
         // column is a jsonb **object**, and the cast would encode an
         // empty map as `[]` — which the column refuses. The repository

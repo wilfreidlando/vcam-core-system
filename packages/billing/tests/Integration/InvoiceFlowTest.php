@@ -12,6 +12,8 @@ use Core\Billing\Contracts\InvoiceLineInput;
 use Core\Billing\Contracts\InvoiceView;
 use Core\Billing\Contracts\IssueInvoice;
 use Core\Billing\Contracts\IssueInvoiceCommand;
+use Core\Billing\Contracts\MarkInvoiceUncollectible;
+use Core\Billing\Contracts\MarkInvoiceUncollectibleCommand;
 use Core\Billing\Contracts\UpsertCustomer;
 use Core\Billing\Contracts\UpsertCustomerCommand;
 use Core\Billing\Contracts\VoidInvoice;
@@ -199,6 +201,44 @@ final class InvoiceFlowTest extends TestCase
         // ADR-0073 §3 — the receivable leaves the ledger the way it came.
         self::assertSame(['debit', 'credit'], $this->directionsOf('customer_receivable'));
         self::assertSame(0, $this->amountOf('customer_receivable'));
+    }
+
+    #[Test]
+    public function the_write_off_keeps_the_instant_of_the_act(): void
+    {
+        $this->declareCustomer();
+
+        $draft = $this->createInvoice();
+        $issued = app(IssueInvoice::class)->issue(new IssueInvoiceCommand(
+            projectId: self::PROJECT,
+            invoiceId: $draft->id,
+            actor: 'test:billing',
+            correlationId: null,
+        ));
+
+        // A live receivable has no write-off date.
+        self::assertNull($issued->lostAt);
+
+        $written = app(MarkInvoiceUncollectible::class)->markUncollectible(new MarkInvoiceUncollectibleCommand(
+            projectId: self::PROJECT,
+            invoiceId: $issued->id,
+            reason: 'Client injoignable',
+            actor: 'test:billing',
+            correlationId: null,
+        ));
+
+        self::assertSame('uncollectible', $written->status);
+        // ADR-0094 §12 — the write-off is a human act: the date of that act
+        // is kept, and it is the act's own date, not `updated_at`.
+        self::assertNotNull($written->lostAt);
+        // The column and the view write the same instant in two formats
+        // (PostgreSQL's own, and ISO-8601) — the instant is what counts.
+        $stored = DB::table('invoices')->where('id', $issued->id)->value('lost_at');
+        self::assertIsString($stored);
+        self::assertSame(
+            (new DateTimeImmutable($stored))->format('Y-m-d H:i:s'),
+            (new DateTimeImmutable($written->lostAt))->format('Y-m-d H:i:s'),
+        );
     }
 
     #[Test]

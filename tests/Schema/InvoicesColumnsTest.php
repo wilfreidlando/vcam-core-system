@@ -36,7 +36,7 @@ final class InvoicesColumnsTest extends TestCase
     private const ALLOWED_COLUMNS = [
         'id', 'project_id', 'customer_id', 'subscription_id', 'period_id', 'number', 'status', 'currency',
         'subtotal_minor', 'tax_minor', 'total_minor', 'amount_paid_minor', 'customer_snapshot',
-        'due_at', 'issued_at', 'paid_at', 'voided_at', 'void_reason', 'ledger_transaction_id', 'version',
+        'due_at', 'issued_at', 'paid_at', 'voided_at', 'void_reason', 'lost_at', 'ledger_transaction_id', 'version',
         'created_at', 'updated_at',
     ];
 

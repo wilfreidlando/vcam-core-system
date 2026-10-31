@@ -44,6 +44,7 @@ final readonly class InvoiceViews
             paidAt: Iso8601::ofNullable($invoice->paidAt),
             voidedAt: Iso8601::ofNullable($invoice->voidedAt),
             voidReason: $invoice->voidReason,
+            lostAt: Iso8601::ofNullable($invoice->lostAt),
             version: $invoice->version,
             createdAt: Iso8601::of($invoice->createdAt),
             updatedAt: Iso8601::of($invoice->updatedAt),

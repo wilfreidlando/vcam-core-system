@@ -48,6 +48,11 @@ final class Invoice
         public ?DateTimeImmutable $voidedAt,
         public ?string $voidReason,
         /**
+         * ADR-0094 §12 — the instant of the write-off. `updated_at` would
+         * move again on any later touch; this one is the act itself.
+         */
+        public ?DateTimeImmutable $lostAt,
+        /**
          * ADR-0094 §3 — the id of the issuance transaction in the
          * ledger: the void counter-passes it (ADR-0076 §5).
          */
@@ -108,6 +113,8 @@ final class Invoice
      * ADR-0073 §3 — the write-off: the receivable became a bad debt.
      *
      * An act of the operator, never an effect of the time (ADR-0094 §12).
+     * The instant of the act is kept: `lost_at` is the date the
+     * receivable screen shows, and `updated_at` would move again.
      */
     public function markUncollectible(DateTimeImmutable $at): void
     {
@@ -116,6 +123,7 @@ final class Invoice
         }
 
         $this->status = InvoiceStatus::Uncollectible;
+        $this->lostAt = $at;
         $this->updatedAt = $at;
     }
 

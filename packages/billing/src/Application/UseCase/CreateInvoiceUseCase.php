@@ -130,6 +130,7 @@ final readonly class CreateInvoiceUseCase implements CreateInvoice
                 paidAt: null,
                 voidedAt: null,
                 voidReason: null,
+                lostAt: null,
                 ledgerTransactionId: null,
                 version: 1,
                 createdAt: $now,

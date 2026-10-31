@@ -44,6 +44,7 @@ final readonly class InvoiceView
         public ?string $paidAt,
         public ?string $voidedAt,
         public ?string $voidReason,
+        public ?string $lostAt,
         public int $version,
         public string $createdAt,
         public string $updatedAt,
