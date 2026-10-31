@@ -160,20 +160,38 @@ final class GuideTest extends TestCase
     }
 
     /**
-     * The labels the guide quotes, with the ellipsis and the trailing colon
-     * of a sentence removed: « Connexion impossible : … » is the label
-     * « Connexion impossible ».
+     * The labels the guide quotes — **the bold ones only**.
+     *
+     * The guide uses the French quotes for two things: naming a word
+     * **written on a screen** (bold: `**« Nouvelle facture »**`), and
+     * quoting a phrase the guide itself says (roman: `« le client ne paiera
+     * pas »`). Only the first kind can be checked against the product — the
+     * second is the guide's own prose, and it would be absurd to forbid it.
+     *
+     * The distinction is mechanical, which is the point: **if you say it is
+     * a screen label, you bold it, and then it is checked.**
+     *
+     * A label cut by a line break in the Markdown is **one** label: the
+     * Markdown renders a soft break as a space, and the screen shows
+     * « Créances par ancienneté » on one line. The break is therefore
+     * unwrapped before the comparison.
      *
      * @return list<string>
      */
     private function quotedLabels(string $markdown): array
     {
-        preg_match_all('/«([^»]+)»/u', $markdown, $matches);
+        preg_match_all('/\*\*«([^»]+)»\*\*/u', $markdown, $matches);
 
         $labels = [];
 
         foreach ($matches[1] as $label) {
-            $label = trim(preg_replace('/\s*[:…]+\s*$/u', '', $label) ?? $label);
+            $label = str_replace(["\r\n", "\r", "\n"], ' ', $label);
+            $label = trim((string) preg_replace('/\s+/u', ' ', $label));
+            $label = trim((string) preg_replace('/\s*[:…]+\s*$/u', '', $label));
+            // The guide writes the typographic apostrophe (« Exceptions
+            // d'argent »), the screens write the straight one. The glyph is
+            // typography, not wording: the comparison is about the words.
+            $label = str_replace('’', "'", $label);
 
             if ($label !== '') {
                 $labels[] = $label;
@@ -185,7 +203,8 @@ final class GuideTest extends TestCase
 
     /**
      * Every word the product displays: the console's screens, the customer's
-     * portal, and the console's own labels.
+     * portal, the console's own labels, and the messages the product answers
+     * with (validation, domain exceptions).
      */
     private function interfaceWords(): string
     {
@@ -195,14 +214,35 @@ final class GuideTest extends TestCase
             'resources/views',
             'packages/portal/resources/views',
             'app/Http/Controllers/Admin',
+            'app/Http/Requests',
             'app/Infrastructure/Guide',
         ] as $directory) {
-            foreach ($this->filesOf($directory) as $file) {
-                $words .= "\n".(string) file_get_contents($file);
-            }
+            $words .= "\n".$this->wordsOf($this->filesOf($directory));
+        }
+
+        // The wording of the product also lives in the modules: a status
+        // label (« Trop-perçu », « Écart de rapprochement ») is a domain
+        // constant, and an error message is a domain exception.
+        foreach (glob('packages/*/src', GLOB_ONLYDIR) ?: [] as $directory) {
+            $words .= "\n".$this->wordsOf($this->filesOf($directory));
         }
 
         return $words;
+    }
+
+    /**
+     * @param  list<string>  $files
+     */
+    private function wordsOf(array $files): string
+    {
+        $words = '';
+
+        foreach ($files as $file) {
+            $words .= "\n".(string) file_get_contents($file);
+        }
+
+        // A PHP string escapes the apostrophe; the screen shows one.
+        return str_replace(["\\'", '’'], "'", $words);
     }
 
     /**
