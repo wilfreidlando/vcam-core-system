@@ -82,6 +82,61 @@
         </x-admin.table>
     </div>
 
+    {{-- ADR-0073 §2, §4 — ce que le client a réellement réglé : le paiement en ligne et l'encaissement hors ligne, lus dans une seule chronologie. --}}
+    @if ($canSeeSettlements)
+        @php
+            $settlementMethods = [
+                'online' => 'Paiement en ligne',
+                'bank_transfer' => 'Virement',
+                'cash' => 'Espèces',
+                'cheque' => 'Chèque',
+                'other' => 'Autre',
+            ];
+            // Les deux kinds n'ont pas le même vocabulaire : une tentative
+            // de paiement « en cours » n'est pas un reçu « en attente ».
+            $settlementStatuses = [
+                'payment.pending' => 'En cours',
+                'payment.succeeded' => 'Comptabilisé',
+                'payment.failed' => 'Échec',
+                'payment.canceled' => 'Annulé',
+                'receipt.pending' => 'En attente',
+                'receipt.approved' => 'Comptabilisé',
+                'receipt.rejected' => 'Refusé',
+            ];
+            $settlementTones = [
+                'payment.succeeded' => 'bg-emerald-100 text-emerald-700',
+                'receipt.approved' => 'bg-emerald-100 text-emerald-700',
+                'payment.pending' => 'bg-amber-100 text-amber-700',
+                'receipt.pending' => 'bg-amber-100 text-amber-700',
+                'payment.failed' => 'bg-rose-100 text-rose-700',
+                'receipt.rejected' => 'bg-rose-100 text-rose-700',
+                'payment.canceled' => 'bg-slate-200 text-slate-700',
+            ];
+        @endphp
+        <div class="rounded-lg border border-slate-200 bg-white">
+            <div class="border-b border-slate-100 px-5 py-3"><h2 class="text-base font-semibold text-slate-900">Règlements</h2></div>
+            <x-admin.table caption="Règlements du client" :headers="['Facture', 'Origine', 'Montant', 'Référence', 'Date', 'État']" empty="aucun règlement">
+                @foreach ($settlements as $settlement)
+                    <tr>
+                        <td class="px-4 py-2 text-sm font-mono">{{ $settlement->invoiceNumber ?? '(brouillon)' }}</td>
+                        <td class="px-4 py-2 text-sm text-slate-700">{{ $settlementMethods[$settlement->method] ?? $settlement->method }}</td>
+                        <td class="px-4 py-2 text-sm text-slate-900 tabular-nums whitespace-nowrap">
+                            {{ \Core\Support\Money\Money::ofMinor($settlement->amountMinor, $settlement->currency)->groupedAmount() }}
+                            {{ $settlement->currency }}
+                        </td>
+                        <td class="px-4 py-2 text-sm font-mono text-slate-700">{{ $settlement->reference }}</td>
+                        <td class="px-4 py-2 text-sm text-slate-500 tabular-nums whitespace-nowrap">{{ $date($settlement->occurredAt) }}</td>
+                        <td class="px-4 py-2 text-sm whitespace-nowrap">
+                            <span class="inline-flex rounded-md px-2 py-0.5 text-xs font-medium {{ $settlementTones[$settlement->kind.'.'.$settlement->status] ?? 'bg-slate-100 text-slate-700' }}">
+                                {{ $settlementStatuses[$settlement->kind.'.'.$settlement->status] ?? $settlement->status }}
+                            </span>
+                        </td>
+                    </tr>
+                @endforeach
+            </x-admin.table>
+        </div>
+    @endif
+
     <div class="text-right"><a href="{{ route('admin.projects.customers.index', $projectId) }}" class="inline-block px-2.5 py-1.5 text-sm font-medium text-indigo-700 hover:text-indigo-900">← Retour aux clients</a></div>
 </div>
 @endsection

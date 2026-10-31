@@ -35,6 +35,7 @@ use Core\Billing\Application\UseCase\GetSubscriptionUseCase;
 use Core\Billing\Application\UseCase\GrantComplimentaryPeriodUseCase;
 use Core\Billing\Application\UseCase\IssueInvoiceUseCase;
 use Core\Billing\Application\UseCase\KeepSubscriptionRenewingUseCase;
+use Core\Billing\Application\UseCase\ListCustomerSettlementsUseCase;
 use Core\Billing\Application\UseCase\ListCustomersUseCase;
 use Core\Billing\Application\UseCase\ListInvoicePaymentsUseCase;
 use Core\Billing\Application\UseCase\ListInvoicesUseCase;
@@ -79,6 +80,7 @@ use Core\Billing\Contracts\GrantComplimentaryPeriod;
 use Core\Billing\Contracts\IssueInvoice;
 use Core\Billing\Contracts\KeepSubscriptionRenewing;
 use Core\Billing\Contracts\ListCustomers;
+use Core\Billing\Contracts\ListCustomerSettlements;
 use Core\Billing\Contracts\ListInvoicePayments;
 use Core\Billing\Contracts\ListInvoices;
 use Core\Billing\Contracts\ListManualReceipts;
@@ -102,6 +104,7 @@ use Core\Billing\Contracts\UpsertCustomer;
 use Core\Billing\Contracts\VoidInvoice;
 use Core\Billing\Domain\Port\BillingSettingsRepository;
 use Core\Billing\Domain\Port\CustomerRepository;
+use Core\Billing\Domain\Port\CustomerSettlementRepository;
 use Core\Billing\Domain\Port\InvoiceLineRepository;
 use Core\Billing\Domain\Port\InvoiceNumberSequenceRepository;
 use Core\Billing\Domain\Port\InvoicePaymentRepository;
@@ -118,6 +121,7 @@ use Core\Billing\Infrastructure\Persistence\DatabaseMetricsSnapshotStore;
 use Core\Billing\Infrastructure\Persistence\DatabaseSubscriptionNoticeLog;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentBillingSettingsRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentCustomerRepository;
+use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentCustomerSettlementRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentInvoiceLineRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentInvoiceNumberSequenceRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentInvoicePaymentRepository;
@@ -155,6 +159,7 @@ final class BillingServiceProvider extends ServiceProvider
     {
         // Domain ports → Infrastructure adapters.
         $this->app->bind(CustomerRepository::class, EloquentCustomerRepository::class);
+        $this->app->bind(CustomerSettlementRepository::class, EloquentCustomerSettlementRepository::class);
         $this->app->bind(PlanRepository::class, EloquentPlanRepository::class);
         $this->app->bind(PlanVersionRepository::class, EloquentPlanVersionRepository::class);
         $this->app->bind(SubscriptionRepository::class, EloquentSubscriptionRepository::class);
@@ -188,6 +193,9 @@ final class BillingServiceProvider extends ServiceProvider
         $this->app->bind(GetCustomer::class, GetCustomerUseCase::class);
         $this->app->bind(FindCustomerByContact::class, FindCustomerByContactUseCase::class);
         $this->app->bind(ListCustomers::class, ListCustomersUseCase::class);
+        // ADR-0073 §2, §4 — what the customer paid, online and offline,
+        // in one chronology.
+        $this->app->bind(ListCustomerSettlements::class, ListCustomerSettlementsUseCase::class);
         $this->app->bind(SuspendCustomer::class, SuspendCustomerUseCase::class);
         $this->app->bind(ReactivateCustomer::class, ReactivateCustomerUseCase::class);
         $this->app->bind(EraseCustomer::class, EraseCustomerUseCase::class);

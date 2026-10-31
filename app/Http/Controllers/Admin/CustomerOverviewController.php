@@ -14,6 +14,8 @@ use Core\Billing\Contracts\GetCustomer;
 use Core\Billing\Contracts\GetCustomerCommand;
 use Core\Billing\Contracts\GetEntitlements;
 use Core\Billing\Contracts\GetEntitlementsCommand;
+use Core\Billing\Contracts\ListCustomerSettlements;
+use Core\Billing\Contracts\ListCustomerSettlementsCommand;
 use Core\Billing\Contracts\ListInvoices;
 use Core\Billing\Contracts\ListInvoicesCommand;
 use Core\Billing\Contracts\ListPlans;
@@ -52,6 +54,7 @@ final class CustomerOverviewController
         private readonly GetCustomer $customers,
         private readonly ListSubscriptions $subscriptions,
         private readonly ListInvoices $invoices,
+        private readonly ListCustomerSettlements $settlements,
         private readonly GetEntitlements $entitlements,
         private readonly ListPlans $plans,
         private readonly CreateSubscription $createSubscription,
@@ -72,6 +75,11 @@ final class CustomerOverviewController
 
         $canSubscribe = $operator->scopeFor('subscriptions:write')->allowsProject($projectId);
 
+        // ADR-0073 §2, §4 — what the customer paid. The section is opened
+        // by `invoices:read`, like the invoices it completes: an account
+        // that may not read the invoices sees the sheet without it.
+        $canSeeSettlements = $operator->scopeFor('invoices:read')->allowsProject($projectId);
+
         return response()->view('admin.billing.customers.show', [
             'title' => $customer->displayName,
             'projectId' => $projectId,
@@ -82,6 +90,10 @@ final class CustomerOverviewController
             'invoices' => $operator->scopeFor('invoices:read')->allowsProject($projectId)
                 ? $this->invoices->list(new ListInvoicesCommand($projectId, $externalRef, null, null, 20), $scope)->items
                 : [],
+            'settlements' => $canSeeSettlements
+                ? $this->settlements->list(new ListCustomerSettlementsCommand($projectId, $externalRef, null, 20), $scope)->items
+                : [],
+            'canSeeSettlements' => $canSeeSettlements,
             'rights' => $operator->scopeFor('usage:read')->allowsProject($projectId)
                 ? $this->entitlements->get(new GetEntitlementsCommand($projectId, $externalRef), $scope)
                 : null,
