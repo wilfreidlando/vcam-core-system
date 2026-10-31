@@ -6,18 +6,25 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Administration') · Enterprise Core</title>
 
-    {{-- Tailwind via CDN. Pinning keeps the layout stable across builds
-         without a bundler. The font-size override on <html> above scales
+    {{-- Tailwind, compilé dans un fichier (ADR-0106). La version est
+         celle que la console utilisait jusqu'ici (3.4.16, voir
+         public/assets/admin/vendor/README.md) : le jeu de classes est
+         identique, seul celui qui compile change.
+
+         The font-size override on <html> above scales
          every `rem` unit up by 12.5% (16px → 18px) — Tailwind's text-sm,
          text-base, text-lg, etc. all become proportionally larger without
          touching the 100+ call sites that already use them. (Bumped from
          an earlier 17px, which the user reported still read too small.) --}}
-    {{-- Both libraries are served by the application, at the versions that
-         used to be pinned on the CDNs: a compromised third-party host could
-         run arbitrary JavaScript on the console's origin, with its CSRF
-         token and the secrets it shows once (recette 2026-10-29, F-05).
-         Provenance and SHA-256 in public/assets/admin/vendor/README.md. --}}
-    <script src="{{ asset('assets/admin/vendor/tailwindcss-3.4.16.js') }}"></script>
+    {{-- The stylesheet is compiled and committed with the code: the Docker
+         images need no Node, and the CI gate « styles » rebuilds it to
+         prove it is up to date. Alpine is still served as a file, at the
+         version that used to be pinned on a CDN: a compromised third-party
+         host could run arbitrary JavaScript on the console's origin, with
+         its CSRF token and the secrets it shows once (recette 2026-10-29,
+         F-05). Provenance and SHA-256 in
+         public/assets/admin/vendor/README.md. --}}
+    <link rel="stylesheet" href="{{ asset('assets/admin/console.css') }}">
     {{-- The mobile-nav store: ONE source of truth for "is the drawer
          open", read by the hamburger, the backdrop and the sidebar.
          `sync()` closes the drawer when a resize crosses the md

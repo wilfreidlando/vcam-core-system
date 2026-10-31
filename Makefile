@@ -113,6 +113,23 @@ recette: ## Run the acceptance criteria R-01…R-15 (CI job: recette)
 recette-concurrence: ## Prove the quota's atomicity with real concurrent processes (R-07)
 	bash tools/checks/usage-concurrency.sh
 
+# ─── Styles (ADR-0106) ─────────────────────────────────────────────────────
+# The console's stylesheet is compiled by Tailwind's CLI and **committed**
+# with the code: the images need no Node. Node is only needed to compile it,
+# and to prove that the committed file is the one the templates produce.
+# The image carries no git, so the comparison is made with `cmp` — the same
+# check, on the host and in the container.
+CSS_IMAGE ?= node:22-alpine
+CSS        := docker run --rm -v "$(CURDIR):/app" -w /app -u "$(HOST_UID):$(HOST_GID)" -e HOME=/tmp $(CSS_IMAGE)
+
+.PHONY: css
+css: ## Compile the console's stylesheet (Tailwind)
+	$(CSS) sh -lc 'npm ci --silent && npm run build:css'
+
+.PHONY: css-check
+css-check: ## Prove the committed stylesheet is up to date (CI job: styles)
+	$(CSS) sh -lc 'npm ci --silent && npm run check:css'
+
 # ─── Sectors (parallel work) ────────────────────────────────────────────────
 # One sector = one bounded context = one agent = one test database. A sector
 # agent runs its OWN suite and the gates its own change can break — never the
@@ -177,7 +194,7 @@ hygiene: ## Composer and secret hygiene (CI job: hygiene)
 	$(EXEC) composer audit --locked
 
 .PHONY: ci
-ci: hygiene lint-check stan arch schema test ## Run every gate, exactly as CI does
+ci: hygiene lint-check stan arch schema css-check test ## Run every gate, exactly as CI does
 
 .PHONY: guard-test
 guard-test: ## Prove the guardrails bite: inject violations, expect failures, revert

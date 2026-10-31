@@ -5,6 +5,7 @@
 - **Décideurs** : comité d'architecture (dérives D1 périmètre · D5 contrat)
 - **Dérives concernées** : D1 périmètre · D5 contrat
 - **Remplace** : ADR-0102
+- **Amendé par** : ADR-0106 (décision 8 — Tailwind reste compilé à l'exécution)
 
 ## Contexte
 

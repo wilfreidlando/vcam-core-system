@@ -130,6 +130,29 @@ jobs:
             ${{ env.IMAGE }} bash -lc '${{ matrix.gate.run }}'
 
   # ───────────────────────────────────────────────────────────────────────────
+  # ADR-0106 — the console's stylesheet is compiled and committed. This gate
+  # rebuilds it from the templates and fails if the committed file differs:
+  # a class added to a template without recompiling would otherwise be lost
+  # in silence (the Play CDN used to generate it at runtime, from the DOM).
+  # ───────────────────────────────────────────────────────────────────────────
+  styles:
+    name: styles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install the build dependencies
+        run: npm ci
+
+      - name: The compiled stylesheet is up to date
+        run: npm run check:css
+
+  # ───────────────────────────────────────────────────────────────────────────
   # Secrets scanning runs on the host: it inspects git history, not the app.
   # ───────────────────────────────────────────────────────────────────────────
   secrets:
@@ -194,7 +217,7 @@ jobs:
   ci-ok:
     name: ci-ok
     runs-on: ubuntu-latest
-    needs: [gate, secrets, api-contract]
+    needs: [gate, secrets, api-contract, styles]
     if: always()
     steps:
       - name: Verify every gate passed

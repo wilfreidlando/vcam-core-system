@@ -19,9 +19,14 @@ use Symfony\Component\HttpFoundation\Response;
  * key in clear.
  *
  * The CSP: who may frame us, where a form may post, which `<base>` and which
- * plugins are allowed — and, since Tailwind and Alpine are served from
+ * plugins are allowed — and, since Alpine is served from
  * `public/assets/admin/vendor/` (F-05), which hosts may run a script: ours and
  * no other. A compromised CDN can no longer execute code on the console.
+ *
+ * Tailwind is no longer a served script: it is compiled into
+ * `public/assets/admin/console.css` (ADR-0106). The policy is unchanged —
+ * there was never a `style-src` to tighten, and the console's own rules
+ * live in an inline `<style>` that CSP leaves alone.
  *
  * `'unsafe-inline'` is GONE from `script-src` (ADR-0102): the layout's inline
  * script — the mobile-nav state — is now a file served by the application

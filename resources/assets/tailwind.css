@@ -1,0 +1,14 @@
+/*
+ * L'entrée de la compilation Tailwind de la console opérateur.
+ *
+ * `base` pose le reset (les navigateurs ont des styles par défaut
+ * différents : la compilation en version navigateur le faisait aussi),
+ * `utilities` produit les classes utilisées par les gabarits.
+ *
+ * La feuille produite est `public/assets/admin/console.css`, versionnée
+ * avec le code : les images Docker n'ont pas besoin de Node, et la porte
+ * CI « hygiene » la recompilera pour vérifier qu'elle est à jour.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

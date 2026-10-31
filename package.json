@@ -1,0 +1,12 @@
+{
+  "name": "vcam-core-system",
+  "private": true,
+  "description": "La feuille de style de la console opérateur, compilée à partir des gabarits Blade.",
+  "scripts": {
+    "build:css": "tailwindcss --input resources/assets/tailwind.css --output public/assets/admin/console.css --minify",
+    "check:css": "tailwindcss --input resources/assets/tailwind.css --output node_modules/.cache/console.css --minify && (cmp node_modules/.cache/console.css public/assets/admin/console.css && echo 'console.css est a jour' || (echo 'console.css est OBSOLETE — lancez : npm run build:css' && exit 1))"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.16"
+  }
+}

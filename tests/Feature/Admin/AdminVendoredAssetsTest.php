@@ -14,6 +14,9 @@ use Tests\TestCase;
  * une compromission de l'un d'eux exécutait du JavaScript arbitraire sur l'origine de la console,
  * avec son jeton CSRF et les secrets qu'elle affiche une fois. Les fichiers sont désormais servis
  * par l'application ; ces tests empêchent le retour silencieux d'un hôte tiers ou d'une altération.
+ *
+ * Tailwind n'est plus une bibliothèque servie mais une feuille compilée
+ * (`public/assets/admin/console.css`) : c'est `ConsoleStylesheetTest` qui la garde.
  */
 final class AdminVendoredAssetsTest extends TestCase
 {
@@ -21,7 +24,6 @@ final class AdminVendoredAssetsTest extends TestCase
     use SignsInToConsole;
 
     private const ASSETS = [
-        'tailwindcss-3.4.16.js' => '3f81aa7f6ecdb1acc14c202e513dfee00b6c7703cd81ce1be25bf5215a92e8cb',
         'alpine-csp-3.14.1.min.js' => '40f00d7aaa543eabd17c3a0f79ce2ac62e6be17caa9564527c20ec39152bb157',
     ];
 
@@ -37,7 +39,7 @@ final class AdminVendoredAssetsTest extends TestCase
     }
 
     #[Test]
-    public function the_layout_loads_both_libraries_from_its_own_origin(): void
+    public function the_layout_loads_alpine_from_its_own_origin(): void
     {
         $this->signInToConsole();
         $html = (string) $this->get('/admin')->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
