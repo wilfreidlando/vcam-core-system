@@ -14,15 +14,17 @@ Concrètement, votre application fait **cinq** choses :
 
 | # | Ce qu'elle fait | Comment |
 |---|---|---|
-| 1 | **Déclarer** son locataire, une fois | `PUT /v1/customers/{ref}` |
-| 2 | **Lire** ses droits | `GET /v1/customers/{ref}/entitlements` |
-| 3 | **Compter** son usage | `POST /v1/usage` |
-| 4 | **Ouvrir** le portail de son propriétaire | `POST /v1/portal/sessions` |
-| 5 | **Recevoir** son état (abonnement, quotas, factures) | webhooks signés |
+| 1 | **Recevoir** son locataire | webhook `customer.created` |
+| 2 | **Lire** son identité | `GET /v1/customers/{ref}` |
+| 3 | **Lire** ses droits | `GET /v1/customers/{ref}/entitlements` |
+| 4 | **Compter** son usage | `POST /v1/usage` |
+| 5 | **Ouvrir** le portail de son propriétaire | `POST /v1/portal/sessions` |
+| 6 | **Recevoir** son état (abonnement, quotas, factures) | webhooks signés |
 
-Cinq appels, dans un seul sens — et **aucun** droit d'écrire sur le commerce. Votre
-clé ne portera pas `customers:write`, ni `subscriptions:write`, ni `invoices:write` :
-ce n'est pas une promesse, c'est la portée de la clé.
+Des **lectures**, un **comptage**, une **ouverture de portail**, et la **réception**
+d'événements. **Aucun** droit d'écrire sur le commerce : votre clé ne portera pas
+`customers:write`, ni `subscriptions:write`, ni `invoices:write` — ce n'est pas une
+promesse, c'est la portée de la clé.
 
 > **Pourquoi ?** Le portail du Core possède déjà toute l'interface commerciale
 > (`/portal/plans`, `subscribe`, `cancel`, `change-plan`, `renew`, `invoices`, `pay`).
@@ -61,37 +63,49 @@ curl -s "$BASE_URL/v1/whoami" \
 Si votre clé porte `*` ou le modèle « Serveur complet », demandez une clé
 « Application cliente » : elle est **plus sûre**, et elle ne vous empêche de rien.
 
-## 2. Déclarer votre locataire — une fois, pour toute sa vie
+## 2. Recevoir son locataire
 
-Votre application a ses propres données métier (une auto-école a une adresse, un
-responsable, une année de création) : le Core ne peut pas les inventer. Vous les
-lui déclarez **une fois**, à la création du locataire, et vous n'y touchez plus.
+Le Core est le maître de la relation commerciale **et** de l'identité de votre
+locataire. C'est **lui** qui le crée : l'opérateur de la console Core le déclare pour
+votre projet — son nom, l'e-mail du responsable, et **la référence que votre
+application connaît** — puis le Core **vous le pousse**.
 
-La référence (`TENANT`) est **la vôtre** : une chaîne de 1 à 128 caractères, `[A-Za-z0-9._:-]`.
-C'est elle que le Core vous rendra dans tous les événements.
+Votre application n'a donc **rien à écrire** : elle **reçoit** son locataire.
 
-```bash
-curl -s -X PUT "$BASE_URL/v1/customers/$TENANT" \
-  -H "Authorization: Bearer $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "display_name": "Auto-École La Fontaine",
-    "email": "contact@auto-ecole-la-fontaine.cm",
-    "phone": "+237699887766",
-    "locale": "fr"
-  }'
+L'événement arrive sur le point d'entrée que l'opérateur a enregistré pour votre
+application :
+
+```json
+{
+  "id": "01a190b8-53be-70d1-9c46-a5b715b4ad80",
+  "type": "customer.created",
+  "data": {
+    "customer_id": "01a190b8-2c4e-7a10-9b6f-8d1e2f3a4b5c",
+    "external_ref": "auto-ecole-42",
+    "status": "active",
+    "version": 1
+  }
+}
 ```
 
-`201` si le locataire est créé, `200` s'il existe déjà. **L'appel est idempotent** :
-le rejouer ne crée pas de second locataire, il met à jour le sien. La réponse porte
-un `ETag` (la version) ; si vous voulez vous protéger d'une écriture concurrente,
-envoyez le `ETag` que vous avez lu en `If-Match` — sinon la réponse est `412`.
+`external_ref` est **la référence que le Core connaît** — celle que vous utilisez dans
+tous vos appels. C'est l'opérateur qui l'a saisie, pour qu'elle soit la vôtre.
+
+La charge utile ne porte **aucune donnée personnelle** (ADR-0070 §3) : ni nom, ni
+e-mail, ni téléphone. Si vous devez associer le locataire à un compte local — par son
+e-mail, par exemple — **demandez-le** :
+
+```bash
+curl -s "$BASE_URL/v1/customers/$TENANT" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Accept: application/json"
+```
 
 L'e-mail et le téléphone ne vous sont retournés que si votre clé porte
 `customers:read` — la vôtre le porte.
 
-> **Attention : cet appel est le seul qui crée quelque chose.** Tout le reste de
-> votre intégration est en lecture ou en comptage.
+> **Votre application n'écrit jamais un client.** Elle n'a pas `customers:write`, et
+> elle n'en a pas besoin : le Core le crée, et le Core vous le dit.
 
 ## 3. Lire les droits du locataire
 
@@ -273,15 +287,17 @@ Les offres, c'est **vous** qui les publiez dans le Core (opérateur), une fois :
 | Ce que vous voulez | Appel | Portée |
 |---|---|---|
 | vérifier la clé | `GET /v1/whoami` | — |
-| déclarer un locataire | `PUT /v1/customers/{ref}` | `customers:write` (une fois, à la création) |
+| **recevoir** son locataire | webhook `customer.created` | — |
+| **lire** son identité | `GET /v1/customers/{ref}` | `customers:read` |
 | connaître ses droits | `GET /v1/customers/{ref}/entitlements` | `usage:read` |
 | compter son usage | `POST /v1/usage` | `usage:write` |
 | ouvrir le portail | `POST /v1/portal/sessions` | `portal:write` |
 | lire son état commercial | `GET /v1/subscriptions`, `GET /v1/invoices` | `subscriptions:read`, `invoices:read` |
 | recevoir ses événements | webhook signé | — |
 
-Et ce que vous **ne** ferez pas : créer une offre, créer un abonnement, émettre une
-facture, encaisser. Le portail s'en charge.
+Et ce que vous **ne** ferez pas : **créer un client**, créer une offre, créer un
+abonnement, émettre une facture, encaisser. Le Core crée le client, et le portail
+s'occupe du reste.
 
 ---
 

@@ -60,9 +60,13 @@ final class ClientApplicationGuideTest extends TestCase
         // §1 — « Vérifiez-la »
         $this->getJson('/v1/whoami', $client)->assertOk();
 
-        // §2 — « 201 si le locataire est créé, 200 s'il existe déjà »
+        // §2 — le Core crée le locataire (l'opérateur, dans la console) et
+        // le pousse à l'application. L'application, elle, n'écrit jamais.
         $this->putJson('/v1/customers/auto-ecole-42', ['display_name' => 'Auto-École La Fontaine'], $server)->assertCreated();
         $this->putJson('/v1/customers/auto-ecole-42', ['display_name' => 'Auto-École La Fontaine'], $server)->assertOk();
+
+        // … et la clé de l'application cliente ne le peut pas.
+        $this->putJson('/v1/customers/auto-ecole-43', ['display_name' => 'Autre'], $client)->assertForbidden();
 
         // §3 — « 200 », avec les droits
         $rights = $this->getJson('/v1/customers/auto-ecole-42/entitlements', $client);
