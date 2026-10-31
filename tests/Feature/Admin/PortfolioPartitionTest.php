@@ -147,7 +147,12 @@ final class PortfolioPartitionTest extends TestCase
         // A viewer holds `invoices:read` but not `invoices:write`: the
         // portfolio is what a project earns, and it is closed.
         $this->get('/admin/portfolio')->assertForbidden();
-        $this->get("/admin/projects/{$a['projectId']}/indicators")->assertForbidden();
+
+        // ADR-0080 §1 — the onboarding of the project is open to every
+        // member of its organisation; what it earns is not.
+        $this->get("/admin/projects/{$a['projectId']}/indicators")->assertOk()
+            ->assertDontSee('Revenu récurrent mensuel')
+            ->assertDontSee('Encaissé ce mois');
     }
 
     /**
