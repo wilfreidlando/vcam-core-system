@@ -59,7 +59,7 @@ final class ProjectIndicatorsConsoleTest extends TestCase
     }
 
     #[Test]
-    public function a_finance_role_reads_usage_and_a_support_role_never_reads_what_the_project_earns(): void
+    public function a_support_role_reads_the_onboarding_of_the_project_but_never_what_it_earns(): void
     {
         self::assertTrue(OperatorRole::PlatformAdmin->hasPermission('invoices:write'));
         self::assertTrue(\Core\Identity\Domain\Model\OrganizationRole::Finance->hasPermission('usage:read'));
@@ -68,8 +68,32 @@ final class ProjectIndicatorsConsoleTest extends TestCase
         self::assertFalse(\Core\Identity\Domain\Model\OrganizationRole::Support->hasPermission('invoices:write'));
 
         $projectId = $this->projectWithOneSubscriber();
+
+        // ADR-0080 §1 — the onboarding belongs to the project (every
+        // member of its organisation reads it); what the project **earns**
+        // belongs to the finance level.
         $this->loginAndEnrollMfa(OperatorRole::ReadOnlyAuditor);
-        $this->get("/admin/projects/{$projectId}/indicators")->assertStatus(403);
+        $page = $this->get("/admin/projects/{$projectId}/indicators")->assertOk();
+        $page->assertSee('Une offre publiée')
+            ->assertDontSee('Revenu récurrent mensuel')
+            ->assertDontSee('Encaissé ce mois')
+            ->assertDontSee('Créances par ancienneté');
+    }
+
+    #[Test]
+    public function a_finance_role_reads_the_figures_of_the_project(): void
+    {
+        $projectId = $this->projectWithOneSubscriber();
+
+        // `invoices:write` is an organisation permission (`org_owner`,
+        // `org_admin`, `org_finance`); the platform admin holds it by
+        // his `*`.
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+        $page = $this->get("/admin/projects/{$projectId}/indicators")->assertOk();
+
+        $page->assertSee('Revenu récurrent mensuel')
+            ->assertSee('Encaissé ce mois')
+            ->assertSee('Créances par ancienneté');
     }
 
     #[Test]

@@ -111,6 +111,16 @@ un opérateur depuis la fiche client ; absence de partition (D5) ; retrait de «
 email/téléphone » du portail (le projet reste propriétaire de l'identité).
 Retirés pour ne pas dériver : pause libre-service dans le portail ; ajustement manuel de l'usage
 en console.
+Écart **corrigé** au lot 14 : la page des indicateurs d'un projet portait la permission
+`invoices:write` sur toute la page, donc un membre de l'organisation (`org_support`,
+`org_viewer`) — que ADR-0080 §1 place au niveau « Projet » — recevait un 403 sur la **liste de
+contrôle de branchement** de son propre projet, qui ne porte aucune recette. La page porte
+désormais deux niveaux : l'onboarding se lit avec `projects:read`, les sommes que le projet gagne
+restent `invoices:write`.
+Écart **assumé** (à trancher) : ADR-0080 §1 réserve la fiche client à `org_support`/`org_finance`
+et au-dessus, mais le code l'ouvre à quiconque tient `customers:read` — donc aussi à
+`org_viewer`. La corriger exigerait une permission dédiée (`customers:detail`) : c'est un
+retrait d'accès à un écran qui montre des factures, il n'a pas été fait sans décision.
 
 ## 8. Recette par navigateur
 

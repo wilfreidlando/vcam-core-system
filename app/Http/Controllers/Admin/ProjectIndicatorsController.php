@@ -72,13 +72,21 @@ final class ProjectIndicatorsController
 
     public function show(Request $request, OperatorContext $operator, string $projectId): Response
     {
-        $scope = $this->permittedScope($operator, 'invoices:write');
-        $project = $this->scopedProject($this->getProject, $operator, $projectId, 'invoices:write');
+        // ADR-0080 §1 — this page carries two levels. The **onboarding**
+        // checklist belongs to the project: every member of its
+        // organisation reads it (`projects:read`). What the project
+        // **earns** belongs to the finance level (`invoices:write`) —
+        // the same permission as the portfolio.
+        $scope = $this->permittedScope($operator, 'projects:read');
+        $project = $this->scopedProject($this->getProject, $operator, $projectId, 'projects:read');
+
+        $moneyScope = $operator->scopeFor('invoices:write');
+        $mayReadMoney = $moneyScope->allowsProject($projectId);
 
         $days = (int) $request->query('days', 30);
         $days = in_array($days, self::PERIODS, true) ? $days : 30;
 
-        $points = $this->history->forProject($projectId, $scope, $days);
+        $points = $mayReadMoney ? $this->history->forProject($projectId, $moneyScope, $days) : [];
         $currencies = array_values(array_unique(array_map(static fn (MetricsPoint $p): string => $p->currency, $points)));
         sort($currencies);
 
@@ -92,7 +100,8 @@ final class ProjectIndicatorsController
             'title' => 'Indicateurs',
             'project' => $project,
             'projectId' => $projectId,
-            'metrics' => $this->metrics->forProject($projectId, $scope),
+            'mayReadMoney' => $mayReadMoney,
+            'metrics' => $mayReadMoney ? $this->metrics->forProject($projectId, $moneyScope) : null,
             'days' => $days,
             'periods' => self::PERIODS,
             'currencies' => $currencies,

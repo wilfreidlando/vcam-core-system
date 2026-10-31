@@ -12,14 +12,22 @@
 @endphp
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <p class="text-sm text-slate-600">{{ $project->name }} — chiffres du grand livre et des contrats, au jour le jour.</p>
-        <div class="flex gap-2 text-sm">
-            @foreach ($periods as $p)
-                <a href="{{ route('admin.projects.indicators', ['projectId' => $projectId, 'days' => $p]) }}"
-                   @if ($days === $p) aria-current="page" @endif
-                   @class(['rounded-md px-3 py-1.5 font-medium border', 'bg-slate-900 text-white border-slate-900' => $days === $p, 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50' => $days !== $p])>{{ $p }} jours</a>
-            @endforeach
-        </div>
+        <p class="text-sm text-slate-600">
+            {{ $project->name }} — @if ($mayReadMoney)
+                chiffres du grand livre et des contrats, au jour le jour.
+            @else
+                état de branchement du projet.
+            @endif
+        </p>
+        @if ($mayReadMoney)
+            <div class="flex gap-2 text-sm">
+                @foreach ($periods as $p)
+                    <a href="{{ route('admin.projects.indicators', ['projectId' => $projectId, 'days' => $p]) }}"
+                       @if ($days === $p) aria-current="page" @endif
+                       @class(['rounded-md px-3 py-1.5 font-medium border', 'bg-slate-900 text-white border-slate-900' => $days === $p, 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50' => $days !== $p])>{{ $p }} jours</a>
+                @endforeach
+            </div>
+        @endif
     </div>
 
     @if ($metrics)
@@ -31,27 +39,29 @@
         </div>
     @endif
 
-    <section aria-labelledby="curves">
-        <h2 id="curves" class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Courbes</h2>
-        @if ($points === [])
-            <p class="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
-                Pas encore d'historique : les chiffres du jour sont enregistrés chaque nuit (<code>billing:snapshot-metrics</code>).
-            </p>
-        @else
-            <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                @foreach ($currencies as $currency)
-                    @php $series = collect($points)->where('currency', $currency)->values(); @endphp
-                    @foreach ([['mrrMinor', 'Revenu récurrent mensuel'], ['collectedMinor', 'Encaissé du mois'], ['receivablesMinor', 'Créances']] as [$field, $label])
-                        <x-admin.curve
-                            :label="$label.(count($currencies) > 1 ? ' · '.$currency : '')"
-                            :series="$series"
-                            :field="$field"
-                            :currency="$currency" />
+    @if ($mayReadMoney)
+        <section aria-labelledby="curves">
+            <h2 id="curves" class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Courbes</h2>
+            @if ($points === [])
+                <p class="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
+                    Pas encore d'historique : les chiffres du jour sont enregistrés chaque nuit (<code>billing:snapshot-metrics</code>).
+                </p>
+            @else
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    @foreach ($currencies as $currency)
+                        @php $series = collect($points)->where('currency', $currency)->values(); @endphp
+                        @foreach ([['mrrMinor', 'Revenu récurrent mensuel'], ['collectedMinor', 'Encaissé du mois'], ['receivablesMinor', 'Créances']] as [$field, $label])
+                            <x-admin.curve
+                                :label="$label.(count($currencies) > 1 ? ' · '.$currency : '')"
+                                :series="$series"
+                                :field="$field"
+                                :currency="$currency" />
+                        @endforeach
                     @endforeach
-                @endforeach
-            </div>
-        @endif
-    </section>
+                </div>
+            @endif
+        </section>
+    @endif
 
     @if ($metrics)
         <section aria-labelledby="aging">
