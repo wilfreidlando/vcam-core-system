@@ -145,11 +145,10 @@ final class GuardRegistry
             'status' => self::ACTIVE,
         ],
         'G10' => [
-            'rule' => 'No consumer contract regression',
+            'rule' => 'No consumer contract regression: the endpoints and events the first consumer uses are still published, still routed, and still emitted',
             'tool' => 'Pest fixtures (Pact deferred until a second consumer exists)',
-            'enforced_by' => 'tests/Contract',
-            'status' => self::PENDING_CODE,
-            'lot' => 'Lot 17 — bascule et extinction de la plateforme transitoire',
+            'enforced_by' => 'tests/Contract/ConsumerContractTest.php',
+            'status' => self::ACTIVE,
         ],
         'G11' => [
             'rule' => 'Ledger invariants: sum-zero, derived balances, concurrency, idempotent replay',

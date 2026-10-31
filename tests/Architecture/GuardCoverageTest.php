@@ -50,7 +50,14 @@ final class GuardCoverageTest extends TestCase
         $register = $this->pendingSection();
 
         foreach (GuardRegistry::GUARDS as $id => $guard) {
-            if ($guard['status'] !== GuardRegistry::PENDING_CODE) {
+            // The status is compared as a plain string, not as the literal
+            // the registry carries: no guardrail waits for code today, and
+            // a comparison the analyser folds away would make this
+            // mechanism unrevivable the day one does.
+            /** @var string $status */
+            $status = $guard['status'];
+
+            if ($status !== GuardRegistry::PENDING_CODE) {
                 continue;
             }
 
@@ -79,7 +86,12 @@ final class GuardCoverageTest extends TestCase
         $register = $this->pendingSection();
 
         foreach (GuardRegistry::GUARDS as $id => $guard) {
-            if ($guard['status'] !== GuardRegistry::ACTIVE) {
+            // Same widening as above: the list of active guardrails grows
+            // and shrinks, and the comparison must survive both.
+            /** @var string $status */
+            $status = $guard['status'];
+
+            if ($status !== GuardRegistry::ACTIVE) {
                 continue;
             }
 

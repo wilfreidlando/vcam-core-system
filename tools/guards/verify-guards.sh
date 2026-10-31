@@ -474,6 +474,24 @@ expect_rejection "G9b" "the operator plane leaks into the API documentation" \
     'exposes the operator plane' \
     $DC_DB vendor/bin/pest tests/Architecture/OpenApiSurfaceTest.php --no-progress
 
+# ── G10 — the contract of the first consumer drifts ────────────────────────
+# The endpoints and events the first consumer uses are pinned in a fixture
+# and confronted to the published document, to the live routing table and to
+# what the Core can still emit. Here, the fixture names an endpoint the Core
+# does not serve any more — the consumer would find out on its next call.
+backup tests/Contract/ConsumerContractFixture.php
+python3 - <<'PY'
+path = 'tests/Contract/ConsumerContractFixture.php'
+needle = "        ['method' => 'post', 'path' => '/portal/sessions'],"
+replacement = needle + "\n        ['method' => 'post', 'path' => '/paiements/remis'],"
+content = open(path).read()
+assert needle in content, 'consumer contract fixture not found — probe out of date'
+open(path, 'w').write(content.replace(needle, replacement, 1))
+PY
+expect_rejection "G10" "the consumer's pinned endpoint no longer exists" \
+    'it is no longer in the API document' \
+    $DC_DB vendor/bin/pest tests/Contract/ConsumerContractTest.php --no-progress
+
 # ── G11 — the ledger's own deferred balance trigger, disabled ──────────────
 # Unlike the other probes, this one breaks REAL migrated schema rather than
 # adding harmless residue: the trigger install call is commented out, the
