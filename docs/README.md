@@ -22,6 +22,7 @@
 | --- | --- |
 | [Fiche de déploiement](DEPLOIEMENT.md) | La carte du projet, les variables, la livraison, la mise à jour, le retour arrière, la sauvegarde, les **écarts connus** avec le standard |
 | [Déploiement en production](operations/deploiement-production.md) | Installation complète, du serveur vierge au premier paiement |
+| [Les secrets du Core](operations/secretes-et-clefs.md) | Chaque clé : ce qu'elle protège, dans quel ordre la poser, ce que casse une rotation |
 | [Observabilité](operations/observabilite.md) | Ce qui est journalisé (et son niveau), les tableaux et alertes du Core, comment lire un parcours |
 
 ## L'architecture
