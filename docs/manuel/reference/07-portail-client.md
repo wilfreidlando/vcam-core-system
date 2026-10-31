@@ -1,5 +1,7 @@
 # 07 — Portail client
 
+*Ce chapitre est la référence technique du portail client. Ce que fait un client dans son espace se lit dans le [parcours F17](../parcours/README.md).*
+
 Le portail est l'espace que voit le client final de vos produits. C'est votre vitrine
 technique : pas de JavaScript, une politique de sécurité de contenu stricte, et un rendu
 qui tient sur un téléphone. Ce chapitre dit comment il s'ouvre, ce qu'il montre, et ce

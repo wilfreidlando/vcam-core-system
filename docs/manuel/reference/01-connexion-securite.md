@@ -1,5 +1,7 @@
 # 01 — Connexion et sécurité
 
+*Ce chapitre est la référence technique de la connexion et des droits. La procédure est dans les [parcours F01 à F04](../parcours/README.md).*
+
 Ce chapitre couvre la porte d'entrée de la console : votre compte, le code à 6 chiffres, les
 actions qui en redemandent un second, et le journal qui garde la trace de tout.
 

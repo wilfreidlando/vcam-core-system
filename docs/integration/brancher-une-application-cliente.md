@@ -309,5 +309,5 @@ s'occupe du reste.
   notifications, exports.
 - **[Webhooks](webhooks.md)** — la vérification de signature, la rotation du secret,
   la file de rejets.
-- **[Manuel de l'intégrateur](../manuel/08-api-integrateur.md)** — *pourquoi* l'API
+- **[Manuel de l'intégrateur](../manuel/reference/08-api-integrateur.md)** — *pourquoi* l'API
   se comporte comme elle se comporte.

@@ -1,5 +1,7 @@
 # 05 — Argent
 
+*Ce chapitre est la référence technique des paiements, de la réconciliation, des exceptions et des corrections d'exploitation. La procédure est dans les [parcours F09 à F12](../parcours/README.md) ; la confirmation des actes qui déplacent de l'argent, dans le [parcours F02](../parcours/README.md).*
+
 Paiements, réconciliation, exceptions d'argent, corrections d'exploitation. Ce sont les
 écrans où l'on décide si de l'argent bouge — et, quand il bouge, on en laisse une trace
 incompressible.

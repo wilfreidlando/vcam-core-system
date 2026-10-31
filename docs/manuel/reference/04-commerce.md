@@ -1,5 +1,7 @@
 # 04 — Commerce
 
+*Ce chapitre est la référence technique du commerce : clients, offres, abonnements, factures, encaissements. La procédure est dans les [parcours F05 à F08](../parcours/README.md).*
+
 Clients, offres, abonnements, factures, encaissements. C'est le chapitre le plus long de
 la console, parce que c'est celui qui produit de l'argent — et c'est aussi celui où les
 distinctions sont les plus nettes.

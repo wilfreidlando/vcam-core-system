@@ -1,5 +1,7 @@
 # 03 — Clés d'API, webhooks, prestataires et sessions WhatsApp
 
+*Ce chapitre est la référence technique des clés d'API, des webhooks, des applications de prestataire et des sessions WhatsApp. La procédure est dans les [parcours F14 à F16](../parcours/README.md).*
+
 Ce chapitre couvre les quatre objets qui branchent un produit extérieur sur le Core : la
 **clé d'API**, l'**endpoint webhook**, l'**application de prestataire** et la **session
 WhatsApp**.
@@ -198,7 +200,7 @@ s'écarte de plus de **300 secondes** de votre heure, et comparez les signatures
 constant.
 
 Le format exact, l'algorithme et les exemples de vérification sont dans
-[`docs/integration/webhooks.md`](../integration/webhooks.md), avec un vérificateur en PHP,
+[`docs/integration/webhooks.md`](../../integration/webhooks.md), avec un vérificateur en PHP,
 en Node et en Python.
 
 ### Les livraisons qui échouent

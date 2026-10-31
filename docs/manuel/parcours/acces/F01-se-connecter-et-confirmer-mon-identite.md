@@ -26,8 +26,6 @@ temps: 2 minutes
 Rendez-vous sur l'adresse de la console. Vous voyez le titre **« Connexion »**, deux
 champs — **« Email »** et **« Mot de passe »** — et le bouton **« Continuer »**.
 
-![La page de connexion : un champ « Email », un champ « Mot de passe », le bouton « Continuer ».](images/F01-01-connexion.png)
-
 ### 2. Saisissez votre e-mail et votre mot de passe
 
 Remplissez les deux champs et cliquez sur **« Continuer »**.
@@ -43,8 +41,6 @@ authentificateur** : elle affiche un **secret** à saisir à la main dans votre
 application d'authentification, puis un code à 6 chiffres pour confirmer que tout
 fonctionne.
 
-![La page de configuration de l'authentificateur : le secret à saisir et un champ pour le code.](images/F01-02-authentificateur.png)
-
 → **Ce qui se passe** : le secret affiché ici n'est montré **qu'une seule fois**. Si
 vous le perdez, un administrateur doit vous en donner un nouveau. Notez-le dans votre
 gestionnaire de mots de passe, avec le compte de la console.
@@ -52,7 +48,8 @@ gestionnaire de mots de passe, avec le compte de la console.
 Aux **connexions suivantes**, la console demande simplement le **code à 6 chiffres**
 actuel, sous le titre **« Vérifiez votre authentificateur »**.
 
-![La page de vérification : un champ « Code » et le bouton « Vérifier et se connecter ».](images/F01-03-code.png)
+La page affiche alors un champ **« Code »** et le bouton **« Vérifier et se connecter »**.
+
 
 ### 4. Entrez dans la console
 

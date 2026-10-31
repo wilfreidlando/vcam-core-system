@@ -1,136 +1,115 @@
-# Manuel d'utilisation — Console opérateur, Portail client, API
+# Manuel du Core — le guide de l'opérateur
 
-Ce manuel est le document de formation du Core System. Il décrit **trois produits qui n'en
-font qu'un** :
+Le Core a une console (`/admin`), un portail client (`/portal`) et une API (`/v1`).
+Ce manuel les explique, mais **pas à partir des objets techniques**. Il part de la
+situation que vous vivez : *« un client ne paie plus, que je fais ? »*.
 
-- la **console opérateur** (`/admin`) — 64 écrans où l'équipe de la plateforme gère les
-  organisations, les projets, l'argent et les livraisons ;
-- le **portail client** (`/portal`) — l'espace où le client final de vos produits consulte
-  ses factures, son abonnement et ses quotas ;
-- l'**API publique** (`/v1`) — ce que votre logiciel appelle pour encaisser, notifier et
-  abonner.
+Il y a deux lectures, et **personne n'a besoin des deux en même temps**.
 
-**À quoi ça sert.** Un nouvel opérateur prend la console en main en une demi-journée. Un
-opérateur en poste a les chapitres de référence sous la main. Un commercial sait répondre
-à un client sur ses factures, ses quotas et son portail. Un intégrateur branche son
-produit et sait pourquoi ses appels sont refusés.
-
-**Ce que ce manuel n'est pas.** Ce n'est ni la documentation de l'API (`/docs/api`, et le
-fichier `openapi/v1.json`) ni le guide d'intégration (`docs/integration/`). Ce n'est pas un
-document d'architecture non plus. Quand ce manuel dit « la console fait X », c'est parce
-que le code le fait — chaque chapitre finit par ses repères techniques.
+| Vous êtes… | Vous lisez |
+|------------|-----------|
+| Un **opérateur** qui prend la console en main | Les **parcours** — dix-neuf tâches, rangées par situation |
+| Un **commercial** qui répond à un client sur ses factures | Les parcours **F05 à F08** (vendre et encaisser) |
+| Un **technicien** qui branche son logiciel au Core | La **référence** technique, et le [guide d'intégration](../integration/) |
+| Un **lecteur** qui veut savoir pourquoi c'est comme ça | Les [ADR](../adr/) — une décision par document |
 
 ---
 
-## Sommaire
+## Les parcours — « je veux faire quoi ? »
 
-| # | Chapitre | Ce qu'il couvre | Public principal |
-|---|----------|-----------------|------------------|
-| 01 | [Connexion et sécurité](01-connexion-securite.md) | Connexion, MFA TOTP, **élévation**, rôles, opérateurs, invitation, journal d'audit | Tous |
-| 02 | [Organisations et projets](02-organisations-projets.md) | Organisations, membres, rôles d'organisation, projets, cycle de vie, portefeuille | Opérateur, commerce |
-| 03 | [Clés d'API et webhooks](03-cles-api-webhooks.md) | Clés d'API (création, rotation, révocation), endpoints webhook, secrets et double signature, applications prestataire, sessions WhatsApp | Opérateur, intégrateur |
-| 04 | [Commerce](04-commerce.md) | Clients, offres et versions, abonnements, factures, encaissements hors ligne, réglages du commerce | Commerce |
-| 05 | [Argent](05-argent.md) | Paiements, réconciliation, exceptions d'argent, corrections d'exploitation | Opérateur |
-| 06 | [Portefeuilles, notifications et exports](06-portefeuille-notifications.md) | Portefeuilles, notifications, usage et quotas, exports par projet | Opérateur, commerce |
-| 07 | [Portail client](07-portail-client.md) | Ouverture de session, tableau de bord, abonnement, factures et paiement, quotas, profil, connexion par code | Commerce, support |
-| 08 | [API pour l'intégrateur](08-api-integrateur.md) | Authentification, portée des clés, idempotence, quotas de débit, webhooks sortants, notifications, simulateur, exports | Intégrateur |
-| 09 | [Comprendre l'argent](09-comprendre-l-argent.md) | Le grand livre en double-entrée, les portefeuilles, la chaîne de l'argent de bout en bout, le compteur d'usage | Opérateur |
-| 10 | [Ce que le Core ne fait pas](10-ce-que-le-core-ne-fait-pas.md) | Écarts assumés, modules hors périmètre, comptes déclarés mais non écrits | Tous |
+Chaque parcours est **autonome** : on peut le lire, l'imprimer, l'envoyer à un
+collègue, sans le reste du manuel. Il est aussi **dans la console** : un lien
+« Guide » dans la barre latérale ouvre la même chose que cette page.
 
----
+| # | Parcours | Vous voulez… |
+|---|----------|-------------|
+| [F01](parcours/acces/F01-se-connecter-et-confirmer-mon-identite.md) | Se connecter et confirmer mon identité |
+| [F02](parcours/acces/F02-confirmer-une-action-qui-deplace-de-largent.md) | Confirmer une action qui déplace de l'argent |
+| [F03](parcours/acces/F03-inviter-un-collegue-et-lui-donner-ses-droits.md) | Inviter un collègue et lui donner ses droits |
+| [F04](parcours/acces/F04-retrouver-qui-a-fait-quoi.md) | Retrouver qui a fait quoi |
+| [F05](parcours/vendre/F05-enregistrer-un-client.md) | Enregistrer un client |
+| [F06](parcours/vendre/F06-vendre-une-offre-et-la-faire-vivre.md) | Vendre une offre et la faire vivre |
+| [F07](parcours/vendre/F07-emettre-une-facture.md) | Émettre une facture |
+| [F08](parcours/vendre/F08-encaisser-un-reglement-recu-par-ailleurs.md) | Encaisser un règlement reçu par ailleurs |
+| [F09](parcours/argent/F09-voir-ce-qui-mest-du-et-relancer.md) | Voir ce qui m'est dû et relancer |
+| [F10](parcours/argent/F10-retrouver-ou-relancer-un-paiement.md) | Retrouver ou relancer un paiement |
+| [F11](parcours/argent/F11-traiter-une-exception-dargent.md) | Traiter une exception d'argent |
+| [F12](parcours/argent/F12-corriger-une-erreur-decriture.md) | Corriger une erreur d'écriture |
+| [F13](parcours/argent/F13-comprendre-dou-vient-largent.md) | Comprendre d'où vient l'argent |
+| [F14](parcours/livraisons/F14-brancher-une-application-cliente.md) | Brancher une application cliente |
+| [F15](parcours/livraisons/F15-diagnostiquer-un-echec-de-livraison.md) | Diagnostiquer un échec de livraison |
+| [F16](parcours/livraisons/F16-connecter-whatsapp-et-envoyer-des-messages.md) | Connecter WhatsApp et envoyer des messages |
+| [F17](parcours/livraisons/F17-regler-lespace-client.md) | Régler l'espace client |
+| [F18](parcours/piloter/F18-extraire-les-donnees-dun-projet.md) | Extraire les données d'un projet |
+| [F19](parcours/piloter/F19-piloter-par-les-indicateurs.md) | Piloter par les indicateurs |
 
-## Quatre parcours de formation
+Les parcours sont regroupés en **cinq familles** :
 
-### Parcours 1 — « Nouvel opérateur » (une demi-journée)
-
-Vous ne connaissez pas le produit. Suivez les chapitres dans cet ordre.
-
-1. **[01 — Connexion et sécurité](01-connexion-securite.md)**. Vous allez créer votre
-   compte, configurer votre authentificateur, apprendre ce qu'est une élévation et lire le
-   journal d'audit. Comptez 45 minutes.
-2. **[02 — Organisations et projets](02-organisations-projets.md)**. Qui est le client,
-   qu'est-ce qu'un projet, qui a le droit de voir quoi. 30 minutes.
-3. **[05 — Argent](05-argent.md)**. Les paiements, ce qu'est une exception d'argent, ce
-   qu'est une correction. C'est le chapitre qui vous évitera les mauvaises décisions.
-   45 minutes.
-4. **[09 — Comprendre l'argent](09-comprendre-l-argent.md)**. La lecture. À faire après
-   05, pas avant : ce chapitre explique pourquoi 05 se comporte comme il se comporte.
-   45 minutes.
-5. **[03 — Clés d'API et webhooks](03-cles-api-webhooks.md)** et
-   **[06 — Portefeuilles, notifications et exports](06-portefeuille-notifications.md)**.
-   45 minutes.
-
-À la fin, vous savez : ouvrir une session, trouver un projet, lire un paiement, dire d'où
-vient un montant, et ce qu'il faut rejouer quand une livraison échoue.
-
-### Parcours 2 — « Exploitation courante » (le quotidien)
-
-Vous êtes en poste. Ce sont les gestes que vous ferez chaque jour.
-
-| Quand | Chapitre | Le geste |
-|-------|---------|----------|
-| Matin | [05 — Argent](05-argent.md) | Lire les exceptions d'argent non résolues, les traiter ou les laisser à un collègue |
-| Matin | [05 — Argent](05-argent.md) | Rejouer les livraisons de webhooks en échec |
-| Matin | [03 — Clés d'API et webhooks](03-cles-api-webhooks.md) | Répondre à « le client dit qu'il ne reçoit rien » |
-| Sur demande | [06 — Portefeuilles, notifications et exports](06-portefeuille-notifications.md) | Lire l'historique d'un envoi WhatsApp, expliquer un quota atteint |
-| Sur demande | [04 — Commerce](04-commerce.md) | Émettre une facture, enregistrer un virement reçu |
-| Fin de journée | [01 — Connexion et sécurité](01-connexion-securite.md) | Relire le journal d'audit si un doute est revenu |
-
-### Parcours 3 — « Commerce » (facturation et relation client)
-
-Vous parlez aux clients et vous pilotez leur facturation.
-
-1. **[04 — Commerce](04-commerce.md)**. Clients, offres, abonnements, factures, encaissements.
-2. **[07 — Portail client](07-portail-client.md)**. Ce que voit le client, ce qu'il peut
-   faire seul, ce qu'il vous demande.
-3. **[06 — Portefeuilles, notifications et exports](06-portefeuille-notifications.md)**.
-   Usage et quotas, et la section « Les indicateurs du projet » : comment vous savez
-   qu'un projet va mal.
-4. **[09 — Comprendre l'argent](09-comprendre-l-argent.md)**, section « Ce que l'exploitant
-   doit en faire » : les questions que vos clients vous posent, et où trouver la
-   réponse.
-
-### Parcours 4 — « Intégration » (votre logiciel appelle le Core)
-
-1. **[08 — API pour l'intégrateur](08-api-integrateur.md)**. Le contrat d'appel.
-2. **[03 — Clés d'API et webhooks](03-cles-api-webhooks.md)**. Ce que vous demandez à
-   l'administrateur de la plateforme, et pourquoi il vous posera des questions sur la
-   portée et l'expiration.
-3. **[09 — Comprendre l'argent](09-comprendre-l-argent.md)**, sections 4 et 5 : pourquoi
-   un paiement réussi ne crédite pas un compte, et ce que le compteur d'usage mesure.
-4. **[07 — Portail client](07-portail-client.md)** : si vous ouvrez aussi un espace client.
+1. **[Se connecter et gérer les accès](parcours/acces/)** — entrer, prouver qui vous êtes,
+   décider qui peut faire quoi, retrouver ce qui s'est passé.
+2. **[Vendre et encaisser](parcours/vendre/)** — le client, l'offre, l'abonnement, la
+   facture, l'encaissement reçu par ailleurs.
+3. **[Suivre et reprendre l'argent](parcours/argent/)** — les créances, un paiement
+   bloqué, une exception, une correction, la lecture du grand livre.
+4. **[Brancher et surveiller les livraisons](parcours/livraisons/)** — brancher une
+   application cliente, diagnostiquer un échec, WhatsApp, l'espace client.
+5. **[Extraire et piloter](parcours/piloter/)** — sortir les données, regarder les
+   courbes.
 
 ---
 
-## Conventions de lecture
+## Comment lire un parcours
 
-**Les libellés sont entre guillemets.** Ce sont les mots exacts affichés par le produit.
-`« Filtrer »`, `« Enregistrer la décision »`, `« Faire tourner »` : si le texte change dans
-le produit, ce manuel est à corriger.
+Chaque parcours suit la même forme, pour que vous sachiez toujours où vous en êtes :
 
-**Chaque écran est désigné par son URL.** `GET /admin/projects/{projectId}/invoices`
-signifie « la page listant les factures du projet dont l'identifiant est
-`{projectId}` ». Les accolades sont des emplacements : remplacez-les par la valeur réelle.
+| Section | Ce qu'elle vous donne |
+|---------|----------------------|
+| **Ce qu'il faut savoir avant** | les règles qui surprennent, et qui font échouer la manœuvre si on les ignore |
+| **Les étapes** | le chemin exact, avec le **nom des boutons tel qu'il est écrit à l'écran** |
+| **Ce que vous voyez** | chaque colonne et chaque état, expliqués |
+| **Si ça ne marche pas** | le message affiché, ce qu'il signifie, ce qu'il faut faire |
+| **Et ensuite** | le parcours voisin, pour continuer sans chercher |
 
-**Les termes techniques sont expliqués à leur première occurrence**, en gras. Après, on
-emploie le terme seul. « Un **projet** est l'espace d'un client dans le Core : il porte ses
-clés d'API, ses factures, ses clients. »
+Deux conventions, appliquées partout :
 
-**Les actions sont numérotées.** Si une action comporte des choix, chaque option est
-détaillée. Un chapitre ne dit jamais « faites ce qu'il faut ».
+- **`→ Ce qui se passe :`** — l'encadré qui explique **ce que le logiciel a fait**, juste
+  après l'étape qui l'a provoqué. Un parcours ne confond jamais *ce que vous faites* et
+  *ce que la machine en fait*.
+- **Les guillemets français** — tout ce qui est entre `« »` est un mot **écrit sur un
+  écran**. Si le produit renomme un bouton, le guide le suit : un test de la build
+  échoue tant que le guide cite un mot que le produit n'affiche plus.
 
-**Les secrets ne sont affichés qu'une fois.** Un jeton d'invitation, une clé d'API, un
-secret de signature : la console les affiche dans la réponse qui les crée, jamais dans une
-page consultée plus tard. Si vous l'avez perdu, vous en créez un nouveau.
+---
 
-**Les codes HTTP sont expliqués quand ils portent une information.** `403` signifie « vous
-n'avez pas le droit ». `404` sur une ressource qui existe signifie « elle n'est pas dans
-votre périmètre » — c'est volontaire : le Core ne confirme pas l'existence d'une
-ressource d'un autre client. Les deux codes ne se confondent jamais.
+## La référence technique
 
-**Chaque chapitre finit par « Repères techniques »** : les fichiers du code qui portent la
-comportement décrit. Cette section est pour vous et pour l'équipe qui maintient le
-produit. Vous pouvez la sauter.
+Dans [`reference/`](reference/) : les dix chapitres qui expliquent **le comment**, pour
+ceux qui doivent toucher au produit. Ils sont écrits pour des techniciens — ils parlent
+de portée, d'identifiant, de cas limite — et ne sont pas rendus dans la console.
 
-**La date de référence est le 2026-10-30.** Le produit évolue ; si une capture d'écran ne
-ressemble plus à ce que vous lisez, la documentation d'API (`/docs/api`) fait foi.
+| Chapitre | Ce qu'il couvre |
+|----------|----------------|
+| [01 — Connexion et sécurité](reference/01-connexion-securite.md) | Connexion, code à 6 chiffres, rôle, invitation, journal d'audit |
+| [02 — Organisations et projets](reference/02-organisations-projets.md) | Qui est le client, qu'est-ce qu'un projet, qui voit quoi |
+| [03 — Clés d'API et webhooks](reference/03-cles-api-webhooks.md) | Clés d'API, points de livraison, secrets, applications de prestataire, sessions WhatsApp |
+| [04 — Commerce](reference/04-commerce.md) | Clients, offres, abonnements, factures, encaissements hors ligne |
+| [05 — Argent](reference/05-argent.md) | Paiements, réconciliation, exceptions, corrections |
+| [06 — Portefeuilles, notifications et exports](reference/06-portefeuille-notifications.md) | Portefeuilles, messages, usage, exports |
+| [07 — Portail client](reference/07-portail-client.md) | L'espace du client : abonnement, factures, paiement, quotas |
+| [08 — API pour l'intégrateur](reference/08-api-integrateur.md) | Le contrat d'appel, les refus, les limites |
+| [09 — Comprendre l'argent](reference/09-comprendre-l-argent.md) | Le grand livre, les portefeuilles, la chaîne de l'argent |
+| [10 — Ce que le Core ne fait pas](reference/10-ce-que-le-core-ne-fait-pas.md) | Les écarts assumés, ce qui n'existe pas encore |
+
+Pour l'API, il y a mieux que ce manuel : le [**guide d'intégration**](../integration/) et
+le schéma des routes (`openapi/v1.json`). Pour les décisions, les [**ADR**](../adr/).
+
+---
+
+## Ce que ce manuel n'est pas
+
+- Ce n'est **pas** la documentation de l'API : elle est dans
+  [`docs/integration/`](../integration/).
+- Ce n'est **pas** l'explication des choix de conception : ils sont dans
+  [`docs/adr/`](../adr/), un document par décision.
+- Ce n'est **pas** un catalogue de rubriques : chaque parcours est une **tâche**, de sa
+  première étape à la dernière.

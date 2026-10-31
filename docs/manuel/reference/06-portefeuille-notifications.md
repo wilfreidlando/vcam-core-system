@@ -1,5 +1,7 @@
 # 06 — Portefeuilles, notifications, usage et exports
 
+*Ce chapitre est la référence technique des portefeuilles, des notifications, de l'usage et des exports. Ce que vous cherchez selon l'objet est dans les [parcours F13](../parcours/README.md) (l'argent), [F16](../parcours/README.md) (les messages) et [F18](../parcours/README.md) (les exports).*
+
 Quatre écrans de lecture qui répondent à des questions concrètes : « où est l'argent de ce
 client ? », « le message est-il parti ? », « le client a-t-il épuisé son quota ? », « je
 redonne les données à mon client ».

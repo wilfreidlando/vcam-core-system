@@ -1,7 +1,9 @@
 # 08 — API pour l'intégrateur
 
-Ce chapitre est le contrat d'appel. Il ne répète pas le [guide `curl`](../integration/guide-curl-integrateur.md),
-qui contient les commandes exécutées, ni le [kit Laravel](../integration/kit-laravel/INSTALL.md),
+*Ce chapitre est la référence technique de l'API : le contrat d'appel, les refus, les limites. La marche à suivre est dans le [parcours F14](../parcours/README.md) et dans le guide d'intégration ([`docs/integration/`](../../integration/)).*
+
+Ce chapitre est le contrat d'appel. Il ne répète pas le [guide `curl`](../../integration/guide-curl-integrateur.md),
+qui contient les commandes exécutées, ni le [kit Laravel](../../integration/kit-laravel/INSTALL.md),
 qui contient le code. Il dit **pourquoi** l'API se comporte comme elle se comporte — parce
 que la plupart des refus que vous vas recevoir sont des refus informés.
 

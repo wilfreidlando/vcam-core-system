@@ -1,5 +1,7 @@
 # 09 — Comprendre l'argent
 
+*Ce chapitre est la référence technique du grand livre, des portefeuilles et de la chaîne de l'argent. La lecture de tout cela se fait dans le [parcours F13](../parcours/README.md).*
+
 On ne peut pas exploiter correctement le Core sans savoir comment l'argent y bouge. Ce
 chapitre explique le fonctionnement interne, avec un seul but : que vous puissiez répondre
 à un client qui demande « d'où vient ce montant ? ».

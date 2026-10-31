@@ -1,5 +1,7 @@
 # 10 — Ce que le Core ne fait pas
 
+*Ce chapitre est la référence technique des écarts assumés du Core. Aucun parcours ne le remplace : c'est le document à lire avant de promettre une fonctionnalité.*
+
 Un manuel qui ne dit pas ce qui manque ment par omission. Ce chapitre liste les **écarts
 assumés** : ce que le produit a décidé de ne pas faire, et pourquoi. Le mot important est
 *assumé* — ce ne sont pas des bugs en attente, ce sont des décisions.
@@ -164,12 +166,12 @@ Trois règles structurelles, qui ne sont pas des choix d'implémentation mais de
 
 | Vous voulez… | Lisez |
 |---|---|
-| Savoir **pourquoi** une décision a été prise | [Index des ADR](../adr/README.md) |
-| Comprendre **comment** c'est construit | [Vue d'ensemble de l'architecture](../architecture/vue-ensemble.md) |
-| Connaître les **écarts de la recette** du 2026-10-29 | [Registre des écarts](../audit/ecarts-recette-2026-10-29.md) |
-| **Brancher** un produit | [Brancher une application cliente](../integration/brancher-une-application-cliente.md), [Guide `curl`](../integration/guide-curl-integrateur.md), [Webhooks](../integration/webhooks.md), [Kit Laravel](../integration/kit-laravel/INSTALL.md) |
-| **Déployer** le Core | [Fiche de déploiement](../DEPLOIEMENT.md) |
-| **Suivre** ce qui se passe en production | [Observabilité](../operations/observabilite.md) |
+| Savoir **pourquoi** une décision a été prise | [Index des ADR](../../adr/README.md) |
+| Comprendre **comment** c'est construit | [Vue d'ensemble de l'architecture](../../architecture/vue-ensemble.md) |
+| Connaître les **écarts de la recette** du 2026-10-29 | [Registre des écarts](../../audit/ecarts-recette-2026-10-29.md) |
+| **Brancher** un produit | [Brancher une application cliente](../../integration/brancher-une-application-cliente.md), [Guide `curl`](../../integration/guide-curl-integrateur.md), [Webhooks](../../integration/webhooks.md), [Kit Laravel](../../integration/kit-laravel/INSTALL.md) |
+| **Déployer** le Core | [Fiche de déploiement](../../DEPLOIEMENT.md) |
+| **Suivre** ce qui se passe en production | [Observabilité](../../operations/observabilite.md) |
 
 ---
 

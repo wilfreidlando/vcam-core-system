@@ -1,5 +1,7 @@
 # 02 — Organisations et projets
 
+*Ce chapitre est la référence technique des organisations, des projets et des rôles. Pour les droits et les invitations, la procédure est dans le [parcours F03](../parcours/README.md).*
+
 Trois objets structurent le Core : l'**organisation**, le **projet**, et l'**opérateur**.
 Ce chapitre dit qui est qui, et ce que vous pouvez faire de chaque côté.
 
