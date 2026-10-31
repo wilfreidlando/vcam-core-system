@@ -68,6 +68,9 @@ final class IdorSector
         'admin.projects.commerce-settings' => 'billing',
         'admin.projects.usage' => 'billing',
         'admin.projects.indicators' => 'billing',
+        // ADR-0073 — the receivables screen reads the billing module's
+        // invoices and the ledger: it belongs to the same sector run.
+        'admin.projects.receivables' => 'billing',
         // ADR-0088 §3 — the export of a project's data.
         'admin.projects.exports' => 'export',
         // Audit 2026-10-29 #16 — the signed download link bound to an operator.

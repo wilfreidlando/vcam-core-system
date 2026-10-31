@@ -152,6 +152,10 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.commerce-settings', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.commerce-settings.save', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.indicators', Nature::Project, Outcome::NotFound),
+            // ADR-0073 — the receivables screen is read-only, but it is
+            // still a project page: an account of another organization
+            // gets "not found", never a figure.
+            Entry::isolated('admin.projects.receivables.index', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.ledger', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.usage', Nature::Project, Outcome::NotFound),
 

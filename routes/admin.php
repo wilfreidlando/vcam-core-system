@@ -249,6 +249,10 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
             Route::post('{projectId}/commerce-settings', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'saveSettings'])->name('projects.commerce-settings.save');
             Route::get('{projectId}/usage', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'usage'])->name('projects.usage');
             Route::get('{projectId}/indicators', [App\Http\Controllers\Admin\ProjectIndicatorsController::class, 'show'])->name('projects.indicators');
+            // ADR-0073 — « une vue créances (factures ouvertes, en retard,
+            // irrécouvrables) lue dans le grand livre ». Lecture seule :
+            // aucune écriture d'argent depuis cet écran.
+            Route::get('{projectId}/receivables', [App\Http\Controllers\Admin\BillingReceivablesController::class, 'index'])->name('projects.receivables.index');
             Route::get('{projectId}/ledger', [App\Http\Controllers\Admin\ProjectLedgerController::class, 'show'])->name('projects.ledger');
 
             // ADR-0088 §3 / ADR-0101 — « Export des données » of a project: ask for it,
