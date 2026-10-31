@@ -101,6 +101,18 @@ schema: ## Schema guardrails: anti-PII, money columns (CI job: schema)
 test: ## Run the test suite in parallel (CI job: tests)
 	$(EXEC) vendor/bin/pest --parallel
 
+# ─── Recette (R-01…R-15) ──────────────────────────────────────────────────
+# The acceptance criteria of the functional spec (docs/specs/spec-fonctionnelle.md
+# §F8), and the one proof a test cannot give: the quota's atomicity under
+# real concurrency.
+.PHONY: recette
+recette: ## Run the acceptance criteria R-01…R-15 (CI job: recette)
+	$(EXEC) vendor/bin/pest tests/Integration/RecetteCriteriaTest.php tests/Integration/SaasRecetteEndToEndTest.php tests/Integration/SaasLifecycleFlowTest.php
+
+.PHONY: recette-concurrence
+recette-concurrence: ## Prove the quota's atomicity with real concurrent processes (R-07)
+	bash tools/checks/usage-concurrency.sh
+
 # ─── Sectors (parallel work) ────────────────────────────────────────────────
 # One sector = one bounded context = one agent = one test database. A sector
 # agent runs its OWN suite and the gates its own change can break — never the

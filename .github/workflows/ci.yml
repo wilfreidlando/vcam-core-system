@@ -59,6 +59,20 @@ jobs:
             # cover the whole suite (1 885 tests), without overlap.
             run: vendor/bin/pest --group=default --group=integration --group=invariants
 
+          - name: recette
+            # R-01…R-15 — the acceptance criteria of the functional spec
+            # (docs/specs/spec-fonctionnelle.md §F8), and the proof no
+            # PHPUnit test can give: the quota's atomicity under REAL
+            # concurrency (R-07). A test runs inside one transaction, so
+            # it cannot race two connections; the script runs 50 separate
+            # processes that spend the last unit of a limit-1 plan at the
+            # same time and expects exactly one to be admitted.
+            # `IN_APP_CONTAINER=1`: the job container has no Docker
+            # daemon, so the helper runs `php artisan` in place.
+            run: |
+              vendor/bin/pest tests/Integration/RecetteCriteriaTest.php tests/Integration/SaasRecetteEndToEndTest.php tests/Integration/SaasLifecycleFlowTest.php
+              IN_APP_CONTAINER=1 tools/checks/usage-concurrency.sh
+
     services:
       postgres:
         image: postgres:18-alpine
