@@ -99,6 +99,45 @@ final class PortfolioPartitionTest extends TestCase
     }
 
     #[Test]
+    public function the_portfolio_shows_the_trend_of_each_project(): void
+    {
+        $a = $this->tenant('Alpha', 25_000);
+
+        // Two days of history, so the curve has a shape.
+        foreach ([['2026-10-27', 10_000], ['2026-10-28', 25_000]] as [$day, $mrr]) {
+            DB::table('billing_daily_metrics')->insert([
+                'id' => (string) Str::uuid(),
+                'project_id' => $a['projectId'],
+                'day' => $day,
+                'currency' => 'XAF',
+                'mrr_minor' => $mrr,
+                'collected_minor' => 0,
+                'receivables_minor' => 0,
+                'customers' => 1,
+                'active_customers' => 1,
+                'trialing' => 0,
+                'past_due' => 0,
+                'paused' => 0,
+                'new_this_month' => 0,
+                'lost_this_month' => 0,
+                'churn_bps' => 0,
+                'computed_at' => now(),
+            ]);
+        }
+
+        $this->loginAsMemberOf($a['organizationId'], OrganizationRole::Finance);
+
+        $portfolio = $this->get('/admin/portfolio')->assertOk();
+
+        // ADR-0080 §1 — the portfolio is « un tableau des projets accessibles
+        // avec leurs indicateurs clés **et leur tendance** ».
+        $portfolio->assertSee('Tendance')
+            ->assertSee('<polyline', false)
+            // One series per currency: no conversion, ever (ADR-0080 §6).
+            ->assertSee('Revenu récurrent mensuel · XAF', false);
+    }
+
+    #[Test]
     public function a_viewer_account_of_one_organization_reads_no_revenue_at_all(): void
     {
         $a = $this->tenant('Alpha', 25_000);

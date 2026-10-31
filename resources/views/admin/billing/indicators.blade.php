@@ -9,20 +9,6 @@
         ? number_format($minor, 0, ',', ' ').' '.$currency
         : number_format($minor / 100, 2, ',', ' ').' '.$currency;
     $money = fn (array $figures): string => $figures === [] ? '—' : collect($figures)->map(fn (int $minor, string $c): string => $amount($minor, $c))->implode(' · ');
-
-    // A curve is a polyline in a 320×90 box; the whole series sits between 0 and its maximum.
-    $curve = function (array $values): array {
-        $n = count($values);
-        $max = max(1, ...($values === [] ? [1] : $values));
-        $coords = [];
-        foreach ($values as $i => $v) {
-            $x = $n === 1 ? 160 : round(8 + ($i / ($n - 1)) * 304, 1);
-            $y = round(82 - ($v / $max) * 74, 1);
-            $coords[] = $x.','.$y;
-        }
-
-        return [implode(' ', $coords), $max];
-    };
 @endphp
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -56,28 +42,11 @@
                 @foreach ($currencies as $currency)
                     @php $series = collect($points)->where('currency', $currency)->values(); @endphp
                     @foreach ([['mrrMinor', 'Revenu récurrent mensuel'], ['collectedMinor', 'Encaissé du mois'], ['receivablesMinor', 'Créances']] as [$field, $label])
-                        @php
-                            $values = $series->map(fn ($p) => $p->{$field})->all();
-                            [$line, $max] = $curve($values);
-                            $last = $values === [] ? 0 : end($values);
-                            // A single day is a dot, not a line: mark the latest point.
-                            $lastPoint = $line === '' ? ['160', '82'] : explode(',', (string) last(explode(' ', $line)));
-                        @endphp
-                        <figure class="rounded-lg border border-slate-200 bg-white p-4">
-                            <figcaption class="flex items-baseline justify-between text-sm">
-                                <span class="font-medium text-slate-800">{{ $label }}{{ count($currencies) > 1 ? ' · '.$currency : '' }}</span>
-                                <span class="tabular-nums text-slate-600">{{ $amount($last, $currency) }}</span>
-                            </figcaption>
-                            <svg viewBox="0 0 320 90" class="mt-2 h-24 w-full" role="img"
-                                 aria-label="{{ $label }} sur {{ $series->count() }} jour(s), de {{ $amount($values[0] ?? 0, $currency) }} à {{ $amount($last, $currency) }}">
-                                <line x1="8" y1="82" x2="312" y2="82" class="stroke-slate-200" stroke-width="1"/>
-                                <polyline points="{{ $line }}" fill="none" class="stroke-indigo-600" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-                                <circle cx="{{ $lastPoint[0] }}" cy="{{ $lastPoint[1] ?? 82 }}" r="3.5" class="fill-indigo-600"/>
-                            </svg>
-                            <div class="mt-1 flex justify-between text-xs text-slate-500">
-                                <span>{{ $series->first()?->day }}</span><span>max {{ $amount($max, $currency) }}</span><span>{{ $series->last()?->day }}</span>
-                            </div>
-                        </figure>
+                        <x-admin.curve
+                            :label="$label.(count($currencies) > 1 ? ' · '.$currency : '')"
+                            :series="$series"
+                            :field="$field"
+                            :currency="$currency" />
                     @endforeach
                 @endforeach
             </div>

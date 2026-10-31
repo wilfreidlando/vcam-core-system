@@ -29,7 +29,7 @@
         <button class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Rechercher</button>
     </form>
 
-    <x-admin.table caption="Portefeuille par projet" :headers="['Projet', 'MRR', 'Actifs', 'Essais', 'Impayés', 'Nouveaux / perdus', 'Encaissé', 'Créances', 'À surveiller']" empty="Aucun projet.">
+    <x-admin.table caption="Portefeuille par projet" :headers="['Projet', 'MRR', 'Tendance', 'Actifs', 'Essais', 'Impayés', 'Nouveaux / perdus', 'Encaissé', 'Créances', 'À surveiller']" empty="Aucun projet.">
         <tbody class="divide-y divide-slate-100 bg-white">
         @foreach ($rows as $row)
             @php $m = $row['metrics']; @endphp
@@ -41,6 +41,13 @@
                     @endif
                 </td>
                 <td class="px-4 py-3 text-sm tabular-nums">{{ $money($m->mrrMinor) }}</td>
+                <td class="px-4 py-3 text-sm">
+                    @forelse ($row['trend'] as $currency => $series)
+                        <x-admin.curve :label="'Revenu récurrent mensuel · '.$currency" :series="$series" field="mrrMinor" :currency="$currency" compact />
+                    @empty
+                        <span class="text-slate-500">—</span>
+                    @endforelse
+                </td>
                 <td class="px-4 py-3 text-sm tabular-nums">{{ $m->activeCustomers }}</td>
                 <td class="px-4 py-3 text-sm tabular-nums">{{ $m->trialing }}</td>
                 <td @class(['px-4 py-3 text-sm tabular-nums', 'text-rose-700 font-semibold' => $m->pastDue > 0])>{{ $m->pastDue }}</td>

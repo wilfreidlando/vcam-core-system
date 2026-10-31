@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
+use Core\Billing\Contracts\MetricsHistory;
+use Core\Billing\Contracts\MetricsPoint;
 use Core\Billing\Contracts\ProjectMetrics;
 use Core\Billing\Contracts\ProjectMetricsView;
 use Core\Identity\Contracts\ListProjects;
 use Core\Identity\Contracts\ListProjectsCommand;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Support\Access\AccessScope;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -28,9 +31,13 @@ final class PortfolioController
 
     private const MAX_PROJECTS = 50;
 
+    /** The window of the curve drawn next to each project (ADR-0080 §1). */
+    private const TREND_DAYS = 30;
+
     public function __construct(
         private readonly ListProjects $listProjects,
         private readonly ProjectMetrics $metrics,
+        private readonly MetricsHistory $history,
     ) {}
 
     public function index(Request $request, OperatorContext $operator): Response
@@ -55,7 +62,12 @@ final class PortfolioController
                 continue;
             }
 
-            $rows[] = ['project' => $project, 'metrics' => $metrics, 'attention' => $this->attention($metrics)];
+            $rows[] = [
+                'project' => $project,
+                'metrics' => $metrics,
+                'attention' => $this->attention($metrics),
+                'trend' => $this->trend($project->id, $scope),
+            ];
             $totals['customers'] += $metrics->customers;
             $totals['active'] += $metrics->activeCustomers;
             $totals['pastDue'] += $metrics->pastDue;
@@ -77,6 +89,25 @@ final class PortfolioController
             'search' => is_string($search) ? $search : '',
             'truncated' => $page->total > self::MAX_PROJECTS,
         ]);
+    }
+
+    /**
+     * ADR-0080 §1 — the portfolio is « un tableau des projets accessibles
+     * avec leurs indicateurs clés **et leur tendance** ». The trend is the
+     * curve of the project's recurring revenue, one series per currency:
+     * no conversion, ever (ADR-0080 §6).
+     *
+     * @return array<string, list<MetricsPoint>> the series per currency
+     */
+    private function trend(string $projectId, AccessScope $scope): array
+    {
+        $series = [];
+
+        foreach ($this->history->forProject($projectId, $scope, self::TREND_DAYS) as $point) {
+            $series[$point->currency][] = $point;
+        }
+
+        return $series;
     }
 
     /**
