@@ -4,17 +4,22 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use Core\Identity\Contracts\CreateOperator;
-use Core\Identity\Contracts\CreateOperatorCommand;
+use Core\Identity\Contracts\InviteOperator;
+use Core\Identity\Contracts\InviteOperatorCommand;
 use Core\Identity\Contracts\ListOperators;
 use Core\Identity\Contracts\ListOperatorsCommand;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Identity\Contracts\OperatorEmailAlreadyTaken;
+use Core\Identity\Contracts\OperatorInvitationAlreadyExists;
 use Core\Identity\Contracts\OperatorSummaryView;
 use Core\Identity\Contracts\RevokeOperator;
 use Core\Identity\Contracts\RevokeOperatorCommand;
 use Core\Identity\Contracts\UpdateOperator;
 use Core\Identity\Contracts\UpdateOperatorCommand;
+use Core\Identity\Domain\Exception\CannotRevokeOwnAccount;
+use Core\Identity\Domain\Exception\LastPlatformAdmin;
 use Core\Identity\OperatorRole;
+use Core\Support\Access\AccessScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -42,7 +47,7 @@ final class OperatorsController
 
     public function __construct(
         private readonly ListOperators $listOperators,
-        private readonly CreateOperator $createOperator,
+        private readonly InviteOperator $inviteOperator,
         private readonly RevokeOperator $revokeOperator,
         private readonly UpdateOperator $updateOperator,
     ) {}
@@ -53,25 +58,7 @@ final class OperatorsController
             abort(403, 'La permission operators:read est requise.');
         }
 
-        $page = max(1, (int) $request->query('page', 1));
-        $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
-        $searchRaw = (string) $request->query('search', '');
-
-        $pageResult = $this->listOperators->list(new ListOperatorsCommand(
-            page: $page,
-            perPage: $perPage,
-            search: $searchRaw === '' ? null : $searchRaw,
-        ));
-
-        return response()->view('admin.operators.index', [
-            'title' => 'Opérateurs',
-            'operators' => $pageResult->items,
-            'total' => $pageResult->total,
-            'page' => $page,
-            'perPage' => $perPage,
-            'created' => session('admin.operators.created'),
-            'search' => $searchRaw,
-        ]);
+        return $this->renderIndex($request, $operator, null);
     }
 
     public function create(OperatorContext $operator): Response
@@ -86,40 +73,48 @@ final class OperatorsController
         ]);
     }
 
-    public function store(Request $request, OperatorContext $operator): RedirectResponse
+    public function store(Request $request, OperatorContext $operator): Response|RedirectResponse
     {
         if (! $operator->hasPermission('operators:write')) {
             abort(403, 'La permission operators:write est requise.');
         }
 
-        /** @var array{email: string, name: string, role: string} $data */
+        /** @var array{email: string, role: string} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
             'email' => ['required', 'email'],
-            'name' => ['required', 'string', 'max:255'],
-            'role' => ['required', 'string'],
+            // ADR-0069 §1 — an empty role means an account without a
+            // platform role, living in its organizations only.
+            'role' => ['present', 'nullable', 'string', 'max:64'],
         ]);
 
         try {
-            $created = $this->createOperator->create(
-                new CreateOperatorCommand($data['email'], $data['name'], $data['role']),
+            $invitation = $this->inviteOperator->invite(
+                new InviteOperatorCommand($data['email'], $data['role'], $operator->operatorId),
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
             );
+        } catch (OperatorEmailAlreadyTaken $e) {
+            // ADR-0069 §1 — one console account per mailbox: the refusal
+            // belongs to the address, not to the role.
+            return back()->withInput()->withErrors(['email' => $e->getMessage()]);
+        } catch (OperatorInvitationAlreadyExists $e) {
+            return back()->withInput()->withErrors(['email' => $e->getMessage()]);
         } catch (RuntimeException $e) {
             return back()->withInput()->withErrors(['role' => $e->getMessage()]);
         }
 
-        // The plaintext password is shown exactly once, on this
-        // redirect — same one-shot-secret pattern as API key issuance and
-        // the JSON endpoint, never persisted or logged.
-        // @phpstan-ignore-next-line — session()->flash() dynamic call, same class of Laravel stub gap as Request::validate().
-        session()->flash('admin.operators.created', [
-            'email' => $data['email'],
-            'plaintext_password' => $created->plaintextPassword,
+        // The activation token is shown exactly once, in THIS response,
+        // and nowhere else (ADR-0081 S-07): it is rendered directly rather
+        // than flashed into the session for a redirect — a flash would
+        // write the clear token to the session store, where it would
+        // outlive the response that carries it. The invitee chooses their
+        // own password when they activate the invitation.
+        return $this->renderIndex($request, $operator, [
+            'email' => $invitation->email,
+            'token' => (string) $invitation->token,
+            'expires_at' => $invitation->expiresAt->format('Y-m-d H:i'),
         ]);
-
-        return redirect()->route('admin.operators.index');
     }
 
     public function revoke(string $operatorId, OperatorContext $operator): RedirectResponse
@@ -136,6 +131,10 @@ final class OperatorsController
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
             );
+        } catch (CannotRevokeOwnAccount) {
+            return back()->withErrors(['operatorId' => 'Vous ne pouvez pas révoquer votre propre compte : demandez à un autre administrateur.']);
+        } catch (LastPlatformAdmin) {
+            return back()->withErrors(['operatorId' => 'La console garde toujours un administrateur de plateforme actif : invitez-en un autre avant de révoquer celui-ci.']);
         } catch (RuntimeException $e) {
             return back()->withErrors(['operatorId' => $e->getMessage()]);
         }
@@ -155,7 +154,7 @@ final class OperatorsController
         return response()->view('admin.operators.edit', [
             'title' => "Modifier l'opérateur",
             'operatorId' => $operatorId,
-            'operatorRow' => $this->findOperator($operatorId),
+            'operatorRow' => $this->findOperator($operatorId, $operator->scope),
             'roles' => OperatorRole::cases(),
         ]);
     }
@@ -168,26 +167,60 @@ final class OperatorsController
 
         Validator::make(['operatorId' => $operatorId], ['operatorId' => 'uuid'])->validate();
 
-        /** @var array{email: string, name: string, role: string} $data */
+        /** @var array{email: string, name: string, role: string|null} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
         $data = $request->validate([
             'email' => ['required', 'email'],
             'name' => ['required', 'string', 'max:255'],
-            'role' => ['required', 'string'],
+            // ADR-0069 §1 — the platform role is optional: an empty role
+            // means "no platform role at all" (the account keeps only its
+            // organization memberships). The key must still be present, so
+            // a partial update never clears the role by accident.
+            'role' => ['present', 'nullable', 'string', 'max:64'],
         ]);
 
         try {
             $this->updateOperator->update(
-                new UpdateOperatorCommand($operatorId, $data['email'], $data['name'], $data['role']),
+                new UpdateOperatorCommand($operatorId, $data['email'], $data['name'], $data['role'] ?? ''),
                 actor: 'operator:'.$operator->operatorId,
                 correlationId: null,
             );
+        } catch (OperatorEmailAlreadyTaken $e) {
+            // ADR-0069 §1 — one console account per mailbox: the refusal
+            // belongs to the address, not to the role.
+            return back()->withInput()->withErrors(['email' => $e->getMessage()]);
         } catch (RuntimeException $e) {
             return back()->withInput()->withErrors(['role' => $e->getMessage()]);
         }
 
         return redirect()->route('admin.operators.index')
             ->with('status', 'Opérateur mis à jour : '.$data['email']);
+    }
+
+    /**
+     * @param array{email: string, token: string, expires_at: string}|null $created rendu dans CETTE réponse, jamais flashé
+     */
+    private function renderIndex(Request $request, OperatorContext $operator, ?array $created): Response
+    {
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
+        $searchRaw = (string) $request->query('search', '');
+
+        $pageResult = $this->listOperators->list(new ListOperatorsCommand(
+            page: $page,
+            perPage: $perPage,
+            search: $searchRaw === '' ? null : $searchRaw,
+        ), $operator->scope);
+
+        return response()->view('admin.operators.index', [
+            'title' => 'Opérateurs',
+            'operators' => $pageResult->items,
+            'total' => $pageResult->total,
+            'page' => $page,
+            'perPage' => $perPage,
+            'created' => $created,
+            'search' => $searchRaw,
+        ]);
     }
 
     /**
@@ -199,12 +232,12 @@ final class OperatorsController
      * `operatorId`-only prefill — see admin.operators.edit's blank-field
      * note).
      */
-    private function findOperator(string $operatorId): ?OperatorSummaryView
+    private function findOperator(string $operatorId, AccessScope $scope): ?OperatorSummaryView
     {
         $page = $this->listOperators->list(new ListOperatorsCommand(
             page: 1,
             perPage: self::PREFILL_LOOKUP_LIMIT,
-        ));
+        ), $scope);
 
         foreach ($page->items as $item) {
             if ($item->id === $operatorId) {

@@ -11,14 +11,19 @@ use Core\Notification\Contracts\ChannelSessionProvider;
 use Core\Notification\Contracts\MissingChannelSession;
 use Core\Notification\Contracts\NotificationChannel;
 use Core\Notification\Contracts\NotificationChannelProviderRegistry;
+use Core\Notification\Contracts\NotificationCustomerInvalid;
+use Core\Notification\Contracts\NotificationNotEntitled;
 use Core\Notification\Contracts\NotificationProviderRouter;
+use Core\Notification\Contracts\NotificationQuotaExceeded;
 use Core\Notification\Contracts\NotificationView;
 use Core\Notification\Contracts\OutboundMessage;
 use Core\Notification\Domain\Exception\NotificationAlreadyExists;
 use Core\Notification\Domain\Model\Notification;
+use Core\Notification\Domain\Model\QuotaVerdict;
 use Core\Notification\Domain\Port\ChannelSessionRepository;
 use Core\Notification\Domain\Port\NotificationDeliveryRepository;
 use Core\Notification\Domain\Port\NotificationRepository;
+use Core\Notification\Domain\Port\QuotaGuard;
 use Core\Notification\NotificationStatus;
 use Core\Parties\Contracts\FindOrCreatePartyCommand;
 use Core\Parties\Contracts\PartyFinder;
@@ -54,6 +59,9 @@ use Throwable;
  */
 final readonly class NotificationSendCascade
 {
+    /** The capability a project maps to a meter (`billing_settings.meter_mappings`, ADR-0074 §5). */
+    private const QUOTA_CAPABILITY = 'notification.whatsapp';
+
     public function __construct(
         private NotificationRepository $notifications,
         private NotificationDeliveryRepository $deliveries,
@@ -66,6 +74,7 @@ final readonly class NotificationSendCascade
         private Identifier $identifier,
         private Clock $clock,
         private LoggerInterface $logger,
+        private ?QuotaGuard $quota = null,
     ) {}
 
     /**
@@ -122,8 +131,17 @@ final readonly class NotificationSendCascade
             variables: $variables,
         );
 
+        // The notification and its unit of quota exist together or not at
+        // all (ADR-0074 §5): a refusal rolls the `queued` row back, so a
+        // refused notification leaves no row and calls no provider.
+        $capability = self::QUOTA_CAPABILITY;
+        $customerRef = $this->customerRef($variables);
+
         try {
-            $this->notifications->create($queued);
+            $this->unitOfWork->transactional(function () use ($queued, $projectId, $customerRef, $capability, $idempotencyKey): void {
+                $this->notifications->create($queued);
+                $this->spendQuota($projectId, $customerRef, $capability, $idempotencyKey);
+            });
         } catch (NotificationAlreadyExists) {
             $winner = $this->notifications->findByIdempotencyKey($projectId, $idempotencyKey);
             if ($winner !== null) {
@@ -179,8 +197,10 @@ final readonly class NotificationSendCascade
 
         $failed = $queued->withStatusChange(NotificationStatus::Failed, $lastError ?? 'Every configured provider failed.');
 
-        $this->unitOfWork->transactional(function () use ($failed): void {
+        $this->unitOfWork->transactional(function () use ($failed, $projectId, $customerRef, $capability, $idempotencyKey): void {
             $this->notifications->save($failed);
+            // Nobody was reached: the unit goes back (ADR-0074 §5).
+            $this->quota?->release($projectId, $customerRef, $capability, $idempotencyKey);
             $this->outbox->append(new DomainEvent(
                 $this->identifier->generate(),
                 $failed->projectId,
@@ -243,6 +263,37 @@ final readonly class NotificationSendCascade
         $variables['session'] = $registered->providerName();
 
         return $variables;
+    }
+
+    /**
+     * @param array<string, mixed> $variables
+     */
+    private function customerRef(array $variables): ?string
+    {
+        $ref = $variables['customer_ref'] ?? null;
+
+        return is_string($ref) && $ref !== '' ? $ref : null;
+    }
+
+    private function spendQuota(string $projectId, ?string $customerRef, string $capability, string $idempotencyKey): void
+    {
+        if ($this->quota === null) {
+            return;
+        }
+
+        $verdict = $this->quota->consume($projectId, $customerRef, $capability, $idempotencyKey);
+
+        if ($verdict->isAllowed()) {
+            return;
+        }
+
+        $detail = $verdict->detail ?? 'The notification was refused by the quota authority.';
+
+        throw match ($verdict->outcome) {
+            QuotaVerdict::EXCEEDED => new NotificationQuotaExceeded($detail),
+            QuotaVerdict::NOT_ENTITLED => new NotificationNotEntitled($detail),
+            default => new NotificationCustomerInvalid($detail),
+        };
     }
 
     private function toView(Notification $notification): NotificationView

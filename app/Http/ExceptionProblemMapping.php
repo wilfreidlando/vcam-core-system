@@ -4,8 +4,52 @@ declare(strict_types=1);
 
 namespace App\Http;
 
+use Core\Billing\Domain\Exception\CustomerEmailAlreadyTaken;
+use Core\Billing\Domain\Exception\CustomerNotFound;
+use Core\Billing\Domain\Exception\CustomerVersionConflict;
+use Core\Billing\Domain\Exception\InvalidBillingInterval;
+use Core\Billing\Domain\Exception\InvalidBillingSettings;
+use Core\Billing\Domain\Exception\InvalidCustomerTransition;
+use Core\Billing\Domain\Exception\InvalidInvoiceTransition;
+use Core\Billing\Domain\Exception\InvalidPlan;
+use Core\Billing\Domain\Exception\InvalidPlanFeature;
+use Core\Billing\Domain\Exception\InvalidSubscriptionStart;
+use Core\Billing\Domain\Exception\InvalidSubscriptionTransition;
+use Core\Billing\Domain\Exception\InvoiceNotFound;
+use Core\Billing\Domain\Exception\InvoiceNotPayable;
+use Core\Billing\Domain\Exception\InvoicePaymentNotFound;
+use Core\Billing\Domain\Exception\ManualReceiptApprovalRefused;
+use Core\Billing\Domain\Exception\ManualReceiptNotFound;
+use Core\Billing\Domain\Exception\PlanCodeAlreadyTaken;
+use Core\Billing\Domain\Exception\PlanNotFound;
+use Core\Billing\Domain\Exception\PlanVersionNotEditable;
+use Core\Billing\Domain\Exception\PlanVersionNotFound;
+use Core\Billing\Domain\Exception\SubscriptionNotFound;
+use Core\Billing\Domain\Exception\UnsupportedCurrency as BillingUnsupportedCurrency;
+use Core\Export\Contracts\ExportNotAvailable;
+use Core\Export\Contracts\ExportNotFound;
+use Core\Identity\Contracts\AlreadyOrganizationMember;
+use Core\Identity\Contracts\CannotChangeOwnPlatformRole;
+use Core\Identity\Contracts\InvalidOrganizationRole;
+use Core\Identity\Contracts\InvitationAccountPasswordInvalid;
+use Core\Identity\Contracts\InvitationNotUsable;
+use Core\Identity\Contracts\InvitationPasswordTooWeak;
+use Core\Identity\Contracts\LastOrganizationFinance;
+use Core\Identity\Contracts\LastOrganizationOwner;
+use Core\Identity\Contracts\LastPlatformAdminDemotion;
+use Core\Identity\Contracts\OperatorAlreadyExists;
+use Core\Identity\Contracts\OperatorEmailAlreadyTaken;
+use Core\Identity\Contracts\OrganizationInvitationAlreadyExists;
+use Core\Identity\Contracts\OrganizationInvitationNotFound;
+use Core\Identity\Contracts\OrganizationMemberManagementForbidden;
+use Core\Identity\Contracts\OrganizationMemberNotFound;
+use Core\Identity\Contracts\OrganizationNotVisible;
+use Core\Identity\Contracts\OrganizationPrivilegeEscalation;
+use Core\Identity\Contracts\PlatformRoleAssignmentForbidden;
+use Core\Identity\Domain\Exception\CannotRevokeOwnAccount;
 use Core\Identity\Domain\Exception\InvalidMfaCode;
 use Core\Identity\Domain\Exception\InvalidOperatorCredentials;
+use Core\Identity\Domain\Exception\LastPlatformAdmin;
 use Core\Identity\Domain\Exception\MfaAlreadyEnrolled;
 use Core\Identity\Domain\Exception\MfaChallengeInvalid;
 use Core\Identity\Domain\Exception\MfaNotEnrolled;
@@ -16,12 +60,20 @@ use Core\Notification\Contracts\ChannelSessionNotFound;
 use Core\Notification\Contracts\MissingChannelSession;
 use Core\Notification\Contracts\MissingRecipientPhoneNumber;
 use Core\Notification\Contracts\NoProviderForNotificationChannelException;
+use Core\Notification\Contracts\NotificationCustomerInvalid;
+use Core\Notification\Contracts\NotificationNotEntitled;
+use Core\Notification\Contracts\NotificationQuotaExceeded;
 use Core\Notification\Domain\Exception\NotificationNotFound;
 use Core\Payment\Contracts\NoProviderForChannelException;
 use Core\Payment\Domain\Exception\PaymentNotFound;
 use Core\Payment\Domain\Exception\PaymentNotSimulable;
 use Core\Payment\Domain\Exception\ProviderApplicationNotFound;
 use Core\Payment\Domain\Exception\UnsupportedCurrency;
+use Core\Payment\Domain\Exception\UnsupportedPaymentPurpose;
+use Core\Portal\Domain\Exception\InvalidPortalFlow;
+use Core\Portal\Domain\Exception\InvalidPortalSettings;
+use Core\Portal\Domain\Exception\PortalCustomerNotFound;
+use Core\Portal\Domain\Exception\ReturnUrlNotAllowed;
 use Core\Support\Http\ProblemDetails;
 use Core\Support\Integration\CircuitBreaker\CircuitOpenException;
 use Core\Support\Integration\Exception\ProviderAuthError;
@@ -32,6 +84,8 @@ use Core\Wallet\Domain\Exception\InsufficientFunds;
 use Core\Wallet\Domain\Exception\InvalidWalletOperation;
 use Core\Wallet\Domain\Exception\WalletNotFound;
 use Core\Wallet\Domain\Exception\WalletProjectMismatch;
+use Core\Webhook\Contracts\TooManyWebhookEndpoints;
+use Core\Webhook\Domain\Exception\InvalidWebhookSecretRotation;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotDead;
 use Core\Webhook\Domain\Exception\WebhookDeliveryNotFound;
 use Core\Webhook\Domain\Exception\WebhookEndpointInactive;
@@ -65,6 +119,9 @@ final class ExceptionProblemMapping
      * @var array<class-string<Throwable>, array{type: string, title: string, status: int}>
      */
     private const MAP = [
+        // ADR-0088 §3 — the export of a project. Another project's export is « not found ».
+        ExportNotFound::class => ['type' => 'export-not-found', 'title' => 'Export not found', 'status' => 404],
+        ExportNotAvailable::class => ['type' => 'export-not-available', 'title' => 'The export has no file to download', 'status' => 409],
         WalletNotFound::class => ['type' => 'wallet-not-found', 'title' => 'Wallet not found', 'status' => 404],
         // ADR-0065 — same answer as not found: never reveal a wallet outside the caller's reach.
         WalletProjectMismatch::class => ['type' => 'wallet-not-found', 'title' => 'Wallet not found', 'status' => 404],
@@ -76,16 +133,35 @@ final class ExceptionProblemMapping
         ProviderApplicationNotFound::class => ['type' => 'no-provider-application', 'title' => 'No provider application is registered for this project', 'status' => 422],
         NoProviderForNotificationChannelException::class => ['type' => 'no-provider-for-notification-channel', 'title' => 'No provider is configured for this notification channel', 'status' => 422],
         UnsupportedCurrency::class => ['type' => 'unsupported-currency', 'title' => 'Unsupported currency', 'status' => 422],
+        UnsupportedPaymentPurpose::class => ['type' => 'unsupported-payment-purpose', 'title' => 'Unsupported payment purpose', 'status' => 422],
         WebhookEndpointNotFound::class => ['type' => 'webhook-endpoint-not-found', 'title' => 'Webhook endpoint not found', 'status' => 404],
+        InvalidWebhookSecretRotation::class => ['type' => 'invalid-webhook-secret-rotation', 'title' => 'Invalid webhook secret rotation', 'status' => 422],
         WebhookDeliveryNotFound::class => ['type' => 'webhook-delivery-not-found', 'title' => 'Webhook delivery not found', 'status' => 404],
         WebhookDeliveryNotDead::class => ['type' => 'webhook-delivery-not-dead', 'title' => 'Only a dead webhook delivery can be replayed', 'status' => 409],
         WebhookEndpointInactive::class => ['type' => 'webhook-endpoint-inactive', 'title' => 'The webhook endpoint is deactivated', 'status' => 409],
+        // Audit 2026-10-29 #17 / G-12 — the ceiling of active endpoints per
+        // project: the caller asks for one receiver too many. 422, not 409:
+        // the request itself is refused, the project is not in conflict.
+        TooManyWebhookEndpoints::class => ['type' => 'too-many-webhook-endpoints', 'title' => 'Too many webhook endpoints', 'status' => 422],
         NotificationNotFound::class => ['type' => 'notification-not-found', 'title' => 'Notification not found', 'status' => 404],
         MissingRecipientPhoneNumber::class => ['type' => 'missing-recipient-phone-number', 'title' => 'The recipient phone number is missing', 'status' => 422],
         ChannelDoesNotSupportSessions::class => ['type' => 'channel-does-not-support-sessions', 'title' => 'This channel has no linked-device session to manage', 'status' => 422],
         ChannelSessionNotFound::class => ['type' => 'channel-session-not-found', 'title' => 'WhatsApp session not found', 'status' => 422],
+        PortalCustomerNotFound::class => ['type' => 'customer-not-found', 'title' => 'Customer not found', 'status' => 404],
+        ReturnUrlNotAllowed::class => ['type' => 'return-url-not-allowed', 'title' => 'The return_url is not allowed', 'status' => 422],
+        InvalidPortalFlow::class => ['type' => 'invalid-portal-flow', 'title' => 'The portal flow is invalid', 'status' => 422],
+        InvalidPortalSettings::class => ['type' => 'invalid-portal-settings', 'title' => 'The portal settings are invalid', 'status' => 422],
+        NotificationQuotaExceeded::class => ['type' => 'quota-exceeded', 'title' => 'Quota exceeded', 'status' => 429],
+        NotificationNotEntitled::class => ['type' => 'entitlement-inactive', 'title' => 'No active entitlement', 'status' => 403],
+        NotificationCustomerInvalid::class => ['type' => 'customer-ref-invalid', 'title' => 'The metered customer is missing or unknown', 'status' => 422],
         MissingChannelSession::class => ['type' => 'missing-channel-session', 'title' => 'The WhatsApp session is missing', 'status' => 422],
         OperatorNotFound::class => ['type' => 'operator-not-found', 'title' => 'Operator not found', 'status' => 404],
+        CannotRevokeOwnAccount::class => ['type' => 'cannot-revoke-own-account', 'title' => 'An account cannot revoke itself', 'status' => 409],
+        LastPlatformAdmin::class => ['type' => 'last-platform-admin', 'title' => 'The last platform administrator cannot be revoked', 'status' => 409],
+        // Audit 2026-10-29 #6 / G-5 — the same guarantee for a role change: demoting the last
+        // platform administrator, or one's own platform role, leaves nobody able to recover the console.
+        LastPlatformAdminDemotion::class => ['type' => 'last-platform-admin', 'title' => 'The last platform administrator cannot be demoted', 'status' => 409],
+        CannotChangeOwnPlatformRole::class => ['type' => 'cannot-change-own-platform-role', 'title' => 'An account cannot change its own platform role', 'status' => 409],
         InvalidOperatorCredentials::class => ['type' => 'unauthenticated', 'title' => 'Unauthenticated', 'status' => 401],
         OperatorRevoked::class => ['type' => 'forbidden', 'title' => 'Forbidden', 'status' => 403],
         MfaChallengeInvalid::class => ['type' => 'unauthenticated', 'title' => 'Unauthenticated', 'status' => 401],
@@ -97,6 +173,84 @@ final class ExceptionProblemMapping
         ProviderTransientError::class => ['type' => 'provider-unavailable', 'title' => 'The external provider is temporarily unavailable', 'status' => 503],
         ProviderDisabledException::class => ['type' => 'provider-unavailable', 'title' => 'The external provider is temporarily unavailable', 'status' => 503],
         CircuitOpenException::class => ['type' => 'provider-unavailable', 'title' => 'The external provider is temporarily unavailable', 'status' => 503],
+        // ADR-0069 §1 and §4 — the organization-membership refusals. They
+        // live in `identity`'s `Contracts/` (not its Domain layer) so the
+        // console can translate them into an HTTP status without breaking
+        // G3c; the type, title and status below are the very ones the
+        // console's `TranslatesOrganizationRefusals` produces, so a refusal
+        // surfaced here and one surfaced by the console read identically.
+        OrganizationNotVisible::class => ['type' => 'organization-not-found', 'title' => 'Organization not found', 'status' => 404],
+        OrganizationMemberNotFound::class => ['type' => 'organization-member-not-found', 'title' => 'Member not found', 'status' => 404],
+        OrganizationInvitationNotFound::class => ['type' => 'organization-invitation-not-found', 'title' => 'Invitation not found', 'status' => 404],
+        OrganizationMemberManagementForbidden::class => ['type' => 'organization-members-forbidden', 'title' => 'Managing the members of this organization is not allowed', 'status' => 403],
+        OrganizationPrivilegeEscalation::class => ['type' => 'privilege-escalation', 'title' => 'Privilege escalation is refused', 'status' => 403],
+        PlatformRoleAssignmentForbidden::class => ['type' => 'platform-role-forbidden', 'title' => 'A platform role cannot be granted through an organization', 'status' => 403],
+        LastOrganizationOwner::class => ['type' => 'last-owner', 'title' => 'The last owner of the organization cannot be removed', 'status' => 409],
+        LastOrganizationFinance::class => ['type' => 'last-finance', 'title' => 'The last org_finance of the organization cannot be removed', 'status' => 409],
+        AlreadyOrganizationMember::class => ['type' => 'already-member', 'title' => 'Already a member of the organization', 'status' => 409],
+        OrganizationInvitationAlreadyExists::class => ['type' => 'invitation-already-exists', 'title' => 'An invitation is already pending for this email', 'status' => 409],
+        InvitationNotUsable::class => ['type' => 'invitation-not-usable', 'title' => 'This invitation can no longer be used', 'status' => 409],
+        OperatorAlreadyExists::class => ['type' => 'operator-already-exists', 'title' => 'The console account of this email is revoked', 'status' => 409],
+        // ADR-0069 §1 — one console account per mailbox: the refusal that
+        // says so, instead of the database's unique-index error leaking
+        // through as a mislabelled 422.
+        OperatorEmailAlreadyTaken::class => ['type' => 'operator-email-already-taken', 'title' => 'This email address is already taken', 'status' => 409],
+        InvalidOrganizationRole::class => ['type' => 'invalid-organization-role', 'title' => 'Invalid organization role', 'status' => 422],
+        InvitationPasswordTooWeak::class => ['type' => 'invitation-password-too-weak', 'title' => 'The chosen password is too weak', 'status' => 422],
+        InvitationAccountPasswordInvalid::class => ['type' => 'invitation-account-password-invalid', 'title' => 'The password of the existing account is required', 'status' => 422],
+        // ADR-0070 / ADR-0071 / ADR-0072 — the `billing` module's
+        // refusals (Lot 10 — Commerce I). Without them a refused write
+        // fell through to a generic 500 and stayed invisible in
+        // `/docs/api`; with them the runtime handler and the OpenAPI
+        // extension answer the same problem+json the API really returns.
+        CustomerNotFound::class => ['type' => 'customer-not-found', 'title' => 'Customer not found', 'status' => 404],
+        PlanNotFound::class => ['type' => 'plan-not-found', 'title' => 'Plan not found', 'status' => 404],
+        SubscriptionNotFound::class => ['type' => 'subscription-not-found', 'title' => 'Subscription not found', 'status' => 404],
+        CustomerEmailAlreadyTaken::class => ['type' => 'customer-email-already-taken', 'title' => 'This email address is already taken', 'status' => 409],
+        PlanCodeAlreadyTaken::class => ['type' => 'plan-code-already-taken', 'title' => 'This plan code is already taken', 'status' => 409],
+        // ADR-0070 §1 / ADR-0072 §2 — a life cycle the state machine
+        // does not allow. Same type on both sides: the caller asked for
+        // a transition, and the answer is the same one.
+        InvalidCustomerTransition::class => ['type' => 'invalid-state-transition', 'title' => 'The state transition is not allowed', 'status' => 409],
+        InvalidSubscriptionTransition::class => ['type' => 'invalid-state-transition', 'title' => 'The state transition is not allowed', 'status' => 409],
+        // ADR-0073 / ADR-0094 — the invoice and its life cycle. The
+        // transition shares the type of the other two: the caller asked
+        // for a transition, and the answer is the same one.
+        InvoiceNotFound::class => ['type' => 'invoice-not-found', 'title' => 'Invoice not found', 'status' => 404],
+        InvalidInvoiceTransition::class => ['type' => 'invalid-state-transition', 'title' => 'The state transition is not allowed', 'status' => 409],
+        PlanVersionNotEditable::class => ['type' => 'plan-version-not-editable', 'title' => 'The plan version is not editable', 'status' => 409],
+        PlanVersionNotFound::class => ['type' => 'plan-version-not-found', 'title' => 'Plan version not found', 'status' => 404],
+        // ADR-0070 §2 — the optimistic lock of a customer: the caller
+        // sent the version it last read and the stored one moved on.
+        CustomerVersionConflict::class => ['type' => 'version-conflict', 'title' => 'The version has changed', 'status' => 412],
+        InvalidPlan::class => ['type' => 'invalid-plan', 'title' => 'The plan is invalid', 'status' => 422],
+        InvalidPlanFeature::class => ['type' => 'invalid-plan-feature', 'title' => 'The plan feature is invalid', 'status' => 422],
+        InvalidBillingInterval::class => ['type' => 'invalid-billing-interval', 'title' => 'The billing interval is invalid', 'status' => 422],
+        // ADR-0071 §4 — the periods are computed in the timezone of the
+        // project: a contract whose periods cannot be computed is worse
+        // than a settings row that is refused outright.
+        InvalidBillingSettings::class => ['type' => 'invalid-billing-settings', 'title' => 'The billing settings are invalid', 'status' => 422],
+        // ADR-0072 §1 — the anchor of a contract is declared as an
+        // ISO-8601 timestamp; a value that is not one is refused here
+        // rather than at the first renewal.
+        InvalidSubscriptionStart::class => ['type' => 'invalid-subscription-start', 'title' => 'The start instant is invalid', 'status' => 422],
+        // ADR-0071 §5 — one currency per version, and the Core knows
+        // only the currencies the ledger supports. Same type as the
+        // payment module's own refusal of the same kind.
+        BillingUnsupportedCurrency::class => ['type' => 'unsupported-currency', 'title' => 'Unsupported currency', 'status' => 422],
+        // ADR-0094 §8 — an invoice that is not due cannot be collected:
+        // the caller has to know whether it is already settled or
+        // simply not payable any more.
+        InvoiceNotPayable::class => ['type' => 'invoice-not-payable', 'title' => 'The invoice is not payable', 'status' => 409],
+        // ADR-0073 §2 — the collection attempt is not one of the
+        // project's.
+        InvoicePaymentNotFound::class => ['type' => 'invoice-payment-not-found', 'title' => 'Collection attempt not found', 'status' => 404],
+        // ADR-0073 §4 — the offline receipt is not one of the
+        // project's.
+        ManualReceiptNotFound::class => ['type' => 'manual-receipt-not-found', 'title' => 'Offline receipt not found', 'status' => 404],
+        // ADR-0094 §13 — the receipt is not waiting for a validation any
+        // more.
+        ManualReceiptApprovalRefused::class => ['type' => 'manual-receipt-approval-refused', 'title' => 'The offline receipt cannot be validated', 'status' => 409],
     ];
 
     public static function toResponse(Throwable $e): ?JsonResponse

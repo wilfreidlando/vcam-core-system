@@ -105,7 +105,7 @@
         "/v1/admin/webhook-deliveries/dead": {
             "get": {
                 "operationId": "admin.webhook-deliveries.dead",
-                "description": "Optionally scoped to a `project_id`. Requires `webhooks:read`.",
+                "description": "Optionally scoped to a `project_id`. Requires `webhooks:read`.\n\nADR-0069 \u00a72 \u2014 the account's scope always applies on top of the\nrequested project: a `project_id` outside the scope yields an empty\npage, and the unfiltered listing only shows the account's projects.",
                 "summary": "List dead (DLQ) webhook deliveries",
                 "tags": [
                     "Admin"
@@ -286,6 +286,41 @@
                                     },
                                     "required": [
                                         "id"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/webhook-delivery-not-found"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Webhook delivery not found"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
                                     ]
                                 }
                             }
@@ -811,6 +846,41 @@
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/organization-not-found"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Organization not found"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -898,6 +968,41 @@
                                         "status": {
                                             "type": "integer",
                                             "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/project-not-found"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Project not found"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 404
                                         },
                                         "detail": {
                                             "type": "string"
@@ -1068,6 +1173,41 @@
                             }
                         }
                     },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/project-not-found"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Project not found"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
                     "422": {
                         "description": "The request payload is invalid",
                         "content": {
@@ -1211,6 +1351,41 @@
                                         "status": {
                                             "type": "integer",
                                             "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/project-not-found"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Project not found"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 404
                                         },
                                         "detail": {
                                             "type": "string"
@@ -1437,6 +1612,1194 @@
                 }
             }
         },
+        "/v1/admin/organizations/{organizationId}/members": {
+            "get": {
+                "operationId": "admin.organizations.members",
+                "description": "Requires `members:read`. An organization outside the caller's\nscope answers **404**, never 403 (ADR-0069 \u00a72 / S-04).",
+                "summary": "List the members of an organization",
+                "tags": [
+                    "Admin"
+                ],
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                "meta": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "total": {
+                                                            "type": "integer"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "total"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "data",
+                                                "meta"
+                                            ]
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Organization not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/organization-not-found"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "Organization not found"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 404
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/organization-not-found"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "Organization not found"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 404
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/organizations/{organizationId}/invitations": {
+            "post": {
+                "operationId": "admin.organizations.invitations.create",
+                "description": "Requires `members:write`. The activation token is returned **once**,\nhere, and is never retrievable again (ADR-0081 S-07).",
+                "summary": "Invite an account into an organization",
+                "tags": [
+                    "Admin"
+                ],
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "maxLength": 255
+                                    },
+                                    "role": {
+                                        "type": "string",
+                                        "maxLength": 64
+                                    }
+                                },
+                                "required": [
+                                    "email",
+                                    "role"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "organization_id": {
+                                            "type": "string"
+                                        },
+                                        "email": {
+                                            "type": "string"
+                                        },
+                                        "role": {
+                                            "type": "string"
+                                        },
+                                        "token": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "description": "The one and only moment the clear token exists."
+                                        },
+                                        "expires_at": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "organization_id",
+                                        "email",
+                                        "role",
+                                        "token",
+                                        "expires_at"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Organization not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/organization-not-found"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "Organization not found"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 404
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/organization-not-found"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "Organization not found"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 404
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/validation-failed"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The request payload is invalid"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 422
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error.",
+                                            "examples": [
+                                                "One or more fields failed validation."
+                                            ]
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Already a member of the organization\n\nAn invitation is already pending for this email",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/already-member"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "Already a member of the organization"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/invitation-already-exists"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "An invitation is already pending for this email"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/organizations/{organizationId}/members/{operatorId}/revoke": {
+            "post": {
+                "operationId": "admin.organizations.members.revoke",
+                "description": "Requires `members:write`. Revoking the **last** active owner is\nrefused with `409 last-owner` \u2014 an organization without an owner\ncould no longer be administered.",
+                "summary": "Revoke the membership of one account in an organization",
+                "tags": [
+                    "Admin"
+                ],
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "operatorId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No content"
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Organization not found\n\nMember not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/organization-not-found"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "Organization not found"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 404
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/organization-not-found"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "Organization not found"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 404
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/organization-member-not-found"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "Member not found"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 404
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "The last owner of the organization cannot be removed",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/last-owner"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The last owner of the organization cannot be removed"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 409
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error."
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/admin/organizations/{organizationId}/members/{operatorId}": {
+            "put": {
+                "operationId": "admin.organizations.members.update",
+                "description": "Requires `members:write`. Demoting the **last** active owner is\nrefused exactly like revoking it (`409 last-owner`), and nobody can\ngrant a platform role or a role above their own.",
+                "summary": "Change the role one account holds in an organization",
+                "tags": [
+                    "Admin"
+                ],
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "operatorId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "role": {
+                                        "type": "string",
+                                        "maxLength": 64
+                                    }
+                                },
+                                "required": [
+                                    "role"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "204": {
+                        "description": "No content"
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Privilege escalation is refused\n\nA platform role cannot be granted through an organization",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/forbidden"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "Forbidden"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 403
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/privilege-escalation"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "Privilege escalation is refused"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 403
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/platform-role-forbidden"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "A platform role cannot be granted through an organization"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 403
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Organization not found\n\nMember not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/organization-not-found"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "Organization not found"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 404
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/organization-not-found"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "Organization not found"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 404
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/organization-member-not-found"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "Member not found"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 404
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid\n\nInvalid organization role",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/invalid-organization-role"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "Invalid organization role"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "The last owner of the organization cannot be removed",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/last-owner"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "The last owner of the organization cannot be removed"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 409
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error."
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/v1/admin/operators": {
             "get": {
                 "operationId": "admin.operators",
@@ -1524,8 +2887,8 @@
             },
             "post": {
                 "operationId": "admin.operators.create",
-                "description": "The plaintext password is returned once in this response and never\nstored \u2014 the same one-shot-secret pattern as API key issuance and\nthe `identity:create-operator` CLI command, which this endpoint is\na self-service alternative to. Requires `operators:write` (Platform\nAdmin only). MFA enrollment happens on first login, not here.",
-                "summary": "Create a platform operator",
+                "description": "The response carries the **activation token**, once. The account\ndoes not exist yet: the invitee chooses their own password when\nthey activate the invitation\n(`POST /v1/admin/operator-invitations/accept`) \u2014 no password is\nchosen by the system and none is transmitted (ADR-0081 S-07), the\nsame one-shot-secret pattern as the API key issuance, applied to\nthe console account itself.\n\nRequires `operators:write` (Platform Admin only). MFA enrollment\nhappens on first login, not here.",
+                "summary": "Invite an email address to hold a console account",
                 "tags": [
                     "Admin"
                 ],
@@ -1540,18 +2903,17 @@
                                         "type": "string",
                                         "format": "email"
                                     },
-                                    "name": {
-                                        "type": "string",
-                                        "maxLength": 255
-                                    },
                                     "role": {
-                                        "type": "string"
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "ADR-0069 \u00a71 \u2014 an empty role means an account without a\nplatform role, living in its organizations only.",
+                                        "maxLength": 64
                                     }
                                 },
                                 "required": [
-                                    "email",
-                                    "name",
-                                    "role"
+                                    "email"
                                 ]
                             }
                         }
@@ -1565,16 +2927,35 @@
                                 "schema": {
                                     "type": "object",
                                     "properties": {
-                                        "id": {
+                                        "invitation_id": {
                                             "type": "string"
                                         },
-                                        "plaintext_password": {
+                                        "email": {
+                                            "type": "string"
+                                        },
+                                        "role": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "token": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "description": "Shown once, at creation \u2014 never retrievable again."
+                                        },
+                                        "expires_at": {
                                             "type": "string"
                                         }
                                     },
                                     "required": [
-                                        "id",
-                                        "plaintext_password"
+                                        "invitation_id",
+                                        "email",
+                                        "role",
+                                        "token",
+                                        "expires_at"
                                     ]
                                 }
                             }
@@ -1656,6 +3037,73 @@
                                                             "type": "string"
                                                         }
                                                     }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/operator-invitation-already-exists"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "An invitation is already pending for this email address"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/operator-email-already-taken"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "This email address is already taken"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
                                                 }
                                             },
                                             "required": [
@@ -1741,7 +3189,12 @@
                                         "maxLength": 255
                                     },
                                     "role": {
-                                        "type": "string"
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "ADR-0069 \u00a71 \u2014 the platform role is optional: an empty role\nmeans \"no platform role at all\" (the account keeps only its\norganization memberships). The key must still be present, so\na partial update never clears the role by accident.",
+                                        "maxLength": 64
                                     }
                                 },
                                 "required": [
@@ -1756,41 +3209,6 @@
                 "responses": {
                     "204": {
                         "description": "No content"
-                    },
-                    "404": {
-                        "description": "",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "const": "https://errors.core-system.internal/operator-not-found"
-                                        },
-                                        "title": {
-                                            "type": "string",
-                                            "const": "Operator not found"
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "const": 404
-                                        },
-                                        "detail": {
-                                            "type": "string"
-                                        },
-                                        "correlation_id": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
-                                    ]
-                                }
-                            }
-                        }
                     },
                     "422": {
                         "description": "The request payload is invalid",
@@ -1881,6 +3299,119 @@
                             }
                         }
                     },
+                    "409": {
+                        "description": "The last platform administrator cannot be demoted\n\nAn account cannot change its own platform role",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/operator-email-already-taken"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "This email address is already taken"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/last-platform-admin"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The last platform administrator cannot be demoted"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/cannot-change-own-platform-role"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "An account cannot change its own platform role"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
                     "403": {
                         "description": "",
                         "content": {
@@ -1940,41 +3471,6 @@
                 "responses": {
                     "204": {
                         "description": "No content"
-                    },
-                    "404": {
-                        "description": "",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "const": "https://errors.core-system.internal/operator-not-found"
-                                        },
-                                        "title": {
-                                            "type": "string",
-                                            "const": "Operator not found"
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "const": 404
-                                        },
-                                        "detail": {
-                                            "type": "string"
-                                        },
-                                        "correlation_id": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status"
-                                    ]
-                                }
-                            }
-                        }
                     },
                     "403": {
                         "description": "",
@@ -2272,6 +3768,41 @@
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/project-not-found"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Project not found"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2340,6 +3871,604 @@
                         }
                     }
                 }
+            }
+        },
+        "/v1/admin/organization-invitations/accept": {
+            "post": {
+                "operationId": "admin.organization-invitations.accept",
+                "description": "Public endpoint \u2014 the invitee is not signed in yet: the invitation\nis the only thing that grants access. Consumes the activation token\n(32 random bytes, hashed, 72 h, one-shot) and returns the MFA\nchallenge of the account it was issued for.",
+                "summary": "Accept an organization invitation",
+                "tags": [
+                    "Admin"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "token": {
+                                        "type": "string",
+                                        "minLength": 32,
+                                        "maxLength": 200
+                                    },
+                                    "name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "The display name of a new account; ignored when the invited\nemail already carries an account.",
+                                        "maxLength": 255
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "description": "ADR-0069 \u00a74 \u2014 for a new account, the password the invitee\nchooses (the system never chooses one, never transmits one);\nfor an existing account, its current password \u2014 verified,\nnever replaced. The length rule of a new password is the use\ncase's, so an existing account's password is not judged here.",
+                                        "maxLength": 255
+                                    }
+                                },
+                                "required": [
+                                    "token",
+                                    "password"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "operator_id": {
+                                            "type": "string"
+                                        },
+                                        "organization_id": {
+                                            "type": "string"
+                                        },
+                                        "role": {
+                                            "type": "string"
+                                        },
+                                        "email": {
+                                            "type": "string"
+                                        },
+                                        "account_created": {
+                                            "type": "boolean"
+                                        },
+                                        "purpose": {
+                                            "type": "string",
+                                            "description": "The same pair `POST /v1/operators/login` returns:\n`mfa_enrollment` \u2192 `POST /v1/operators/mfa/enroll` then\n`/mfa/confirm`; `mfa` \u2192 `POST /v1/operators/mfa/verify`."
+                                        },
+                                        "challenge_token": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "operator_id",
+                                        "organization_id",
+                                        "role",
+                                        "email",
+                                        "account_created",
+                                        "purpose",
+                                        "challenge_token"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid\n\nThe chosen password is too weak\n\nThe password of the existing account is required",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/invitation-password-too-weak"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The chosen password is too weak"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/invitation-account-password-invalid"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The password of the existing account is required"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Invitation not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "A URI identifying this specific error condition.",
+                                            "examples": [
+                                                "https://errors.core-system.internal/organization-invitation-not-found"
+                                            ]
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "description": "A short, human-readable summary of the error condition.",
+                                            "examples": [
+                                                "Invitation not found"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string",
+                                            "description": "A human-readable explanation specific to this occurrence of the error."
+                                        },
+                                        "correlation_id": {
+                                            "type": "string",
+                                            "description": "Quote this when contacting support about this specific failure."
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "This invitation can no longer be used\n\nAlready a member of the organization\n\nThe console account of this email is revoked",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/invitation-not-usable"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "This invitation can no longer be used"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/already-member"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "Already a member of the organization"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/operator-already-exists"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The console account of this email is revoked"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 409
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/v1/admin/operator-invitations/accept": {
+            "post": {
+                "operationId": "admin.operator-invitations.accept",
+                "description": "Public endpoint \u2014 the invitation token is the only thing that\ngrants access: the invitee is not signed in yet. Consumes the\ntoken (one-shot, 72 h) and creates the account with the password\nthe invitee **chooses**.",
+                "summary": "Activate a console account invitation",
+                "tags": [
+                    "Admin"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "token": {
+                                        "type": "string",
+                                        "minLength": 32,
+                                        "maxLength": 200
+                                    },
+                                    "name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "The display name of the account.",
+                                        "maxLength": 255
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "description": "ADR-0069 \u00a74 \u2014 the password the invitee chooses (the system\nnever chooses one, never transmits one). The length rule\nis the use case's, so the refusal is a 422 of its own.",
+                                        "maxLength": 255
+                                    }
+                                },
+                                "required": [
+                                    "token",
+                                    "password"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "operator_id": {
+                                            "type": "string"
+                                        },
+                                        "email": {
+                                            "type": "string"
+                                        },
+                                        "role": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "account_created": {
+                                            "type": "boolean"
+                                        },
+                                        "purpose": {
+                                            "type": "string",
+                                            "description": "The same pair `POST /v1/operators/login` returns:\n`mfa_enrollment` \u2192 `POST /v1/operators/mfa/enroll` then\n`/mfa/confirm`."
+                                        },
+                                        "challenge_token": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "operator_id",
+                                        "email",
+                                        "role",
+                                        "account_created",
+                                        "purpose",
+                                        "challenge_token"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid\n\nThe chosen password is too weak",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/invitation-password-too-weak"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The chosen password is too weak"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error."
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
             }
         },
         "/v1/operators/login": {
@@ -3050,7 +5179,10 @@
                                             "type": "string"
                                         },
                                         "role": {
-                                            "type": "string"
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
                                         }
                                     },
                                     "required": [

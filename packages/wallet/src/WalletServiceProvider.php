@@ -20,12 +20,14 @@ use Core\Wallet\Contracts\ListWallets;
 use Core\Wallet\Contracts\ListWalletTransactions;
 use Core\Wallet\Contracts\RecordWithdrawal;
 use Core\Wallet\Contracts\TransferFunds;
+use Core\Wallet\Contracts\WalletExportRecords;
 use Core\Wallet\Domain\Port\WalletBalanceRepository;
 use Core\Wallet\Domain\Port\WalletOperationRepository;
 use Core\Wallet\Domain\Port\WalletRepository;
 use Core\Wallet\Infrastructure\Persistence\Eloquent\EloquentWalletBalanceRepository;
 use Core\Wallet\Infrastructure\Persistence\Eloquent\EloquentWalletOperationRepository;
 use Core\Wallet\Infrastructure\Persistence\Eloquent\EloquentWalletRepository;
+use Core\Wallet\Presentation\Export\WalletExportRecordsReader;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -46,6 +48,8 @@ final class WalletServiceProvider extends ServiceProvider
         $this->app->bind(DebitWallet::class, DebitWalletUseCase::class);
         $this->app->bind(GetWalletBalance::class, GetWalletBalanceUseCase::class);
         $this->app->bind(ListWallets::class, ListWalletsUseCase::class);
+        // ADR-0088 §3 — the rows of the project export, in the public API's shape.
+        $this->app->bind(WalletExportRecords::class, WalletExportRecordsReader::class);
         // ADR-0065 — transfers, recorded withdrawals and reads by party.
         $this->app->bind(WalletOperationRepository::class, EloquentWalletOperationRepository::class);
         $this->app->bind(TransferFunds::class, TransferFundsUseCase::class);

@@ -4,48 +4,71 @@ declare(strict_types=1);
 
 namespace Core\Identity;
 
-use Core\Identity\Application\UseCase\CreateOperator as CreateOperatorUseCase;
+use Core\Identity\Application\UseCase\AcceptOperatorInvitation as AcceptOperatorInvitationUseCase;
+use Core\Identity\Application\UseCase\AcceptOrganizationInvitation as AcceptOrganizationInvitationUseCase;
+use Core\Identity\Application\UseCase\ChangeOrganizationMemberRole as ChangeOrganizationMemberRoleUseCase;
 use Core\Identity\Application\UseCase\CreateOrganization as CreateOrganizationUseCase;
 use Core\Identity\Application\UseCase\CreateProject as CreateProjectUseCase;
 use Core\Identity\Application\UseCase\GetOrganization as GetOrganizationUseCase;
 use Core\Identity\Application\UseCase\GetProjectUseCase;
+use Core\Identity\Application\UseCase\InviteOperator as InviteOperatorUseCase;
+use Core\Identity\Application\UseCase\InviteOrganizationMember as InviteOrganizationMemberUseCase;
 use Core\Identity\Application\UseCase\IssueApiKey as IssueApiKeyUseCase;
 use Core\Identity\Application\UseCase\ListApiKeys as ListApiKeysUseCase;
 use Core\Identity\Application\UseCase\ListOperatorsUseCase;
+use Core\Identity\Application\UseCase\ListOrganizationMembers as ListOrganizationMembersUseCase;
 use Core\Identity\Application\UseCase\ListOrganizationsUseCase;
 use Core\Identity\Application\UseCase\ListProjectsUseCase;
+use Core\Identity\Application\UseCase\ResolveAccessScopeUseCase;
 use Core\Identity\Application\UseCase\RevokeApiKey as RevokeApiKeyUseCase;
 use Core\Identity\Application\UseCase\RevokeOperator as RevokeOperatorUseCase;
+use Core\Identity\Application\UseCase\RevokeOrganizationMember as RevokeOrganizationMemberUseCase;
+use Core\Identity\Application\UseCase\RotateApiKey as RotateApiKeyUseCase;
 use Core\Identity\Application\UseCase\UpdateOperator as UpdateOperatorUseCase;
 use Core\Identity\Application\UseCase\UpdateOrganization as UpdateOrganizationUseCase;
 use Core\Identity\Application\UseCase\UpdateProject as UpdateProjectUseCase;
-use Core\Identity\Contracts\CreateOperator;
+use Core\Identity\Contracts\AcceptOperatorInvitation;
+use Core\Identity\Contracts\AcceptOrganizationInvitation;
+use Core\Identity\Contracts\ChangeOrganizationMemberRole;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateProject;
 use Core\Identity\Contracts\GetOrganization;
 use Core\Identity\Contracts\GetProject;
+use Core\Identity\Contracts\InviteOperator;
+use Core\Identity\Contracts\InviteOrganizationMember;
 use Core\Identity\Contracts\IssueApiKey;
 use Core\Identity\Contracts\ListApiKeys;
 use Core\Identity\Contracts\ListOperators;
+use Core\Identity\Contracts\ListOrganizationMembers;
 use Core\Identity\Contracts\ListOrganizations;
 use Core\Identity\Contracts\ListProjects;
+use Core\Identity\Contracts\MfaBypassForbidden;
+use Core\Identity\Contracts\ResolveAccessScope;
 use Core\Identity\Contracts\RevokeApiKey;
 use Core\Identity\Contracts\RevokeOperator;
+use Core\Identity\Contracts\RevokeOrganizationMember;
+use Core\Identity\Contracts\RotateApiKey;
 use Core\Identity\Contracts\UpdateOperator;
 use Core\Identity\Contracts\UpdateOrganization;
 use Core\Identity\Contracts\UpdateProject;
 use Core\Identity\Domain\Port\ApiKeyRepository;
 use Core\Identity\Domain\Port\ApiKeySecretGenerator;
 use Core\Identity\Domain\Port\LoginChallengeCodec;
+use Core\Identity\Domain\Port\OperatorInvitationRepository;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Identity\Domain\Port\OperatorTokenIssuer;
 use Core\Identity\Domain\Port\OperatorTokenResolver;
 use Core\Identity\Domain\Port\OperatorTokenRevoker;
+use Core\Identity\Domain\Port\OrganizationInvitationRepository;
+use Core\Identity\Domain\Port\OrganizationMembershipRepository;
 use Core\Identity\Domain\Port\OrganizationRepository;
 use Core\Identity\Domain\Port\ProjectRepository;
 use Core\Identity\Domain\Port\TotpProvider;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentApiKeyRepository;
+use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOperatorInvitationRepository;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOperatorRepository;
+use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOrganizationInvitationRepository;
+use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOrganizationMembershipRepository;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentOrganizationRepository;
 use Core\Identity\Infrastructure\Persistence\Eloquent\EloquentProjectRepository;
 use Core\Identity\Infrastructure\Security\AlwaysValidTotpProvider;
@@ -55,11 +78,12 @@ use Core\Identity\Infrastructure\Security\RandomApiKeySecretGenerator;
 use Core\Identity\Infrastructure\Security\SanctumOperatorTokenIssuer;
 use Core\Identity\Infrastructure\Security\SanctumOperatorTokenResolver;
 use Core\Identity\Infrastructure\Security\SanctumOperatorTokenRevoker;
-use Core\Identity\Presentation\Console\Commands\CreateOperatorCommand;
 use Core\Identity\Presentation\Console\Commands\CreateOrganizationCommand;
 use Core\Identity\Presentation\Console\Commands\CreateProjectCommand;
+use Core\Identity\Presentation\Console\Commands\InviteOperatorCommand;
 use Core\Identity\Presentation\Console\Commands\IssueApiKeyCommand;
 use Core\Identity\Presentation\Console\Commands\RevokeApiKeyCommand;
+use Core\Identity\Presentation\Console\Commands\RotateApiKeyCommand;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -74,6 +98,8 @@ final class IdentityServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->refuseMfaBypassOutsideLocal();
+
         $this->app->bind(OrganizationRepository::class, EloquentOrganizationRepository::class);
         $this->app->bind(ProjectRepository::class, EloquentProjectRepository::class);
         $this->app->bind(ApiKeyRepository::class, EloquentApiKeyRepository::class);
@@ -82,7 +108,7 @@ final class IdentityServiceProvider extends ServiceProvider
         $this->app->bind(ListOrganizations::class, ListOrganizationsUseCase::class);
         $this->app->bind(GetProject::class, GetProjectUseCase::class);
         $this->app->bind(GetOrganization::class, GetOrganizationUseCase::class);
-        $this->app->bind(CreateOperator::class, CreateOperatorUseCase::class);
+        $this->app->bind(InviteOperator::class, InviteOperatorUseCase::class);
         $this->app->bind(ListOperators::class, ListOperatorsUseCase::class);
         $this->app->bind(RevokeOperator::class, RevokeOperatorUseCase::class);
         $this->app->bind(UpdateOperator::class, UpdateOperatorUseCase::class);
@@ -92,9 +118,31 @@ final class IdentityServiceProvider extends ServiceProvider
         $this->app->bind(UpdateProject::class, UpdateProjectUseCase::class);
         $this->app->bind(IssueApiKey::class, IssueApiKeyUseCase::class);
         $this->app->bind(RevokeApiKey::class, RevokeApiKeyUseCase::class);
+        $this->app->bind(RotateApiKey::class, RotateApiKeyUseCase::class);
+        // ADR-0082 §1 — the per-project key limit, set by the platform.
+        $this->app->when(IssueApiKeyUseCase::class)
+            ->needs('$maxKeysPerProject')
+            ->give(static function (): int {
+                $limit = config('identity.api_keys.max_per_project', 10);
+
+                return is_numeric($limit) ? max(1, (int) $limit) : 10;
+            });
         $this->app->bind(ListApiKeys::class, ListApiKeysUseCase::class);
 
         $this->app->bind(OperatorRepository::class, EloquentOperatorRepository::class);
+        // ADR-0069 — organization memberships and the scope they grant.
+        $this->app->bind(OrganizationMembershipRepository::class, EloquentOrganizationMembershipRepository::class);
+        $this->app->bind(ResolveAccessScope::class, ResolveAccessScopeUseCase::class);
+        // ADR-0069 §4 — the invitations, and the operations that manage
+        // the members of an organization.
+        $this->app->bind(OperatorInvitationRepository::class, EloquentOperatorInvitationRepository::class);
+        $this->app->bind(OrganizationInvitationRepository::class, EloquentOrganizationInvitationRepository::class);
+        $this->app->bind(InviteOrganizationMember::class, InviteOrganizationMemberUseCase::class);
+        $this->app->bind(ListOrganizationMembers::class, ListOrganizationMembersUseCase::class);
+        $this->app->bind(RevokeOrganizationMember::class, RevokeOrganizationMemberUseCase::class);
+        $this->app->bind(ChangeOrganizationMemberRole::class, ChangeOrganizationMemberRoleUseCase::class);
+        $this->app->bind(AcceptOperatorInvitation::class, AcceptOperatorInvitationUseCase::class);
+        $this->app->bind(AcceptOrganizationInvitation::class, AcceptOrganizationInvitationUseCase::class);
         $this->app->bind(TotpProvider::class, function (Application $app): TotpProvider {
             // Both checks are required, deliberately — the environment
             // check happens here in code, not only via the config flag,
@@ -124,8 +172,24 @@ final class IdentityServiceProvider extends ServiceProvider
                 CreateProjectCommand::class,
                 IssueApiKeyCommand::class,
                 RevokeApiKeyCommand::class,
-                CreateOperatorCommand::class,
+                RotateApiKeyCommand::class,
+                InviteOperatorCommand::class,
             ]);
+        }
+    }
+
+    /**
+     * Audit 2026-10-29 #12 — `IDENTITY_DISABLE_MFA=true` removes the second
+     * factor on BOTH planes (web and API). Like `disable_totp_in_local`, the
+     * environment is checked here, in code, not only through the flag: no
+     * config value can keep the console running without MFA outside `local`.
+     *
+     * @throws MfaBypassForbidden
+     */
+    private function refuseMfaBypassOutsideLocal(): void
+    {
+        if ((bool) config('identity.disable_mfa', false) && ! $this->app->environment('local')) {
+            throw MfaBypassForbidden::inEnvironment($this->app->environment());
         }
     }
 }

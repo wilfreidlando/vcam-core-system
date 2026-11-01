@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
+use App\Http\View\AuditLabels;
 use Core\Audit\Contracts\AuditQuery;
 use Core\Audit\Contracts\AuditSearchCriteria;
 use Core\Identity\Contracts\OperatorContext;
@@ -19,15 +21,16 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class AuditLogController
 {
+    use ResolvesScopedProject;
+
     public function __construct(
         private readonly AuditQuery $audit,
+        private readonly AuditLabels $labels,
     ) {}
 
     public function index(Request $request, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('audit:read')) {
-            abort(403, 'La permission audit:read est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'audit:read');
 
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
@@ -46,11 +49,13 @@ final class AuditLogController
             to: $to,
             page: $page,
             perPage: $perPage,
-        ));
+        ), $scope);
 
         return response()->view('admin.audit-log.index', [
             'title' => "Journal d'audit",
             'entries' => $result->items,
+            // F-08 — « operator:01a1… » → « Opérateur — e-mail », resolved once for the page.
+            'actorLabels' => $this->labels->actors(array_merge(array_map(static fn ($entry): string => $entry->actor, $result->items), array_map(static fn ($entry): string => $entry->resource, $result->items)), $operator),
             'total' => $result->total,
             'page' => $page,
             'perPage' => $perPage,

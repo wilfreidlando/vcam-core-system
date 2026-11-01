@@ -17,5 +17,8 @@ final readonly class UpdateProjectCommand
         public string $projectId,
         public string $name,
         public string $status,
+        // ADR-0069 §3 — mandatory when the status changes, audited with
+        // the transition.
+        public ?string $reason = null,
     ) {}
 }

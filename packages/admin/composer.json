@@ -11,7 +11,8 @@
         "core/webhook": "*@dev",
         "core/payment": "*@dev",
         "core/wallet": "*@dev",
-        "core/notification": "*@dev"
+        "core/notification": "*@dev",
+        "core/portal": "*@dev"
     },
     "autoload": {
         "psr-4": {

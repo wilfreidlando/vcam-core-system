@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Contracts\GetProject;
-use Core\Identity\Contracts\GetProjectCommand;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Identity\Contracts\ProjectView;
 use Core\Payment\Contracts\ListProviderApplications;
 use Core\Payment\Contracts\ListProviderApplicationsCommand;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Contracts\ProviderApplicationView;
 use Core\Payment\Contracts\RegisterProviderApplication;
 use Core\Payment\Contracts\RegisterProviderApplicationCommand;
+use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,6 +34,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class ProviderApplicationsController
 {
+    use ResolvesScopedProject;
+
     public function __construct(
         private readonly RegisterProviderApplication $registerProviderApplication,
         private readonly ListProviderApplications $listProviderApplications,
@@ -48,7 +52,7 @@ final class ProviderApplicationsController
         return response()->view('admin.provider-applications.create', [
             'title' => 'Applications provider · '.$project->name,
             'project' => $project,
-            'applications' => $this->applications($projectId),
+            'applications' => $this->applications($projectId, $operator->scope),
             'availableProviders' => $this->availableProviders(),
             'editing' => null,
         ]);
@@ -59,7 +63,7 @@ final class ProviderApplicationsController
         $project = $this->authorizedProject($projectId, $operator);
         Validator::make(['application_id' => $applicationId], ['application_id' => 'uuid'])->validate();
 
-        $applications = $this->applications($projectId);
+        $applications = $this->applications($projectId, $operator->scope);
         $editing = null;
         foreach ($applications as $application) {
             if ($application->id === $applicationId) {
@@ -83,7 +87,7 @@ final class ProviderApplicationsController
 
     public function store(string $projectId, Request $request, OperatorContext $operator): RedirectResponse
     {
-        $this->authorizedProject($projectId, $operator);
+        $project = $this->authorizedProject($projectId, $operator);
 
         /** @var array{provider: string, label?: string|null, public_key: string, private_key?: string|null} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
@@ -103,7 +107,7 @@ final class ProviderApplicationsController
                 $data['public_key'],
                 $data['private_key'] ?? null,
                 $data['label'] ?? null,
-            ));
+            ), $operator->scope);
         } catch (RuntimeException $e) {
             return back()->withInput($request->except('private_key'))->withErrors(['public_key' => $e->getMessage()]);
         }
@@ -122,6 +126,8 @@ final class ProviderApplicationsController
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            projectId: $projectId,
+            organizationId: $project->organizationId,
         ));
 
         return redirect()->route('admin.projects.provider-applications.create', ['projectId' => $projectId])
@@ -132,11 +138,11 @@ final class ProviderApplicationsController
 
     public function destroy(string $projectId, string $applicationId, OperatorContext $operator): RedirectResponse
     {
-        $this->authorizedProject($projectId, $operator);
+        $project = $this->authorizedProject($projectId, $operator);
         Validator::make(['application_id' => $applicationId], ['application_id' => 'uuid'])->validate();
 
         try {
-            $this->registerProviderApplication->delete($projectId, $applicationId);
+            $this->registerProviderApplication->delete($projectId, $applicationId, $operator->scope);
         } catch (RuntimeException) {
             return back()->withErrors(['application' => 'Application introuvable pour ce projet.']);
         }
@@ -150,33 +156,31 @@ final class ProviderApplicationsController
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            projectId: $projectId,
+            organizationId: $project->organizationId,
         ));
 
         return redirect()->route('admin.projects.provider-applications.create', ['projectId' => $projectId])
             ->with('status', 'Application supprimée. Les paiements de cet environnement ne passeront plus par ce provider tant qu\'une autre application n\'est pas enregistrée.');
     }
 
-    private function authorizedProject(string $projectId, OperatorContext $operator): \Core\Identity\Contracts\ProjectView
+    /**
+     * ADR-0069 §2 — 404 for a project out of scope, 403 when the account's
+     * role in the project's organization lacks the permission.
+     */
+    private function authorizedProject(string $projectId, OperatorContext $operator): ProjectView
     {
-        if (! $operator->hasPermission('provider-applications:write')) {
-            abort(403, 'La permission provider-applications:write est requise.');
-        }
+        $this->permittedScope($operator, 'provider-applications:write');
 
-        Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
-
-        try {
-            return $this->getProject->get(new GetProjectCommand($projectId));
-        } catch (RuntimeException) {
-            abort(404, 'Projet introuvable.');
-        }
+        return $this->scopedProject($this->getProject, $operator, $projectId, 'provider-applications:write');
     }
 
     /**
      * @return list<ProviderApplicationView>
      */
-    private function applications(string $projectId): array
+    private function applications(string $projectId, AccessScope $scope): array
     {
-        return $this->listProviderApplications->list(new ListProviderApplicationsCommand($projectId));
+        return $this->listProviderApplications->list(new ListProviderApplicationsCommand($projectId), $scope);
     }
 
     /**

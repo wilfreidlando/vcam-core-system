@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Admin\Presentation\Http\Controllers;
 
+use Core\Admin\Presentation\Http\Controllers\Concerns\AuthorizesInScope;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Payment\Contracts\ListStuckPayments;
 use Core\Payment\Contracts\ListStuckPaymentsCommand;
@@ -19,6 +20,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class ListStuckPaymentsPreviewController
 {
+    use AuthorizesInScope;
+
     private const int ON_DEMAND_BATCH_LIMIT = 20;
 
     public function __construct(
@@ -34,13 +37,14 @@ final class ListStuckPaymentsPreviewController
      */
     public function __invoke(Request $request, OperatorContext $operator): JsonResponse|Response
     {
-        if (! $operator->hasPermission('payments:reconcile:write')) {
+        $scope = $this->permittedScope($operator, 'payments:reconcile:write');
+        if ($scope === null) {
             return ProblemDetails::forbidden('The payments:reconcile:write permission is required.');
         }
 
         $limit = min(self::ON_DEMAND_BATCH_LIMIT, max(1, (int) $request->query('limit', (string) self::ON_DEMAND_BATCH_LIMIT)));
 
-        $stuck = $this->listStuckPayments->list(new ListStuckPaymentsCommand($limit));
+        $stuck = $this->listStuckPayments->list(new ListStuckPaymentsCommand($limit), $scope);
 
         return new JsonResponse([
             'data' => array_map(static fn ($payment): array => [

@@ -6,14 +6,14 @@
 <div class="space-y-6">
     {{-- ADR-0062 — toutes les données du paiement, sans exception. --}}
     @php
-        $field = 'text-sm uppercase tracking-wider font-semibold text-slate-500';
+        $field = 'text-sm uppercase tracking-wider font-semibold text-slate-600';
         $fmt = static fn (?string $iso): string => $iso !== null ? \Illuminate\Support\Carbon::parse($iso)->format('d/m/Y H:i:s') : '—';
     @endphp
     <div class="bg-white border border-slate-200 rounded-lg p-6">
         <div class="flex flex-wrap items-center gap-3 mb-5">
             <x-admin.status-badge :status="$payment->status" :final="$payment->isFinal" />
             
-            <span class="text-2xl font-semibold text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($payment->amount, $payment->currency)->formattedAmount() }} {{ $payment->currency }}</span>
+            <span class="text-2xl font-semibold text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($payment->amount, $payment->currency)->groupedAmount() }} {{ $payment->currency }}</span>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-base">
             <div class="md:col-span-2">
@@ -23,7 +23,7 @@
             <div>
                 <p class="{{ $field }}">Projet</p>
                 @if ($project !== null)
-                    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-indigo-600 hover:text-indigo-800 font-medium">{{ $project->name }}</a>
+                    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-indigo-700 hover:text-indigo-900 font-medium">{{ $project->name }}</a>
                 @else
                     <p class="font-mono text-slate-700 break-all">{{ $projectId }}</p>
                 @endif
@@ -41,49 +41,60 @@
                 <p class="font-mono text-slate-700">{{ $payment->channel }}</p>
             </div>
             <div>
-                <p class="{{ $field }}">Provider</p>
+                <p class="{{ $field }}">Prestataire</p>
                 <p class="font-mono text-slate-700">{{ $payment->providerCode ?? '—' }}</p>
+                <p class="mt-0.5 text-sm text-slate-500">Le service de paiement qui a traité ce paiement.</p>
             </div>
             <div class="md:col-span-2">
-                <p class="{{ $field }}">Référence provider</p>
+                <p class="{{ $field }}">Référence du prestataire</p>
                 <p class="font-mono text-slate-700 break-all">{{ $payment->providerTransactionRef ?? '—' }}</p>
+                <p class="mt-0.5 text-sm text-slate-500">Le numéro de la transaction chez le prestataire : c'est celui que l'on demande en cas de litige.</p>
             </div>
             <div class="md:col-span-3">
-                <p class="{{ $field }}">Référence de l'intégrateur (Idempotency-Key)</p>
+                <p class="{{ $field }}">Référence de l'intégrateur</p>
                 <p class="font-mono text-slate-700 break-all">{{ $payment->idempotencyKey }}</p>
+                <p class="mt-0.5 text-sm text-slate-500">La clé que l'intégrateur a envoyée dans l'en-tête <code class="font-mono">Idempotency-Key</code> : elle empêche qu'une même demande soit comptée deux fois.</p>
             </div>
             <div>
-                <p class="{{ $field }}">Action requise</p>
+                <p class="{{ $field }}">Action attendue de vous</p>
                 <p class="text-slate-700">{{ $payment->requiresAction ? 'Oui' : 'Non' }}</p>
             </div>
             <div class="md:col-span-2">
-                <p class="{{ $field }}">Indication d'action</p>
+                <p class="{{ $field }}">Ce qu'il reste à faire</p>
                 <p class="text-slate-700">{{ $payment->actionHint ?? '—' }}</p>
             </div>
             <div class="md:col-span-3">
-                <p class="{{ $field }}">URL de paiement</p>
-                @if ($payment->paymentUrl !== null)
-                    <a href="{{ $payment->paymentUrl }}" target="_blank" rel="noopener" class="text-indigo-600 hover:text-indigo-800 font-mono text-sm break-all">{{ $payment->paymentUrl }}</a>
+                <p class="{{ $field }}">Adresse de paiement</p>
+                {{-- The address comes from the provider and is not ours to trust: only
+                     an https address becomes a link (a `javascript:` URL would run in
+                     the operator's session). Anything else is shown as plain text. --}}
+                @if ($payment->paymentUrl !== null && preg_match('#^https://[^\s]+$#i', $payment->paymentUrl) === 1)
+                    <a href="{{ $payment->paymentUrl }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800 font-mono text-sm break-all">{{ $payment->paymentUrl }}</a>
+                @elseif ($payment->paymentUrl !== null)
+                    <p class="font-mono text-slate-700 text-sm break-all">{{ $payment->paymentUrl }}</p>
+                    <p class="mt-0.5 text-sm text-slate-500">Adresse non cliquable : seul le schéma https est accepté comme lien.</p>
                 @else
                     <p class="text-slate-500">—</p>
                 @endif
             </div>
             <div class="md:col-span-3">
-                <p class="{{ $field }}">URL de retour (navigateur)</p>
+                <p class="{{ $field }}">Adresse de retour (navigateur)</p>
                 <p class="font-mono text-slate-700 text-sm break-all">{{ $payment->returnUrl ?? '—' }}</p>
+                <p class="mt-0.5 text-sm text-slate-500">Le site vers lequel le client revient après avoir payé.</p>
             </div>
             <div class="md:col-span-3">
-                <p class="{{ $field }}">URL de callback</p>
+                <p class="{{ $field }}">Adresse de notification directe</p>
                 @if ($payment->callbackUrl !== null)
                     <p class="font-mono text-slate-700 text-sm break-all">{{ $payment->callbackUrl }}</p>
-                    <p class="mt-0.5 text-sm text-slate-500">Notification directe à cette URL — pas de relais vers les endpoints webhook du projet pour ce paiement.</p>
+                    <p class="mt-0.5 text-sm text-slate-600">Le prestataire notifie directement cette adresse : le projet n'envoie pas de notification automatique pour ce paiement.</p>
                 @else
-                    <p class="text-slate-500">— (notifié via les endpoints webhook du projet, le cas échéant)</p>
+                    <p class="text-slate-600">— (le projet envoie une notification automatique, si vous lui avez enregistré une adresse)</p>
                 @endif
             </div>
             <div class="md:col-span-3">
-                <p class="{{ $field }}">Wallet à créditer</p>
-                <p class="font-mono text-slate-700">{{ $payment->walletRecipientExternalRef ?? '— (encaissement pur, aucun wallet)' }}</p>
+                <p class="{{ $field }}">Portefeuille à créditer</p>
+                <p class="font-mono text-slate-700">{{ $payment->walletRecipientExternalRef ?? '— (encaissement pur, aucun portefeuille)' }}</p>
+                <p class="mt-0.5 text-sm text-slate-500">L'argent de ce paiement est versé sur ce portefeuille, s'il y en a un. Sinon il reste au compte du projet.</p>
             </div>
         </div>
     </div>
@@ -100,26 +111,30 @@
          l'opérateur vérifie directement auprès du provider, quel que
          soit le statut actuel (review finding : « je dois pouvoir
          réconcilier une transaction sélectionnée »). --}}
-    @if(app(\Core\Identity\Contracts\OperatorContext::class)->hasPermission('payments:reconcile:write'))
+    @if(app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('payments:reconcile:write')->allowsProject($projectId))
         <div class="bg-white border border-slate-200 rounded-lg p-4 flex items-center justify-between gap-4">
             <p class="text-sm text-slate-600">
                 Vérifie le statut réel de ce paiement directement auprès de son
-                provider et met à jour le Core si besoin — utile si un webhook
-                a pu être manqué.
+                prestataire et met à jour la plateforme si besoin — utile si une
+                confirmation a pu être perdue.
             </p>
-            <form method="POST" action="{{ route('admin.reconciliation.run-one', ['payment' => $payment->id]) }}">
-                @csrf
-                <button type="submit" class="shrink-0 inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
-                    Réconcilier maintenant
-                </button>
-            </form>
+            <x-admin.confirm-dialog
+                title="Réconcilier ce paiement ?"
+                message="Vérifie son statut réel directement auprès du prestataire et met à jour la plateforme si le statut a changé."
+                :action="route('admin.reconciliation.run-one', ['payment' => $payment->id])"
+                confirm="Réconcilier"
+                variant="primary">
+                <x-slot:trigger>
+                    <button type="button" class="shrink-0 inline-flex items-center gap-2 rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white shadow-sm">Réconcilier maintenant</button>
+                </x-slot:trigger>
+            </x-admin.confirm-dialog>
         </div>
     @endif
 
     @include('admin.payments.partials.journey')
 
     <div class="text-right">
-        <a href="{{ route('admin.payments.index') }}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+        <a href="{{ route('admin.payments.index') }}" class="text-sm text-indigo-700 hover:text-indigo-900 font-medium">
             ← Retour aux paiements
         </a>
     </div>

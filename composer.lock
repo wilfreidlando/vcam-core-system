@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "09614291c533d15dd07bfb612ea47e71",
+    "content-hash": "68a94cbe15c15d050965bbe9e81f01ff",
     "packages": [
         {
             "name": "brick/math",
@@ -364,17 +364,18 @@
         },
         {
             "name": "core/admin",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/admin",
-                "reference": "312bf36ca47882edbd056a77e56bd18c8a4b68ed"
+                "reference": "a559032bc4554333b4c4bf02da45bba395089c4a"
             },
             "require": {
                 "core/audit": "*@dev",
                 "core/identity": "*@dev",
                 "core/notification": "*@dev",
                 "core/payment": "*@dev",
+                "core/portal": "*@dev",
                 "core/support": "*@dev",
                 "core/wallet": "*@dev",
                 "core/webhook": "*@dev",
@@ -408,7 +409,7 @@
         },
         {
             "name": "core/audit",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/audit",
@@ -446,13 +447,17 @@
         },
         {
             "name": "core/billing",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/billing",
-                "reference": "7686d93da2ef6671004bcb8c5a348be543222091"
+                "reference": "bf64d971886b9d8e3d44a63d3d0dd4d9d00b2401"
             },
             "require": {
+                "core/events": "*@dev",
+                "core/identity": "*@dev",
+                "core/ledger": "*@dev",
+                "core/payment": "*@dev",
                 "core/support": "*@dev",
                 "php": "^8.4"
             },
@@ -477,14 +482,14 @@
             "license": [
                 "proprietary"
             ],
-            "description": "Plans, subscriptions, entitlements, usage metering. Out of MVP scope.",
+            "description": "Commerce: the customers of a project, the versioned plan catalogue, and the subscription contracts with their periods (ADR-0070, ADR-0071, ADR-0072).",
             "transport-options": {
                 "relative": true
             }
         },
         {
             "name": "core/developer-platform",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/developer-platform",
@@ -522,7 +527,7 @@
         },
         {
             "name": "core/events",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/events",
@@ -559,8 +564,53 @@
             }
         },
         {
+            "name": "core/export",
+            "version": "dev-develop",
+            "dist": {
+                "type": "path",
+                "url": "packages/export",
+                "reference": "cdd2c8a70658aba1bb20a742842fded2bc4c56bb"
+            },
+            "require": {
+                "core/audit": "*@dev",
+                "core/billing": "*@dev",
+                "core/identity": "*@dev",
+                "core/ledger": "*@dev",
+                "core/notification": "*@dev",
+                "core/payment": "*@dev",
+                "core/support": "*@dev",
+                "core/wallet": "*@dev",
+                "php": "^8.4"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Core\\Export\\ExportServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Core\\Export\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Core\\Export\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Core Export: the asynchronous, encrypted, time-limited export of everything a project produced, in the public API's shape (ADR-0088 §3).",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
             "name": "core/fees",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/fees",
@@ -598,7 +648,7 @@
         },
         {
             "name": "core/identity",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/identity",
@@ -637,7 +687,7 @@
         },
         {
             "name": "core/ledger",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/ledger",
@@ -675,13 +725,14 @@
         },
         {
             "name": "core/notification",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/notification",
-                "reference": "9a11bcec6925614bdbc7b01b1ae81f3a26932da1"
+                "reference": "83bec3f6e717cae620a8347cfd58fbbdcb2d82bf"
             },
             "require": {
+                "core/billing": "*@dev",
                 "core/events": "*@dev",
                 "core/identity": "*@dev",
                 "core/parties": "*@dev",
@@ -716,7 +767,7 @@
         },
         {
             "name": "core/parties",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/parties",
@@ -754,7 +805,7 @@
         },
         {
             "name": "core/payment",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/payment",
@@ -792,8 +843,51 @@
             }
         },
         {
+            "name": "core/portal",
+            "version": "dev-develop",
+            "dist": {
+                "type": "path",
+                "url": "packages/portal",
+                "reference": "b45ea1eb29b38a49bb8c380a0939daf7b64e33f6"
+            },
+            "require": {
+                "core/audit": "*@dev",
+                "core/billing": "*@dev",
+                "core/identity": "*@dev",
+                "core/notification": "*@dev",
+                "core/payment": "*@dev",
+                "core/support": "*@dev",
+                "php": "^8.4"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Core\\Portal\\PortalServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Core\\Portal\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Core\\Portal\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "The hosted customer portal of a project: sessions opened by the project, invoices, payment, usage (ADR-0075).",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
             "name": "core/storage",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/storage",
@@ -831,7 +925,7 @@
         },
         {
             "name": "core/support",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/support",
@@ -869,7 +963,7 @@
         },
         {
             "name": "core/wallet",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/wallet",
@@ -911,7 +1005,7 @@
         },
         {
             "name": "core/webhook",
-            "version": "dev-main",
+            "version": "dev-develop",
             "dist": {
                 "type": "path",
                 "url": "packages/webhook",
@@ -6351,16 +6445,16 @@
         },
         {
             "name": "symfony/mime",
-            "version": "v8.1.7",
+            "version": "v8.1.10",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/mime.git",
-                "reference": "773ac57f20e2795bdadb65b5b1b5f4850d498283"
+                "reference": "8d1232052c9cdef170ed9608b3147bca4f61ff69"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/mime/zipball/773ac57f20e2795bdadb65b5b1b5f4850d498283",
-                "reference": "773ac57f20e2795bdadb65b5b1b5f4850d498283",
+                "url": "https://api.github.com/repos/symfony/mime/zipball/8d1232052c9cdef170ed9608b3147bca4f61ff69",
+                "reference": "8d1232052c9cdef170ed9608b3147bca4f61ff69",
                 "shasum": ""
             },
             "require": {
@@ -6413,7 +6507,7 @@
                 "mime-type"
             ],
             "support": {
-                "source": "https://github.com/symfony/mime/tree/v8.1.7"
+                "source": "https://github.com/symfony/mime/tree/v8.1.10"
             },
             "funding": [
                 {
@@ -6433,7 +6527,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-04T11:02:17+00:00"
+            "time": "2026-10-28T17:58:38+00:00"
         },
         {
             "name": "symfony/polyfill-ctype",
@@ -8233,12 +8327,12 @@
             "version": "v5.7.0",
             "source": {
                 "type": "git",
-                "url": "https://github.com/vlucas/phpdotenv.git",
+                "url": "https://github.com/phpdotenv/phpdotenv.git",
                 "reference": "301c07936b16d88628b126b01d082ba153cf4c40"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/vlucas/phpdotenv/zipball/301c07936b16d88628b126b01d082ba153cf4c40",
+                "url": "https://api.github.com/repos/phpdotenv/phpdotenv/zipball/301c07936b16d88628b126b01d082ba153cf4c40",
                 "reference": "301c07936b16d88628b126b01d082ba153cf4c40",
                 "shasum": ""
             },
@@ -14006,12 +14100,14 @@
         "core/billing": 20,
         "core/developer-platform": 20,
         "core/events": 20,
+        "core/export": 20,
         "core/fees": 20,
         "core/identity": 20,
         "core/ledger": 20,
         "core/notification": 20,
         "core/parties": 20,
         "core/payment": 20,
+        "core/portal": 20,
         "core/storage": 20,
         "core/support": 20,
         "core/wallet": 20,

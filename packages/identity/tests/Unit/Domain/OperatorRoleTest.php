@@ -21,3 +21,10 @@ it('grants read-only auditor every read permission but no write/replay action', 
         ->and(OperatorRole::ReadOnlyAuditor->hasPermission('webhooks:replay'))->toBeFalse()
         ->and(OperatorRole::ReadOnlyAuditor->hasPermission('payments:reconcile:write'))->toBeFalse();
 });
+
+it('lets finance settle money exceptions and the auditor only read them (ADR-0077)', function (): void {
+    expect(OperatorRole::FinanceOperator->hasPermission('money-exceptions:write'))->toBeTrue()
+        ->and(OperatorRole::ReadOnlyAuditor->hasPermission('money-exceptions:read'))->toBeTrue()
+        ->and(OperatorRole::ReadOnlyAuditor->hasPermission('money-exceptions:write'))->toBeFalse()
+        ->and(OperatorRole::SupportOperator->hasPermission('money-exceptions:read'))->toBeFalse();
+});

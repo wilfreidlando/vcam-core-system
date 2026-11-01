@@ -43,6 +43,11 @@ final class InMemoryLedgerTransactionRepository implements LedgerTransactionRepo
         return null;
     }
 
+    public function findById(string $id): ?LedgerTransaction
+    {
+        return $this->transactions[$id] ?? null;
+    }
+
     public function count(): int
     {
         return count($this->transactions);

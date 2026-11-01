@@ -24,6 +24,13 @@ return [
         'max_body_bytes' => (int) env('HTTP_LOG_MAX_BODY_BYTES', 16_384),
         // Probes and scrapes would drown the signal.
         'except' => ['up', 'health', 'ready', 'metrics', 'docs/*', 'favicon.ico', 'build/*'],
+        // Secrets that live inside a URL, which key-based redaction cannot
+        // see: regex => replacement, applied to the logged path and to every
+        // string of a logged body. The one-time link of the customer portal
+        // (ADR-0075) is a working credential for ten minutes.
+        'scrub' => [
+            '#(/portal/enter/)[A-Za-z0-9_-]+#' => '$1[redacted]',
+        ],
     ],
 
     'tracing' => [

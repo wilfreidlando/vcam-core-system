@@ -13,4 +13,19 @@ interface PartyRepository
     public function find(string $id): ?Party;
 
     public function findByExternalRef(string $projectId, string $externalRef): ?Party;
+
+    /**
+     * The ids of the parties of this project whose reference contains `$term` (case-insensitive).
+     *
+     * @return list<string>
+     */
+    public function idsMatchingRef(string $projectId, string $term, int $limit): array;
+
+    /**
+     * The caller's own references of the parties with these ids, within one project.
+     *
+     * @param list<string> $partyIds
+     * @return array<string, string> party id → external reference
+     */
+    public function externalRefsOf(string $projectId, array $partyIds): array;
 }

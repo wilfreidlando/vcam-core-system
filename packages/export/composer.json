@@ -1,0 +1,34 @@
+{
+    "name": "core/export",
+    "description": "Core Export: the asynchronous, encrypted, time-limited export of everything a project produced, in the public API's shape (ADR-0088 §3).",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.4",
+        "core/support": "*@dev",
+        "core/identity": "*@dev",
+        "core/audit": "*@dev",
+        "core/ledger": "*@dev",
+        "core/billing": "*@dev",
+        "core/payment": "*@dev",
+        "core/notification": "*@dev",
+        "core/wallet": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Export\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Export\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Export\\ExportServiceProvider"
+            ]
+        }
+    }
+}

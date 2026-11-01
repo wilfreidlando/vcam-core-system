@@ -1,6 +1,6 @@
 # ADR-0065 — Opérations de wallet exposées : transferts, retraits enregistrés, historique
 
-- **Statut** : Accepté — remplace ADR-0033 §1 (aucune mutation HTTP de wallet)
+- **Statut** : Accepté — remplace ADR-0033 §1 (aucune mutation HTTP de wallet) ; amendé par [ADR-0091](0091-decisions-implicites-du-code-livre-formalisees.md) (le compte se résout ou se crée par `AccountResolver`, la devise doit être supportée : `IsSupportedCurrency`)
 - **Date** : 2026-10-14
 - **Décideurs** : utilisateur (propriétaire du Core et du premier produit consommateur)
 - **Dérives concernées** : D1 périmètre · D5 contrat · D6 intégrité financière

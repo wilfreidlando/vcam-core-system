@@ -237,6 +237,68 @@ expect_rejection "G4" "a migration adds an email column to parties" \
     'Core must not store end-user identity' \
     $DC_DB vendor/bin/pest --group=schema
 
+# ── G4b — a column added to the white-listed customers table ────────────────
+probe packages/billing/database/migrations/2026_10_27_999999_guard_probe_customer_column.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('customers', function (Blueprint $table): void {
+            $table->text('notes')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('customers', function (Blueprint $table): void {
+            $table->dropColumn('notes');
+        });
+    }
+};
+PHP
+expect_rejection "G4b" "a migration adds a column to the customers table" \
+    'Unexpected column\(s\) on `customers`' \
+    $DC_DB vendor/bin/pest --group=schema
+
+# ── G4c — a column added to the white-listed invoices table ──────────────────
+probe packages/billing/database/migrations/2026_10_27_999999_guard_probe_invoice_column.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('invoices', function (Blueprint $table): void {
+            $table->text('notes')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('invoices', function (Blueprint $table): void {
+            $table->dropColumn('notes');
+        });
+    }
+};
+PHP
+expect_rejection "G4c" "a migration adds a column to the invoices table" \
+    'Unexpected column\(s\) on `invoices`' \
+    $DC_DB vendor/bin/pest --group=schema
+
 # ── G5 — money stored as a decimal column ───────────────────────────────────
 probe packages/ledger/database/migrations/2026_09_14_999999_guard_probe.php <<'PHP'
 <?php
@@ -375,6 +437,10 @@ expect_rejection "G7" "POST /v1/payments loses its idempotency middleware" \
 # least ambiguous breaking change oasdiff can detect.
 git show HEAD:openapi/v1.json > /tmp/guard-g9-base.json
 backup packages/identity/routes/api.php
+# The probe regenerates openapi/v1.json over the working copy: back it up so
+# reset_workspace restores it exactly — including uncommitted contract work
+# (a `git checkout` here used to silently discard it).
+backup openapi/v1.json
 python3 - <<'PY'
 path = 'packages/identity/routes/api.php'
 needle = "Route::get('/whoami', WhoAmIController::class)->name('identity.whoami');"
@@ -387,10 +453,44 @@ expect_rejection "G9" "the /whoami endpoint is silently removed, no version bump
     'api-path-removed|breaking' \
     docker run --rm -v /tmp:/specs -v "$PWD/openapi:/head" tufin/oasdiff:latest \
     breaking /specs/guard-g9-base.json /head/v1.json --fail-on ERR
-# The probe overwrote the real openapi/v1.json on disk (reset_workspace only
-# restores the route file) — restore the committed snapshot too.
-git checkout -- openapi/v1.json
 rm -f /tmp/guard-g9-base.json
+
+# ── G9b — the operator plane leaks into the API documentation ──────────────
+# ADR-0049: the integration document carries only the external surfaces — the
+# operator plane belongs to the console. The whole exclusion lives in one
+# line of config/scramble.php, so this probe removes it: the regenerated
+# document must then carry the admin paths, and the test must say so.
+backup config/scramble.php
+backup openapi/v1.json
+python3 - <<'PY'
+path = 'config/scramble.php'
+content = open(path).read()
+needle = "        'exclude' => ['v1/admin', 'v1/operators'],"
+assert needle in content, 'scramble exclusion not found — probe out of date'
+open(path, 'w').write(content.replace(needle, "        'exclude' => ['v1/admin'],", 1))
+PY
+$DC_DB php artisan scramble:export --path=openapi/v1.json > /dev/null 2>&1
+expect_rejection "G9b" "the operator plane leaks into the API documentation" \
+    'exposes the operator plane' \
+    $DC_DB vendor/bin/pest tests/Architecture/OpenApiSurfaceTest.php --no-progress
+
+# ── G10 — the contract of the first consumer drifts ────────────────────────
+# The endpoints and events the first consumer uses are pinned in a fixture
+# and confronted to the published document, to the live routing table and to
+# what the Core can still emit. Here, the fixture names an endpoint the Core
+# does not serve any more — the consumer would find out on its next call.
+backup tests/Contract/ConsumerContractFixture.php
+python3 - <<'PY'
+path = 'tests/Contract/ConsumerContractFixture.php'
+needle = "        ['method' => 'post', 'path' => '/portal/sessions'],"
+replacement = needle + "\n        ['method' => 'post', 'path' => '/paiements/remis'],"
+content = open(path).read()
+assert needle in content, 'consumer contract fixture not found — probe out of date'
+open(path, 'w').write(content.replace(needle, replacement, 1))
+PY
+expect_rejection "G10" "the consumer's pinned endpoint no longer exists" \
+    'it is no longer in the API document' \
+    $DC_DB vendor/bin/pest tests/Contract/ConsumerContractTest.php --no-progress
 
 # ── G11 — the ledger's own deferred balance trigger, disabled ──────────────
 # Unlike the other probes, this one breaks REAL migrated schema rather than
@@ -410,6 +510,165 @@ expect_rejection "G11" "the ledger_entries deferred balance trigger is not insta
     'must be rejected at commit' \
     bash -c "$DC_TESTING_DB php artisan migrate:fresh --force >/dev/null 2>&1 && $DC_DB vendor/bin/pest --group=invariants --filter=every_transaction_balances_to_zero"
 $DC_TESTING_DB php artisan migrate:fresh --force > /dev/null 2>&1
+
+# ── G13 — the ledger project-isolation trigger, disabled ───────────────────
+# Same shape as G11: the trigger install is commented out, the database is
+# refreshed to pick that up, then refreshed again with the restored file.
+backup packages/ledger/database/migrations/2026_10_24_130000_guard_ledger_project_isolation_and_transaction_immutability.php
+python3 - <<'PY'
+path = 'packages/ledger/database/migrations/2026_10_24_130000_guard_ledger_project_isolation_and_transaction_immutability.php'
+needle = '        $this->installProjectIsolationTrigger();\n'
+content = open(path).read()
+assert needle in content, 'installProjectIsolationTrigger() call not found — probe out of date'
+open(path, 'w').write(content.replace(needle, '        // GUARD PROBE: project isolation trigger intentionally not installed.\n'))
+PY
+expect_rejection "G13" "the ledger project-isolation trigger is not installed" \
+    'must be rejected by the database \(G13\)' \
+    bash -c "$DC_TESTING_DB php artisan migrate:fresh --force >/dev/null 2>&1 && $DC_DB vendor/bin/pest --group=invariants --filter=an_entry_can_never_cross_projects"
+$DC_TESTING_DB php artisan migrate:fresh --force > /dev/null 2>&1
+
+# ── G14 — a secret readable outside the response that creates it ───────────
+# ADR-0081 S-07: a secret is usable in an API response once, at its creation.
+# The probe adds a read model that would hand a webhook signing secret out on
+# every listing: the guard must name the field.
+probe packages/webhook/src/Contracts/GuardProbeEndpointView.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Core\Webhook\Contracts;
+
+/**
+ * A read model that would hand the signing secret out on every listing.
+ */
+final readonly class GuardProbeEndpointView
+{
+    public function __construct(
+        public string $endpointId,
+        public string $signingSecret,
+    ) {}
+}
+PHP
+expect_rejection "G14" "a webhook read model exposes its signing secret outside creation" \
+    'GuardProbeEndpointView::\$signingSecret \(matched "secret"\)' \
+    $DC_DB vendor/bin/pest tests/Architecture/SecretLeakGuardTest.php --no-progress
+
+# ── G16 (templates) — a console template calling a port ─────────────────────
+# PHPStan never reads a Blade template: the second half of G16 forbids a
+# template from resolving a port, so the rule cannot be bypassed from a view.
+backup resources/views/admin/dashboard.blade.php
+printf '\n{{ app(\\Core\\Payment\\Contracts\\ListMoneyExceptions::class)->countUnresolved() }}\n' >> resources/views/admin/dashboard.blade.php
+expect_rejection "G16" "a console template resolves a read port from the container" \
+    'resolves Core\\Payment\\Contracts\\ListMoneyExceptions' \
+    $DC vendor/bin/pest tests/Architecture/ConsoleViewsCallNoPortTest.php --no-progress
+
+# ── G16 — a console read port that takes no access scope ────────────────────
+# ADR-0069 §2: every read port the console calls must REQUIRE the
+# `AccessScope` parameter — "a port that does not take it cannot be called
+# from admin". The probe adds a read port with no scope and calls it from the
+# console: the PHPStan rule `AdminQueriesAreScopedRule` must refuse it with
+# its own identifier (`core.adminQueryWithoutScope`).
+probe packages/payment/src/Contracts/ListGuardProbeItems.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Core\Payment\Contracts;
+
+interface ListGuardProbeItems
+{
+    public function list(): int;
+}
+PHP
+probe app/Http/Controllers/Admin/GuardProbeController.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Admin;
+
+use Core\Payment\Contracts\ListGuardProbeItems;
+
+final class GuardProbeController
+{
+    public function __construct(
+        private readonly ListGuardProbeItems $probe,
+    ) {}
+
+    public function count(): int
+    {
+        return $this->probe->list();
+    }
+}
+PHP
+expect_rejection "G16" "the console calls a read port that takes no access scope" \
+    'adminQueryWithoutScope' \
+    $DC $STAN app/Http/Controllers/Admin/GuardProbeController.php
+
+# ── G16 (paramètre requis) — un port dont la portée a une valeur par défaut ─
+# ADR-0069 §2: « l'`AccessScope` en **paramètre requis** (pas de valeur par
+# défaut) ». Une portée par défaut est un trou : la console peut appeler le
+# port sans elle, et le port lit alors tout. La sonde ajoute un port dont la
+# portée est facultative : la règle doit refuser, avec son propre message.
+probe packages/payment/src/Contracts/ListGuardProbeOptionalScopeItems.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Core\Payment\Contracts;
+
+use Core\Support\Access\AccessScope;
+
+interface ListGuardProbeOptionalScopeItems
+{
+    public function list(?AccessScope $scope = null): int;
+}
+PHP
+probe app/Http/Controllers/Admin/GuardProbeOptionalScopeController.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Admin;
+
+use Core\Payment\Contracts\ListGuardProbeOptionalScopeItems;
+
+final class GuardProbeOptionalScopeController
+{
+    public function __construct(
+        private readonly ListGuardProbeOptionalScopeItems $probe,
+    ) {}
+
+    public function count(): int
+    {
+        return $this->probe->list();
+    }
+}
+PHP
+expect_rejection "G16" "the console calls a read port whose access scope is not required" \
+    'adminScopeIsOptional' \
+    $DC $STAN app/Http/Controllers/Admin/GuardProbeOptionalScopeController.php
+
+# ── G15 — a console route with an identifier left out of the IDOR manifest ───
+# ADR-0081 S-01/S-04, ADR-0069 §Sécurité: every console route that carries an
+# identifier gets a generated "organization A on organization B's resource →
+# 404" case. The probe drops one entry from the manifest: the guard must
+# notice that a route's isolation is no longer proven — a route nobody listed
+# is a route whose tenant isolation nobody proved.
+backup tests/Architecture/Idor/ConsoleRouteManifest.php
+python3 - <<'PY'
+path = 'tests/Architecture/Idor/ConsoleRouteManifest.php'
+with open(path) as handle:
+    lines = handle.readlines()
+
+kept = [line for line in lines if "Entry::isolated('admin.projects.show'" not in line]
+
+with open(path, 'w') as handle:
+    handle.writelines(kept)
+PY
+expect_rejection "G15" "a console route with an identifier is missing from the IDOR manifest" \
+    'are not in the IDOR manifest' \
+    $DC_DB vendor/bin/pest tests/Architecture/IdorGuardTest.php --no-progress
 
 # ── Summary ─────────────────────────────────────────────────────────────────
 printf '\n\033[1m%d guardrail(s) rejected their violation, %d did not.\033[0m\n' "$PASSED" "$FAILED"

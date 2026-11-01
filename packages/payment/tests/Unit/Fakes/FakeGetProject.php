@@ -7,6 +7,7 @@ namespace Core\Payment\Tests\Unit\Fakes;
 use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\GetProjectCommand;
 use Core\Identity\Contracts\ProjectView;
+use Core\Support\Access\AccessScope;
 use RuntimeException;
 
 final class FakeGetProject implements GetProject
@@ -19,9 +20,15 @@ final class FakeGetProject implements GetProject
         $this->projects[$project->id] = $project;
     }
 
-    public function get(GetProjectCommand $command): ProjectView
+    public function get(GetProjectCommand $command, AccessScope $scope): ProjectView
     {
-        return $this->projects[$command->projectId]
+        $project = $this->projects[$command->projectId]
             ?? throw new RuntimeException("Project not found: {$command->projectId}");
+
+        if (! $scope->allowsProject($project->id)) {
+            throw new RuntimeException("Project not found: {$command->projectId}");
+        }
+
+        return $project;
     }
 }

@@ -35,7 +35,10 @@ final class Operator
         public string $email,
         public string $name,
         private readonly string $passwordHash,
-        public OperatorRole $role,
+        // ADR-0069 §1: the platform role is optional. An account without
+        // one belongs to organizations (organization_memberships) and sees
+        // only those; an account with one sees every organization.
+        public ?OperatorRole $role,
         private ?string $mfaSecret,
         private bool $mfaEnabled,
         private ?int $mfaLastVerifiedTimestep,
@@ -127,7 +130,7 @@ final class Operator
      * touches credentials (`passwordHash`) or MFA state; those are
      * separate actions with their own use cases.
      */
-    public function updateProfile(string $email, string $name, OperatorRole $role): void
+    public function updateProfile(string $email, string $name, ?OperatorRole $role): void
     {
         $this->email = $email;
         $this->name = $name;

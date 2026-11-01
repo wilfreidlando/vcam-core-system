@@ -37,6 +37,7 @@ final class PaymentViews
             walletRecipientExternalRef: $payment->walletRecipientExternalRef,
             createdAt: $payment->createdAt?->format(DateTimeInterface::RFC3339),
             updatedAt: $payment->updatedAt?->format(DateTimeInterface::RFC3339),
+            purpose: $payment->purpose,
         );
     }
 }

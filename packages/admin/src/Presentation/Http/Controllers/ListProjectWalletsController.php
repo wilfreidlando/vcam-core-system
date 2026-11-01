@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Admin\Presentation\Http\Controllers;
 
+use Core\Admin\Presentation\Http\Controllers\Concerns\AuthorizesInScope;
+use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Support\Http\ProblemDetails;
 use Core\Wallet\Contracts\ListWallets;
@@ -15,7 +17,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class ListProjectWalletsController
 {
+    use AuthorizesInScope;
+
     public function __construct(
+        private readonly GetProject $getProject,
         private readonly ListWallets $listWallets,
     ) {}
 
@@ -26,16 +31,29 @@ final class ListProjectWalletsController
      */
     public function __invoke(Request $request, string $projectId, OperatorContext $operator): JsonResponse|Response
     {
-        if (! $operator->hasPermission('wallets:read')) {
+        $scope = $this->permittedScope($operator, 'wallets:read');
+        if ($scope === null) {
             return ProblemDetails::forbidden('The wallets:read permission is required.');
         }
 
         Validator::make(['projectId' => $projectId], ['projectId' => 'uuid'])->validate();
 
+        // ADR-0069 §2 / S-04 — the project named in the path: 404 when the
+        // account may not see it, 403 when its role there lacks the
+        // permission — never an empty 200, which would present a foreign
+        // project as an existing, empty one.
+        $refusal = $this->projectRefusal($this->getProject, $operator, $projectId, 'wallets:read');
+        if ($refusal === 'not-found') {
+            return ProblemDetails::make('project-not-found', 'Project not found', 404, sprintf('Project %s does not exist.', $projectId));
+        }
+        if ($refusal === 'forbidden') {
+            return ProblemDetails::forbidden('The wallets:read permission is required on this project.');
+        }
+
         $page = max(1, (int) $request->query('page', '1'));
         $perPage = min(100, max(1, (int) $request->query('per_page', '25')));
 
-        $result = $this->listWallets->list(new ListWalletsCommand($projectId, $page, $perPage));
+        $result = $this->listWallets->list(new ListWalletsCommand($projectId, $page, $perPage), $scope);
 
         return new JsonResponse([
             'data' => array_map(static fn ($wallet): array => [

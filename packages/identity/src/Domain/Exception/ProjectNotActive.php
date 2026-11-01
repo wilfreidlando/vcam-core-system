@@ -18,4 +18,19 @@ final class ProjectNotActive extends RuntimeException
     {
         return new self("Project {$id} is not active.");
     }
+
+    /**
+     * ADR-0069 §3 — the caller is told the project is suspended, which is
+     * the actionable answer (the project's own administrator has to lift
+     * it); an archived project gets its own wording.
+     */
+    public static function suspended(string $id): self
+    {
+        return new self("Project {$id} is suspended.");
+    }
+
+    public static function archived(string $id): self
+    {
+        return new self("Project {$id} is archived.");
+    }
 }

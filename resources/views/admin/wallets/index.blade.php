@@ -1,48 +1,51 @@
 @extends('layouts.admin')
 
-@section('title', 'Wallets')
+@section('title', 'Portefeuilles')
 @section('subtitle', $project->name)
 
 @section('content')
+@php
+    $statusLabels = ['active' => 'Actif', 'frozen' => 'Bloqué', 'closed' => 'Fermé'];
+@endphp
 <div class="mb-4 flex items-center justify-between">
     <div class="rounded-md border border-slate-200 bg-white px-4 py-3 text-base text-slate-600">
-        Lecture seule — les wallets ne peuvent jamais être modifiés depuis
-        la console admin. Un wallet n'est crédité qu'en conséquence
-        explicite de l'initiation d'un paiement par l'appelant, jamais
-        manuellement.
+        Lecture seule — les portefeuilles ne peuvent jamais être modifiés depuis
+        la console. Un portefeuille n'est crédité que si l'appelant l'a demandé
+        en initiating le paiement, jamais à la main.
     </div>
-    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-base font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap ml-4">
+    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="text-base font-medium text-indigo-700 hover:text-indigo-900 whitespace-nowrap ml-4">
         ← Retour au projet
     </a>
 </div>
 
 <div class="mb-4">
-    <x-admin.search-box placeholder="Rechercher par ID de tiers ou devise…" :value="$search" />
+    <x-admin.search-box placeholder="Rechercher par tiers (référence ou ID) ou devise…" :value="$search" />
 </div>
 
 {{-- Stats — per-currency totals across this project's wallets (capped
      at 500 wallets for the aggregate, see WalletsController::summarize()). --}}
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <div class="bg-white border border-slate-200 rounded-lg p-4">
-        <p class="text-sm font-semibold uppercase tracking-wider text-slate-500">Total wallets</p>
+        <p class="text-sm font-semibold uppercase tracking-wider text-slate-600">Nombre de portefeuilles</p>
         <p class="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">{{ $stats['total'] }}</p>
     </div>
     @forelse ($stats['byCurrency'] as $currency => $totals)
         <div class="bg-white border border-slate-200 rounded-lg p-4">
-            <p class="text-sm font-semibold uppercase tracking-wider text-slate-500">{{ $currency }} disponible</p>
-            <p class="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($totals['availableMinor'], $currency)->formattedAmount() }}</p>
-            <p class="mt-0.5 text-sm text-slate-500">{{ $totals['count'] }} wallet{{ $totals['count'] === 1 ? '' : 's' }} · {{ \Core\Support\Money\Money::ofMinor($totals['heldMinor'], $currency)->formattedAmount() }} bloqué</p>
+            <p class="text-sm font-semibold uppercase tracking-wider text-slate-600">{{ $currency }} disponible</p>
+            <p class="mt-1 text-2xl font-semibold text-slate-900 tabular-nums">{{ \Core\Support\Money\Money::ofMinor($totals['availableMinor'], $currency)->groupedAmount() }}</p>
+            <p class="mt-0.5 text-sm text-slate-600">{{ $totals['count'] }} portefeuille{{ $totals['count'] === 1 ? '' : 's' }} · {{ \Core\Support\Money\Money::ofMinor($totals['heldMinor'], $currency)->groupedAmount() }} bloqué</p>
         </div>
     @empty
         <div class="bg-white border border-slate-200 rounded-lg p-4 sm:col-span-2 lg:col-span-3 flex items-center">
-            <p class="text-base text-slate-500">Aucun wallet à résumer pour le moment.</p>
+            <p class="text-base text-slate-600">Aucun portefeuille à résumer pour le moment.</p>
         </div>
     @endforelse
 </div>
 
 <x-admin.table
-    :headers="['ID wallet', 'Tiers', 'Devise', 'Statut', 'Disponible', 'Bloqué', '']"
-    :empty="'Aucun wallet pour ce projet pour le moment.'">
+    caption="Portefeuilles du projet"
+    :headers="['Identifiant', 'Tiers', 'Devise', 'Statut', 'Disponible', 'Bloqué', '']"
+    :empty="'Aucun portefeuille pour ce projet pour le moment.'">
     <tbody class="divide-y divide-slate-100 bg-white">
     @foreach ($wallets as $wallet)
         <tr>
@@ -50,7 +53,7 @@
                 {{ substr($wallet->id, 0, 8) }}…
             </td>
             <td class="px-4 py-2 text-sm font-mono text-slate-700 truncate max-w-[8rem]" title="{{ $wallet->partyId }}">
-                {{ substr($wallet->partyId, 0, 8) }}…
+                {{ $wallet->partyExternalRef ?? substr($wallet->partyId, 0, 8).'…' }}
             </td>
             <td class="px-4 py-2 text-base font-mono text-slate-700">
                 {{ $wallet->currency }}
@@ -61,19 +64,19 @@
                     'bg-emerald-100 text-emerald-700' => $wallet->status === 'active',
                     'bg-slate-100 text-slate-700' => $wallet->status !== 'active',
                 ])>
-                    {{ $wallet->status }}
+                    {{ $statusLabels[$wallet->status] ?? $wallet->status }}
                 </span>
             </td>
             {{-- Minor units -> major units, via Money::formattedAmount()
                  — currency-exponent-correct (0 decimals for XAF). --}}
             <td class="px-4 py-2 text-base font-mono text-slate-900 tabular-nums text-right">
-                {{ \Core\Support\Money\Money::ofMinor($wallet->availableMinor, $wallet->currency)->formattedAmount() }}
+                {{ \Core\Support\Money\Money::ofMinor($wallet->availableMinor, $wallet->currency)->groupedAmount() }}
             </td>
-            <td class="px-4 py-2 text-base font-mono text-slate-500 tabular-nums text-right">
-                {{ \Core\Support\Money\Money::ofMinor($wallet->heldMinor, $wallet->currency)->formattedAmount() }}
+            <td class="px-4 py-2 text-base font-mono text-slate-600 tabular-nums text-right">
+                {{ \Core\Support\Money\Money::ofMinor($wallet->heldMinor, $wallet->currency)->groupedAmount() }}
             </td>
             <td class="px-4 py-2 text-sm text-right">
-                <a href="{{ route('admin.projects.wallets.ledger', ['projectId' => $project->id, 'walletId' => $wallet->id]) }}" class="font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap">
+                <a href="{{ route('admin.projects.wallets.ledger', ['projectId' => $project->id, 'walletId' => $wallet->id]) }}" class="font-medium text-indigo-700 hover:text-indigo-900 whitespace-nowrap">
                     Écritures →
                 </a>
             </td>

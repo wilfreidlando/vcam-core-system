@@ -44,6 +44,7 @@ final readonly class CreateOrganization implements CreateOrganizationPort
             context: [],
             correlationId: $correlationId,
             occurredAt: $this->clock->now(),
+            organizationId: $organization->id,
         ));
 
         return new OrganizationView(

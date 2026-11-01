@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Admin\Presentation\Http\Controllers;
 
+use Core\Admin\Presentation\Http\Controllers\Concerns\AuthorizesInScope;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Support\Http\ProblemDetails;
 use Core\Webhook\Contracts\ListDeadWebhookDeliveries;
@@ -15,6 +16,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class ListDeadWebhookDeliveriesController
 {
+    use AuthorizesInScope;
+
     public function __construct(
         private readonly ListDeadWebhookDeliveries $listDeadWebhookDeliveries,
     ) {}
@@ -23,10 +26,15 @@ final class ListDeadWebhookDeliveriesController
      * List dead (DLQ) webhook deliveries.
      *
      * Optionally scoped to a `project_id`. Requires `webhooks:read`.
+     *
+     * ADR-0069 §2 — the account's scope always applies on top of the
+     * requested project: a `project_id` outside the scope yields an empty
+     * page, and the unfiltered listing only shows the account's projects.
      */
     public function __invoke(Request $request, OperatorContext $operator): JsonResponse|Response
     {
-        if (! $operator->hasPermission('webhooks:read')) {
+        $scope = $this->permittedScope($operator, 'webhooks:read');
+        if ($scope === null) {
             return ProblemDetails::forbidden('The webhooks:read permission is required.');
         }
 
@@ -42,6 +50,10 @@ final class ListDeadWebhookDeliveriesController
 
         $result = $this->listDeadWebhookDeliveries->list(
             new ListDeadWebhookDeliveriesCommand($projectId, $page, $perPage),
+            // ADR-0069 §2 — the scope is a required parameter of the
+            // port: the dead queue never crosses the projects the
+            // console account may see.
+            $scope,
         );
 
         return new JsonResponse([

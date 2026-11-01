@@ -35,4 +35,9 @@ final class InMemoryIdempotencyStore implements IdempotencyStore
 
         $this->records[$storeKey] = new IdempotencyRecord($requestHash, completed: true, responseStatus: $responseStatus, responseBody: $responseBody);
     }
+
+    public function release(string $projectId, string $key): void
+    {
+        unset($this->records["{$projectId}:{$key}"]);
+    }
 }

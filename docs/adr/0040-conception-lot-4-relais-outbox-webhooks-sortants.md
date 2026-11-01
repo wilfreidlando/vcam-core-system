@@ -1,6 +1,6 @@
 # ADR-0040 — Conception Lot 4 : relais outbox centralisé, webhooks sortants signés en file
 
-- **Statut** : Accepté
+- **Statut** : Accepté — amendé par [ADR-0091](0091-decisions-implicites-du-code-livre-formalisees.md) (§4 : le cycle de vie d'un endpoint de webhook est formellement scindé en `activate`/`deactivate`/`update`)
 - **Date** : 2026-09-15
 - **Précise** : [ADR-0009](0009-webhooks-sortants-signes.md) (décision d'origine),
   [ADR-0024](0024-outbox-table-unique-module-events.md) (table outbox unique),

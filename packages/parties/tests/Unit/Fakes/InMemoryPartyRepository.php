@@ -34,6 +34,38 @@ final class InMemoryPartyRepository implements PartyRepository
         $this->parties[$party->id] = $party;
     }
 
+    public function idsMatchingRef(string $projectId, string $term, int $limit): array
+    {
+        $ids = [];
+
+        foreach ($this->parties as $party) {
+            if ($party->projectId === $projectId && stripos($party->externalRef, $term) !== false) {
+                $ids[] = $party->id;
+            }
+        }
+
+        return array_slice($ids, 0, $limit);
+    }
+
+    /**
+     * @param list<string> $partyIds
+     * @return array<string, string>
+     */
+    public function externalRefsOf(string $projectId, array $partyIds): array
+    {
+        $refs = [];
+
+        foreach ($partyIds as $id) {
+            $party = $this->parties[$id] ?? null;
+
+            if ($party !== null && $party->projectId === $projectId) {
+                $refs[$id] = $party->externalRef;
+            }
+        }
+
+        return $refs;
+    }
+
     public function find(string $id): ?Party
     {
         return $this->parties[$id] ?? null;

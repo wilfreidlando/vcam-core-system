@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace Core\Notification\Contracts;
 
+use Core\Support\Access\AccessScope;
+
 interface GetChannelSession
 {
     /**
+     * The scope is required (ADR-0069 §2): a session outside the
+     * caller's scope is "not found", never "forbidden" (S-04).
+     *
      * @throws ChannelSessionNotFound
      */
-    public function get(GetChannelSessionCommand $command): ChannelSessionView;
+    public function get(GetChannelSessionCommand $command, AccessScope $scope): ChannelSessionView;
 }

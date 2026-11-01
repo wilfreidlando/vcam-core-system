@@ -19,6 +19,7 @@ final readonly class LedgerTransaction
 {
     /**
      * @param list<LedgerEntry> $entries
+     * @param string|null $reversesTransactionId ADR-0076 §5 — the transaction this one counter-passes. Only a correction carries it, and it can only be set at the INSERT: `ledger_transactions` is append-only (a trigger refuses every UPDATE).
      */
     public function __construct(
         public string $id,
@@ -27,6 +28,7 @@ final readonly class LedgerTransaction
         public ?string $externalRef,
         public string $idempotencyKey,
         public array $entries,
+        public ?string $reversesTransactionId = null,
     ) {
         if (count($entries) < 2) {
             throw new InvalidArgumentException('A ledger transaction needs at least two entries.');

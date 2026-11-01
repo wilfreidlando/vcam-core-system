@@ -6,6 +6,7 @@ namespace Core\Audit\Infrastructure\Persistence\Eloquent;
 
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
+use Illuminate\Support\Facades\Context;
 
 /**
  * The log is append-only by convention, not by a database privilege yet: no
@@ -21,10 +22,17 @@ final class EloquentAuditLogger implements AuditLogger
             'actor' => $entry->actor,
             'action' => $entry->action,
             'resource' => $entry->resource,
+            'organization_id' => $entry->organizationId,
+            'project_id' => $entry->projectId,
             'before' => $entry->before,
             'after' => $entry->after,
             'context' => $entry->context,
-            'correlation_id' => $entry->correlationId,
+            // The caller's own correlation id when it has one, the
+            // request's otherwise. A caller that does not carry one (the
+            // console's use cases pass `null`) still gets an entry that
+            // can be joined with the request's logs — the journal's
+            // promise is "correlated end to end", and it was not kept.
+            'correlation_id' => $entry->correlationId ?? Context::get('correlation_id'),
             'created_at' => $entry->occurredAt,
         ]);
     }

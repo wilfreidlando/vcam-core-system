@@ -28,5 +28,7 @@ final readonly class AuditEntryView
         public ?array $context,
         public ?string $correlationId,
         public DateTimeImmutable $occurredAt,
+        public ?string $organizationId = null,
+        public ?string $projectId = null,
     ) {}
 }

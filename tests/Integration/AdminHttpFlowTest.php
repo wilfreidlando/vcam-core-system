@@ -12,8 +12,8 @@ use Core\Identity\Application\Dto\LoginOperatorCommand;
 use Core\Identity\Application\UseCase\ConfirmOperatorMfaEnrollment;
 use Core\Identity\Application\UseCase\EnrollOperatorMfa;
 use Core\Identity\Application\UseCase\LoginOperator;
-use Core\Identity\Contracts\CreateOperator;
-use Core\Identity\Contracts\CreateOperatorCommand;
+use Core\Identity\Contracts\AcceptOperatorInvitation;
+use Core\Identity\Contracts\AcceptOperatorInvitationCommand;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Contracts\CreateProject;
@@ -44,6 +44,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
+use Tests\Support\OperatorFactory;
 use Tests\TestCase;
 
 /**
@@ -272,22 +273,41 @@ final class AdminHttpFlowTest extends TestCase
     }
 
     #[Test]
-    public function a_platform_admin_creates_lists_and_revokes_an_operator(): void
+    public function a_platform_admin_invites_lists_and_revokes_an_operator(): void
     {
         // ADR-0050: operator self-service — only PlatformAdmin's `*`
         // wildcard carries `operators:read`/`operators:write`.
         $token = $this->authenticatedOperatorToken(OperatorRole::PlatformAdmin);
         $email = Str::uuid().'@example.com';
 
+        // ADR-0081 S-07 — the console never chooses a password: it
+        // issues an activation token, and the account is created by the
+        // activation, with the password the invitee chooses.
         $create = $this->postJson('/v1/admin/operators', [
             'email' => $email,
-            'name' => 'New Operator',
             'role' => OperatorRole::SupportOperator->value,
         ], ['Authorization' => "Bearer {$token}"]);
         $create->assertStatus(201);
-        $create->assertJsonStructure(['id', 'plaintext_password']);
-        $operatorId = $create->json('id');
-        self::assertIsString($operatorId);
+        $create->assertJsonStructure(['invitation_id', 'email', 'role', 'token', 'expires_at']);
+        self::assertIsString($create->json('token'));
+
+        // The account does not exist yet.
+        self::assertNull(app(OperatorRepository::class)->findByEmail($email));
+
+        // The invitee activates the invitation — the same path a real one
+        // takes, with the password it chooses.
+        $invitationToken = $create->json('token');
+        $accepted = app(AcceptOperatorInvitation::class)->accept(new AcceptOperatorInvitationCommand(
+            token: $invitationToken,
+            name: 'New Operator',
+            password: OperatorFactory::PASSWORD,
+        ));
+
+        // The account exists now — it carries the email it was invited for.
+        $operatorId = $accepted->operatorId;
+        $operator = app(OperatorRepository::class)->find($operatorId);
+        self::assertInstanceOf(Operator::class, $operator);
+        self::assertSame($email, $operator->email);
 
         $list = $this->getJson('/v1/admin/operators', ['Authorization' => "Bearer {$token}"]);
         $list->assertOk();
@@ -311,7 +331,6 @@ final class AdminHttpFlowTest extends TestCase
 
         $this->postJson('/v1/admin/operators', [
             'email' => Str::uuid().'@example.com',
-            'name' => 'Bad Role',
             'role' => 'not_a_real_role',
         ], ['Authorization' => "Bearer {$token}"])
             ->assertStatus(422)
@@ -413,15 +432,11 @@ final class AdminHttpFlowTest extends TestCase
     {
         $token = $this->authenticatedOperatorToken(OperatorRole::PlatformAdmin);
 
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand(Str::uuid().'@example.com', 'Original Name', OperatorRole::SupportOperator->value),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = OperatorFactory::create(Str::uuid().'@example.com', OperatorRole::SupportOperator);
 
         $newEmail = Str::uuid().'@example.com';
 
-        $this->putJson("/v1/admin/operators/{$created->operatorId}", [
+        $this->putJson("/v1/admin/operators/{$created}", [
             'email' => $newEmail,
             'name' => 'Updated Name',
             'role' => OperatorRole::FinanceOperator->value,
@@ -430,7 +445,7 @@ final class AdminHttpFlowTest extends TestCase
 
         $this->getJson('/v1/admin/operators', ['Authorization' => "Bearer {$token}"])
             ->assertJsonFragment([
-                'id' => $created->operatorId,
+                'id' => $created,
                 'email' => $newEmail,
                 'name' => 'Updated Name',
                 'role' => OperatorRole::FinanceOperator->value,
@@ -456,13 +471,9 @@ final class AdminHttpFlowTest extends TestCase
     {
         $token = $this->authenticatedOperatorToken(OperatorRole::PlatformAdmin);
 
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand(Str::uuid().'@example.com', 'Ops', OperatorRole::SupportOperator->value),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = OperatorFactory::create(Str::uuid().'@example.com', OperatorRole::SupportOperator);
 
-        $this->putJson("/v1/admin/operators/{$created->operatorId}", [
+        $this->putJson("/v1/admin/operators/{$created}", [
             'email' => Str::uuid().'@example.com',
             'name' => 'Ops',
             'role' => 'not_a_real_role',
@@ -536,8 +547,13 @@ final class AdminHttpFlowTest extends TestCase
             ->assertJsonPath('data.0.resource', 'provider_application:'.$project->id.':my-coolpay');
     }
 
+    /**
+     * ADR-0069 §2 / S-04 — an unknown project and a project outside the
+     * account's scope get the same answer: 404, never a body that would
+     * tell them apart.
+     */
     #[Test]
-    public function registering_a_provider_application_for_an_unknown_project_is_rejected_with_a_clean_422(): void
+    public function registering_a_provider_application_for_an_unknown_project_is_rejected_with_a_clean_404(): void
     {
         $token = $this->authenticatedOperatorToken(OperatorRole::ProviderManager);
 
@@ -547,8 +563,9 @@ final class AdminHttpFlowTest extends TestCase
             'public_key' => 'pub-key-123',
             'private_key' => 'secret-private-key',
         ], ['Authorization' => "Bearer {$token}"])
-            ->assertStatus(422)
-            ->assertHeader('Content-Type', 'application/problem+json');
+            ->assertStatus(404)
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('type', 'https://errors.core-system.internal/project-not-found');
     }
 
     #[Test]
@@ -586,16 +603,12 @@ final class AdminHttpFlowTest extends TestCase
 
     private function authenticatedOperatorToken(OperatorRole $role): string
     {
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand(Str::uuid().'@example.com', 'Ops', $role->value),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = OperatorFactory::create(Str::uuid().'@example.com', $role);
 
-        $operator = app(OperatorRepository::class)->find($created->operatorId);
+        $operator = app(OperatorRepository::class)->find($created);
         assert($operator instanceof Operator);
 
-        $login = app(LoginOperator::class)(new LoginOperatorCommand($operator->email, $created->plaintextPassword));
+        $login = app(LoginOperator::class)(new LoginOperatorCommand($operator->email, OperatorFactory::PASSWORD));
 
         $enrollment = app(EnrollOperatorMfa::class)(new EnrollOperatorMfaCommand($login->challengeToken));
         $code = (new Google2FA)->getCurrentOtp($enrollment->secret);

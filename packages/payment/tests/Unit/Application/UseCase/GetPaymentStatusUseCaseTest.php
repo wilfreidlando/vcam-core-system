@@ -8,6 +8,7 @@ use Core\Payment\Domain\Exception\PaymentNotFound;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\PaymentStatus;
 use Core\Payment\Tests\Unit\Fakes\InMemoryPaymentRepository;
+use Core\Support\Access\AccessScope;
 
 function seedPayment(InMemoryPaymentRepository $repo, string $id = 'payment-1', string $projectId = 'project-1'): Payment
 {
@@ -38,7 +39,7 @@ it('returns the view for a payment owned by the requesting project', function ()
     seedPayment($payments);
 
     $useCase = new GetPaymentStatusUseCase($payments);
-    $view = $useCase->get(new GetPaymentStatusCommand('payment-1', 'project-1'));
+    $view = $useCase->get(new GetPaymentStatusCommand('payment-1', 'project-1'), AccessScope::platform());
 
     expect($view->id)->toBe('payment-1')
         ->and($view->status)->toBe(PaymentStatus::Succeeded->value);
@@ -47,7 +48,7 @@ it('returns the view for a payment owned by the requesting project', function ()
 it('rejects an unknown payment id', function (): void {
     $useCase = new GetPaymentStatusUseCase(new InMemoryPaymentRepository);
 
-    $useCase->get(new GetPaymentStatusCommand('unknown', 'project-1'));
+    $useCase->get(new GetPaymentStatusCommand('unknown', 'project-1'), AccessScope::platform());
 })->throws(PaymentNotFound::class);
 
 it('rejects a payment that belongs to another project, with the same exception as not-found', function (): void {
@@ -56,5 +57,5 @@ it('rejects a payment that belongs to another project, with the same exception a
 
     $useCase = new GetPaymentStatusUseCase($payments);
 
-    $useCase->get(new GetPaymentStatusCommand('payment-1', 'someone-elses-project'));
+    $useCase->get(new GetPaymentStatusCommand('payment-1', 'someone-elses-project'), AccessScope::platform());
 })->throws(PaymentNotFound::class);

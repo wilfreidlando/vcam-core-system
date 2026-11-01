@@ -15,6 +15,7 @@ use Core\Payment\Presentation\Http\Requests\StartPaymentRequest;
 use Core\Support\Clock;
 use Core\Support\Http\Middleware\RequireIdempotencyKey;
 use Core\Support\Http\ProblemDetails;
+use Core\Support\Http\ShownOnce;
 use DateTimeImmutable;
 use Illuminate\Http\JsonResponse;
 use LogicException;
@@ -100,7 +101,9 @@ abstract class AbstractStartPaymentController
 
         $this->recordExchange($request, $data, $body, $receivedAt, $view->id, $project->projectId);
 
-        return new JsonResponse($body, 201);
+        // ADR-0081 S-07 — the callback secret is shown in this response and
+        // nowhere else: the idempotency store must not keep it, nor replay it.
+        return ShownOnce::mark(new JsonResponse($body, 201), 'callback_secret');
     }
 
     /**

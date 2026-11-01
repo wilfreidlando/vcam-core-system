@@ -3,101 +3,157 @@
 @section('title', 'Clés API')
 @section('subtitle', $project->name)
 
-{{-- ADR-0066 — exactement une clé par projet.
-     Générer (s'il n'y en a pas), Régénérer (remplace atomiquement : l'ancienne
-     est rejetée dès que la nouvelle existe), Révoquer (supprime). --}}
+{{-- ADR-0082 — plusieurs clés nommées par projet, portées choisies par modèle,
+     restriction réseau et expiration optionnelles, rotation sans coupure,
+     révocation d'urgence motivée. --}}
 @section('content')
-<div class="max-w-3xl mx-auto space-y-6">
+@php
+    $scopeLabel = function (array $scopes) use ($templates, $templateScopes): string {
+        if (in_array('*', $scopes, true)) {
+            return 'Accès total';
+        }
+        $sorted = $scopes; sort($sorted);
+        foreach ($templateScopes as $key => $list) {
+            $l = $list; sort($l);
+            if ($l === $sorted) {
+                return $templates[$key];
+            }
+        }
 
-    @if ($errors->any())
-        <div class="rounded-md bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-800">
-            @foreach ($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
-        </div>
-    @endif
+        return 'Personnalisée · '.count($scopes).' droit(s)';
+    };
+    $now = new DateTimeImmutable();
+@endphp
+<div class="max-w-4xl mx-auto space-y-6">
 
-    @if (session('status'))
-        <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-base text-emerald-800">
-            {{ session('status') }}
-        </div>
-    @endif
+    {{-- Statut et erreurs : rendus par le layout (role="status" / role="alert"). --}}
 
     @if (! empty($created))
-        <div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3">
-            <p class="text-base font-semibold text-emerald-800">Nouvelle clé : {{ $created['prefix'] }}</p>
-            <p class="mt-1 text-base text-emerald-700">
-                Affichée uniquement maintenant, jamais stockée ni journalisée en clair — copiez-la avant de quitter cette page :
-            </p>
+        {{-- Le secret est lu dans la vue de CETTE réponse (`$created`), jamais flashé en session. --}}
+        <x-admin.alert variant="success" title="Nouvelle clé : {{ $created['prefix'] }}">
+            Affichée uniquement maintenant, jamais stockée ni journalisée en clair — copiez-la avant de quitter cette page :
             <code class="mt-1 block rounded bg-emerald-100 px-2 py-1.5 font-mono text-sm text-emerald-900 break-all">{{ $created['plaintextToken'] }}</code>
-        </div>
+        </x-admin.alert>
     @endif
 
-    <div class="grid grid-cols-1 gap-6">
-            @php $key = $currentKey; $label = 'API'; @endphp
-            <div class="bg-white border border-slate-200 rounded-lg p-6 flex flex-col" x-data="{ confirm: null }">
-                <div class="flex items-center justify-between mb-3">
-                    <h2 class="text-lg font-semibold text-slate-900">Clé API du projet</h2>
+    <section class="bg-white border border-slate-200 rounded-lg">
+        <header class="px-6 py-4 border-b border-slate-200">
+            <h2 class="text-lg font-semibold text-slate-900">Clés du projet</h2>
+            <p class="text-sm text-slate-600 mt-1">Une clé par composant (serveur, portail, versements…) : chacune ne porte que les droits dont elle a besoin. À ne jamais partager hors de vos serveurs.</p>
+        </header>
+
+        @forelse ($keys as $key)
+            @php
+                $expired = $key->expiresAt !== null && $key->expiresAt <= $now;
+            @endphp
+            <div class="px-6 py-4 border-b border-slate-100 last:border-b-0" >
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="font-semibold text-slate-900">{{ $key->name }}</p>
+                        <p class="font-mono text-sm text-slate-600">{{ $key->prefix }}</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if (! $key->active)
+                            <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">Expirée</span>
+                        @elseif ($key->replacedByApiKeyId !== null)
+                            <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">Remplacée · valide jusqu'au {{ $key->expiresAt?->format('d/m/Y H:i') }}</span>
+                        @elseif ($key->expiresAt !== null)
+                            <span class="rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-medium text-sky-800">Active · expire le {{ $key->expiresAt->format('d/m/Y') }}</span>
+                        @else
+                            <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">Active</span>
+                        @endif
+                        @if ($key->hasFullAccess())
+                            <span class="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-medium text-rose-800" title="Clé à accès total : préférez des droits précis.">Accès total</span>
+                        @endif
+                    </div>
                 </div>
 
-                <p class="text-sm text-slate-600 mb-4">
-                    Une seule clé par projet. À ne jamais partager hors de vos serveurs : sur ce déploiement, elle engage de vrais paiements.
-                </p>
+                <dl class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+                    <div class="flex justify-between gap-2"><dt class="text-slate-600">Droits accordés</dt><dd class="text-slate-900 text-right" title="{{ implode(', ', $key->scopes) }}">{{ $scopeLabel($key->scopes) }}</dd></div>
+                    <div class="flex justify-between gap-2"><dt class="text-slate-600">Réseau</dt><dd class="font-mono text-xs text-slate-700 text-right">{{ $key->allowedCidrs === [] ? 'toute adresse' : implode(', ', $key->allowedCidrs) }}</dd></div>
+                    <div class="flex justify-between gap-2"><dt class="text-slate-600">Créée le</dt><dd class="text-slate-900">{{ $key->createdAt->format('d/m/Y H:i') }}</dd></div>
+                    <div class="flex justify-between gap-2"><dt class="text-slate-600">Dernière utilisation</dt><dd class="text-slate-900">{{ $key->lastUsedAt?->format('d/m/Y H:i') ?? 'jamais' }}@if ($key->lastUsedIp) <span class="font-mono text-xs text-slate-600">· {{ $key->lastUsedIp }}</span>@endif</dd></div>
+                </dl>
 
-                @if ($key === null)
-                    <p class="text-base text-slate-500 mb-4">Aucune clé {{ $label }} pour ce projet.</p>
-                    <form method="POST" action="{{ route('admin.projects.api-keys.store', ['projectId' => $project->id]) }}" class="mt-auto">
-                        @csrf
-                        <input type="hidden" name="mode" value="generate">
-                        <button type="submit" class="w-full rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-base font-medium text-white shadow-sm">
-                            Générer la clé {{ $label }}
-                        </button>
-                    </form>
-                @else
-                    <dl class="space-y-1.5 text-sm mb-4">
-                        <div class="flex justify-between gap-2"><dt class="text-slate-500">Préfixe</dt><dd class="font-mono text-slate-900">{{ $key->prefix }}</dd></div>
-                        <div class="flex justify-between gap-2"><dt class="text-slate-500">Créée le</dt><dd class="text-slate-900">{{ $key->createdAt->format('d/m/Y H:i') }}</dd></div>
-                        <div class="flex justify-between gap-2"><dt class="text-slate-500">Dernière utilisation</dt><dd class="text-slate-900">{{ $key->lastUsedAt?->format('d/m/Y H:i') ?? 'jamais' }}</dd></div>
-                        <div class="flex justify-between gap-2"><dt class="text-slate-500">Scopes</dt><dd class="font-mono text-xs text-slate-700 text-right">{{ implode(', ', $key->scopes) }}</dd></div>
-                    </dl>
-
-                    <div class="mt-auto grid grid-cols-2 gap-2">
-                        <button type="button" @click="confirm = 'regenerate'" class="rounded-md border border-indigo-300 text-indigo-700 hover:bg-indigo-50 px-3 py-2 text-sm font-medium">Régénérer</button>
-                        <button type="button" @click="confirm = 'revoke'" class="rounded-md border border-rose-300 text-rose-700 hover:bg-rose-50 px-3 py-2 text-sm font-medium">Révoquer</button>
-                    </div>
-
-                    <div x-show="confirm !== null" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50" @click.self="confirm = null">
-                        <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4">
-                            <template x-if="confirm === 'regenerate'">
-                                <form method="POST" action="{{ route('admin.projects.api-keys.store', ['projectId' => $project->id]) }}">
-                                    @csrf
-                                                <input type="hidden" name="mode" value="regenerate">
-                                    <p class="font-semibold text-slate-900 mb-2">Régénérer la clé {{ $label }} ?</p>
-                                    <p class="text-sm text-slate-600 mb-4">{{ $key->prefix }} sera remplacée immédiatement : toute application qui l'utilise encore sera rejetée. La nouvelle clé s'affichera une seule fois.</p>
-                                    <div class="flex justify-end gap-2">
-                                        <button type="button" @click="confirm = null" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Annuler</button>
-                                        <button type="submit" class="rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-sm font-medium text-white">Régénérer</button>
-                                    </div>
-                                </form>
-                            </template>
-                            <template x-if="confirm === 'revoke'">
-                                <form method="POST" action="{{ route('admin.projects.api-keys.revoke', ['projectId' => $project->id, 'apiKeyId' => $key->id]) }}">
-                                    @csrf
-                                    <p class="font-semibold text-slate-900 mb-2">Révoquer la clé {{ $label }} ?</p>
-                                    <p class="text-sm text-slate-600 mb-4">{{ $key->prefix }} sera supprimée : toute application qui l'utilise sera rejetée. Vous pourrez en générer une nouvelle ensuite.</p>
-                                    <div class="flex justify-end gap-2">
-                                        <button type="button" @click="confirm = null" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Annuler</button>
-                                        <button type="submit" class="rounded-md bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-sm font-medium text-white">Révoquer</button>
-                                    </div>
-                                </form>
-                            </template>
-                        </div>
-                    </div>
-                @endif
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @if ($key->active && $key->replacedByApiKeyId === null)
+                        <x-admin.confirm-dialog
+                            :id="'rotate-'.$key->id"
+                            title="Faire tourner « {{ $key->name }} » ?"
+                            :message="'Une nouvelle clé, avec les mêmes droits et la même restriction réseau, s\'affichera une seule fois. '.$key->prefix.' reste valide le temps de déployer la nouvelle, puis cesse de fonctionner seule.'"
+                            :action="route('admin.projects.api-keys.rotate', ['projectId' => $project->id, 'apiKeyId' => $key->id])"
+                            confirm="Créer la remplaçante"
+                            variant="primary">
+                            <x-slot:trigger>
+                                <button type="button" class="rounded-md border border-indigo-300 text-indigo-700 hover:bg-indigo-50 px-3 py-1.5 text-sm font-medium">Faire tourner<span class="sr-only"> la clé {{ $key->name }}</span></button>
+                            </x-slot:trigger>
+                            <x-admin.field name="grace_days" type="number" label="Ancienne clé valide encore (jours)" :id="'grace-'.$key->id" required
+                                           :min="$graceDays['min']" :max="$graceDays['max']" :value="$graceDays['default']" class="w-28" />
+                        </x-admin.confirm-dialog>
+                    @endif
+                    <x-admin.confirm-dialog
+                        :id="'revoke-'.$key->id"
+                        title="Révoquer « {{ $key->name }} » immédiatement ?"
+                        :message="$key->prefix.' sera supprimée : toute application qui l\'utilise est rejetée dès sa prochaine requête.'"
+                        :action="route('admin.projects.api-keys.revoke', ['projectId' => $project->id, 'apiKeyId' => $key->id])"
+                        confirm="Révoquer">
+                        <x-slot:trigger>
+                            <button type="button" class="rounded-md border border-rose-300 text-rose-700 hover:bg-rose-50 px-3 py-1.5 text-sm font-medium">Révoquer<span class="sr-only"> la clé {{ $key->name }}</span></button>
+                        </x-slot:trigger>
+                        <x-admin.field name="reason" type="textarea" label="Motif (journalisé)" :id="'reason-'.$key->id" :rows="2" required minlength="3" maxlength="500"
+                                       placeholder="Exemple : clé exposée dans un dépôt, départ d'un prestataire" />
+                    </x-admin.confirm-dialog>
+                </div>
             </div>
-    </div>
+        @empty
+            <p class="px-6 py-6 text-base text-slate-600">Aucune clé pour ce projet.</p>
+        @endforelse
+    </section>
 
-    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="block text-center text-base text-slate-500 hover:text-slate-700">
+    <section class="bg-white border border-slate-200 rounded-lg p-6" x-data="apiKeyTemplate" data-template="{{ old('template', 'server') }}">
+        <h2 class="text-lg font-semibold text-slate-900">Nouvelle clé</h2>
+        <form method="POST" action="{{ route('admin.projects.api-keys.store', ['projectId' => $project->id]) }}" class="mt-4 space-y-5">
+            @csrf
+            <x-admin.errors />
+            <x-admin.field name="name" label="Nom" required maxlength="80" placeholder="Serveur de facturation" />
+
+            <fieldset>
+                <legend class="block text-sm font-medium text-slate-700 mb-2">Droits accordés</legend>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    @foreach ($templates as $value => $label)
+                        <label class="flex items-start gap-2 rounded-md border border-slate-200 px-3 py-2 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="template" value="{{ $value }}" @checked(old('template', 'server') === $value) @change="selectTemplate" class="mt-1">
+                            <span>
+                                <span class="block text-sm font-medium text-slate-900">{{ $label }}</span>
+                                <span class="block text-xs text-slate-600">{{ count($templateScopes[$value]) }} droit(s)@if ($value === 'payouts') · clé séparée conseillée, avec restriction réseau @endif</span>
+                            </span>
+                        </label>
+                    @endforeach
+                    <label class="flex items-start gap-2 rounded-md border border-slate-200 px-3 py-2 cursor-pointer hover:bg-slate-50">
+                        <input type="radio" name="template" value="custom" @checked(old('template', 'server') === 'custom') @change="selectTemplate" class="mt-1">
+                        <span class="block text-sm font-medium text-slate-900">Personnalisée</span>
+                    </label>
+                </div>
+                <div x-show="custom" x-cloak class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-1">
+                    @foreach ($allScopes as $scope)
+                        <label class="flex items-center gap-2 text-sm font-mono text-slate-700">
+                            <input type="checkbox" name="scopes[]" value="{{ $scope }}" @checked(in_array($scope, old('scopes', []), true))>
+                            {{ $scope }}
+                        </label>
+                    @endforeach
+                </div>
+            </fieldset>
+
+            <x-admin.field name="allowed_cidrs" type="textarea" label="Restriction réseau" optional :rows="2" class="font-mono"
+                           placeholder="203.0.113.0/24&#10;2001:db8::/32"
+                           hint="Un bloc par ligne. Une fois renseignée, tout appel depuis une autre adresse est refusé (403)." />
+            <x-admin.field name="expires_at" type="datetime-local" label="Expiration (heure UTC)" optional />
+
+            <button type="submit" class="rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-base font-medium text-white shadow-sm">Créer la clé</button>
+        </form>
+    </section>
+
+    <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="block text-center text-base text-slate-600 hover:text-slate-800">
         Retour au projet
     </a>
 </div>

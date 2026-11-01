@@ -5,12 +5,17 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Http\Middleware\ResolveOperatorSession;
+use App\Http\View\Composers\AdminBreadcrumbComposer;
+use App\Http\View\Composers\AdminSidebarComposer;
 use App\Infrastructure\DatabaseIdempotencyStore;
 use App\Infrastructure\DatabaseUnitOfWork;
+use App\Infrastructure\Guide\GuideCatalog;
+use App\Infrastructure\Guide\GuideRenderer;
 use App\Infrastructure\ProjectIdempotencyScope;
 use App\OpenApi\ExceptionProblemResponseExtension;
 use App\OpenApi\ProblemDetailsStaticMethodReturnTypeExtension;
 use Core\Support\Clock;
+use Core\Support\Http\Middleware\LimitRequestBody;
 use Core\Support\Idempotency\IdempotencyScope;
 use Core\Support\Idempotency\IdempotencyStore;
 use Core\Support\SystemClock;
@@ -20,12 +25,16 @@ use Dedoc\Scramble\SecurityDocumentation\MiddlewareAuthSecurityStrategy;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Dedoc\Scramble\Support\RouteInfo;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Horizon\Horizon;
 
@@ -35,12 +44,36 @@ use Laravel\Horizon\Horizon;
  */
 final class AppServiceProvider extends ServiceProvider
 {
+    /**
+     * The CSP of the documentation pages (`/docs/api`). The two third-party
+     * bundles it loads are named explicitly; everything else is refused.
+     * The pages carry inline scripts (the theme watcher, the CSRF header
+     * interceptor), hence `'unsafe-inline'` — the alternative, a nonce per
+     * script, is part of the CSP work described in ADR-0102.
+     */
+    private const DOCS_CSP = "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; "
+        ."default-src 'self'; "
+        ."script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; "
+        ."style-src 'self' 'unsafe-inline' https://unpkg.com; "
+        ."img-src 'self' data: https:; connect-src 'self' https://proxy.scalar.com";
+
     public function register(): void
     {
         $this->app->bind(Clock::class, SystemClock::class);
         $this->app->bind(UnitOfWork::class, DatabaseUnitOfWork::class);
         $this->app->bind(IdempotencyStore::class, DatabaseIdempotencyStore::class);
         $this->app->bind(IdempotencyScope::class, ProjectIdempotencyScope::class);
+
+        // ADR-0113 — the operator guide. The catalogue reads the Markdown
+        // of `docs/manuel/parcours/`; the root is a path, so the binding
+        // is explicit: the container cannot guess a string. A singleton
+        // because the guide does not change while a request is served.
+        $this->app->singleton(GuideCatalog::class, static fn (): GuideCatalog => new GuideCatalog(
+            base_path('docs/manuel/parcours'),
+        ));
+        $this->app->singleton(GuideRenderer::class, static fn (Application $app): GuideRenderer => new GuideRenderer(
+            $app->make(GuideCatalog::class),
+        ));
     }
 
     public function boot(): void
@@ -61,6 +94,12 @@ final class AppServiceProvider extends ServiceProvider
         Route::middleware('web')
             ->group(base_path('routes/admin.php'));
 
+        // ADR-0069 §2 — the console sidebar reads its entries and badges
+        // through a composer, never through a port called in the template.
+        View::composer('layouts.admin', AdminSidebarComposer::class);
+        // The trail above the title: derived from the route, the project's name read through a scoped port.
+        View::composer('layouts.admin', AdminBreadcrumbComposer::class);
+
         // ADR-0067: the Horizon dashboard (its routes run under `web`, so
         // the console session is available) opens to the operator signed in
         // to the admin console who holds `queues:manage` — PlatformAdmin
@@ -69,6 +108,7 @@ final class AppServiceProvider extends ServiceProvider
             || (app(ResolveOperatorSession::class)->currentOperator()?->hasPermission('queues:manage') ?? false));
 
         $this->configureRateLimiting();
+        $this->configureRequestBodyLimit();
         $this->configureApiDocumentationTags();
         $this->configureAdminApiDocumentation();
         $this->configureApiDocumentationAccess();
@@ -190,6 +230,21 @@ final class AppServiceProvider extends ServiceProvider
     }
 
     /**
+     * Audit de sécurité 2026-10-29 #13 — the application bounds the body it
+     * accepts (1 Mio, JSON nested on 20 levels at most) at the head of the
+     * `api` group, before throttling, authentication or any validator reads
+     * it. The alias lets a route outside the group opt in explicitly.
+     */
+    private function configureRequestBodyLimit(): void
+    {
+        /** @var Router $router */
+        $router = $this->app->make(Router::class);
+
+        $router->aliasMiddleware('body.limit', LimitRequestBody::class);
+        $router->prependMiddlewareToGroup('api', LimitRequestBody::class);
+    }
+
+    /**
      * Scramble's own `RestrictedDocsAccess` middleware (applied to every
      * documented route via `config('scramble.middleware')`) only lets
      * `local` through automatically; anywhere else it checks this Gate and
@@ -198,12 +253,14 @@ final class AppServiceProvider extends ServiceProvider
      *
      * `/docs/api` is the third-party integration surface (ADR-0049) — it's
      * meant to be read by a Project integrator who has no operator
-     * credentials, so it's public here unconditionally. `/docs/admin`
-     * instead relies on the `operator.session` middleware attached to its
-     * routes above (the same mechanism every other admin console page
-     * uses) — this Gate stays permissive for it too, rather than
-     * duplicating a second, parallel check of "is there a valid operator
-     * session" that could drift from `ResolveOperatorSession`.
+     * credentials, so it stays public in local and staging. In PRODUCTION
+     * (audit de sécurité 2026-10-29 #14) it is no longer an open map of the
+     * whole public surface: only an operator signed in to the console who
+     * holds `audit:read` may open it. `/docs/admin` additionally relies on
+     * the `operator.session` middleware attached to its routes above.
+     *
+     * Whatever the environment, these pages are never framed and never leak
+     * their address through the `Referer` (they load third-party scripts).
      */
     private function configureApiDocumentationAccess(): void
     {
@@ -212,7 +269,33 @@ final class AppServiceProvider extends ServiceProvider
         // every request here, this Core has no Auth::user()) unless the
         // callback's first parameter explicitly allows null, regardless of
         // whether it's actually read.
-        Gate::define('viewApiDocs', fn (mixed $user = null): bool => true);
+        Gate::define('viewApiDocs', static function (mixed $user = null): bool {
+            if (! app()->isProduction()) {
+                return true;
+            }
+
+            return app(ResolveOperatorSession::class)->currentOperator()?->hasPermission('audit:read') ?? false;
+        });
+
+        Event::listen(RequestHandled::class, static function (RequestHandled $handled): void {
+            if (! $handled->request->is('docs/*')) {
+                return;
+            }
+
+            // Audit 2026-10-29 #14 / G-1 — the documentation pages load two
+            // third-party bundles on the API's own origin. The CSP names
+            // exactly those two hosts and nothing else: no inline script
+            // beyond what the page declares, no frame, no plugin, no
+            // form target elsewhere. `integrity` (in the views) pins the
+            // content of each bundle cryptographically.
+            $handled->response->headers->set('Content-Security-Policy', self::DOCS_CSP);
+            $handled->response->headers->set('X-Frame-Options', 'DENY');
+            $handled->response->headers->set('Referrer-Policy', 'no-referrer');
+            $handled->response->headers->set('X-Content-Type-Options', 'nosniff');
+            // The documentation describes the API: it must not sit in a
+            // cache (browser or proxy) between a revision and the next.
+            $handled->response->headers->set('Cache-Control', 'no-store, private');
+        });
     }
 
     /**
@@ -254,6 +337,22 @@ final class AppServiceProvider extends ServiceProvider
             return [
                 Limit::perMinute(20)->by('operator-auth-ip:'.$request->ip()),
                 Limit::perMinute(5)->by('operator-auth-credential:'.hash('sha256', $credential)),
+            ];
+        });
+
+        // ADR-0069 §4 — accepting an invitation is public. For an account
+        // that already exists, it checks that account's current password:
+        // without a per-invitation ceiling, whoever sent the invitation
+        // could test the invitee's password from as many IPs as they like.
+        // Two limits apply together: per IP, and per invitation (keyed on
+        // the token's hash — one invitation, one invitee). A request without
+        // a token shares one bucket, which only throttles malformed calls.
+        RateLimiter::for('invitation-accept', function (Request $request): array {
+            $token = $request->string('token')->value();
+
+            return [
+                Limit::perMinute(10)->by('invitation-accept-ip:'.$request->ip()),
+                Limit::perMinute(5)->by('invitation-accept-token:'.hash('sha256', $token !== '' ? $token : 'none')),
             ];
         });
     }

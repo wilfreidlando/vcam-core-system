@@ -1,0 +1,32 @@
+{
+    "name": "core/portal",
+    "description": "The hosted customer portal of a project: sessions opened by the project, invoices, payment, usage (ADR-0075).",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.4",
+        "core/support": "*@dev",
+        "core/identity": "*@dev",
+        "core/billing": "*@dev",
+        "core/payment": "*@dev",
+        "core/audit": "*@dev",
+        "core/notification": "*@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\Portal\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Core\\Portal\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Core\\Portal\\PortalServiceProvider"
+            ]
+        }
+    }
+}

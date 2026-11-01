@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Core\Support\Access\AccessScope;
 use Core\Webhook\Application\UseCase\ListDeadWebhookDeliveriesUseCase;
 use Core\Webhook\Contracts\ListDeadWebhookDeliveriesCommand;
 use Core\Webhook\Domain\Model\WebhookDelivery;
@@ -38,8 +39,8 @@ it('lists only dead deliveries, optionally scoped to a project', function (): vo
 
     $useCase = new ListDeadWebhookDeliveriesUseCase($repository);
 
-    $all = $useCase->list(new ListDeadWebhookDeliveriesCommand);
-    $scoped = $useCase->list(new ListDeadWebhookDeliveriesCommand(projectId: 'project-a'));
+    $all = $useCase->list(new ListDeadWebhookDeliveriesCommand, AccessScope::platform());
+    $scoped = $useCase->list(new ListDeadWebhookDeliveriesCommand(projectId: 'project-a'), AccessScope::platform());
 
     expect($all->total)->toBe(2)
         ->and($scoped->total)->toBe(1)
@@ -55,10 +56,55 @@ it('paginates', function (): void {
     }
 
     $useCase = new ListDeadWebhookDeliveriesUseCase($repository);
-    $page = $useCase->list(new ListDeadWebhookDeliveriesCommand(page: 1, perPage: 2));
+    $page = $useCase->list(new ListDeadWebhookDeliveriesCommand(page: 1, perPage: 2), AccessScope::platform());
 
     expect($page->total)->toBe(3)
         ->and($page->items)->toHaveCount(2)
         ->and($page->page)->toBe(1)
         ->and($page->perPage)->toBe(2);
+});
+
+it('lists nothing when the requested project is outside the accounts scope', function (): void {
+    // ADR-0069 §2 — the DLQ of a project the account may not see is not
+    // readable.
+    $repository = new InMemoryWebhookDeliveryRepository;
+    $repository->create(deadDelivery('d1', 'project-a'));
+
+    $useCase = new ListDeadWebhookDeliveriesUseCase($repository);
+
+    $page = $useCase->list(
+        new ListDeadWebhookDeliveriesCommand(projectId: 'project-a'),
+        AccessScope::forOrganization('org-1', ['project-b']),
+    );
+
+    expect($page->total)->toBe(0)
+        ->and($page->items)->toBeEmpty();
+});
+
+it('lists only the dead deliveries of the accounts projects', function (): void {
+    $repository = new InMemoryWebhookDeliveryRepository;
+    $repository->create(deadDelivery('d1', 'project-a'));
+    $repository->create(deadDelivery('d2', 'project-b'));
+
+    $useCase = new ListDeadWebhookDeliveriesUseCase($repository);
+
+    $page = $useCase->list(
+        new ListDeadWebhookDeliveriesCommand,
+        AccessScope::forOrganization('org-1', ['project-a']),
+    );
+
+    expect($page->total)->toBe(1)
+        ->and($page->items[0]->id)->toBe('d1');
+});
+
+it('lists nothing for an account without any membership', function (): void {
+    $repository = new InMemoryWebhookDeliveryRepository;
+    $repository->create(deadDelivery('d1', 'project-a'));
+
+    $useCase = new ListDeadWebhookDeliveriesUseCase($repository);
+
+    $page = $useCase->list(new ListDeadWebhookDeliveriesCommand, AccessScope::none());
+
+    expect($page->total)->toBe(0)
+        ->and($page->items)->toBeEmpty();
 });

@@ -18,6 +18,9 @@ interface UpdateOperator
      *                          concrete exception types live in the Domain
      *                          layer; Contracts must not reference them
      *                          (G3c).
+     * @throws LastPlatformAdminDemotion if the change would demote the last
+     *                                   active platform administrator
+     * @throws CannotChangeOwnPlatformRole if the actor changes their own role
      */
     public function update(UpdateOperatorCommand $command, string $actor, ?string $correlationId): void;
 }

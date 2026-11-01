@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Wallet\Presentation\Http\Requests;
 
 use Core\Wallet\Application\UseCase\TransferFundsUseCase;
+use Core\Wallet\Presentation\Http\Requests\Concerns\CastsNumericInput;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -14,6 +15,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 final class TransferFundsRequest extends FormRequest
 {
+    use CastsNumericInput;
+
     public function authorize(): bool
     {
         return true;
@@ -58,7 +61,7 @@ final class TransferFundsRequest extends FormRequest
              *
              * @example 45000
              */
-            'legs.*.amount' => ['required', 'integer', 'min:1'],
+            'legs.*.amount' => ['required', 'integer:strict', 'min:1'],
             /**
              * The type given to the destination party if it does not exist
              * yet (lowercase, underscores). Ignored for an existing party.
@@ -80,5 +83,24 @@ final class TransferFundsRequest extends FormRequest
              */
             'metadata' => ['nullable', 'array'],
         ];
+    }
+
+    /**
+     * F-12 — `"5000"` devient `5000` avant la validation ; une valeur non numérique
+     * reste telle quelle et la règle la refuse en 422 (jamais de `TypeError` en 500).
+     */
+    protected function prepareForValidation(): void
+    {
+        $cast = [];
+
+        $rawLegs = $this->input('legs');
+        if (is_array($rawLegs)) {
+            $cast['legs'] = array_map(
+                static fn (mixed $line): mixed => is_array($line) ? array_merge($line, self::castNumericKeys($line, ['amount'])) : $line,
+                $rawLegs,
+            );
+        }
+
+        $this->merge($cast);
     }
 }

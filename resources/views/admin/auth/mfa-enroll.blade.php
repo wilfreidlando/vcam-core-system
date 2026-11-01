@@ -5,15 +5,16 @@
 @section('content')
 <div class="w-full max-w-lg">
 
+    {{-- A10 — le titre de page est le <h1> ; la marque est un <p> (comme login). --}}
     <div class="flex flex-col items-center mb-8">
         <div class="flex items-center justify-center h-14 w-14 rounded-2xl bg-indigo-600 shadow-lg shadow-indigo-600/20 mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
         </div>
-        <h1 class="text-2xl font-semibold text-slate-900 tracking-tight">Enterprise Core</h1>
+        <p class="text-2xl font-semibold text-slate-900 tracking-tight">Enterprise Core</p>
         <p class="text-base text-slate-500">Console opérateur</p>
     </div>
 
-    @if (app()->environment('local'))
+    @if (app()->environment('local') && config('identity.disable_totp_in_local'))
         <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             <p class="font-semibold">Mode développement local</p>
             <p class="mt-1">
@@ -27,16 +28,19 @@
 
     <div class="bg-white shadow-xl shadow-slate-200/60 border border-slate-200 rounded-2xl p-8 sm:p-10">
 
-        <h2 class="text-2xl font-semibold text-slate-900 mb-1">Configurer un authentificateur</h2>
+        <h1 class="text-2xl font-semibold text-slate-900 mb-1">Configurer un authentificateur</h1>
         <p class="text-base text-slate-500 mb-8">
             Scannez le QR code avec votre application d'authentification
             (Google Authenticator, 1Password, Bitwarden…) puis saisissez le
             code à 6 chiffres ci-dessous.
         </p>
 
-        <div class="grid sm:grid-cols-2 gap-6 mb-8">
+        {{-- V-04 — une seule colonne sous 640 px : la carte ne fait que 448 px. --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
             <div class="flex justify-center">
-                <div class="bg-white border border-slate-200 rounded-lg p-3 inline-block">
+                {{-- The SVG carries a viewBox and no size: left alone it fills its whole container. --}}
+                <div class="qr-box bg-white border border-slate-200 rounded-lg p-3" role="img" aria-label="QR code à scanner avec votre application d'authentification">
+                    <style>.qr-box{width:12rem;height:12rem;flex:none}.qr-box svg{display:block;width:100%;height:100%}</style>
                     {{-- Server-rendered QR (chillerlan/php-qrcode) — scans
                          directly into Google Authenticator / 1Password /
                          Bitwarden. No JS, no CDN, no flash of placeholder. --}}
@@ -44,10 +48,10 @@
                 </div>
             </div>
 
-            <div class="space-y-4">
+            <div class="space-y-4 min-w-0">
                 <div>
                     <p class="text-sm uppercase tracking-wider text-slate-500 font-semibold">Compte</p>
-                    <p class="text-base font-mono text-slate-900 truncate">{{ $email }}</p>
+                    <p class="text-base font-mono text-slate-900 break-all">{{ $email }}</p>
                 </div>
                 <div>
                     <p class="text-sm uppercase tracking-wider text-slate-500 font-semibold">Secret (saisie manuelle)</p>
@@ -65,6 +69,18 @@
             @csrf
             <input type="hidden" name="challenge_token" value="{{ $confirmChallengeToken }}" />
 
+            {{-- Bandeau d'erreurs en tête de formulaire (WCAG 4.1.3), comme login. --}}
+            @if ($errors->any())
+                <div role="alert" tabindex="-1" id="mfa-errors" class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-base text-rose-800">
+                    <p class="font-semibold">Confirmation impossible :</p>
+                    <ul class="mt-1 list-disc list-inside space-y-0.5">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             <div>
                 <label for="code" class="block text-base font-medium text-slate-700 mb-1.5">
                     Code à 6 chiffres
@@ -80,9 +96,10 @@
                     required
                     autofocus
                     autocomplete="one-time-code"
+                    @if ($errors->has('code')) aria-invalid="true" aria-describedby="code-error" @endif
                     class="block w-full rounded-lg border border-slate-300 px-4 py-3 shadow-sm font-mono tracking-[0.4em] text-center text-2xl" />
                 @error('code')
-                    <p class="mt-1.5 text-sm text-rose-600">{{ $message }}</p>
+                    <p id="code-error" class="mt-1.5 text-sm text-rose-600">{{ $message }}</p>
                 @enderror
             </div>
 

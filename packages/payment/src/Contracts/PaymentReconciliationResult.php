@@ -16,5 +16,8 @@ final readonly class PaymentReconciliationResult
         public bool $changed,
         public string $statusBefore,
         public string $statusAfter,
+        // The payment's project — what an audit of the check is attributed
+        // to (ADR-0069 §2).
+        public ?string $projectId = null,
     ) {}
 }

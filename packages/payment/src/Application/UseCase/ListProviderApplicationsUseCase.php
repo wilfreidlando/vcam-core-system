@@ -9,6 +9,7 @@ use Core\Payment\Contracts\ListProviderApplicationsCommand;
 use Core\Payment\Contracts\ProviderApplicationView;
 use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
+use Core\Support\Access\AccessScope;
 
 final readonly class ListProviderApplicationsUseCase implements ListProviderApplications
 {
@@ -16,8 +17,14 @@ final readonly class ListProviderApplicationsUseCase implements ListProviderAppl
         private ProviderApplicationRepository $applications,
     ) {}
 
-    public function list(ListProviderApplicationsCommand $command): array
+    public function list(ListProviderApplicationsCommand $command, AccessScope $scope): array
     {
+        // ADR-0069 §2 — a project outside the account's scope has no
+        // application to show.
+        if (! $scope->allowsProject($command->projectId)) {
+            return [];
+        }
+
         $applications = $this->applications->findAllByProject($command->projectId);
 
         return array_map(

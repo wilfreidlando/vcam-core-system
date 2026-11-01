@@ -48,6 +48,7 @@ final readonly class UpdateOrganization implements UpdateOrganizationPort
             context: [],
             correlationId: $correlationId,
             occurredAt: $this->clock->now(),
+            organizationId: $organization->id,
         ));
     }
 }

@@ -44,18 +44,52 @@ final class PaymentToWalletIntegrationTest extends TestCase
     private FakePaymentGateway $gateway;
 
     #[Test]
-    public function a_payment_with_no_wallet_instruction_never_touches_wallet_or_ledger(): void
+    public function a_payment_with_no_wallet_instruction_is_booked_as_project_revenue_without_a_wallet(): void
     {
         $view = app(StartPayment::class)->start($this->command(walletRecipientExternalRef: null));
 
-        $this->confirmSuccess($view->id);
+        $this->confirmSuccess($view->id, confirmedAmount: 1_000);
 
         // Scoped to this test's own project: other integration tests in
         // this suite (e.g. WalletConcurrencyTest) deliberately commit
         // real, uncleaned rows outside RefreshDatabase — a global count
         // would see their residue too.
         self::assertSame(0, DB::table('wallets')->where('project_id', self::PROJECT_ID)->count());
-        self::assertSame(0, $this->ledgerAccountIdsForProject()->count());
+
+        // ADR-0076 §3: every confirmed payment is written — clearing → revenue.
+        self::assertSame([
+            ['clearing', 'debit', 1_000],
+            ['revenue', 'credit', 1_000],
+        ], $this->settlementEntries($view->id));
+    }
+
+    #[Test]
+    public function a_confirmed_amount_mismatch_credits_no_wallet_and_books_the_confirmed_amount_as_an_exception(): void
+    {
+        $view = app(StartPayment::class)->start($this->command(walletRecipientExternalRef: (string) Str::uuid()));
+
+        $this->confirmSuccess($view->id, confirmedAmount: 800);
+
+        self::assertSame(0, DB::table('wallets')->where('project_id', self::PROJECT_ID)->count());
+        self::assertSame('amount_mismatch', DB::table('payments')->where('id', $view->id)->value('settlement_exception'));
+        self::assertEquals(800, DB::table('payments')->where('id', $view->id)->value('confirmed_amount_minor'));
+        // ADR-0077 §2: the money the provider holds is real, so it is booked —
+        // to payment_exceptions, never to a wallet.
+        self::assertSame([
+            ['clearing', 'debit', 800],
+            ['payment_exceptions', 'credit', 800],
+        ], $this->settlementEntries($view->id));
+    }
+
+    #[Test]
+    public function a_replayed_success_books_the_settlement_only_once(): void
+    {
+        $view = app(StartPayment::class)->start($this->command(walletRecipientExternalRef: null));
+
+        $this->confirmSuccess($view->id, confirmedAmount: 1_000);
+        $this->confirmSuccess($view->id, confirmedAmount: 1_000);
+
+        self::assertSame(1, DB::table('ledger_transactions')->where('project_id', self::PROJECT_ID)->where('idempotency_key', $view->id)->count());
     }
 
     #[Test]
@@ -140,16 +174,6 @@ final class PaymentToWalletIntegrationTest extends TestCase
         $this->app->instance(PaymentGatewayRegistry::class, $registry);
     }
 
-    /**
-     * @return \Illuminate\Support\Collection<int, stdClass>
-     */
-    private function ledgerAccountIdsForProject(): \Illuminate\Support\Collection
-    {
-        $accountIds = DB::table('ledger_accounts')->where('project_id', self::PROJECT_ID)->pluck('id');
-
-        return DB::table('ledger_entries')->whereIn('account_id', $accountIds)->get();
-    }
-
     private function command(?string $walletRecipientExternalRef): StartPaymentCommand
     {
         return new StartPaymentCommand(
@@ -163,7 +187,7 @@ final class PaymentToWalletIntegrationTest extends TestCase
         );
     }
 
-    private function confirmSuccess(string $paymentId): void
+    private function confirmSuccess(string $paymentId, ?int $confirmedAmount = null): void
     {
         $providerTransactionRef = DB::table('payments')->where('id', $paymentId)->value('provider_transaction_ref');
         self::assertIsString($providerTransactionRef);
@@ -173,6 +197,40 @@ final class PaymentToWalletIntegrationTest extends TestCase
             transactionRef: $providerTransactionRef,
             appTransactionRef: 'irrelevant-here',
             status: PaymentStatus::Succeeded,
+            confirmedAmountMinor: $confirmedAmount,
+            confirmedCurrency: $confirmedAmount === null ? null : 'XAF',
         ));
+    }
+
+    /**
+     * The settlement transaction of a payment (keyed on its id), as
+     * [account kind, direction, amount] rows, debit first.
+     *
+     * @return list<array{0: string, 1: string, 2: int}>
+     */
+    private function settlementEntries(string $paymentId): array
+    {
+        $transactionId = DB::table('ledger_transactions')
+            ->where('project_id', self::PROJECT_ID)
+            ->where('idempotency_key', $paymentId)
+            ->value('id');
+        self::assertIsString($transactionId);
+
+        $rows = DB::table('ledger_entries')
+            ->join('ledger_accounts', 'ledger_accounts.id', '=', 'ledger_entries.account_id')
+            ->where('ledger_entries.transaction_id', $transactionId)
+            ->orderBy('ledger_entries.direction', 'desc')
+            ->get(['ledger_accounts.kind', 'ledger_entries.direction', 'ledger_entries.amount_minor']);
+
+        $entries = [];
+        foreach ($rows as $row) {
+            self::assertInstanceOf(stdClass::class, $row);
+            self::assertIsString($row->kind);
+            self::assertIsString($row->direction);
+            self::assertIsInt($row->amount_minor);
+            $entries[] = [$row->kind, $row->direction, $row->amount_minor];
+        }
+
+        return $entries;
     }
 }

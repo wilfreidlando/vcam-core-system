@@ -7,11 +7,13 @@ namespace Core\Identity\Presentation\Http\Middleware;
 use Closure;
 use Core\Identity\Application\UseCase\ResolveProjectFromBearerToken;
 use Core\Identity\Contracts\ProjectContext;
+use Core\Identity\Domain\Exception\ApiKeyOriginNotAllowed;
 use Core\Identity\Domain\Exception\InvalidApiKey;
 use Core\Identity\Domain\Exception\ProjectNotActive;
 use Core\Support\Http\ProblemDetails;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Context;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -41,11 +43,34 @@ final class ResolveProjectMiddleware
         }
 
         try {
-            $context = ($this->resolveProject)($token);
+            // `ip()` honours the trusted-proxy configuration only (ADR-0082 §4).
+            $context = ($this->resolveProject)($token, $request->ip());
+        } catch (ApiKeyOriginNotAllowed $e) {
+            // S-20: a refused origin is worth a line an alert can count.
+            Log::warning('API key used from a network address outside its allowed blocks.', [
+                'api_key_id' => $e->apiKeyId,
+                'api_key_prefix' => $e->apiKeyPrefix,
+                'project_id' => $e->projectId,
+                'client_ip' => $e->clientIp,
+            ]);
+
+            return ProblemDetails::make('key-origin-not-allowed', 'Key origin not allowed', 403, 'This API key may not be used from this network address.');
         } catch (InvalidApiKey) {
             return ProblemDetails::unauthenticated('The provided API key is invalid or has been revoked.');
-        } catch (ProjectNotActive) {
-            return ProblemDetails::forbidden('This project is not active.');
+        } catch (ProjectNotActive $e) {
+            // ADR-0069 §3 — a suspended project says so plainly (its
+            // administrator is the one who can lift it), an archived one
+            // says it is over.
+            $type = str_contains($e->getMessage(), 'archived') ? 'project-archived' : 'project-suspended';
+
+            return ProblemDetails::make(
+                $type,
+                $type === 'project-archived' ? 'Project archived' : 'Project suspended',
+                403,
+                $type === 'project-archived'
+                    ? 'This project is archived and no longer accepts requests.'
+                    : 'This project is suspended and no longer accepts requests.',
+            );
         }
 
         app()->instance(ProjectContext::class, $context);
@@ -55,6 +80,7 @@ final class ResolveProjectMiddleware
         // it belongs to.
         Context::add('project_id', $context->projectId);
         Context::add('api_key_prefix', $context->apiKeyPrefix);
+        Context::add('api_key_id', $context->apiKeyId);
 
         return $next($request);
     }

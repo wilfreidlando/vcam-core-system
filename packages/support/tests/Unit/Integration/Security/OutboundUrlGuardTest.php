@@ -127,6 +127,50 @@ it('accepts an IPv4-mapped form of a public address', function (): void {
 it('returns the addresses to pin the connection to, or none when unsafe', function (): void {
     $guard = new OutboundUrlGuard(fakeResolver(['example.com' => ['93.184.216.34'], 'evil.example' => ['10.0.0.1']]));
 
-    expect($guard->resolvePublicAddresses('https://example.com/hook'))->toBe(['93.184.216.34'])
-        ->and($guard->resolvePublicAddresses('https://evil.example/hook'))->toBe([]);
+    expect($guard->resolveAcceptableAddresses('https://example.com/hook'))->toBe(['93.184.216.34'])
+        ->and($guard->resolveAcceptableAddresses('https://evil.example/hook'))->toBe([]);
+});
+
+/*
+ * ADR-0115 — the private ranges, in local only.
+ */
+it('accepts a private-range ip when the guard is built for local targets', function (): void {
+    $guard = new OutboundUrlGuard(fakeResolver([]), allowPrivateTargets: true);
+
+    expect($guard->isSafe('http://10.0.0.5/x'))->toBeTrue()
+        ->and($guard->isSafe('http://172.16.0.5/x'))->toBeTrue()
+        ->and($guard->isSafe('http://192.168.1.5/x'))->toBeTrue();
+});
+
+it('accepts a hostname resolving to a private address when the guard is built for local targets', function (): void {
+    $guard = new OutboundUrlGuard(fakeResolver(['api' => ['172.18.0.4']]), allowPrivateTargets: true);
+
+    expect($guard->isSafe('http://api:8000/webhooks/core'))->toBeTrue();
+});
+
+it('still refuses the loopback and the cloud metadata address when private targets are allowed', function (): void {
+    $guard = new OutboundUrlGuard(fakeResolver([]), allowPrivateTargets: true);
+
+    expect($guard->isSafe('http://127.0.0.1/x'))->toBeFalse()
+        ->and($guard->isSafe('http://[::1]/x'))->toBeFalse()
+        ->and($guard->isSafe('http://169.254.169.254/latest/meta-data/'))->toBeFalse()
+        ->and($guard->isSafe('http://100.100.100.200/x'))->toBeFalse();
+});
+
+it('still refuses localhost when private targets are allowed', function (): void {
+    $guard = new OutboundUrlGuard(fakeResolver(['localhost' => ['10.0.0.5']]), allowPrivateTargets: true);
+
+    expect($guard->isSafe('http://localhost/x'))->toBeFalse()
+        ->and($guard->isSafe('http://my-service.local/x'))->toBeFalse();
+});
+
+it('withPrivateTargets returns a copy, leaving the original untouched', function (): void {
+    $guard = new OutboundUrlGuard(fakeResolver([]));
+
+    $local = $guard->withPrivateTargets();
+
+    expect($local->allowsPrivateTargets())->toBeTrue()
+        ->and($guard->allowsPrivateTargets())->toBeFalse()
+        ->and($local->isSafe('http://172.16.0.5/x'))->toBeTrue()
+        ->and($guard->isSafe('http://172.16.0.5/x'))->toBeFalse();
 });

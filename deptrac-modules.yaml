@@ -82,6 +82,16 @@ deptrac:
         - type: directory
           value: packages/billing/.*
 
+    - name: Portal
+      collectors:
+        - type: directory
+          value: packages/portal/.*
+
+    - name: Export
+      collectors:
+        - type: directory
+          value: packages/export/.*
+
     - name: Storage
       collectors:
         - type: directory
@@ -146,6 +156,7 @@ deptrac:
       - Identity
       - Parties
       - Events
+      - Billing
 
     Billing:
       - Support
@@ -153,6 +164,29 @@ deptrac:
       - Payment
       - Ledger
       - Events
+
+    # ADR-0075 — reads and acts through billing's Contracts only.
+    # Notification: ADR-0100 — the code of the direct login is sent through
+    # SendTextNotification.
+    Portal:
+      - Support
+      - Identity
+      - Billing
+      - Payment
+      - Audit
+      - Notification
+
+    # ADR-0101 — the export of a project (ADR-0088 §3): a hub that reads, through
+    # each module's Contracts, exactly what the public API already shows.
+    Export:
+      - Support
+      - Identity
+      - Audit
+      - Ledger
+      - Billing
+      - Payment
+      - Notification
+      - Wallet
 
     Storage:
       - Support
@@ -176,5 +210,6 @@ deptrac:
       - Notification
       - Audit
       - Billing
+      - Portal
       - Storage
       - DeveloperPlatform

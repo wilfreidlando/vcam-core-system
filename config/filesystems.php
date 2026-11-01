@@ -49,6 +49,16 @@ return [
             'report' => false,
         ],
 
+        // ADR-0088 §3 — the encrypted archives of the project exports. Private,
+        // never served: they leave only through the signed download route.
+        'exports' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/exports'),
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

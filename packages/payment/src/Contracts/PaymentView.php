@@ -73,5 +73,13 @@ final readonly class PaymentView
         public ?string $walletRecipientExternalRef = null,
         public ?string $createdAt = null,
         public ?string $updatedAt = null,
+        /**
+         * ADR-0076 §3 (amended by ADR-0094 §9) — the INTENTION of the
+         * collection this payment carries: `direct`, `wallet_credit` or
+         * `invoice`. It says why the money was collected and therefore
+         * where it was booked — the plain string of the published
+         * vocabulary (`Contracts\PaymentPurpose`), never the enum.
+         */
+        public ?string $purpose = null,
     ) {}
 }

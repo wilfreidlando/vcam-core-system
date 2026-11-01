@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Payment\Contracts;
 
+use Core\Support\Access\AccessScope;
+
 /**
  * A pure read — how many payments are currently stuck (non-terminal,
  * older than the configured threshold) — for a dashboard stat. Never
@@ -14,5 +16,11 @@ namespace Core\Payment\Contracts;
  */
 interface CountStuckPayments
 {
-    public function count(): int;
+    /**
+     * The scope is required (ADR-0069 §2): only the payments of the
+     * projects the console account may see are counted. The filter is
+     * applied in the query — the payments of another tenant are never
+     * counted, let alone materialised.
+     */
+    public function count(AccessScope $scope): int;
 }

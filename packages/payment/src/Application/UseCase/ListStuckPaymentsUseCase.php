@@ -9,6 +9,7 @@ use Core\Payment\Contracts\ListStuckPaymentsCommand;
 use Core\Payment\Contracts\StuckPaymentView;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
 
 final readonly class ListStuckPaymentsUseCase implements ListStuckPayments
@@ -20,11 +21,11 @@ final readonly class ListStuckPaymentsUseCase implements ListStuckPayments
         private int $maxAgeHours = 24,
     ) {}
 
-    public function list(ListStuckPaymentsCommand $command): array
+    public function list(ListStuckPaymentsCommand $command, AccessScope $scope): array
     {
         $threshold = $this->clock->now()->modify(sprintf('-%d minutes', $this->stuckAfterMinutes));
 
-        $stuck = $this->payments->findStuckSince($threshold, $command->limit, $this->clock->now()->modify(sprintf('-%d hours', $this->maxAgeHours)));
+        $stuck = $this->payments->findStuckSince($threshold, $command->limit, $this->clock->now()->modify(sprintf('-%d hours', $this->maxAgeHours)), $scope->projectFilter());
 
         return array_map(
             static fn (Payment $payment): StuckPaymentView => new StuckPaymentView(

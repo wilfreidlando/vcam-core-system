@@ -50,6 +50,7 @@ final readonly class PostLedgerTransaction implements LedgerPoster
             $command->externalRef,
             $command->idempotencyKey,
             array_map($this->toDomainEntry(...), $command->entries),
+            $command->reversesTransactionId,
         );
 
         try {

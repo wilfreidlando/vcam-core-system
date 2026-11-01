@@ -19,12 +19,40 @@ use Illuminate\Http\Request;
  * only on requests carrying that token, which this project's own nginx
  * sidecar adds (docker/nginx/prod/app.conf.template). Any other caller is
  * treated as the client itself. The token is removed from the request
- * before anything else (logs, controllers) can see it. Empty token: the
- * previous behaviour, unchanged.
+ * before anything else (logs, controllers) can see it.
+ *
+ * Audit 2026-10-29 #8 — an empty token used to fall back to trusting every
+ * private address, which is precisely the spoofing door above: outside a
+ * development environment the token is now mandatory, and an
+ * `APP_ENV=production` application with a missing, empty or too short token
+ * refuses to serve (`MissingTrustedProxyToken`, like `PersonalDataKeyring`
+ * does for `PII_ENCRYPTION_KEYS`). Local, testing and other environments keep
+ * the previous behaviour.
  */
 final class TrustProxiesFromSidecar extends TrustProxies
 {
     public const HEADER = 'X-Core-Proxy-Token';
+
+    /** Shortest accepted token: `openssl rand -hex 32` gives 64 characters. */
+    public const MINIMUM_TOKEN_LENGTH = 32;
+
+    /**
+     * @throws MissingTrustedProxyToken when the environment is production and the token is unusable
+     */
+    public static function assertConfigured(string $environment, mixed $token): void
+    {
+        if ($environment !== 'production') {
+            return;
+        }
+
+        if (! is_string($token) || $token === '') {
+            throw MissingTrustedProxyToken::empty();
+        }
+
+        if (strlen($token) < self::MINIMUM_TOKEN_LENGTH) {
+            throw MissingTrustedProxyToken::tooShort(self::MINIMUM_TOKEN_LENGTH);
+        }
+    }
 
     /**
      * @return mixed same as the parent middleware
@@ -32,6 +60,7 @@ final class TrustProxiesFromSidecar extends TrustProxies
     public function handle(Request $request, Closure $next)
     {
         $expected = config('trustedproxy.sidecar_token');
+        self::assertConfigured(app()->environment(), $expected);
         $given = $request->headers->get(self::HEADER);
         $request->headers->remove(self::HEADER);
 

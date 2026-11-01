@@ -80,7 +80,7 @@ final class IdentityHttpFlowTest extends TestCase
             correlationId: null,
         )->project;
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, [], replaceExisting: true),
+            new IssueApiKeyCommand($project->id, []),
             actor: 'service:test',
             correlationId: null,
         );
@@ -88,7 +88,7 @@ final class IdentityHttpFlowTest extends TestCase
         $this->getJson('/v1/whoami', ['Authorization' => "Bearer {$issued->plaintextToken}"])->assertOk();
 
         app(RevokeApiKey::class)->revoke(
-            new RevokeApiKeyCommand($issued->apiKeyId),
+            new RevokeApiKeyCommand($issued->apiKeyId, reason: 'Test de révocation'),
             actor: 'service:test',
             correlationId: null,
         );
@@ -104,13 +104,11 @@ final class IdentityHttpFlowTest extends TestCase
         $rows = DB::table('audit_log')->orderBy('id')->get();
 
         // organization.created, project.created, api_key.issued
-        // (auto-provisioned), then the explicit-scope test key
-        // `issueTestApiKey` REGENERATES it (ADR-0066 — one key per
-        // project): the old key's deletion (api_key.replaced) and the new
-        // one (api_key.regenerated).
-        self::assertCount(5, $rows);
+        // (auto-provisioned « Clé principale »), then the explicit-scope
+        // test key — a second key of the same project (ADR-0082).
+        self::assertCount(4, $rows);
         self::assertSame(
-            ['organization.created', 'project.created', 'api_key.issued', 'api_key.replaced', 'api_key.regenerated'],
+            ['organization.created', 'project.created', 'api_key.issued', 'api_key.issued'],
             $rows->pluck('action')->all(),
         );
 
@@ -137,7 +135,7 @@ final class IdentityHttpFlowTest extends TestCase
         )->project;
 
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, [$scope], replaceExisting: true),
+            new IssueApiKeyCommand($project->id, [$scope]),
             actor: 'service:test',
             correlationId: null,
         );

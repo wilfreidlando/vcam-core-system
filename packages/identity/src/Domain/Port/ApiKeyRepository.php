@@ -31,9 +31,18 @@ interface ApiKeyRepository
     public function findAllByProject(string $projectId): array;
 
     /**
-     * ADR-0066 — the project's single key, if any.
+     * ADR-0082 §1 — keys that count against the per-project limit: every
+     * key that still authenticates at `$now` (not revoked, not expired),
+     * including a replaced key still in its grace period. Call inside a
+     * transaction after `lockProject()`.
      */
-    public function findOneByProject(string $projectId): ?ApiKey;
+    public function countActiveByProject(string $projectId, DateTimeImmutable $now): int;
+
+    /**
+     * Serialises issuance for one project until the end of the current
+     * transaction, so two concurrent issuances cannot both pass the limit.
+     */
+    public function lockProject(string $projectId): void;
 
     /**
      * ADR-0060 — revoking deletes the key; the audit trail keeps the record.
@@ -41,8 +50,9 @@ interface ApiKeyRepository
     public function delete(string $id): void;
 
     /**
-     * Records that the key was just used, at most once a minute (cheap
-     * enough to run on every authenticated request).
+     * Records that the key was just used, and from where — at most once a
+     * minute, unless the address changed (cheap enough to run on every
+     * authenticated request).
      */
-    public function touchLastUsed(string $id, DateTimeImmutable $at): void;
+    public function touchLastUsed(string $id, DateTimeImmutable $at, ?string $ip = null): void;
 }

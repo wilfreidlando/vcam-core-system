@@ -81,6 +81,77 @@ final class MyCoolPayWebhookControllerTest extends TestCase
         self::assertSame('order-42', $event->appTransactionRef);
         self::assertSame(PaymentStatus::Succeeded, $event->status);
         self::assertSame('Votre transaction a été effectuée avec succès !', $event->reason);
+        // ADR-0077 §1: the collected amount the provider confirms travels
+        // with the canonical event, for the handler to compare.
+        self::assertSame(1000, $event->confirmedAmountMinor);
+        self::assertSame('XAF', $event->confirmedCurrency);
+    }
+
+    #[Test]
+    public function a_string_amount_is_read_as_an_integer(): void
+    {
+        $body = self::signedBody([
+            'application' => 'pub-test-1234',
+            'app_transaction_ref' => 'order-42',
+            'transaction_ref' => 'tx-abc',
+            'transaction_type' => 'PAYIN',
+            'transaction_amount' => '1500',
+            'transaction_currency' => 'XAF',
+            'transaction_status' => 'SUCCESS',
+        ]);
+
+        $this->invoke($this->webhookRequest($body));
+
+        self::assertCount(1, $this->handler->handled);
+        self::assertSame(1500, $this->handler->handled[0]->confirmedAmountMinor);
+    }
+
+    #[Test]
+    public function a_failed_payin_webhook_without_an_amount_still_reaches_the_handler(): void
+    {
+        // The amount matters only for money the platform books: a failure
+        // without one is applied (amount null), never left pending.
+        $body = self::signedBody([
+            'application' => 'pub-test-1234',
+            'app_transaction_ref' => 'order-42',
+            'transaction_ref' => 'tx-abc',
+            'transaction_type' => 'PAYIN',
+            'transaction_currency' => 'XAF',
+            'transaction_status' => 'FAILED',
+        ]);
+
+        $this->invoke($this->webhookRequest($body));
+
+        self::assertCount(1, $this->handler->handled);
+        self::assertSame(PaymentStatus::Failed, $this->handler->handled[0]->status);
+        self::assertNull($this->handler->handled[0]->confirmedAmountMinor);
+    }
+
+    #[Test]
+    public function a_successful_payin_webhook_without_a_readable_amount_is_not_applied(): void
+    {
+        // ADR-0077 §1: the amount is mandatory on a successful PAYIN
+        // callback. A fractional or missing amount is never rounded nor
+        // guessed; the reconciliation job settles the payment later.
+        foreach ([null, '12.5', 'abc', -10] as $amount) {
+            $fields = [
+                'application' => 'pub-test-1234',
+                'app_transaction_ref' => 'order-42',
+                'transaction_ref' => 'tx-abc',
+                'transaction_type' => 'PAYIN',
+                'transaction_currency' => 'XAF',
+                'transaction_status' => 'SUCCESS',
+            ];
+            if ($amount !== null) {
+                $fields['transaction_amount'] = $amount;
+            }
+
+            $response = $this->invoke($this->webhookRequest(self::signedBody($fields)));
+
+            self::assertSame(200, $response->getStatusCode());
+        }
+
+        self::assertCount(0, $this->handler->handled);
     }
 
     #[Test]

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
 use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\GetProjectCommand;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Ledger\Contracts\ListAccountEntries;
 use Core\Ledger\Contracts\ListAccountEntriesCommand;
+use Core\Support\Access\AccessScope;
 use Core\Wallet\Contracts\GetWalletBalance;
 use Core\Wallet\Contracts\GetWalletBalanceCommand;
 use Core\Wallet\Contracts\ListWallets;
@@ -35,6 +37,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class WalletsController
 {
+    use ResolvesScopedProject;
+
     public function __construct(
         private readonly ListWallets $listWallets,
         private readonly GetProject $getProject,
@@ -44,14 +48,12 @@ final class WalletsController
 
     public function index(string $projectId, Request $request, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('wallets:read')) {
-            abort(403, 'La permission wallets:read est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'wallets:read');
 
         Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
 
         try {
-            $project = $this->getProject->get(new GetProjectCommand($projectId));
+            $project = $this->getProject->get(new GetProjectCommand($projectId), $scope);
         } catch (RuntimeException) {
             abort(404, 'Projet introuvable.');
         }
@@ -65,7 +67,7 @@ final class WalletsController
             page: $page,
             perPage: $perPage,
             search: $searchRaw === '' ? null : $searchRaw,
-        ));
+        ), $scope);
 
         return response()->view('admin.wallets.index', [
             'title' => $project->name,
@@ -74,16 +76,14 @@ final class WalletsController
             'total' => $pageResult->total,
             'page' => $page,
             'perPage' => $perPage,
-            'stats' => $this->summarize($projectId),
+            'stats' => $this->summarize($projectId, $scope),
             'search' => $searchRaw,
         ]);
     }
 
     public function ledger(string $projectId, string $walletId, Request $request, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('wallets:read')) {
-            abort(403, 'La permission wallets:read est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'wallets:read');
 
         Validator::make(
             ['project_id' => $projectId, 'wallet_id' => $walletId],
@@ -91,7 +91,7 @@ final class WalletsController
         )->validate();
 
         try {
-            $project = $this->getProject->get(new GetProjectCommand($projectId));
+            $project = $this->getProject->get(new GetProjectCommand($projectId), $scope);
         } catch (RuntimeException) {
             abort(404, 'Projet introuvable.');
         }
@@ -100,7 +100,7 @@ final class WalletsController
             // Also the ownership check: throws if the wallet doesn't
             // belong to this project (same RuntimeException either way,
             // by design — see the port's own docblock).
-            $balance = $this->getWalletBalance->get(new GetWalletBalanceCommand($walletId, $projectId));
+            $balance = $this->getWalletBalance->get(new GetWalletBalanceCommand($walletId, $projectId), $scope);
         } catch (RuntimeException) {
             abort(404, 'Wallet introuvable pour ce projet.');
         }
@@ -115,7 +115,7 @@ final class WalletsController
             currency: $balance->currency,
             page: $page,
             perPage: $perPage,
-        ));
+        ), $scope);
 
         return response()->view('admin.wallets.ledger', [
             'title' => 'Écritures du wallet',
@@ -140,13 +140,13 @@ final class WalletsController
      *
      * @return array{total: int, byCurrency: array<string, array{count: int, availableMinor: int, heldMinor: int}>}
      */
-    private function summarize(string $projectId): array
+    private function summarize(string $projectId, AccessScope $scope): array
     {
         $page = $this->listWallets->list(new ListWalletsCommand(
             projectId: $projectId,
             page: 1,
             perPage: 500,
-        ));
+        ), $scope);
 
         $byCurrency = [];
         foreach ($page->items as $wallet) {

@@ -41,6 +41,12 @@ enum PaymentTimelineEntryType: string
 
     case WalletCredited = 'wallet_credited';
 
+    /** ADR-0076 §3 — settlement booked in the ledger without a wallet (direct collection). */
+    case SettlementRecorded = 'settlement_recorded';
+
+    /** ADR-0077 — confirmed amount or currency differs: booked to `payment_exceptions`, not allocated. */
+    case SettlementException = 'settlement_exception';
+
     /** `payment.status_changed` written to the outbox (event id → webhook deliveries). */
     case EventPublished = 'event_published';
 

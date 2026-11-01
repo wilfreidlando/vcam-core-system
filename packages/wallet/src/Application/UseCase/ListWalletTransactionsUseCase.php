@@ -6,6 +6,7 @@ namespace Core\Wallet\Application\UseCase;
 
 use Core\Ledger\Contracts\ListAccountEntries;
 use Core\Ledger\Contracts\ListAccountEntriesCommand;
+use Core\Support\Access\AccessScope;
 use Core\Wallet\Contracts\ListWalletTransactions;
 use Core\Wallet\Contracts\ListWalletTransactionsCommand;
 use Core\Wallet\Contracts\WalletTransactionPage;
@@ -50,7 +51,7 @@ final readonly class ListWalletTransactionsUseCase implements ListWalletTransact
             $wallet->currency,
             $command->page,
             $command->perPage,
-        ));
+        ), AccessScope::forProject($command->projectId));
 
         $operationIds = [];
         foreach ($page->items as $entry) {

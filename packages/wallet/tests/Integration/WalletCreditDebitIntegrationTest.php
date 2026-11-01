@@ -13,6 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -129,5 +130,87 @@ final class WalletCreditDebitIntegrationTest extends TestCase
         // One outbox event for the credit, exactly one for the debit — the
         // replay appended none.
         self::assertSame(2, DB::table('event_outbox')->where('project_id', self::PROJECT_ID)->count());
+    }
+
+    /**
+     * ADR-0076 §2 — the money that leaves a wallet leaves the books with
+     * it: the counterparty of a debit is the project's `withdrawal`
+     * account, the one that carries the recorded exits.
+     *
+     * It is NOT `clearing`, which is what the provider holds for the
+     * project. A debit booked there would inflate the provider's account
+     * with money it never held, and leave the historical project-level
+     * account with a balance that no settlement explains — a residue
+     * `payment:reclassify-clearing` refuses to move.
+     */
+    #[Test]
+    public function a_wallet_debit_credits_the_withdrawal_account_and_leaves_the_clearing_accounts_untouched(): void
+    {
+        $partyId = (string) Str::uuid();
+
+        $credited = app(CreditWallet::class)->credit(new CreditWalletCommand(
+            self::PROJECT_ID, $partyId, 10_000, 'XAF', null, (string) Str::uuid(),
+        ));
+
+        $clearingBefore = $this->clearingBalances();
+
+        app(DebitWallet::class)->debit(new DebitWalletCommand(
+            self::PROJECT_ID, $credited->walletId, 4_000, null, (string) Str::uuid(),
+        ));
+
+        self::assertSame(
+            $clearingBefore,
+            $this->clearingBalances(),
+            'A wallet debit must not touch any clearing account — it is not the provider\'s money.',
+        );
+
+        // The debit is credited on the project-level withdrawal account:
+        // a credit, so its net debit is negative.
+        self::assertSame(-4_000, $this->netDebit('withdrawal', ''));
+    }
+
+    /**
+     * The net debit of every `clearing` account of this project, by
+     * reference.
+     *
+     * @return array<string, int>
+     */
+    private function clearingBalances(): array
+    {
+        $balances = [];
+
+        foreach (DB::table('ledger_accounts')
+            ->where('project_id', self::PROJECT_ID)
+            ->where('kind', 'clearing')
+            ->pluck('reference') as $reference) {
+            if (! is_string($reference)) {
+                throw new RuntimeException('A ledger account reference must be a string.');
+            }
+
+            $balances[$reference] = $this->netDebit('clearing', $reference);
+        }
+
+        return $balances;
+    }
+
+    /**
+     * The net debit of one account of this project: debits minus credits.
+     */
+    private function netDebit(string $kind, string $reference): int
+    {
+        $accountId = DB::table('ledger_accounts')
+            ->where('project_id', self::PROJECT_ID)
+            ->where('kind', $kind)
+            ->where('reference', $reference)
+            ->value('id');
+
+        if ($accountId === null) {
+            return 0;
+        }
+
+        $debit = (int) DB::table('ledger_entries')->where('account_id', $accountId)->where('direction', 'debit')->sum('amount_minor');
+        $credit = (int) DB::table('ledger_entries')->where('account_id', $accountId)->where('direction', 'credit')->sum('amount_minor');
+
+        return $debit - $credit;
     }
 }

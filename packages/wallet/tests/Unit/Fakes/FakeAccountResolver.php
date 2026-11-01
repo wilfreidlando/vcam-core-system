@@ -10,6 +10,9 @@ use Core\Ledger\Contracts\ResolveOrCreateAccountCommand;
 
 final class FakeAccountResolver implements AccountResolver
 {
+    /** @var list<ResolveOrCreateAccountCommand> every account asked for, in order */
+    public array $calls = [];
+
     /** @var array<string, AccountRef> */
     private array $accounts = [];
 
@@ -17,6 +20,8 @@ final class FakeAccountResolver implements AccountResolver
 
     public function resolveOrCreate(ResolveOrCreateAccountCommand $command): AccountRef
     {
+        $this->calls[] = $command;
+
         $key = "{$command->projectId}:{$command->kind}:{$command->reference}:{$command->currency}";
 
         return $this->accounts[$key] ??= new AccountRef(

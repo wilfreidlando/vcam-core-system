@@ -34,26 +34,66 @@ Allowed (via their `Contracts/` only):
 - `core/audit` (ADR-0029 — sensitive administrative actions, e.g. `api_key.issued`,
   `operator.created`, are recorded there; `identity` never reads it back)
 
-## Operators (Plan 1) — bootstrap vs. self-service
+## Project API keys (Plan 2) — ADR-0082
 
-A real operator never touches a CLI. Two distinct paths create an
-`Operator`, and only one of them is CLI:
+- **Several named keys per project** (10 active at most,
+  `identity.api_keys.max_per_project`), each with its own scopes. The limit is
+  checked inside the issuing transaction under a per-project advisory lock.
+  Project creation issues « Clé principale » with the *Serveur complet*
+  template (every scope but `payouts:write`).
+- **Scopes** come from `Contracts\ApiKeyScopes::ALL`; unknown scopes are
+  refused at issuance. Templates: `server`, `read_only`, `portal`, `payouts`.
+  `*` stays accepted for compatibility (shown as « accès total »). Adding a
+  scope to the catalogue never widens an existing key.
+- **Network restriction** (`allowed_cidrs`, IPv4/IPv6, stored canonical):
+  checked after the secret matched, against `$request->ip()` (trusted proxies
+  only) → `403 key-origin-not-allowed`, logged as a warning.
+- **Expiry** (`expires_at`): an expired key gets the same `401` as an unknown
+  or revoked one (no enumeration).
+- **Rotation** (`RotateApiKey`, `identity:rotate-api-key`): a replacement
+  with the same name, scopes and network; the old key gets `expires_at` =
+  now + 1–30 days and `replaced_by_api_key_id`. It keeps counting against the
+  limit until it expires; a rotation may take the project one key over the
+  limit, never more. A key is rotated once.
+- **Revocation** (`RevokeApiKey`, `identity:revoke-api-key --reason=…`):
+  immediate deletion, mandatory reason kept in the audit entry's `context`.
+- `ProjectContext::$apiKeyId` names the key behind each request (logs,
+  audit, metrics); `last_used_at` / `last_used_ip` are refreshed at most once
+  a minute, or when the address changes.
+
+## Operators (Plan 1) — invitation, not creation
+
+A real operator never touches a CLI, and **the system never chooses a
+password** (ADR-0081 S-07). Two paths open a console account, and only
+one of them is CLI:
 
 - **Bootstrap (ops/deployment only, happens once per environment):**
-  `php artisan identity:create-operator {email} {name} {role}` — run by
-  whoever deploys the stack, before any operator exists. It exists solely
-  to solve the chicken-and-egg problem: `POST /v1/admin/operators`
-  requires an authenticated `PlatformAdmin` (`operators:write`), so
-  *something* has to create the very first one out of band. This is the
-  same pattern as `php artisan make:admin`-style commands in most admin
-  panels, or a one-time seeded superuser — it is ops tooling, not a
-  product feature, and is never exposed over HTTP.
+  `php artisan identity:invite-operator {email} {role}` — run by whoever
+  deploys the stack, before any operator exists. It exists solely to
+  solve the chicken-and-egg problem: `POST /v1/admin/operators` requires
+  an authenticated `PlatformAdmin` (`operators:write`), so *something* has
+  to open the very first invitation out of band. This is ops tooling, not
+  a product feature, and is never exposed over HTTP. Like the
+  self-service path, it prints the activation token **once**.
 - **Self-service (every operator after the first, ADR-0050):**
   `POST /v1/admin/operators` (JSON) or `/admin/operators/create` (web
-  console) — any existing `PlatformAdmin` creates the next operator
+  console) — any existing `PlatformAdmin` invites the next operator
   through the same UI/API everything else in the console uses. This is
   the only path a real end user (an operator managing other operators)
   ever exercises.
+
+**An invitation is not an account.** `POST /v1/admin/operators` answers
+with an `invitation_id` and a **one-shot activation token** (32 random
+bytes, hashed at rest, 72 h, never retrievable again — the same
+one-shot-secret pattern as the API keys). The account exists only once
+the invitee **activates** the invitation:
+`POST /v1/admin/operator-invitations/accept`, a public route — the
+invitation is the only thing that grants access — where the invitee
+chooses their own password. The account is created at that moment, with
+the role the invitation carries. The system never generates, never stores
+and never transmits a password. The activation consumes the invitation:
+it is usable once, and a second activation of the same token is refused
+(`409`).
 
 MFA is TOTP (`pragmarx/google2fa`), not email/SMS-delivered OTP: on first
 login the operator is shown a secret/QR code to scan into an authenticator

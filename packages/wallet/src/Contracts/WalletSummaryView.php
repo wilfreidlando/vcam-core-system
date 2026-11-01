@@ -18,5 +18,7 @@ final readonly class WalletSummaryView
         public string $status,
         public int $availableMinor,
         public int $heldMinor,
+        // The caller's own reference of the party (« escrow », « partner:7 »), when it is known.
+        public ?string $partyExternalRef = null,
     ) {}
 }

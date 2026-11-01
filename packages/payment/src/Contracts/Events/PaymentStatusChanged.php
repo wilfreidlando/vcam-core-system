@@ -28,6 +28,12 @@ use InvalidArgumentException;
  * the event was a webhook. When the event is reconstructed from a
  * polling `checkStatus()`, it's the moment the polling call observed
  * the change — close enough for reporting purposes.
+ *
+ * `confirmedAmountMinor` / `confirmedCurrency` (ADR-0077 §1): what the
+ * provider says it actually collected, read by the adapter from its own
+ * payload. `null` means the source could not confirm an amount (a
+ * `checkStatus()` response, the simulator) — the payment is then settled
+ * on its requested amount and traced as "amount not verified".
  */
 final readonly class PaymentStatusChanged
 {
@@ -38,6 +44,8 @@ final readonly class PaymentStatusChanged
         public \Core\Payment\PaymentStatus $status,
         public ?string $reason = null,
         public ?string $occurredAt = null,
+        public ?int $confirmedAmountMinor = null,
+        public ?string $confirmedCurrency = null,
     ) {}
 
     /**
@@ -57,6 +65,8 @@ final readonly class PaymentStatusChanged
             'status' => $this->status->value,
             'reason' => $this->reason,
             'occurred_at' => $this->occurredAt,
+            'confirmed_amount_minor' => $this->confirmedAmountMinor,
+            'confirmed_currency' => $this->confirmedCurrency,
         ];
     }
 
@@ -84,6 +94,8 @@ final readonly class PaymentStatusChanged
             status: $status,
             reason: self::optStr($payload, 'reason'),
             occurredAt: self::optStr($payload, 'occurred_at'),
+            confirmedAmountMinor: is_int($payload['confirmed_amount_minor'] ?? null) ? $payload['confirmed_amount_minor'] : null,
+            confirmedCurrency: self::optStr($payload, 'confirmed_currency'),
         );
     }
 

@@ -8,6 +8,9 @@ declare(strict_types=1);
 return [
     'relay' => [
         'batch_limit' => (int) env('EVENTS_RELAY_BATCH_LIMIT', 100),
+
+        // ADR-0090 §1: wake the relay after the commit that wrote an event.
+        'on_commit' => (bool) env('EVENTS_RELAY_ON_COMMIT', true),
     ],
 
     // Published outbox rows older than this are pruned (audit 2026-10-03 §4.6).

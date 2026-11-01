@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
-use Core\Identity\Contracts\CreateOperator;
-use Core\Identity\Contracts\CreateOperatorCommand;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Contracts\CreateProject;
@@ -16,6 +14,7 @@ use Core\Identity\OperatorRole;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\PaymentStatus;
+use Core\Support\Access\AccessScope;
 use Core\Support\Money\Money;
 use Core\Wallet\Contracts\CreditWallet;
 use Core\Wallet\Contracts\CreditWalletCommand;
@@ -37,6 +36,7 @@ use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
 use PragmaRX\Google2FA\Google2FA;
+use Tests\Support\OperatorFactory;
 use Tests\TestCase;
 
 /**
@@ -61,17 +61,13 @@ final class AdminWebFlowTest extends TestCase
     {
         $this->withoutMiddleware(PreventRequestForgery::class);
 
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand('webflow@example.com', 'Web Flow', OperatorRole::PlatformAdmin->value),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = OperatorFactory::create('webflow@example.com', OperatorRole::PlatformAdmin);
 
         $this->get('/admin/login')->assertOk();
 
         $login = $this->post('/admin/login', [
             'email' => 'webflow@example.com',
-            'password' => $created->plaintextPassword,
+            'password' => OperatorFactory::PASSWORD,
         ]);
         $login->assertRedirect(route('admin.mfa.enroll.show'));
 
@@ -228,7 +224,7 @@ final class AdminWebFlowTest extends TestCase
     }
 
     #[Test]
-    public function a_platform_admin_creates_and_revokes_an_operator_through_the_web_console(): void
+    public function a_platform_admin_invites_an_operator_through_the_web_console(): void
     {
         $this->withoutMiddleware(PreventRequestForgery::class);
 
@@ -238,16 +234,32 @@ final class AdminWebFlowTest extends TestCase
 
         $store = $this->post('/admin/operators', [
             'email' => $email,
-            'name' => 'New Operator',
             'role' => OperatorRole::SupportOperator->value,
         ]);
-        $store->assertRedirect(route('admin.operators.index'));
 
-        $index = $this->get('/admin/operators');
-        $index->assertOk();
-        $index->assertSee($email);
-        $index->assertSee('Mot de passe à usage unique');
+        // The activation token is shown once, in the response of the POST
+        // itself (never flashed into the session store, S-07).
+        $store->assertOk();
+        $store->assertSee($email);
+        // The text is literal in the template, so it is not escaped here.
+        $store->assertSee("Jeton d'activation à usage unique", false);
+        $store->assertSessionMissing('admin.operators.created');
 
+        // ADR-0081 S-07 — the account does not exist yet: it is created
+        // by the activation, with the password the invitee chooses. The
+        // console never handles a password.
+        self::assertNull(app(OperatorRepository::class)->findByEmail($email));
+    }
+
+    #[Test]
+    public function a_platform_admin_revokes_an_operator_through_the_web_console(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $email = uniqid('revoked-op-', true).'@example.com';
+        OperatorFactory::create($email, OperatorRole::SupportOperator);
         $created = app(OperatorRepository::class)->findByEmail($email);
         assert($created instanceof Operator);
 
@@ -291,23 +303,27 @@ final class AdminWebFlowTest extends TestCase
             'organization_id' => $organization->id,
             'name' => 'Web Console Project',
         ]);
-        $store->assertRedirect();
 
-        $location = $store->headers->get('Location');
-        self::assertIsString($location);
+        // ADR-0081 S-07 — the clear key travels in the response that
+        // creates it, never through the session store: the POST renders
+        // the project page itself.
+        $store->assertOk();
+        $store->assertSee('pk_');
 
-        // The one-shot keys are flashed to the very next request only.
-        $show = $this->get($location);
-        $show->assertOk();
-        $show->assertSee('pk_');
-
-        $again = $this->get($location);
+        // And it is not readable by any later request.
+        $project = $store->viewData('project');
+        self::assertInstanceOf(\Core\Identity\Contracts\ProjectView::class, $project);
+        $projectId = $project->id;
+        $again = $this->get(route('admin.projects.show', ['projectId' => $projectId]));
         $again->assertOk();
         $again->assertDontSee('pk_');
+
+        // Nor from the session store.
+        self::assertNull(session('admin.projects.created_api_key'));
     }
 
     #[Test]
-    public function registering_a_webhook_endpoint_through_the_web_console_expands_categories_into_event_types(): void
+    public function registering_a_webhook_endpoint_through_the_web_console_subscribes_to_the_chosen_event_types(): void
     {
         $this->withoutMiddleware(PreventRequestForgery::class);
 
@@ -333,12 +349,14 @@ final class AdminWebFlowTest extends TestCase
             // unlike `.com`/`.org`/`.net`, IANA's stable, always-resolving
             // documentation domains.
             'url' => 'https://example.com/webhooks/core',
-            'categories' => ['payments', 'wallets'],
+            'events' => ['payment.status_changed', 'wallet.credited', 'wallet.debited'],
         ]);
-        $store->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+        $store->assertOk();
+        $store->assertSessionMissing('admin.webhook-endpoints.created');
 
         $endpoints = app(ListWebhookEndpoints::class)->list(
             new ListWebhookEndpointsCommand($project->id),
+            AccessScope::platform(),
         );
         self::assertCount(1, $endpoints);
         self::assertSame(
@@ -346,7 +364,7 @@ final class AdminWebFlowTest extends TestCase
             $endpoints[0]->events,
         );
 
-        $again = $this->get(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+        $again = $this->get(route('admin.projects.webhook-endpoints.index', ['projectId' => $project->id]));
         $again->assertOk();
         $again->assertSee('Paiements');
     }
@@ -377,11 +395,11 @@ final class AdminWebFlowTest extends TestCase
         // endpoint's URL or events at all once registered.
         $update = $this->put("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}", [
             'url' => 'https://example.com/hooks/updated',
-            'categories' => ['wallets'],
+            'events' => ['wallet.credited', 'wallet.debited'],
         ]);
-        $update->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+        $update->assertRedirect(route('admin.projects.webhook-endpoints.index', ['projectId' => $project->id]));
 
-        $afterUpdate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id));
+        $afterUpdate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id), AccessScope::platform());
         self::assertCount(1, $afterUpdate);
         self::assertSame('https://example.com/hooks/updated', $afterUpdate[0]->url);
         self::assertSame(['wallet.credited', 'wallet.debited'], $afterUpdate[0]->events);
@@ -392,21 +410,21 @@ final class AdminWebFlowTest extends TestCase
         // and the listing used to query active-only, so a deactivated
         // endpoint would have simply vanished instead of showing inactive.
         $deactivate = $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/deactivate");
-        $deactivate->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+        $deactivate->assertRedirect(route('admin.projects.webhook-endpoints.index', ['projectId' => $project->id]));
 
-        $afterDeactivate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id));
+        $afterDeactivate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id), AccessScope::platform());
         self::assertCount(1, $afterDeactivate, 'a deactivated endpoint must still be listed, not vanish');
         self::assertFalse($afterDeactivate[0]->active);
 
-        $listPage = $this->get(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+        $listPage = $this->get(route('admin.projects.webhook-endpoints.index', ['projectId' => $project->id]));
         $listPage->assertOk();
         $listPage->assertSee('inactif');
 
         // Reactivate.
         $activate = $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/activate");
-        $activate->assertRedirect(route('admin.projects.webhook-endpoints.create', ['projectId' => $project->id]));
+        $activate->assertRedirect(route('admin.projects.webhook-endpoints.index', ['projectId' => $project->id]));
 
-        $afterActivate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id));
+        $afterActivate = app(ListWebhookEndpoints::class)->list(new ListWebhookEndpointsCommand($project->id), AccessScope::platform());
         self::assertTrue($afterActivate[0]->active);
     }
 
@@ -723,15 +741,11 @@ final class AdminWebFlowTest extends TestCase
         // middleware so the fallback is reachable.
         $this->withoutMiddleware(PreventRequestForgery::class);
 
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand('session-fallback@example.com', 'Session Fallback', OperatorRole::PlatformAdmin->value),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = OperatorFactory::create('session-fallback@example.com', OperatorRole::PlatformAdmin);
 
         $this->post('/admin/login', [
             'email' => 'session-fallback@example.com',
-            'password' => $created->plaintextPassword,
+            'password' => OperatorFactory::PASSWORD,
         ])->assertRedirect(route('admin.mfa.enroll.show'));
 
         $enroll = $this->get('/admin/mfa/enroll');
@@ -755,9 +769,7 @@ final class AdminWebFlowTest extends TestCase
 
         // JSON client with a Bearer header still authenticates the same
         // way it always did — the fallback is opt-in, not a replacement.
-        $bearer = $created->plaintextPassword === ''
-            ? null
-            : $this->extractOperatorBearerToken();
+        $bearer = $this->extractOperatorBearerToken();
         if ($bearer !== null) {
             $this->getJson('/v1/admin/operators', ['Authorization' => "Bearer {$bearer}"])
                 ->assertOk();
@@ -765,37 +777,83 @@ final class AdminWebFlowTest extends TestCase
     }
 
     #[Test]
-    public function a_project_has_exactly_one_key_that_can_be_regenerated_and_revoked(): void
+    public function a_project_manages_several_named_keys_rotates_and_revokes_them(): void
     {
-        // ADR-0066 — one key per project.
+        // ADR-0082 — several named, scoped keys per project.
         $this->withoutMiddleware(PreventRequestForgery::class);
         $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
 
         $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Keys Org'), actor: 'service:test', correlationId: null);
         $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Keys Project'), actor: 'service:test', correlationId: null)->project;
-        $keys = static fn (): array => app(\Core\Identity\Contracts\ListApiKeys::class)->list(new \Core\Identity\Contracts\ListApiKeysCommand($project->id));
+        $keys = static fn (): array => app(\Core\Identity\Contracts\ListApiKeys::class)->list(new \Core\Identity\Contracts\ListApiKeysCommand($project->id), AccessScope::platform());
 
         // Auto-provisioned at creation.
         self::assertCount(1, $keys());
-        $this->get("/admin/projects/{$project->id}/api-keys/create")->assertOk()->assertSee('Clé API du projet')->assertSee('Régénérer')->assertDontSee('Sandbox');
+        $this->get("/admin/projects/{$project->id}/api-keys/create")->assertOk()
+            ->assertSee('Clés du projet')->assertSee('Clé principale')->assertSee('Serveur complet')->assertSee('Faire tourner');
 
-        // Generating a second key is refused with a clear message.
-        $this->post("/admin/projects/{$project->id}/api-keys", ['mode' => 'generate'])
-            ->assertSessionHasErrors('mode');
-        self::assertCount(1, $keys());
+        // A second key, from the « Versements » template, restricted to a network.
+        $this->post("/admin/projects/{$project->id}/api-keys", ['name' => 'Versements', 'template' => 'payouts', 'allowed_cidrs' => "203.0.113.0/24\n2001:db8::/32"])
+            ->assertOk()->assertSee('Nouvelle clé')->assertSessionMissing('admin.api-keys.created');
+        $payouts = collect($keys())->firstWhere('name', 'Versements');
+        self::assertNotNull($payouts);
+        self::assertSame(['payouts:read', 'payouts:write'], $payouts->scopes);
+        self::assertSame(['203.0.113.0/24', '2001:db8::/32'], $payouts->allowedCidrs);
 
-        // Regenerating replaces it: still exactly one key, a new prefix.
-        $old = $keys()[0];
-        $this->post("/admin/projects/{$project->id}/api-keys", ['mode' => 'regenerate'])->assertRedirect();
-        $afterRegenerate = $keys();
-        self::assertCount(1, $afterRegenerate);
-        self::assertNotSame($old->prefix, $afterRegenerate[0]->prefix);
+        // A custom set of scopes; an unknown scope is refused by validation.
+        $this->post("/admin/projects/{$project->id}/api-keys", ['name' => 'Mauvaise', 'template' => 'custom', 'scopes' => ['payments:wrte']])
+            ->assertSessionHasErrors('scopes.0');
+        $this->post("/admin/projects/{$project->id}/api-keys", ['name' => 'Réseau', 'template' => 'server', 'allowed_cidrs' => '10.0.0.0/33'])
+            ->assertSessionHasErrors('name');
+        self::assertCount(2, $keys());
 
-        // Revoking deletes; a key can then be generated again.
-        $this->post("/admin/projects/{$project->id}/api-keys/{$afterRegenerate[0]->id}/revoke")->assertRedirect();
-        self::assertCount(0, $keys());
-        $this->post("/admin/projects/{$project->id}/api-keys", ['mode' => 'generate'])->assertRedirect();
-        self::assertCount(1, $keys());
+        // Rotation: a replacement appears, the old key stays valid for the grace period.
+        $this->post("/admin/projects/{$project->id}/api-keys/{$payouts->id}/rotate", ['grace_days' => 3])
+            ->assertOk()->assertSee('Nouvelle clé')->assertSessionMissing('admin.api-keys.created');
+        self::assertCount(3, $keys());
+        $rotated = collect($keys())->firstWhere('id', $payouts->id);
+        self::assertNotNull($rotated?->replacedByApiKeyId);
+        self::assertTrue($rotated->active);
+        $this->get("/admin/projects/{$project->id}/api-keys/create")->assertSee('Remplacée');
+
+        // Revocation needs a reason, which the audit trail keeps.
+        $this->post("/admin/projects/{$project->id}/api-keys/{$payouts->id}/revoke")->assertSessionHasErrors('reason');
+        $this->post("/admin/projects/{$project->id}/api-keys/{$payouts->id}/revoke", ['reason' => 'Prestataire remplacé'])->assertRedirect();
+        self::assertCount(2, $keys());
+        $context = \Illuminate\Support\Facades\DB::table('audit_log')->where('resource', 'api_key:'.$payouts->id)->where('action', 'api_key.revoked')->value('context');
+        self::assertIsString($context);
+        self::assertSame(['reason' => 'Prestataire remplacé'], json_decode($context, true));
+    }
+
+    #[Test]
+    public function an_operator_rotates_a_webhook_secret_then_ends_the_overlap_with_a_reason(): void
+    {
+        // ADR-0082 §5 — double signature during the overlap, early end audited.
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Secrets Org'), actor: 'service:test', correlationId: null);
+        $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Secrets Project'), actor: 'service:test', correlationId: null)->project;
+        $endpoint = app(RegisterWebhookEndpoint::class)->register(new RegisterWebhookEndpointCommand($project->id, 'https://example.com/hooks/secret', ['*']));
+        $page = "/admin/projects/{$project->id}/webhook-endpoints/create";
+
+        $this->get($page)->assertOk()->assertSee('Faire tourner le secret')->assertDontSee('Double signature active');
+
+        $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/rotate-secret", ['overlap_hours' => 99])->assertSessionHasErrors('overlap_hours');
+        $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/rotate-secret", ['overlap_hours' => 12])
+            ->assertOk()->assertSessionMissing('admin.webhook-endpoints.rotated');
+        $this->get($page)->assertSee('Double signature active')->assertSee('Révoquer l\'ancien secret', false);
+
+        $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/revoke-previous-secret")->assertSessionHasErrors('reason');
+        $this->post("/admin/projects/{$project->id}/webhook-endpoints/{$endpoint->id}/revoke-previous-secret", ['reason' => 'Destinataire déjà migré'])->assertRedirect();
+        $this->get($page)->assertDontSee('Double signature active');
+
+        self::assertSame(
+            ['webhook_endpoint.secret_rotated', 'webhook_endpoint.previous_secret_revoked'],
+            \Illuminate\Support\Facades\DB::table('audit_log')->where('resource', 'webhook_endpoint:'.$endpoint->id)->orderBy('id')->pluck('action')->all(),
+        );
+        $audited = \Illuminate\Support\Facades\DB::table('audit_log')->where('resource', 'webhook_endpoint:'.$endpoint->id)->pluck('after')->implode(' ');
+        self::assertStringNotContainsString($endpoint->secret, $audited);
     }
 
     #[Test]
@@ -985,18 +1043,14 @@ final class AdminWebFlowTest extends TestCase
      */
     private function loginAndEnrollMfa(OperatorRole $role): void
     {
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand(uniqid('op-', true).'@example.com', 'Ops', $role->value),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = OperatorFactory::create(uniqid('op-', true).'@example.com', $role);
 
-        $operator = app(OperatorRepository::class)->find($created->operatorId);
+        $operator = app(OperatorRepository::class)->find($created);
         assert($operator instanceof Operator);
 
         $login = $this->post('/admin/login', [
             'email' => $operator->email,
-            'password' => $created->plaintextPassword,
+            'password' => OperatorFactory::PASSWORD,
         ]);
         $login->assertRedirect(route('admin.mfa.enroll.show'));
 
