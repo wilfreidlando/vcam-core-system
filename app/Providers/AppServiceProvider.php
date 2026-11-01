@@ -25,6 +25,7 @@ use Dedoc\Scramble\SecurityDocumentation\MiddlewareAuthSecurityStrategy;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Dedoc\Scramble\Support\RouteInfo;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Http\Request;
@@ -70,7 +71,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(GuideCatalog::class, static fn (): GuideCatalog => new GuideCatalog(
             base_path('docs/manuel/parcours'),
         ));
-        $this->app->singleton(GuideRenderer::class, static fn ($app): GuideRenderer => new GuideRenderer(
+        $this->app->singleton(GuideRenderer::class, static fn (Application $app): GuideRenderer => new GuideRenderer(
             $app->make(GuideCatalog::class),
         ));
     }

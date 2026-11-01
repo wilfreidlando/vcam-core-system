@@ -93,7 +93,7 @@ final class GuideCatalog
     }
 
     /**
-     * @return array<string, string> the slugs, in reading order
+     * @return list<string> the slugs, in reading order
      */
     public function familles(): array
     {
@@ -125,10 +125,11 @@ final class GuideCatalog
             return [];
         }
 
-        $files = glob($directory.'/F*.md') ?: [];
+        $files = glob($directory.'/F*.md');
+        $files = $files === false ? [] : $files;
         sort($files);
 
-        return array_values($files);
+        return $files;
     }
 
     private function read(string $file, string $famille, string $familleTitre): GuideFlow

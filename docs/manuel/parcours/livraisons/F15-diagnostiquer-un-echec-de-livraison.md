@@ -115,7 +115,7 @@ l’historique, avec son statut d’échec.
 | Ce que vous lisez | Ce que ça veut dire | Ce que vous faites |
 |-------------------|---------------------|-------------------|
 | **« Cette livraison n'est pas en échec »** | La livraison a abouti, ou elle est encore dans la file : il n’y a rien à rejouer. | Attendez le prochain essai, ou ouvrez la page de la livraison pour voir où elle en est. |
-| **« L'endpoint de cette livraison est désactivé »** | Le point d’entrée a été coupé. | Réactivez-le sur la page du projet, puis revenez rejouer. |
+| **« Le point d'entrée de cette livraison est désactivé »** | Le point d’entrée a été coupé. | Réactivez-le sur la page du projet, puis revenez rejouer. |
 | **« Livraison introuvable »** | La livraison n’existe pas, ou elle appartient à un projet que vous ne voyez pas. | Vérifiez l’identifiant, et que vous êtes bien sur le bon projet. |
 | **« Rejeu mis en file »**, puis plus rien | La nouvelle livraison est dans la file, mais son essai n’a pas encore eu lieu. | Attendez, puis rechargez la liste : la ligne est repassée à **« En attente »**. |
 | Le destinataire a bien répondu, mais le Core dit que la livraison a échoué | La réponse du destinataire n’est pas une des réponses que le Core accepte comme un succès. | Lisez-la dans **« Réponse reçue »** et adaptez votre application pour qu’elle réponde correctement. |

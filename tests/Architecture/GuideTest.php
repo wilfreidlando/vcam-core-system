@@ -7,6 +7,7 @@ namespace Tests\Architecture;
 use PHPUnit\Framework\Attributes\Test;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use SplFileInfo;
 use Tests\TestCase;
 
 /**
@@ -61,7 +62,7 @@ final class GuideTest extends TestCase
             }
 
             $expected = 'F'.strtoupper((string) preg_replace('/\D/', '', basename($file, '.md')));
-            if ($expected !== '' && ($front['numero'] ?? '') !== $expected) {
+            if (($front['numero'] ?? '') !== $expected) {
                 $problems[] = sprintf(
                     '%s says it is "%s" but its file name says "%s".',
                     $file,
@@ -127,10 +128,11 @@ final class GuideTest extends TestCase
      */
     private function flowFiles(): array
     {
-        $files = glob(self::ROOT.'/*/F*.md') ?: [];
+        $files = glob(self::ROOT.'/*/F*.md');
+        $files = $files === false ? [] : $files;
         sort($files);
 
-        return array_values($files);
+        return $files;
     }
 
     /**
@@ -215,6 +217,7 @@ final class GuideTest extends TestCase
             'packages/portal/resources/views',
             'app/Http/Controllers/Admin',
             'app/Http/Requests',
+            'app/Http/View',
             'app/Infrastructure/Guide',
         ] as $directory) {
             $words .= "\n".$this->wordsOf($this->filesOf($directory));
@@ -223,7 +226,10 @@ final class GuideTest extends TestCase
         // The wording of the product also lives in the modules: a status
         // label (« Trop-perçu », « Écart de rapprochement ») is a domain
         // constant, and an error message is a domain exception.
-        foreach (glob('packages/*/src', GLOB_ONLYDIR) ?: [] as $directory) {
+        $modules = glob('packages/*/src', GLOB_ONLYDIR);
+        $modules = $modules === false ? [] : $modules;
+
+        foreach ($modules as $directory) {
             $words .= "\n".$this->wordsOf($this->filesOf($directory));
         }
 
@@ -261,6 +267,7 @@ final class GuideTest extends TestCase
         $files = [];
 
         foreach ($iterator as $file) {
+            /** @var SplFileInfo $file */
             if ($file->isFile() && str_ends_with($file->getFilename(), '.php')) {
                 $files[] = $file->getPathname();
             }

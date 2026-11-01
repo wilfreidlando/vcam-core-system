@@ -33,7 +33,7 @@ La fiche est une page de liens : chacun ouvre une rubrique du projet.
 
 → **Ce qui se passe** : la fiche s’ouvre, avec le nom du projet, son
 organisation et son statut, et une liste de liens — dont **« Clés API »**,
-**« Enregistrer un endpoint webhook »** et **« Sessions WhatsApp »**.
+**« Enregistrer un point d'entrée pour les événements »** et **« Sessions WhatsApp »**.
 
 ### 2. Créer une clé pour votre application
 
@@ -60,7 +60,7 @@ utilisation.
 
 ### 4. Enregistrer le point d’entrée de votre application
 
-Sur la fiche du projet, cliquez sur **« Enregistrer un endpoint webhook »**. Le
+Sur la fiche du projet, cliquez sur **« Enregistrer un point d'entrée pour les événements »**. Le
 formulaire **« Enregistrer le point d'entrée d'une application cliente »**
 s’ouvre.
 
@@ -70,10 +70,10 @@ s’ouvre.
   recevoir. Ceux du commerce du projet (clients, abonnements, factures, quotas)
   sont déjà cochés ; **« Tout recevoir »** prend tout.
 
-Cliquez sur **« Enregistrer l'endpoint »**.
+Cliquez sur **« Enregistrer le point d'entrée »**.
 
 → **Ce qui se passe** : le point d’entrée est enregistré et un encadré
-**« Endpoint enregistré »** s’affiche, avec le **« Secret de signature »** juste
+**« Point d'entrée enregistré »** s’affiche, avec le **« Secret de signature »** juste
 en dessous. Ce secret, lui, ne sera plus jamais affiché.
 
 ### 5. Remettre le secret de signature à votre application
@@ -136,7 +136,7 @@ immédiatement l’ancien signataire.
 | **« Clés du projet »** | La liste des clés du projet : nom, préfixe, droits accordés, dernière utilisation. |
 | Les pastilles d’une clé | **« Active »** : la clé fonctionne. **« Expirée »** : elle ne fonctionne plus. **« Remplacée »** : une clé plus récente a pris sa place, mais l’ancienne fonctionne encore jusqu’à la date affichée. **« Active · expire le »** : la clé fonctionne jusqu’à la date affichée. |
 | **« Accès total »** | Cette clé peut tout faire sur le projet. Préférez des droits précis. |
-| **« Endpoint enregistré »** | Le point d’entrée vient d’être créé. Le secret de signature est dans le même encadré, et n’apparaîtra plus. |
+| **« Point d'entrée enregistré »** | Le point d’entrée vient d’être créé. Le secret de signature est dans le même encadré, et n’apparaîtra plus. |
 | **« Double signature active »** | L’ancien secret signe encore, jusqu’à la date affichée. C’est ce qui laisse le temps à votre application de basculer. |
 | **« Applications enregistrées »** | Les comptes du projet chez les services qui encaissent. |
 | **« Prestataire »** | Le service qui encaisse les paiements pour ce projet. |
