@@ -5,16 +5,12 @@ declare(strict_types=1);
 namespace Core\Identity\Contracts;
 
 /**
- * The full set of scope strings any `hasScope()` check across the Core
- * currently guards (payment/webhook/notification/wallet controllers each
- * hardcode their own literal — this is the one place that lists them all
- * together). Review finding, user-directed: an operator issuing a Project's
- * API key should never have to type scopes by hand — a Project's own
- * integration key is meant to use the whole Core, not a hand-picked subset,
- * so every key this Core issues (auto-issued at project creation, or
- * manually via self-service/CLI) is granted `ALL`. If a narrower key is
- * ever needed, that is a new requirement to design for explicitly, not a
- * default to build speculatively today (YAGNI).
+ * Every scope a Project API key can carry, and the templates the console
+ * offers so nobody has to pick scopes one by one (ADR-0082 §2).
+ *
+ * A key carries only what it was issued with: adding a scope here never
+ * widens an existing key (least privilege). `*` remains accepted for
+ * compatibility and is shown as « accès total » with a warning.
  */
 final class ApiKeyScopes
 {
@@ -31,13 +27,93 @@ final class ApiKeyScopes
         'wallets:read',
         // ADR-0065 — transfers and recorded withdrawals.
         'wallets:write',
+        // ADR-0082 §2 — SaaS commerce, portal, payouts, exports.
+        'customers:read',
+        'customers:write',
+        'plans:read',
+        'plans:write',
+        'subscriptions:read',
+        'subscriptions:write',
+        'invoices:read',
+        'invoices:write',
+        'usage:read',
+        'usage:write',
+        'portal:write',
+        'payouts:read',
+        'payouts:write',
+        'exports:write',
     ];
 
     /**
-     * The wildcard scope — covers every concrete scope. A key issued
-     * with `--scope='*'` is the ergonomic "everything for this tenant"
-     * shape (ADR-0044) and `ApiKey::hasScope()` recognises it as such.
-     * Same rule as `OperatorRole::hasPermission()`.
+     * The wildcard scope — covers every concrete scope. Same rule as
+     * `OperatorRole::hasPermission()`.
      */
     public const WILDCARD = '*';
+
+    public const TEMPLATE_SERVER = 'server';
+
+    public const TEMPLATE_READ_ONLY = 'read_only';
+
+    public const TEMPLATE_PORTAL = 'portal';
+
+    public const TEMPLATE_PAYOUTS = 'payouts';
+
+    public const TEMPLATE_CLIENT_APP = 'client_app';
+
+    /** Console labels, in display order. */
+    public const TEMPLATES = [
+        self::TEMPLATE_SERVER => 'Serveur complet',
+        self::TEMPLATE_READ_ONLY => 'Lecture seule',
+        self::TEMPLATE_PORTAL => 'Portail uniquement',
+        self::TEMPLATE_CLIENT_APP => 'Application cliente',
+        self::TEMPLATE_PAYOUTS => 'Versements',
+    ];
+
+    /**
+     * @return list<string>
+     */
+    public static function template(string $template): array
+    {
+        return match ($template) {
+            // Moving money out deserves its own key (ADR-0082 §2).
+            self::TEMPLATE_SERVER => array_values(array_diff(self::ALL, ['payouts:write'])),
+            self::TEMPLATE_READ_ONLY => array_values(array_filter(self::ALL, static fn (string $s): bool => str_ends_with($s, ':read'))),
+            self::TEMPLATE_PORTAL => ['portal:write', 'customers:read'],
+            // ADR-0107 §5 — what a client application needs, and the exact
+            // limit of its power: it reads its rights, counts its usage,
+            // opens its portal, reads its commercial state. It holds
+            // **no** write scope on the commerce — not `customers:write`,
+            // not `subscriptions:write`, not `invoices:write`. The commerce
+            // happens in the portal, by the owner.
+            self::TEMPLATE_CLIENT_APP => [
+                'customers:read',
+                'usage:read',
+                'usage:write',
+                'portal:write',
+                'subscriptions:read',
+                'invoices:read',
+                // Les messages ne sont pas du commerce : l'application
+                // cliente prévient **ses propres** clients, et le Core n'est
+                // que la passerelle WhatsApp. C'est la clé du projet qui
+                // envoie, et c'est normal — sans ces deux portées, le premier
+                // client réel ne peut pas écrire un seul message.
+                'notifications:write',
+                'notifications:read',
+            ],
+            self::TEMPLATE_PAYOUTS => ['payouts:read', 'payouts:write'],
+            default => [],
+        };
+    }
+
+    /**
+     * @param list<string> $scopes
+     * @return list<string> the scopes that are neither known nor the wildcard
+     */
+    public static function unknown(array $scopes): array
+    {
+        return array_values(array_filter(
+            $scopes,
+            static fn (string $scope): bool => $scope !== self::WILDCARD && ! in_array($scope, self::ALL, true),
+        ));
+    }
 }

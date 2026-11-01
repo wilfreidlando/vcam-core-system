@@ -3,14 +3,32 @@
 @section('title', 'Opérateurs')
 
 @section('content')
+@php
+    $roleLabels = [
+        'platform_admin' => 'Administrateur de plateforme',
+        'finance_operator' => 'Opérateur financier',
+        'support_operator' => 'Opérateur support',
+        'provider_manager' => 'Responsable des prestataires',
+        'read_only_auditor' => 'Auditeur (lecture seule)',
+    ];
+@endphp
+{{-- Les erreurs de validation sont affichées par le layout (role="alert") :
+     un second bloc ici les annoncerait deux fois. --}}
+
+{{-- H1 — le jeton est rendu dans la réponse du POST (`$created`), jamais flashé en session. --}}
 @if (! empty($created))
-    <div class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3">
-        <p class="text-base font-semibold text-emerald-800">Opérateur créé : {{ $created['email'] }}</p>
-        <p class="mt-1 text-base text-emerald-700">
-            Mot de passe à usage unique — affiché uniquement maintenant, jamais stocké ni journalisé :
-            <code class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900">{{ $created['plaintext_password'] }}</code>
+    <x-admin.alert variant="success" title="Invitation créée : {{ $created['email'] }}">
+        <p class="mt-1 text-base">
+            Jeton d'activation à usage unique — affiché uniquement maintenant, jamais stocké ni journalisé :
+            <code class="ml-1 break-all rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900">{{ $created['token'] }}</code>
         </p>
-    </div>
+        <p class="mt-1 text-sm">
+            Valable jusqu'au {{ $created['expires_at'] }}. Transmettez-le à l'invité : c'est
+            <strong>lui</strong> qui choisit son mot de passe et enrôle son MFA (aucun mot de passe
+            n'est choisi par le système). Il l'active sur
+            <a class="font-mono underline" href="{{ route('admin.invitation.show') }}">{{ route('admin.invitation.show') }}</a>.
+        </p>
+    </x-admin.alert>
 @endif
 
 <div class="mb-4 flex items-center justify-between gap-4">
@@ -22,16 +40,17 @@
 </div>
 
 <x-admin.table
-    :headers="['Email', 'Nom', 'Rôle', 'MFA', 'Statut', 'Créé le', 'Action']"
+    caption="Opérateurs de la console"
+    :headers="['Email', 'Nom', 'Rôle', 'MFA', 'Statut', 'Créé le', '']"
     :empty="'Aucun opérateur pour le moment.'">
     <tbody class="divide-y divide-slate-100 bg-white">
     @foreach ($operators as $op)
-        <tr x-data="{ confirmRevoke: false }">
+        <tr>
             <td class="px-4 py-2 text-base text-slate-900">{{ $op->email }}</td>
             <td class="px-4 py-2 text-base text-slate-700">{{ $op->name }}</td>
             <td class="px-4 py-2 text-sm">
-                <span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 font-mono text-slate-700">
-                    {{ $op->role }}
+                <span class="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-slate-700" title="{{ $op->role }}">
+                    {{ $roleLabels[$op->role] ?? $op->role }}
                 </span>
             </td>
             <td class="px-4 py-2 text-sm">
@@ -55,43 +74,31 @@
             <td class="px-4 py-2 text-sm font-mono text-slate-600 whitespace-nowrap">
                 {{ $op->createdAt->format('Y-m-d H:i:s') }}
             </td>
-            <td class="px-4 py-2 text-sm space-x-1 whitespace-nowrap">
-                <a href="{{ route('admin.operators.edit', ['operatorId' => $op->id]) }}"
-                   class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-700 hover:bg-slate-200">
-                    Modifier
-                </a>
-                @unless ($op->revoked)
-                    <button
-                        @click="confirmRevoke = true"
-                        type="button"
-                        class="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-1 font-medium text-rose-700 hover:bg-rose-100">
-                        Révoquer
-                    </button>
-                    <form
-                        x-show="confirmRevoke"
-                        x-cloak
-                        @submit="confirmRevoke = false"
-                        method="POST"
-                        action="{{ route('admin.operators.revoke.web', ['operatorId' => $op->id]) }}"
-                        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50"
-                        @click.self="confirmRevoke = false">
-                        @csrf
-                        <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4" @click.stop>
-                            <p class="font-semibold text-slate-900 mb-2">Révoquer {{ $op->email }} ?</p>
-                            <p class="text-sm text-slate-600 mb-4">
-                                Ses jetons d'accès seront rejetés dès sa
-                                prochaine requête. Cette action est
-                                irréversible depuis cet écran.
-                            </p>
-                            <div class="flex justify-end gap-2">
-                                <button type="button" @click="confirmRevoke = false"
-                                        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Annuler</button>
-                                <button type="submit"
-                                        class="rounded-md bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-sm font-medium text-white">Confirmer</button>
-                            </div>
-                        </div>
-                    </form>
-                @endunless
+            <td class="px-4 py-2 text-sm whitespace-nowrap">
+                <div class="flex items-center gap-1">
+                    <a href="{{ route('admin.operators.edit', ['operatorId' => $op->id]) }}"
+                       class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2.5 py-1.5 font-medium text-slate-700 hover:bg-slate-200">
+                        Modifier
+                        <span class="sr-only">{{ $op->email }}</span>
+                    </a>
+                    @unless ($op->revoked)
+                        {{-- C1/C2/C14/C15 — modale accessible : role="dialog", aria-modal,
+                             aria-labelledby, piège et restitution du focus, déclencheur
+                             aria-haspopup / aria-expanded. --}}
+                        <x-admin.confirm-dialog
+                            :title="'Révoquer '.$op->email.' ?'"
+                            message="Ses jetons d'accès seront rejetés dès sa prochaine requête. Cette action est irréversible depuis cet écran."
+                            :action="route('admin.operators.revoke.web', ['operatorId' => $op->id])"
+                            confirm="Révoquer">
+                            <x-slot:trigger>
+                                <button type="button" class="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2.5 py-1.5 font-medium text-rose-700 hover:bg-rose-100">
+                                    Révoquer
+                                    <span class="sr-only">{{ $op->email }}</span>
+                                </button>
+                            </x-slot:trigger>
+                        </x-admin.confirm-dialog>
+                    @endunless
+                </div>
             </td>
         </tr>
     @endforeach

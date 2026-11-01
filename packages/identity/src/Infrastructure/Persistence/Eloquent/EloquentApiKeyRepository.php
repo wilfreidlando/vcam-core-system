@@ -21,6 +21,10 @@ final class EloquentApiKeyRepository implements ApiKeyRepository
                 'key_hash' => $apiKey->keyHash(),
                 'scopes' => $apiKey->scopes(),
                 'revoked_at' => $apiKey->revokedAt(),
+                'name' => $apiKey->name,
+                'allowed_cidrs' => $apiKey->allowedCidrs(),
+                'expires_at' => $apiKey->expiresAt(),
+                'replaced_by_api_key_id' => $apiKey->replacedByApiKeyId(),
             ],
         );
     }
@@ -61,13 +65,24 @@ final class EloquentApiKeyRepository implements ApiKeyRepository
         return $items;
     }
 
-    public function findOneByProject(string $projectId): ?ApiKey
+    public function countActiveByProject(string $projectId, DateTimeImmutable $now): int
     {
-        $record = ApiKeyRecord::query()
-            ->where('project_id', $projectId)
-            ->first();
+        $query = DB::table('api_keys');
+        $query->where('project_id', $projectId);
+        $query->whereNull('revoked_at');
+        $query->where(static function (\Illuminate\Database\Query\Builder $q) use ($now): void {
+            $q->whereNull('expires_at');
+            $q->orWhere('expires_at', '>', $now);
+        });
 
-        return $record === null ? null : $this->toDomain($record);
+        return $query->count();
+    }
+
+    public function lockProject(string $projectId): void
+    {
+        // Transaction-scoped advisory lock, keyed on the project: released at
+        // commit or rollback, never held across requests.
+        DB::select("SELECT pg_advisory_xact_lock(hashtextextended('api_keys:' || ?, 0))", [$projectId]);
     }
 
     public function delete(string $id): void
@@ -75,11 +90,12 @@ final class EloquentApiKeyRepository implements ApiKeyRepository
         ApiKeyRecord::query()->whereKey($id)->delete();
     }
 
-    public function touchLastUsed(string $id, DateTimeImmutable $at): void
+    public function touchLastUsed(string $id, DateTimeImmutable $at, ?string $ip = null): void
     {
         DB::update(
-            'UPDATE api_keys SET last_used_at = ? WHERE id = ? AND (last_used_at IS NULL OR last_used_at < ?)',
-            [$at, $id, $at->modify('-60 seconds')],
+            'UPDATE api_keys SET last_used_at = ?, last_used_ip = COALESCE(?::inet, last_used_ip)
+             WHERE id = ? AND (last_used_at IS NULL OR last_used_at < ? OR last_used_ip IS DISTINCT FROM COALESCE(?::inet, last_used_ip))',
+            [$at, $ip, $id, $at->modify('-60 seconds'), $ip],
         );
     }
 
@@ -94,6 +110,11 @@ final class EloquentApiKeyRepository implements ApiKeyRepository
             $record->revoked_at,
             $record->created_at,
             $record->last_used_at,
+            name: $record->name,
+            allowedCidrs: $record->allowed_cidrs,
+            expiresAt: $record->expires_at,
+            replacedByApiKeyId: $record->replaced_by_api_key_id,
+            lastUsedIp: $record->last_used_ip,
         );
     }
 }

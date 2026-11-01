@@ -22,4 +22,14 @@ final readonly class FindPartyByExternalRef implements PartyLookup
             ? null
             : new PartyRef($party->id, $party->projectId, $party->externalRef, $party->type(), $party->kycStatus());
     }
+
+    public function idsMatchingRef(string $projectId, string $term, int $limit = 100): array
+    {
+        return $this->parties->idsMatchingRef($projectId, $term, max(1, min(500, $limit)));
+    }
+
+    public function externalRefsOf(string $projectId, array $partyIds): array
+    {
+        return $this->parties->externalRefsOf($projectId, $partyIds);
+    }
 }

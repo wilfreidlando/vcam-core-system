@@ -6,7 +6,9 @@ namespace Core\Payment\Infrastructure\Persistence\Eloquent;
 
 use Core\Payment\Domain\Exception\PaymentAlreadyExists;
 use Core\Payment\Domain\Model\Payment;
+use Core\Payment\Domain\Model\SettlementException;
 use Core\Payment\Domain\Port\PaymentRepository;
+use Core\Payment\Infrastructure\Persistence\Cursor;
 use Core\Payment\PaymentStatus;
 use DateTimeImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -88,7 +90,53 @@ final class EloquentPaymentRepository implements PaymentRepository
         return $this->toDomain($record);
     }
 
-    public function findStuckSince(DateTimeImmutable $threshold, int $limit, DateTimeImmutable $createdAfter): array
+    public function listByCursor(string $projectId, ?PaymentStatus $status, ?DateTimeImmutable $createdFrom, ?DateTimeImmutable $createdTo, ?string $cursor, int $limit): array
+    {
+        // See findStuckSince() above for why this goes through toBase()/hydrate().
+        $base = PaymentRecord::query()->toBase()->where('project_id', $projectId);
+
+        if ($status !== null) {
+            $base->where('status', $status->value);
+        }
+
+        if ($createdFrom !== null) {
+            $base->where('created_at', '>=', $createdFrom->format('Y-m-d H:i:s.uP'));
+        }
+
+        if ($createdTo !== null) {
+            $base->where('created_at', '<', $createdTo->format('Y-m-d H:i:s.uP'));
+        }
+
+        if ($cursor !== null) {
+            [$createdAt, $id] = Cursor::decode($cursor);
+
+            // A row-value comparison: one index range instead of an OR.
+            $base->whereRaw('(created_at, id) > (?::timestamptz, ?::uuid)', [$createdAt, $id]);
+        }
+
+        $rows = $base->orderBy('created_at')->orderBy('id')->limit($limit + 1)->get()
+            ->map(static fn (object $row): array => (array) $row)->all();
+
+        $records = PaymentRecord::hydrate($rows);
+        $hasMore = $records->count() > $limit;
+        $records = $records->take($limit);
+
+        $items = [];
+        foreach ($records as $record) {
+            $items[] = $this->toDomain($record);
+        }
+
+        $last = $records->last();
+
+        return [
+            'items' => $items,
+            'nextCursor' => $hasMore && $last !== null
+                ? Cursor::encode($last->created_at->format('Y-m-d H:i:s.uP'), $last->id)
+                : null,
+        ];
+    }
+
+    public function findStuckSince(DateTimeImmutable $threshold, int $limit, DateTimeImmutable $createdAfter, ?array $projectIds = null): array
     {
         // `whereIn`/`orderBy`/`take` are forwarded by Eloquent\Builder to
         // the underlying query builder rather than declared on it
@@ -102,6 +150,10 @@ final class EloquentPaymentRepository implements PaymentRepository
         $base->whereIn('status', [PaymentStatus::Pending->value, PaymentStatus::Processing->value]);
         $base->whereRaw('GREATEST(updated_at, reconciled_at) < ?', [$threshold->format(DATE_ATOM)]);
         $base->where('created_at', '>=', $createdAfter);
+        if ($projectIds !== null) {
+            // ADR-0069 §2 — the scope filters at the query level.
+            $base->whereIn('project_id', $projectIds);
+        }
         $base->orderByRaw('GREATEST(updated_at, reconciled_at)');
         $base->take($limit);
 
@@ -117,14 +169,20 @@ final class EloquentPaymentRepository implements PaymentRepository
         return $payments;
     }
 
-    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage): array
+    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage, ?array $projectIds = null): array
     {
         // See findStuckSince() above for why this goes through toBase()/hydrate().
-        $query = PaymentRecord::query();
+        $base = PaymentRecord::query()->toBase();
+
         if ($projectId !== null) {
-            $query->where('project_id', $projectId);
+            $base->where('project_id', $projectId);
         }
-        $base = $query->toBase();
+
+        if ($projectIds !== null) {
+            // ADR-0069 §2 — the scope filters at the query level, so the
+            // rows of another tenant are never materialised.
+            $base->whereIn('project_id', $projectIds);
+        }
 
         if ($status !== null) {
             $base->where('status', $status->value);
@@ -152,12 +210,18 @@ final class EloquentPaymentRepository implements PaymentRepository
         return ['items' => $payments, 'total' => $total];
     }
 
-    public function countStuckSince(DateTimeImmutable $threshold, DateTimeImmutable $createdAfter): int
+    public function countStuckSince(DateTimeImmutable $threshold, DateTimeImmutable $createdAfter, ?array $projectIds = null): int
     {
         // See findStuckSince() above for why whereIn()/count() go through toBase().
         $base = PaymentRecord::query()->where('created_at', '>=', $createdAfter)->toBase();
         $base->whereIn('status', [PaymentStatus::Pending->value, PaymentStatus::Processing->value]);
         $base->whereRaw('GREATEST(updated_at, reconciled_at) < ?', [$threshold->format(DATE_ATOM)]);
+
+        if ($projectIds !== null) {
+            // ADR-0069 §2 — the scope filters at the query level: the
+            // stuck payments of another tenant are never counted.
+            $base->whereIn('project_id', $projectIds);
+        }
 
         return $base->count();
     }
@@ -169,14 +233,71 @@ final class EloquentPaymentRepository implements PaymentRepository
         PaymentRecord::query()->whereKey($paymentId)->toBase()->update(['reconciled_at' => $checkedAt]);
     }
 
-    public function countRecentByStatus(DateTimeImmutable $since): array
+    public function countRecentByStatus(DateTimeImmutable $since, ?array $projectIds = null): array
     {
         $base = PaymentRecord::query()->where('created_at', '>=', $since)->toBase();
+
+        if ($projectIds !== null) {
+            // ADR-0069 §2 — the scope filters the aggregation in the
+            // query: the payments of another tenant are never counted.
+            $base->whereIn('project_id', $projectIds);
+        }
 
         $total = (clone $base)->count();
         $succeeded = (clone $base)->where('status', PaymentStatus::Succeeded->value)->count();
 
         return ['total' => $total, 'succeeded' => $succeeded];
+    }
+
+    public function findSucceededUpdatedSince(DateTimeImmutable $since, int $limit): array
+    {
+        // See findStuckSince() above for why this goes through toBase()/hydrate().
+        $base = PaymentRecord::query()->toBase();
+        $base->where('status', PaymentStatus::Succeeded->value);
+        $base->where('updated_at', '>=', $since);
+        $base->orderBy('updated_at');
+        $base->orderBy('id');
+        $base->take($limit);
+
+        return $this->hydrateAll($base->get()->map(static fn (object $row): array => (array) $row)->all());
+    }
+
+    public function findByIds(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $base = PaymentRecord::query()->toBase();
+        $base->whereIn('id', array_values(array_unique($ids)));
+
+        return $this->hydrateAll($base->get()->map(static fn (object $row): array => (array) $row)->all());
+    }
+
+    public function projectsWithActivitySince(DateTimeImmutable $since): array
+    {
+        $projects = [];
+        foreach (PaymentRecord::query()->where('updated_at', '>=', $since)->toBase()->distinct()->pluck('project_id') as $projectId) {
+            if (is_string($projectId)) {
+                $projects[] = $projectId;
+            }
+        }
+
+        return $projects;
+    }
+
+    /**
+     * @param array<int, array<array-key, mixed>> $rows
+     * @return list<Payment>
+     */
+    private function hydrateAll(array $rows): array
+    {
+        $payments = [];
+        foreach (PaymentRecord::hydrate(array_values($rows)) as $record) {
+            $payments[] = $this->toDomain($record);
+        }
+
+        return $payments;
     }
 
     /**
@@ -202,6 +323,10 @@ final class EloquentPaymentRepository implements PaymentRepository
             'wallet_recipient_external_ref' => $payment->walletRecipientExternalRef,
             'callback_url' => $payment->callbackUrl,
             'callback_secret_encrypted' => $payment->callbackSecret === null ? null : Crypt::encryptString($payment->callbackSecret),
+            'confirmed_amount_minor' => $payment->confirmedAmount,
+            'confirmed_currency' => $payment->confirmedCurrency,
+            'settlement_exception' => $payment->settlementException?->value,
+            'purpose' => $payment->purpose,
         ];
     }
 
@@ -235,6 +360,10 @@ final class EloquentPaymentRepository implements PaymentRepository
             // to happen.
             updatedAt: DateTimeImmutable::createFromInterface($record->updated_at),
             createdAt: DateTimeImmutable::createFromInterface($record->created_at),
+            confirmedAmount: $record->confirmed_amount_minor,
+            confirmedCurrency: $record->confirmed_currency,
+            settlementException: $record->settlement_exception === null ? null : SettlementException::from($record->settlement_exception),
+            purpose: $record->purpose,
         );
     }
 }

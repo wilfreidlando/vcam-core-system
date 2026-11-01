@@ -208,3 +208,81 @@ Une revue d’architecture périodique (trimestrielle) examine ces indicateurs, 
 Le fil conducteur : rendre la dérive visible, coûteuse et décidée, jamais silencieuse. Ce qui peut être automatisé l’est (la CI refuse la dérive) ; ce qui est structurel est posé dès la conception (l’architecture décourage la dérive) ; ce qui reste humain est tranché par un comité outillé d’une jurisprudence (le processus arbitre la dérive). C’est cette combinaison, et non un règlement unique, qui garde le socle sain sur la durée.
 
 Fin du document — Version 1.0
+
+---
+
+# Addendum — Amendements proposés du 2026-10-24 (plateforme de projets SaaS)
+
+> **Statut : accepté** par le comité d'architecture le 2026-10-27, avec les
+> ADR-0068 à ADR-0091. Les sections 1 à 16 ci-dessus restent donc la
+> référence, Complétées par le présent addendum ; le texte d'origine n'est pas
+> réécrit : les amendements s'y ajoutent.
+
+## A1. Périmètre (§4) — le commerce SaaS est une capacité transverse
+
+Le Core gère des projets SaaS de bout en bout pour toute organisation
+propriétaire de projets (ADR-0068). La **mécanique** commerciale — clients
+payeurs, plans versionnés, abonnements, factures, usage et quotas, portail
+client — passe les quatre portes : tout projet SaaS en a besoin (porte 1), elle
+ne contient aucune règle métier dès lors que fonctionnalités et compteurs sont
+nommés par le projet (porte 2), elle remplace N réimplémentations (porte 3), et
+elle s'exprime par un contrat stable (porte 4).
+
+Reste hors du Core, sans changement : les concepts métier des projets, leurs
+utilisateurs finaux, le cloisonnement de leurs données internes, et les règles
+de prix propres à un produit qui ne s'expriment pas comme un plan.
+
+## A2. Données (§6) — clients payeurs : identité minimale, chiffrée
+
+La ligne « les end-users restent dans les produits » est **précisée** : le Core
+détient l'identité **minimale** (nom affiché, email, téléphone) des **clients
+payeurs** des projets et des comptes console ; il ne détient jamais l'identité
+des utilisateurs finaux des produits. Cette identité est :
+
+- chiffrée au repos avec une clé dédiée, recherchée par index aveugle ;
+- absente des webhooks, des journaux techniques et du journal d'audit ;
+- effaçable sans toucher au grand livre ;
+- limitée à une liste blanche de colonnes testée en CI (ADR-0070, ADR-0083).
+
+La fitness function anti-PII sur `parties` reste inchangée.
+
+## A3. Intégrité financière (§9) — le grand livre voit tout
+
+S'ajoutent aux règles existantes :
+
+- **Complétude** : toute somme entrée ou sortie est écrite au grand livre ;
+  un contrôle horaire vérifie qu'aucun paiement réussi n'est sans écriture
+  (ADR-0076, ADR-0078).
+- **Isolation financière** : aucun mouvement entre projets, garanti par
+  trigger en base (G13).
+- **Montant confirmé** : un encaissement n'est imputé que si le montant
+  confirmé par le prestataire correspond ; sinon il va en exception
+  (ADR-0077).
+- **Quatre yeux** : toute opération financière manuelle au-delà d'un seuil
+  exige un second compte, contrôlé en base (S-15).
+
+## A4. Contrat (§8) — fenêtre de dépréciation chiffrée
+
+Une version majeure reste servie **12 mois** après la sortie de la suivante,
+avec en-têtes `Deprecation`/`Sunset` puis `410 Gone`. Les ajouts sont libres
+dans une majeure ; les énumérations ouvertes sont déclarées. Le contrôle de
+rupture couvre aussi le plan d'administration (ADR-0086).
+
+## A5. Fitness functions (§14) — trois contrôles de plus
+
+| Contrôle automatisé | Dérive contrée |
+| --- | --- |
+| Écriture du grand livre vers un compte d'un autre projet → rejet en base (G13) | D6 / D2 |
+| Champ secret dans une réponse d'API hors liste « affiché une fois » → échec (G14) | D3 |
+| Route à identifiant sans test d'accès inter-locataires → échec (G15) | D2 / D3 |
+| Colonne hors liste blanche sur `customers` → échec | D3 |
+| Registre de capacités ≠ tags OpenAPI → échec | D5 / D7 |
+
+## A6. Le Core comme produit (§10) — un catalogue mesurable
+
+Le catalogue de capacités existe et se vérifie contre le contrat
+(ADR-0087) ; l'indicateur « taux d'accès au catalogue » (§15) devient
+mesurable. La console de portefeuille (ADR-0080) donne au propriétaire du Core
+la vue par organisation et par projet.
+
+Fin de l'addendum — 2026-10-24

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Concerns\ResolvesProjectNames;
+use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
 use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\GetProjectCommand;
 use Core\Identity\Contracts\ListProjects;
@@ -15,6 +16,7 @@ use Core\Payment\Contracts\GetPaymentStatusCommand;
 use Core\Payment\Contracts\GetPaymentTimeline;
 use Core\Payment\Contracts\ListPayments;
 use Core\Payment\Contracts\ListPaymentsCommand;
+use Core\Support\Access\AccessScope;
 use Core\Webhook\Contracts\GetWebhookDeliveryDetails;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -33,6 +35,7 @@ use Symfony\Component\HttpFoundation\Response;
 final class PaymentsController
 {
     use ResolvesProjectNames;
+    use ResolvesScopedProject;
 
     /**
      * The project dropdown fetches one page of `ListProjects` and renders
@@ -56,6 +59,8 @@ final class PaymentsController
         'status_changed' => 'Changement de statut',
         'status_change_ignored' => 'Statut ignoré',
         'wallet_credited' => 'Wallet crédité',
+        'settlement_recorded' => 'Écrit au grand livre',
+        'settlement_exception' => 'Écart de montant',
         'event_published' => 'Événement publié',
         'callback_attempt' => 'Callback URL',
     ];
@@ -71,9 +76,7 @@ final class PaymentsController
 
     public function index(Request $request, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('payments:read')) {
-            abort(403, 'La permission payments:read est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'payments:read');
 
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(100, max(1, (int) $request->query('per_page', 25)));
@@ -89,7 +92,7 @@ final class PaymentsController
             Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
         }
 
-        $projects = $this->listProjects->list(new ListProjectsCommand(page: 1, perPage: self::PROJECT_OPTIONS_LIMIT));
+        $projects = $this->listProjects->list(new ListProjectsCommand(page: 1, perPage: self::PROJECT_OPTIONS_LIMIT), $scope);
 
         // Project is an optional narrowing filter, not a requirement —
         // `ListPayments` lists across every Project when none is given
@@ -102,7 +105,7 @@ final class PaymentsController
             status: $status === '' ? null : $status,
             page: $page,
             perPage: $perPage,
-        ));
+        ), $scope);
 
         // Filter by channel client-side (contract doesn't carry a channel
         // filter on list — the ListPaymentsCommand only takes status).
@@ -114,6 +117,7 @@ final class PaymentsController
         $projectNames = $this->resolveProjectNames(
             $this->getProject,
             array_map(static fn ($p): string => $p->projectId, $items),
+            $scope,
         );
 
         return response()->view('admin.payments.index', [
@@ -134,9 +138,7 @@ final class PaymentsController
 
     public function show(string $payment, Request $request, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('payments:read')) {
-            abort(403, 'La permission payments:read est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'payments:read');
 
         $projectId = (string) $request->query('project_id', '');
         if ($projectId === '') {
@@ -154,7 +156,7 @@ final class PaymentsController
             $view = $this->getPaymentStatus->get(new GetPaymentStatusCommand(
                 paymentId: $payment,
                 requestingProjectId: $projectId,
-            ));
+            ), $scope);
         } catch (RuntimeException) {
             return redirect()->route('admin.payments.index', ['project_id' => $projectId])->withErrors([
                 'payment' => 'Paiement introuvable pour ce projet.',
@@ -162,7 +164,7 @@ final class PaymentsController
         }
 
         try {
-            $project = $this->getProject->get(new GetProjectCommand($projectId));
+            $project = $this->getProject->get(new GetProjectCommand($projectId), $scope);
         } catch (RuntimeException) {
             $project = null;
         }
@@ -172,7 +174,7 @@ final class PaymentsController
             'payment' => $view,
             'project' => $project,
             'projectId' => $projectId,
-            'journey' => $this->journey($view->id),
+            'journey' => $this->journey($view->id, $scope),
             'grafanaUrl' => self::grafanaUrl(),
         ]);
     }
@@ -184,12 +186,12 @@ final class PaymentsController
      *
      * @return list<array{at: string, kind: string, label: string, summary: string, details: array<string, mixed>, correlation_id: ?string, trace_id: ?string, tone: string}>
      */
-    private function journey(string $paymentId): array
+    private function journey(string $paymentId, AccessScope $scope): array
     {
         $items = [];
         $eventIds = [];
 
-        foreach ($this->timeline->forPayment($paymentId) as $entry) {
+        foreach ($this->timeline->forPayment($paymentId, $scope) as $entry) {
             if ($entry->type === 'event_published' && is_string($entry->details['event_id'] ?? null)) {
                 $eventIds[] = $entry->details['event_id'];
             }
@@ -206,7 +208,7 @@ final class PaymentsController
             ];
         }
 
-        foreach ($this->webhookDeliveries->forEvents($eventIds) as $delivery) {
+        foreach ($this->webhookDeliveries->forEvents($eventIds, $scope) as $delivery) {
             if ($delivery->attempts === []) {
                 $items[] = [
                     'at' => $delivery->lastAttemptAt ?? $delivery->nextRetryAt ?? '',
@@ -275,7 +277,8 @@ final class PaymentsController
             'callback_attempt' => ($details['success'] ?? false) === true ? 'success' : 'warning',
             'status_changed' => ($details['to'] ?? null) === 'succeeded' ? 'success' : ((($details['is_final'] ?? false) === true) ? 'danger' : 'neutral'),
             'provider_exchange' => is_array($details['response'] ?? null) && is_int($details['response']['status'] ?? null) && $details['response']['status'] < 400 ? 'neutral' : 'warning',
-            'wallet_credited' => 'success',
+            'wallet_credited', 'settlement_recorded' => 'success',
+            'settlement_exception' => 'danger',
             default => 'neutral',
         };
     }

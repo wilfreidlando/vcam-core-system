@@ -29,10 +29,10 @@ use Core\Support\Identifier;
  * Review finding, user-directed: a Project with no credential is not
  * actually usable by the business app it's meant for — self-service used
  * to stop at the Project row and leave issuing a key as a separate manual
- * step (with an operator hand-typing scopes). Creation now provisions the
- * project's single key (ADR-0066) in the same call, full-access
- * (`ApiKeyScopes::ALL` — see its docblock), a one-shot plaintext value
- * the caller must capture immediately.
+ * step (with an operator hand-typing scopes). Creation now provisions a
+ * first key (« Clé principale », ADR-0082 « Serveur complet » template:
+ * everything but `payouts:write`) in the same call, a one-shot plaintext
+ * value the caller must capture immediately.
  */
 final readonly class CreateProject implements CreateProjectPort
 {
@@ -63,10 +63,14 @@ final readonly class CreateProject implements CreateProjectPort
             context: [],
             correlationId: $correlationId,
             occurredAt: $this->clock->now(),
+            projectId: $project->id,
+            organizationId: $project->organizationId,
         ));
 
         $apiKey = $this->issueApiKey->issue(
-            new IssueApiKeyCommand($project->id, ApiKeyScopes::ALL),
+            // ADR-0082 §2 — the « Serveur complet » template: everything but
+            // moving money out, which deserves its own key.
+            new IssueApiKeyCommand($project->id, ApiKeyScopes::template(ApiKeyScopes::TEMPLATE_SERVER)),
             actor: $actor,
             correlationId: $correlationId,
         );

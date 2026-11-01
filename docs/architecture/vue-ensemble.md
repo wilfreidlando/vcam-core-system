@@ -270,7 +270,7 @@ graph BT
 > une dépendance sur le ledger** — c'est la garantie la plus importante du
 > dépôt.
 
-### État de chaque module (2026-09-15)
+### État de chaque module (2026-10-27)
 
 | Module | Rôle | État | Lot | Points d'entrée notables |
 | ------ | ---- | ---- | --- | ------------------------- |
@@ -286,7 +286,7 @@ graph BT
 | `webhook` | Endpoints par Project, livraison signée HMAC, retry/backoff, DLQ, replay CLI (ADR-0009, ADR-0040) | **Livré** | Lot 4 | `POST/GET /v1/webhook-endpoints`, `DELETE /v1/webhook-endpoints/{id}` |
 | `notification` | Orchestration multi-canal : fallback ordonné, `NotificationStatus` canonique (ADR-0041), contenu envoyé en ligne — pas de template pré-enregistré (ADR-0043). Adaptateur WhatsApp/WAHA livré (ADR-0042). | **Livré** | Lot 5 | `POST /v1/notifications/{text,image,file}`, `GET /v1/notifications/{id}`, `GET/POST /v1/notification-channel-sessions/{channel}/{sessionRef}/*`, webhook `whatsapp-waha` |
 | `admin` | Console opérateur | **Livré (3 tranches)** | Lot 6 | `GET /v1/admin/audit-log`, `GET /v1/admin/webhook-deliveries/dead`, `POST .../{id}/replay`, `POST /v1/admin/payment-reconciliation-runs`, `GET /v1/admin/projects[/{id}/{payments,wallets,notifications}]`, `GET/POST /v1/admin/operators`, `POST /v1/admin/operators/{id}/revoke` |
-| `billing` | Facturation | Scaffold — **hors périmètre production** (ADR-0048) | — | — |
+| `billing` | Commerce : clients d'un projet (PII chiffrée), catalogue de plans versionné, abonnements et périodes (ADR-0070/0071/0072), factures figées à l'émission et numérotées sans trou (ADR-0073/0094), encaissement en ligne et hors ligne imputé sur la créance (ADR-0094/0095) | **Livré** | Lots 10 et 11 | `PUT/GET /v1/customers[/{externalRef}]`, `GET/POST /v1/plans`, `POST /v1/subscriptions`, `GET /v1/subscriptions/{id}`, `GET/POST /v1/invoices[/{id}]`, `POST /v1/invoices/{id}/issue`, `/void`, `POST /v1/invoices/{id}/pay`, `GET /v1/invoices/{id}/payments`, `billing:advance-subscriptions` |
 | `storage` | Fichiers | Scaffold — **hors périmètre production** (ADR-0048) | — | — |
 | `developer-platform` | Auto-service développeur | Scaffold — **hors périmètre production** (ADR-0048) | — | — |
 
@@ -603,8 +603,12 @@ coup d'œil :
 | Vocabulaire canonique | G6b (`PaymentStatus`, `NotificationStatus`) | Pest |
 | Mutation monétaire | G7 (`Idempotency-Key` obligatoire) | Pest, application bootée |
 | Événements | G8, G8c (outbox transactionnel) | PHPat + règle PHPStan + Pest |
-| Contrat API | G9 (pas de rupture OpenAPI sans version), G10 (contrat consommateur, Lot 7) | oasdiff + Spectral |
+| Contrat API | G9 (pas de rupture OpenAPI sans version), G10 (contrat consommateur, Lot 17 — en attente) | oasdiff + Spectral |
 | Ledger | G11 (somme nulle, solde dérivé, concurrence, rejeu) | Pest + PostgreSQL |
+| Isolation financière | G13 (aucune écriture du grand livre ne traverse deux projets) | Trigger PostgreSQL + Pest |
+| Secrets en réponse | G14 (un secret n'est utilisable qu'une fois, à sa création) | Pest |
+| Isolation console | G15 (toute route console à identifiant a son cas IDOR généré) | Pest (cas générés) |
+| Portée console | G16 (tout port de lecture appelé par la console exige l'`AccessScope`) | Règle PHPStan + Pest |
 
 `make guard-test` injecte une vraie violation de chaque garde-fou actif et
 vérifie le rejet — c'est la seule façon de savoir qu'un garde-fou protège

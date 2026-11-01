@@ -87,6 +87,36 @@ it('publishes WebhookEventType schema with the closed enum of emitted types', fu
         'notification.failed',
         'wallet.credited',
         'wallet.debited',
+        // ADR-0084 §3 / ADR-0097 §4 — the commerce events a SaaS reacts to.
+        'subscription.created',
+        'subscription.activated',
+        'subscription.renewed',
+        'subscription.trial_will_end',
+        'subscription.renewal_due',
+        'subscription.plan_changed',
+        'subscription.past_due',
+        'subscription.paused',
+        'subscription.resumed',
+        'subscription.canceled',
+        'subscription.expired',
+        'invoice.issued',
+        'invoice.paid',
+        'invoice.payment_failed',
+        'invoice.voided',
+        'customer.suspended',
+        'customer.reactivated',
+        // ADR-0107 §3 — the Core emitted these eight without ever naming
+        // them: a project could only receive them through the `*` wildcard.
+        'customer.created',
+        'customer.updated',
+        'customer.erased',
+        'invoice.created',
+        'invoice.receipt_recorded',
+        'invoice.uncollectible',
+        'plan.archived',
+        'plan.version_published',
+        'usage.threshold_reached',
+        'usage.limit_reached',
     ], $schema->type->enum);
 });
 

@@ -38,6 +38,11 @@ use LogicException;
  * Lot 3): the clearing account is this operation's counterparty for now,
  * exactly as an administrative top-up or an ops correction would use it in
  * a live system too.
+ *
+ * ADR-0076 §2 — the counterparty account is the one the origin names: the
+ * provider's own `clearing:<prestataire>` account when the provider holds
+ * the money, the exception pool when it waits to be imputed (ADR-0077 §4),
+ * and the historical project-level `clearing` when no origin is given.
  */
 final readonly class CreditWalletUseCase implements CreditWallet
 {
@@ -66,8 +71,8 @@ final readonly class CreditWalletUseCase implements CreditWallet
 
             $clearingAccount = $this->accountResolver->resolveOrCreate(new ResolveOrCreateAccountCommand(
                 $command->projectId,
-                SystemAccount::CLEARING,
-                SystemAccount::PROJECT_LEVEL,
+                $command->origin?->source->value ?? SystemAccount::CLEARING,
+                $command->origin?->accountReference() ?? SystemAccount::PROJECT_LEVEL,
                 $command->currency,
             ));
 

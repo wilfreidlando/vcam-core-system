@@ -21,6 +21,20 @@ final class AlwaysConflictingPartyRepository implements PartyRepository
         throw PartyAlreadyExists::forExternalRef($party->projectId, $party->externalRef);
     }
 
+    public function idsMatchingRef(string $projectId, string $term, int $limit): array
+    {
+        return [];
+    }
+
+    /**
+     * @param list<string> $partyIds
+     * @return array<string, string>
+     */
+    public function externalRefsOf(string $projectId, array $partyIds): array
+    {
+        return [];
+    }
+
     public function find(string $id): ?Party
     {
         return null;

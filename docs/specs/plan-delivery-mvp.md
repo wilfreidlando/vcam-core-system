@@ -43,6 +43,13 @@ Ces hypothèses conditionnent les estimations. Un changement d’effectif ou de 
 
 Billing/Subscriptions complet, Storage/Media avancé, providers carte, Developer Platform externe et SDK publics, IdP end-user embarqué, extraction en services, RabbitMQ.
 
+> **Caduque sur deux points** (addendum du 2026-10-24, §P3, ratifié le
+> 2026-10-27). « Billing/Subscriptions complet » **rejoint le périmètre** : le
+> module `billing` entre en production au lot 10 (ADR-0070 à ADR-0074), et
+> `developer-platform` avec (ADR-0068 §Conséquences). `storage` et `fees`
+> restent hors périmètre — ADR-0048, amendé par ADR-0068. En cas de
+> contradiction, **l'addendum daté l'emporte** sur le §2.2 ci-dessus.
+
 ## 3. Organisation et gouvernance
 
 ### 3.1 Rôles
@@ -366,3 +373,220 @@ Indicateurs suivis à chaque fin de sprint :
 Une fois le pilote stabilisé : Billing/Subscriptions complet, Developer Platform externe (portail, SDK, quotas), Storage/Media avancé, providers additionnels (carte), puis extraction en services des modules dont la charge ou le domaine le justifient (introduction de RabbitMQ à ce moment-là seulement). Chaque nouveau produit branché est un incrément, plus une reconstruction.
 
 Fin du Plan de Delivery du MVP — Version 1.0
+
+---
+
+# Addendum 1.0 — Plan de delivery de la plateforme de projets SaaS (2026-10-24)
+
+> **Addendum daté, ratifié.** Le document Word
+> `source/Plan_Delivery_MVP_Core_System.docx` reste la référence des §1 à §14
+> ci-dessus. Cet addendum découpe les ADR-0068 à ADR-0091 en lots. Aucun lot
+> ne commence avant l'acceptation par le comité des ADR qu'il réalise — la
+> série 0068→0090 a été **ratifiée le 2026-10-27**, et ADR-0091 consigne les
+> décisions que le code avait introduites sans ADR. Le §2.2 ci-dessus est
+> **caduque** sur deux points : voir la note en fin de §2.2.
+
+## P1. Situation de départ
+
+Lots 0, 1, 2, 4, 5 et 6 livrés ; le **lot 3 livré pour son orchestration
+seulement** — le moteur de frais et les adaptateurs MTN/Orange directs
+restent absents, hors périmètre de production (ADR-0048) ; les **lots 8, 9,
+10 et 11 livrés**, le 11 le 2026-10-28. Le lot 7 (« migration pilote ») est
+remplacé par le lot 17 (bascule et extinction), puisqu'aucune donnée n'est à
+reprendre (ADR-0089, sous réserve de confirmation par la direction).
+
+## P2. Principes
+
+1. **Un lot = un incrément démontrable de bout en bout**, avec ses tests et sa
+   recette ; jamais une tranche de couche.
+2. **Chaque lot se termine vert** : `make ci`, `make guard-test`, `make arch`,
+   `make stan` ; `openapi/v1.json` (et `admin.json`) régénérés sans rupture.
+3. **Sécurité incluse, pas ajoutée** : chaque lot livre les contrôles S-xx de
+   ses ADR et passe la revue de sécurité (skill `security-review`) avant
+   fusion.
+4. **Le graphe de modules change avec le lot qui crée l'arête**, après
+   acceptation de l'ADR correspondant (comité, ADR-0002).
+5. **Estimations** en jours de travail d'un développeur senior, ±30 %, tests
+   et documentation inclus.
+
+## P3. Les lots
+
+| Lot | Contenu | ADR | Dépend de | Est. |
+|---|---|---|---|---|
+| **8 — Fondations de sécurité et d'identité** | appartenances d'organisation, `AccessScope` obligatoire dans tous les ports console (migration des ports existants), invitations par jeton, cycle de vie des projets ; clés multiples à portée, rotation, CIDR ; service de chiffrement et d'index aveugle dans `support` ; trigger d'immuabilité et empreinte de `audit_log` ; garde-fous **G14** et **G15** | 0069, 0081, 0082, 0083 (socle) | — | 12 j |
+| **9 — Grand livre complet** | `purpose` des paiements, écriture de tout paiement confirmé, `clearing:<prestataire>` et reclassement, vérification du montant confirmé, `payment_exceptions` et file `money_exceptions`, trigger inter-projets (**G13**), immuabilité des transactions, ports de lecture par période et balance, contrôles d'invariants de `payment` (`invariants:check`) | 0076, 0077, 0078 (niveau A) | — | 10 j |
+| **10 — Commerce I : clients, catalogue, abonnements** | module `billing` en production ; `customers` (PII chiffrée), `plans`/`plan_versions`, `subscriptions`/`subscription_periods`, machine d'états, planificateur sur `Clock`, `billing_settings`, événements, API publique, écrans console de base | 0070, 0071, 0072 | 8 | 14 j |
+| **11 — Commerce II : factures et encaissement** | factures, numérotation, documents HTML (le PDF attend sa bibliothèque — ADR-0094 §14), `invoice_payments`, imputation au grand livre, encaissement hors ligne validé à un compte (ADR-0095), surpaiements en exception, **enregistrement** des reçus (le rendu du reçu reste à écrire — ADR-0073 §5) | 0073, 0094, 0095 | 9, 10 | 12 j |
+| **12 — Usage et quotas** | `usage_records` partitionné, `usage_idempotency`, `usage_counters`, `POST /v1/usage`, `entitlements`, port `QuotaGuard` de `notification` (arête `notification → billing`), seuils dans la transaction, compensation des échecs | 0074 | 10 | 9 j |
+| **13 — Portail client** | module `portal` : sessions créées par le projet, échange et cookie, personnalisation, écrans (abonnements, factures, paiement, reçus, usage, profil), connexion directe par code (désactivée par défaut), en-têtes de sécurité testés | 0075 | 8, 11 | 13 j |
+| **14 — Console de portefeuille** | écrans Portefeuille / Projet / Client / Créances / Exceptions, indicateurs, `billing_daily_metrics`, liste de contrôle d'onboarding, gestes d'exploitation d'abonnement | 0080, 0072 §6 | 11, 12 | 10 j |
+| **15 — Exploitation** | débit par projet / clé / classe, en-têtes `RateLimit-*`, métriques par projet, tableaux Grafana et alertes par budget d'erreur, relais de l'outbox après commit, partitions, listings publics par curseur, exports | 0085, 0088, 0090 | 8 | 10 j |
+| **16 — Contrat et expérience développeur** | politique de version (`Deprecation`/`Sunset`, G9 sur `admin.json`, énumérations ouvertes), `api_version` dans les événements, changelog au tag, registre de capacités testé, pages de démarrage exécutées, horloges de test | 0086, 0087 | 10 | 7 j |
+| **17 — Bascule et extinction** | guide d'intégration unique, recette bout-en-bout avec une application réelle, bascule projet par projet, coexistence 14 jours, coupure, retrait | 0084, 0089 | 11, 12, 13 | 8 j + 4 semaines calendaires |
+| **18 — Rapprochement prestataire** | capacités `listTransactions` et `balance` des adaptateurs, niveaux B et C, `reconciliation_runs`, écrans | 0078 | 9 | 10 j |
+| **19 — Versements sortants** | module `payout`, port et adaptateur avec environnement de test du prestataire, callback dédié, balayage, plafonds, double validation, destination chiffrée | 0079 | 9 | 15 j |
+
+**État au 2026-10-28** : les **lots 8, 9, 10, 11, 12 et 13 sont livrés** (le 12 : ADR-0074 ; le 13 : ADR-0075 et ADR-0097 — la connexion directe par code, entrée secondaire d'ADR-0075 §2, reste à faire) — code conforme à
+leurs ADR, `make ci` et `make guard-test` verts. La série d'ADR qui les
+réalise a été **ratifiée par le comité le 2026-10-27**, après vérification de
+la conformité du code livré (la décision a suivi le code, et non l'inverse —
+c'est tracé dans ADR-0068 §6 et dans ADR-0091). Les lots 9 et 10, qui ne
+dépendent de rien d'autre, sont terminés ; le lot 11 — la facture et son
+encaissement (ADR-0073, ADR-0094, ADR-0095) — l'est également.
+
+**État du lot 9** : il est **livré** (le 2026-10-27). L'écriture de tout
+paiement confirmé, la vérification du montant confirmé, la file
+`money_exceptions` et sa résolution à quatre yeux (ADR-0076 §3, ADR-0077),
+le trigger d'isolation inter-projets et l'immuabilité des transactions
+(ADR-0076 §5), les lectures par période, la balance et le relevé de compte
+(`ListLedgerTransactions`, `TrialBalance`, `AccountStatement`, ADR-0076 §4),
+les corrections d'exploitation à quatre vues et leur contre-passation
+obligatoire (ADR-0076 §6), le compte `clearing` **par prestataire** et son
+reclassement motivé (ADR-0076 §2 — sans lui, le rapprochement par
+prestataire et les versements sont impossibles), le contrôle horaire des
+invariants (`invariants:check`, ADR-0078 §2) et le registre des
+rapprochements (`reconciliation_runs`, ADR-0078 §5) sont en place et testés.
+
+Le lot 9 livre aussi la **clôture de S-07** (ADR-0081) : un compte console
+n'est plus ouvert par un mot de passe choisi par le système, mais par un
+jeton d'activation à usage unique — l'invitation est révocable, expirante,
+et le mot de passe est choisi par l'invité, à l'activation.
+
+**État du lot 10** : il est **livré** (le 2026-10-27). Le module `billing`
+est en production : les **clients** d'un projet (identité minimale
+chiffrée, index aveugle, effacement qui détruit l'identité et garde la
+ligne — ADR-0070, ADR-0083), le **catalogue** de plans et de versions
+(une version publiée est figée par un trigger de base, ADR-0071), les
+**abonnements** et leurs périodes (machine d'états, exclusion des
+périodes qui se chevauchent, verrou optimiste — ADR-0072), l'ordonnanceur
+`billing:advance-subscriptions` sur `Clock`, les réglages par projet
+(`billing_settings`), l'**API publique** (16 routes `/v1`, un
+`FormRequest` par mutation, un corps documenté) et la **console** (les
+clients, les offres et les abonnements d'un projet ; chaque geste est
+audité — ADR-0092 §2 et §4). Le **lot 11** ajoute la **facture** et son
+**encaissement** (ADR-0073, ADR-0094, ADR-0095) : un document figé à
+l'émission, numéroté sans trou, taxé par ligne, dont l'émission inscrit la
+créance au grand livre et dont l'annulation la contre-passe ; puis le
+paiement **en ligne** (`POST /v1/invoices/{id}/pay`, l'intention `invoice`
+qui écarte le double comptage, ADR-0094 §9) et l'**encaissement hors
+ligne** — un reçu qui porte sa méthode, sa référence et son montant, et
+qui attend une validation explicite au-dessus du seuil du projet
+(ADR-0094 §13 ; ADR-0095 a retiré les quatre yeux : un seul compte
+valide). Un règlement partiel n'est **jamais** imputé (ADR-0094 §10) et un
+paiement tardif sur une facture déjà soldée part en **surpaiement** plutôt
+que de disparaître. La déclaration du paiement d'une période refuse
+désormais une période dont la facture n'est pas soldée (ADR-0094 §8).
+
+**Charge**. Les lots 8 à 19 pèsent **130 jours de travail** au total. Les
+lots 12 à 19 — ceux qui restent — pèsent **82 j** (9 + 13 + 10 + 10 + 7 + 8
++ 10 + 15). C'est **plus que le budget que ce plan s'était fixé** : le plan
+imputait le dépassement du lot 11 sur l'avenir, ce qui n'est pas une réserve
+mais un trou. Il faut absorber 4 j, ou réduire la charge.
+
+**Ce qui est mesurable, et ce qui ne l'est pas.** Les lots 8 à 11 sont
+livrés en **4 jours calendaires** (3 jours ouvrés, du 26 au 28 octobre 2026),
+en 15 commits et 71 055 lignes ajoutées sur 949 fichiers. Il n'existe
+**aucune trace d'effort** dans le dépôt : les « 52 j déjà consommés » que ce
+plan annonçait étaient une estimation rebadigotée, pas une mesure, et le
+« 16 j sur 12 » du lot 11 n'a rien derrière lui non plus. Les estimations
+par lot sont donc **non contraignantes** : le calendrier se pilote sur les
+dates réelles, la charge se pilote sur le nombre de personnes.
+
+## P4. Chemin critique et parallélisation
+
+```
+Lot 8 ─────────► Lot 10 ──► Lot 11 ──► Lot 13 ──► Lot 17 (bascule)
+                   │          ▲  │
+Lot 9 ─────────────┼──────────┘  └──► Lot 14
+  │                └──► Lot 12 ───────────────────▲ (17 dépend aussi de 12)
+  ├──► Lot 18
+  └──► Lot 19
+Lot 15 (dès la fin du lot 8)       Lot 16 (dès la fin du lot 10)
+```
+
+- **Chemin critique** : 8 → 10 → 11 → 13 → 17 = 12 + 14 + 12 + 13 + 8 =
+  **59 jours** de travail, puis 4 semaines de bascule. Les lots 8, 10 et 11
+  étant livrés, il reste **21 jours** sur ce chemin (13 + 8).
+- **Second chemin critique** : 8 → 10 → 11 → 12 → 14 = 12 + 14 + 12 + 9 + 10
+  = **57 jours** — à deux jours du premier. Les deux voies se tiennent **sans
+  marge** : le lot 17 dépend du lot 12 (§P3), et le lot 14 en dépend
+  aussi. C'est la voie de B qui est tendue, pas celle de A.
+- **Seconde personne** : le lot **12 d'abord** — c'est lui qui contraint le
+  lot 17 — puis 15, 14 et 16. Voir §P7.
+- Les lots 18 et 19 ne conditionnent pas la bascule : ils sont reportables.
+
+## P5. Critères de sortie communs
+
+- Les tests de vérification listés dans chaque ADR du lot passent.
+- Les critères de recette de la spécification fonctionnelle (addendum, §F8)
+  correspondants sont verts sur le staging.
+- Revue de sécurité faite, constats critiques et hauts corrigés.
+- Documentation d'intégration de la capacité écrite et exemples `curl`
+  exécutés par la suite de tests.
+
+## P6. Risques et parades
+
+| Risque | Parade |
+|---|---|
+| Le comité n'accepte pas un ADR qui modifie le graphe (0068, 0074, 0075, 0079) | **levé le 2026-10-27** : la série est ratifiée, les arêtes de graphe des lots 12, 13 et 19 sont donc autorisées. Le risque rouvre si une de ces décisions change |
+| Le prestataire ne fournit pas le montant confirmé, le relevé ou le solde | capacités d'adaptateur déclarées (ADR-0077, ADR-0078) ; le core fonctionne en mode dégradé visible, jamais présumé juste |
+| Migration des ports console vers `AccessScope` plus longue que prévu | elle est en tête (lot 8) et vérifiée par une règle PHPStan |
+| Charge du journal d'usage | partitionnement dès la première migration ; test de charge au lot 15 |
+| Recette bout-en-bout dépendante d'une vraie session de messagerie et d'un vrai numéro | session créée par l'exploitant, numéro de l'équipe, simulateur de paiement et horloge de test |
+| Confirmation de « aucune donnée à reprendre » non obtenue | plan de reprise partielle (clients, plans) prévu dans le plan de bascule |
+
+## P7. Calendrier prévisionnel
+
+Hypothèses : deux développeurs seniors (A sur le chemin critique, B en
+parallèle), jours ouvrés, hors 25 décembre, 1ᵉʳ janvier et 11 février. Le
+comité a ratifié la série le 2026-10-27 et les **lots 8, 9, 10 et 11 sont
+livrés**.
+
+**Rebasage du 2026-10-28.** Le lot 11 a été livré le 2026-10-28, **seize
+jours calendaires avant** sa date planifiée (le 13 novembre). Le plan
+prévoyait sa propre règle : « un lot en retard de plus de 20 % sur son
+estimation déclenche une replanification écrite dans cet addendum ». La
+règle s'applique, mais sur un autre fondement : il n'existe **aucune mesure
+d'effort** dans le dépôt, donc le calendrier se rebase sur la **date réelle**
+du lot 11, pas sur une charge estimée.
+
+Ce rebasage fait deux choses :
+
+- il **libère A** : le lot 13 démarre le 2026-10-29 au lieu du 2026-11-16 ;
+- il **corrige la voie de B** : le lot 12 passe **en tête**, parce que le lot
+  17 en dépend (§P3) et qu'il était le vrai facteur bloquant de la bascule.
+  Le plan d'origine faisait commencer le lot 17 avant la fin du lot 12 — une
+  incohérence qu'un premier rebasage avait reprise sans la voir.
+
+Résultat : **extinction le 29 décembre 2026**, vingt jours avant la date
+publiée. A est engagée **sans interruption** du 2026-10-29 au 2026-12-29,
+sans marge ; B aussi, jusqu'au 2026-12-22. Les dates glissent d'autant qu'un
+lot déborde ; chaque lot reste conditionné à l'acceptation de ses ADR.
+
+| Étape | Qui | Début | Fin |
+|---|---|---|---|
+| Ratification de la série ADR-0068 à ADR-0091 par le comité | direction + comité | 2026-10-26 | 2026-10-27 |
+| Lot 8 — Fondations de sécurité et d'identité | A | 2026-10-24 | 2026-10-27 (**livré**) |
+| Lot 9 — Grand livre complet | B | 2026-10-24 | 2026-10-27 (**livré**) |
+| Lot 10 — Commerce I (clients, catalogue, abonnements) | A | 2026-10-24 | 2026-10-27 (**livré**) |
+| Lot 11 — Commerce II (factures, encaissement) | A | 2026-10-24 | 2026-10-28 (**livré**) |
+| Lot 12 — Usage et quotas | B | 2026-10-28 | 2026-11-09 |
+| Lot 13 — Portail client | A | 2026-10-29 | 2026-11-16 |
+| Lot 15 — Exploitation | B | 2026-11-10 | 2026-11-23 |
+| *Marge de B (revue de sécurité des lots 8–11, harnais de tests IDOR)* | B | 2026-11-24 | 2026-11-27 |
+| Lot 17 — Bascule (préparation, recette bout-en-bout) | A | 2026-11-17 | 2026-11-26 |
+| Lot 14 — Console de portefeuille | B | 2026-11-28 | 2026-12-11 |
+| Bascule, coexistence 14 j, coupure, retrait | A + exploitation | 2026-11-27 | 2026-12-29 |
+| Lot 16 — Contrat et expérience développeur | B | 2026-12-14 | 2026-12-22 |
+| Lot 19 — Versements sortants | B | 2026-12-23 | 2027-01-14 |
+| Lot 18 — Rapprochement prestataire | B | 2027-01-15 | 2027-01-28 |
+
+**Jalons** : socle sécurisé le 27 octobre · commerce complet (abonnements +
+factures) le **28 octobre** · portail client le **16 novembre** · début de
+bascule le **27 novembre** · **extinction de la plateforme transitoire le
+29 décembre 2026**.
+
+Revue d'avancement chaque vendredi ; un lot en retard de plus de 20 % sur son
+estimation déclenche une replanification écrite dans cet addendum.
+
+Fin de l'addendum — 2026-10-24

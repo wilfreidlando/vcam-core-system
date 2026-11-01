@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Http;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LoggerInterface;
@@ -52,7 +53,14 @@ final class ObservabilityEndpointsTest extends TestCase
         $response->assertOk();
         $body = (string) $response->baseResponse->getContent();
         self::assertStringContainsString('# TYPE core_up gauge', $body);
-        self::assertStringContainsString('core_outbox_unpublished 0', $body);
+        // The metric counts the rows the relay has not published yet. The
+        // assertion compares it with the real count — a hard-coded zero
+        // would only hold on an empty database, and the point of the
+        // metric is to be right whatever the relay has left to do.
+        self::assertStringContainsString(
+            'core_outbox_unpublished '.DB::table('event_outbox')->whereNull('published_at')->count(),
+            $body,
+        );
         self::assertStringContainsString('# TYPE core_payments gauge', $body);
     }
 

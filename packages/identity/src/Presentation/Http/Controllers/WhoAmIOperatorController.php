@@ -25,7 +25,7 @@ final class WhoAmIOperatorController
         return new JsonResponse([
             'operator_id' => $operator->operatorId,
             'email' => $operator->email,
-            'role' => $operator->role->value,
+            'role' => $operator->role?->value,
         ]);
     }
 }

@@ -7,7 +7,6 @@ use App\Http\Controllers\Observability\ReadinessController;
 use App\Http\ExceptionProblemMapping;
 use App\Http\Middleware\RecordHttpMetrics;
 use Core\Identity\Presentation\Http\Middleware\ResolveOperatorMiddleware;
-use Core\Identity\Presentation\Http\Middleware\ResolveProjectMiddleware;
 use Core\Support\Http\Middleware\CorrelationId;
 use Core\Support\Http\Middleware\LogHttpExchange;
 use Core\Support\Http\Middleware\RequireIdempotencyKey;
@@ -73,7 +72,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // The composition root is the one place allowed to bind the string
         // to the class.
         $middleware->alias([
-            'project.auth' => ResolveProjectMiddleware::class,
+            'project.auth' => App\Http\Middleware\AuthenticateProjectWithRateLimit::class,
             // ADR-0044: the platform operator plane, parallel to project.auth.
             'operator.auth' => ResolveOperatorMiddleware::class,
             // Admin web UI: reads the Sanctum cookie set by ResolveOperatorSession
@@ -82,6 +81,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'operator.session' => App\Http\Middleware\ResolveOperatorSession::class,
             // G7: every monetary mutation route applies this (ADR-0025).
             'idempotency' => RequireIdempotencyKey::class,
+            // ADR-0081 S-11: the console's security headers (the portal has its own).
+            'admin.headers' => App\Http\Middleware\AdminSecurityHeaders::class,
         ]);
     })
     ->withSchedule(function (Schedule $schedule): void {
@@ -97,6 +98,18 @@ return Application::configure(basePath: dirname(__DIR__))
         // production, so this is the only way a payment gets confirmed.
         $schedule->command('admin:reconcile-stuck-payments')->everyMinute()->withoutOverlapping();
 
+        // ADR-0078 §2: the financial invariants (ledger completeness, trial
+        // balance, wallets backed by collections). Reads only; a violation
+        // opens a critical money exception in the console.
+        $schedule->command('invariants:check', ['--hours' => '2'])->hourly()->withoutOverlapping()->onOneServer();
+
+        // ADR-0081 S-16: seal each complete day of the audit log, then verify
+        // the whole digest chain (exit 1 = a sealed day was altered).
+        $schedule->command('audit:seal')->dailyAt('00:20')->withoutOverlapping()->onOneServer();
+        $schedule->command('audit:verify')->dailyAt('00:40')->withoutOverlapping()->onOneServer();
+        // ADR-0082 §5: erase previous webhook secrets once their overlap ended.
+        $schedule->command('webhooks:purge-expired-secrets')->hourly()->withoutOverlapping()->onOneServer();
+
         // Audit 2026-10-03 §4.3: re-dispatch webhook deliveries whose job was lost.
         $schedule->command('webhook:sweep')->everyFiveMinutes()->withoutOverlapping();
 
@@ -110,6 +123,27 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // ADR-0062 / D5: notification content (phone numbers…) kept 90 days.
         $schedule->command('notification:redact-expired')->dailyAt('03:27')->withoutOverlapping();
+
+        // ADR-0088 §3: the files of the project exports are deleted after seven
+        // days. Idempotent: the record stays, the file goes once.
+        $schedule->command('exports:purge-expired')->dailyAt('03:37')->withoutOverlapping()->onOneServer();
+
+        // ADR-0072 §8: the renewal scheduler — the next period is
+        // prepared before its deadline, the periods roll over at it. One
+        // server runs the pass, and a pass still running is not started
+        // again. The pass is idempotent: replayed, it creates neither a
+        // duplicate period nor a duplicate event.
+        $schedule->command('billing:advance-subscriptions')
+            ->everyFiveMinutes()
+            ->onOneServer()
+            ->withoutOverlapping();
+
+        // ADR-0080 §2: the day's indicators are kept once a night, for the
+        // console curves. Idempotent: a replay overwrites the day.
+        $schedule->command('billing:snapshot-metrics')
+            ->dailyAt('00:10')
+            ->onOneServer()
+            ->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // One error format across the whole Core's JSON surface: RFC 7807

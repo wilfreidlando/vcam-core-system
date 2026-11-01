@@ -145,3 +145,38 @@ it('scopes keys by IdempotencyScope: the same key under a different scope is ind
 
     expect($calls)->toBe(2, 'two different projects must never collide on the same key');
 });
+
+it('releases the key when the request fails, so the caller can try again', function (): void {
+    // ADR-0093 §7 — a key is a promise about a *successful* request. A
+    // request that failed produced no effect: the key goes back to the
+    // caller. Otherwise every retry of a failed request answers 409
+    // "already in progress" for ever.
+    $store = new InMemoryIdempotencyStore;
+    $mw = middleware($store);
+
+    $request = Request::create('/x', 'POST', content: '{}');
+    $request->headers->set(RequireIdempotencyKey::HEADER, 'failed-key');
+
+    $failing = function (Request $r): Response {
+        throw new RuntimeException('the route refused the request');
+    };
+
+    try {
+        $mw->handle($request, $failing);
+        Assert::fail('the exception of the route must reach the caller');
+    } catch (RuntimeException) {
+        // expected
+    }
+
+    // The key is free again: the same request, the same key, runs.
+    $calls = 0;
+    $response = $mw->handle($request, function (Request $r) use (&$calls): Response {
+        $calls++;
+
+        return new JsonResponse(['ok' => true], 201);
+    });
+
+    expect($calls)->toBe(1)
+        ->and($response->getStatusCode())->toBe(201)
+        ->and($store->find('project-1', 'failed-key'))->not->toBeNull();
+});

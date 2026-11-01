@@ -5,28 +5,39 @@ declare(strict_types=1);
 namespace Core\Payment;
 
 use Core\Events\Contracts\OutboxEventPublished;
+use Core\Ledger\Contracts\TrialBalance;
+use Core\Parties\Contracts\PartyFinder;
 use Core\Payment\Application\Port\PaymentSimulator;
 use Core\Payment\Application\Service\PaymentJourney;
+use Core\Payment\Application\UseCase\CheckPaymentInvariantsUseCase;
 use Core\Payment\Application\UseCase\CountStuckPaymentsUseCase;
 use Core\Payment\Application\UseCase\GetPaymentStatusUseCase;
 use Core\Payment\Application\UseCase\GetPaymentTimelineUseCase;
 use Core\Payment\Application\UseCase\HandlePaymentStatusChangedUseCase;
+use Core\Payment\Application\UseCase\ListMoneyExceptionsUseCase;
+use Core\Payment\Application\UseCase\ListPaymentsByCursorUseCase;
 use Core\Payment\Application\UseCase\ListPaymentsUseCase;
 use Core\Payment\Application\UseCase\ListProviderApplicationsUseCase;
 use Core\Payment\Application\UseCase\ListStuckPaymentsUseCase;
 use Core\Payment\Application\UseCase\PaymentActivitySummaryUseCase;
 use Core\Payment\Application\UseCase\ReconcilePaymentUseCase;
 use Core\Payment\Application\UseCase\ReconcileStuckPaymentsUseCase;
+use Core\Payment\Application\UseCase\RecordMoneyExceptionUseCase;
 use Core\Payment\Application\UseCase\RegisterProviderApplication as RegisterProviderApplicationUseCase;
+use Core\Payment\Application\UseCase\ResolveMoneyExceptionUseCase;
 use Core\Payment\Application\UseCase\SimulatePaymentUseCase;
 use Core\Payment\Application\UseCase\StartPaymentUseCase;
+use Core\Payment\Contracts\CheckPaymentInvariants;
 use Core\Payment\Contracts\CountStuckPayments;
 use Core\Payment\Contracts\GetPaymentStatus;
 use Core\Payment\Contracts\GetPaymentTimeline;
+use Core\Payment\Contracts\ListMoneyExceptions;
 use Core\Payment\Contracts\ListPayments;
+use Core\Payment\Contracts\ListPaymentsByCursor;
 use Core\Payment\Contracts\ListProviderApplications;
 use Core\Payment\Contracts\ListStuckPayments;
 use Core\Payment\Contracts\PaymentActivitySummary;
+use Core\Payment\Contracts\PaymentExportRecords;
 use Core\Payment\Contracts\PaymentGatewayRegistry;
 use Core\Payment\Contracts\PaymentProviderRouter;
 use Core\Payment\Contracts\PaymentStats;
@@ -34,20 +45,30 @@ use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\PaymentStatusMapper;
 use Core\Payment\Contracts\ReconcilePayment;
 use Core\Payment\Contracts\ReconcileStuckPayments;
+use Core\Payment\Contracts\RecordMoneyException;
 use Core\Payment\Contracts\RegisterProviderApplication;
+use Core\Payment\Contracts\ResolveMoneyException;
 use Core\Payment\Contracts\SimulatePayment;
 use Core\Payment\Contracts\StartPayment;
+use Core\Payment\Domain\Port\MoneyExceptionRepository;
+use Core\Payment\Domain\Port\MoneyPoolLock;
 use Core\Payment\Domain\Port\PaymentCallbackAuthenticator;
 use Core\Payment\Domain\Port\PaymentCallbackSecretGenerator;
 use Core\Payment\Domain\Port\PaymentCallbackSender;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\Domain\Port\PaymentTimeline;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
+use Core\Payment\Domain\Port\ReconciliationRunRepository;
+use Core\Payment\Domain\Port\SettlementLedger;
 use Core\Payment\Infrastructure\Delivery\HttpPaymentCallbackSender;
+use Core\Payment\Infrastructure\Ledger\LedgerSettlementLedger;
+use Core\Payment\Infrastructure\Persistence\Eloquent\EloquentMoneyExceptionRepository;
 use Core\Payment\Infrastructure\Persistence\Eloquent\EloquentPaymentRepository;
 use Core\Payment\Infrastructure\Persistence\Eloquent\EloquentPaymentStats;
 use Core\Payment\Infrastructure\Persistence\Eloquent\EloquentPaymentTimeline;
 use Core\Payment\Infrastructure\Persistence\Eloquent\EloquentProviderApplicationRepository;
+use Core\Payment\Infrastructure\Persistence\Eloquent\EloquentReconciliationRunRepository;
+use Core\Payment\Infrastructure\Persistence\Eloquent\PostgresMoneyPoolLock;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayAdapter;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayCallbackAuthenticator;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayStatusMapper;
@@ -55,13 +76,18 @@ use Core\Payment\Infrastructure\Provider\PaymentGatewayRegistryImpl;
 use Core\Payment\Infrastructure\Provider\Simulator\InternalPaymentSimulator;
 use Core\Payment\Infrastructure\Routing\ConfigPaymentProviderRouter;
 use Core\Payment\Infrastructure\Security\RandomPaymentCallbackSecretGenerator;
+use Core\Payment\Presentation\Console\Commands\CheckInvariantsCommand;
+use Core\Payment\Presentation\Console\Commands\ReclassifyClearingCommand;
 use Core\Payment\Presentation\Console\Commands\RegisterProviderApplicationCommand;
+use Core\Payment\Presentation\Export\PaymentExportRecordsReader;
 use Core\Payment\Presentation\Listeners\DeliverPaymentCallbackListener;
 use Core\Support\Clock;
 use Core\Support\Integration\Provider\ProviderCode;
 use Core\Support\Integration\Provider\ProviderRegistry;
 use Core\Support\Integration\Transport\GuardedHttpTransport;
 use Core\Support\Integration\Transport\HttpTransport;
+use Core\Support\UnitOfWork;
+use Core\Wallet\Contracts\CreditWallet;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
@@ -101,6 +127,10 @@ final class PaymentServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 RegisterProviderApplicationCommand::class,
+                CheckInvariantsCommand::class,
+                // ADR-0076 §2 — the one-off reclassification of the
+                // historical project-level `clearing` account.
+                ReclassifyClearingCommand::class,
             ]);
         }
     }
@@ -173,6 +203,37 @@ final class PaymentServiceProvider extends ServiceProvider
 
         $this->app->bind(PaymentRepository::class, EloquentPaymentRepository::class);
         $this->app->bind(ProviderApplicationRepository::class, EloquentProviderApplicationRepository::class);
+        $this->app->bind(SettlementLedger::class, LedgerSettlementLedger::class);
+        $this->app->bind(MoneyExceptionRepository::class, EloquentMoneyExceptionRepository::class);
+        // ADR-0077 §4 — the pool `payment_exceptions` is read and spent
+        // under a lock, so two concurrent resolutions cannot both spend
+        // the same money.
+        $this->app->bind(MoneyPoolLock::class, PostgresMoneyPoolLock::class);
+        $this->app->bind(ReconciliationRunRepository::class, EloquentReconciliationRunRepository::class);
+        $this->app->bind(RecordMoneyException::class, RecordMoneyExceptionUseCase::class);
+        $this->app->bind(CheckPaymentInvariants::class, CheckPaymentInvariantsUseCase::class);
+        $this->app->bind(ListMoneyExceptions::class, ListMoneyExceptionsUseCase::class);
+        $this->app->bind(ResolveMoneyException::class, function (Application $app): ResolveMoneyExceptionUseCase {
+            /** @var int $threshold */
+            $threshold = $app->make('config')->get('payment.exceptions.approval_threshold_minor', 50000);
+
+            return new ResolveMoneyExceptionUseCase(
+                $app->make(UnitOfWork::class),
+                $app->make(MoneyExceptionRepository::class),
+                $app->make(SettlementLedger::class),
+                $app->make(Clock::class),
+                $threshold,
+                // ADR-0077 §4 — imputing an exception to a wallet goes
+                // through the wallet module, the only one that knows the
+                // wallet's ledger account.
+                $app->make(CreditWallet::class),
+                $app->make(PartyFinder::class),
+                // ADR-0077 §4 — the pool `payment_exceptions` is read
+                // before it is debited, and spent under a lock.
+                $app->make(TrialBalance::class),
+                $app->make(MoneyPoolLock::class),
+            );
+        });
         $this->app->bind(PaymentCallbackSecretGenerator::class, RandomPaymentCallbackSecretGenerator::class);
         $this->app->bind(PaymentCallbackSender::class, HttpPaymentCallbackSender::class);
         // Audit 2026-10-03 §2.1: a Project-chosen URL goes through the
@@ -183,6 +244,9 @@ final class PaymentServiceProvider extends ServiceProvider
         $this->app->bind(GetPaymentStatus::class, GetPaymentStatusUseCase::class);
         $this->app->bind(PaymentStatusChangeHandler::class, HandlePaymentStatusChangedUseCase::class);
         $this->app->bind(ListPayments::class, ListPaymentsUseCase::class);
+        $this->app->bind(ListPaymentsByCursor::class, ListPaymentsByCursorUseCase::class);
+        // ADR-0088 §3 — the rows of the project export, in the public API's shape.
+        $this->app->bind(PaymentExportRecords::class, PaymentExportRecordsReader::class);
         $this->app->bind(PaymentStats::class, EloquentPaymentStats::class);
         $this->app->bind(PaymentTimeline::class, EloquentPaymentTimeline::class);
         $this->app->bind(PaymentSimulator::class, InternalPaymentSimulator::class);

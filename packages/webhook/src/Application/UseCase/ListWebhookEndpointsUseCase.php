@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Webhook\Application\UseCase;
 
+use Core\Support\Access\AccessScope;
+use Core\Support\Clock;
 use Core\Webhook\Contracts\ListWebhookEndpoints;
 use Core\Webhook\Contracts\ListWebhookEndpointsCommand;
 use Core\Webhook\Contracts\WebhookEndpointView;
@@ -14,10 +16,19 @@ final readonly class ListWebhookEndpointsUseCase implements ListWebhookEndpoints
 {
     public function __construct(
         private WebhookEndpointRepository $endpoints,
+        private Clock $clock,
     ) {}
 
-    public function list(ListWebhookEndpointsCommand $command): array
+    public function list(ListWebhookEndpointsCommand $command, AccessScope $scope): array
     {
+        // ADR-0069 §2 — a project outside the account's scope yields an
+        // empty listing rather than another tenant's endpoints. The
+        // repository filters on `project_id`, so the query itself never
+        // reaches a foreign project's rows either.
+        if (! $scope->allowsProject($command->projectId)) {
+            return [];
+        }
+
         // Every endpoint, active or not — review finding: this used to
         // call `findActiveForProject()`, so a deactivated endpoint simply
         // vanished from the admin listing instead of showing as
@@ -25,12 +36,15 @@ final readonly class ListWebhookEndpointsUseCase implements ListWebhookEndpoints
         // The actual fan-out decision (who receives the NEXT event)
         // still goes through `findActiveForProject()` elsewhere
         // (`HandleRelayedEventUseCase`), untouched by this change.
+        $now = $this->clock->now();
+
         return array_map(
             static fn (WebhookEndpoint $endpoint): WebhookEndpointView => new WebhookEndpointView(
                 id: $endpoint->id,
                 url: $endpoint->url,
                 events: $endpoint->subscribedEventTypes,
                 active: $endpoint->active,
+                previous_secret_expires_at: $endpoint->previousSecretAt($now) === null ? null : $endpoint->previousSecretExpiresAt?->format(DATE_ATOM),
             ),
             $this->endpoints->findAllForProject($command->projectId),
         );

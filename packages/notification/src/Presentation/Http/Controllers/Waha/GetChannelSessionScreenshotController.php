@@ -10,6 +10,7 @@ use Core\Notification\Contracts\ChannelSessionNotFound;
 use Core\Notification\Contracts\GetChannelSessionCommand;
 use Core\Notification\Contracts\GetChannelSessionScreenshot;
 use Core\Notification\Contracts\NotificationChannel;
+use Core\Support\Access\AccessScope;
 use Core\Support\Http\ProblemDetails;
 use Core\Support\Integration\CircuitBreaker\CircuitOpenException;
 use Core\Support\Integration\Exception\ProviderAuthError;
@@ -48,11 +49,16 @@ final class GetChannelSessionScreenshotController
             return ProblemDetails::forbidden('The notification_channel_sessions:read scope is required.');
         }
 
-        $screenshot = $this->getScreenshot->get(new GetChannelSessionCommand(
-            projectId: $project->projectId,
-            channel: NotificationChannel::fromString($channel),
-            sessionRef: $sessionRef,
-        ));
+        // ADR-0069 §2 — the public API's scope is the calling project
+        // itself.
+        $screenshot = $this->getScreenshot->get(
+            new GetChannelSessionCommand(
+                projectId: $project->projectId,
+                channel: NotificationChannel::fromString($channel),
+                sessionRef: $sessionRef,
+            ),
+            AccessScope::forProject($project->projectId),
+        );
 
         return new JsonResponse([
             'mime_type' => $screenshot->mimeType,

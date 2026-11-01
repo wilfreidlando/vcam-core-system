@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $actor
  * @property string $action
  * @property string $resource
+ * @property string|null $organization_id
+ * @property string|null $project_id
  * @property array<string, mixed>|null $before
  * @property array<string, mixed>|null $after
  * @property array<string, mixed>|null $context
@@ -23,7 +25,7 @@ final class AuditLogRecord extends Model
 
     protected $table = 'audit_log';
 
-    protected $fillable = ['actor', 'action', 'resource', 'before', 'after', 'context', 'correlation_id', 'created_at'];
+    protected $fillable = ['actor', 'action', 'resource', 'organization_id', 'project_id', 'before', 'after', 'context', 'correlation_id', 'created_at'];
 
     protected $casts = [
         'before' => 'array',

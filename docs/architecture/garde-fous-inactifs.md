@@ -29,6 +29,8 @@ garde-fou** (une porte qui échoue pour une autre raison ne compte pas).
 | G3d | Le shared kernel `Support` ne contient aucune persistance | PHPat |
 | G5  | Montants en `bigint` minor units, jamais en flottant ni décimal | Pest + PostgreSQL |
 | G4  | Aucune colonne PII sur `parties` — actif depuis la migration Lot 2 | Pest + PostgreSQL |
+| G4b | La table `customers` n'a aucune colonne hors de sa liste blanche, et ses valeurs personnelles (email, téléphone) sont chiffrées au repos — actif depuis le lot 10 (ADR-0070 §1, ADR-0083) | Pest + PostgreSQL |
+| G4c | Les tables de facture n'ont aucune colonne hors de leur liste blanche, et le client figé sur une facture est chiffré au repos — actif depuis le lot 11 (ADR-0073 §1, ADR-0094 §2) | Pest + PostgreSQL |
 | G6  | Statuts bruts provider cantonnés à leur adaptateur | Règle PHPStan |
 | G6b | Enums de statuts canoniques conformes à la gouvernance — actif depuis `PaymentStatus` (Lot 3) et `NotificationStatus` (Lot 5, ADR-0041) | Pest |
 | G6c | Seul l'appelant d'intégration partagé ouvre des connexions HTTP sortantes | PHPat |
@@ -36,7 +38,13 @@ garde-fou** (une porte qui échoue pour une autre raison ne compte pas).
 | G8  | Aucun événement dispatché hors de l'outbox | PHPat + règle PHPStan |
 | G8c | L'écriture outbox et le changement d'état partagent une transaction — actif depuis `CreditWalletUseCase` (Lot 2, ADR-0032) | Pest + PostgreSQL |
 | G9  | Aucune rupture OpenAPI sans montée de version — actif depuis l'installation de Scramble et le premier snapshot commité (`openapi/v1.json`) | oasdiff + Spectral |
+| G9b | Le document d'API n'expose que les **intégrations externes** : le plan opérateur (`/v1/admin`, `/v1/operators`) appartient à la console et ne doit jamais apparaître dans le document d'un intégrateur ; les deux documents ne se recouvrent pas, et chaque route documentée existe (ADR-0049) | Pest |
+| G10 | Aucune régression de **contrat consommateur** : les endpoints et les événements que le premier consommateur utilise sont encore publiés, encore routés, et encore émis — le document seul ne le garantit pas (G9 ne compare le document qu'à lui-même) | Pest (fixtures `tests/Contract`) |
 | G11 | Invariants ledger (somme nulle, solde dérivé, concurrence, rejeu) — actif depuis le ledger et le wallet (Lot 2) | Pest + PostgreSQL |
+| G13 | Isolation financière : aucune écriture du grand livre ne traverse deux projets — trigger PostgreSQL, actif depuis le lot 9 (ADR-0076 §5) | Trigger PostgreSQL + Pest |
+| G14 | Aucun secret utilisable dans une réponse d'API, sauf une fois dans la réponse qui le crée — inventaire des champs « secrets » des DTO de réponse et contrôle des réponses réelles, liste blanche des créations justifiée route par route (ADR-0081 S-07) | Pest (analyse + application bootée) |
+| G15 | Isolation tenant de la console : toute route console porteuse d'un identifiant a un cas généré « compte de l'organisation A sur une ressource de B → 404, jamais 403 », avec contrôle positif et réserve plateforme ; le manifeste est confronté à la table de routage vivante, donc une route nouvelle sans cas n'échappe pas (ADR-0081 S-01/S-04, ADR-0069 §Sécurité) | Pest (cas générés) |
+| G16 | Toute lecture console passe par la portée d'organisation : un port de lecture appelé depuis la console exige `AccessScope` — en **paramètre requis**, sans valeur par défaut, sinon la console peut l'omettre et le port lit tout (règle PHPStan `AdminQueriesAreScopedRule`, sans aucune exemption) — et aucun gabarit Blade n'appelle de port : PHPStan ne lit pas les gabarits (ADR-0069 §2) | Règle PHPStan + Pest |
 
 Ces règles sont « actives » au sens où elles **rejettent aujourd'hui** une
 violation introduite n'importe où dans le code — ce que `make guard-test`
@@ -46,7 +54,10 @@ démontre — même si peu de code métier existe encore.
 
 | ID   | Règle | Activé par | Propriétaire |
 | ---- | ----- | ---------- | ------------ |
-| G10  | Aucune régression de contrat consommateur | **Lot 7** — intégration du produit pilote | QA |
+
+Aucun garde-fou n'est en attente de code : tous ceux qui sont écrits
+protègent du code aujourd'hui. Un garde-fou nouveau s'inscrit ici le jour
+où il est écrit — pas le jour où il le sera.
 
 ## Comment retirer une ligne de la section « en attente »
 

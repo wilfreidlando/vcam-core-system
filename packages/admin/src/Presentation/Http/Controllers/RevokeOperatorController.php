@@ -10,7 +10,6 @@ use Core\Identity\Contracts\RevokeOperatorCommand;
 use Core\Support\Http\ProblemDetails;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
-use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 final class RevokeOperatorController
@@ -36,17 +35,16 @@ final class RevokeOperatorController
 
         Validator::make(['operatorId' => $operatorId], ['operatorId' => 'uuid'])->validate();
 
-        try {
-            $this->revokeOperator->revoke(
-                new RevokeOperatorCommand($operatorId),
-                actor: 'operator:'.$operator->operatorId,
-                correlationId: null,
-            );
-        } catch (RuntimeException $e) {
-            // The concrete exception (OperatorNotFound) lives in
-            // identity's Domain layer; admin must not reference it (G3c).
-            return ProblemDetails::make('operator-not-found', 'Operator not found', 404, $e->getMessage());
-        }
+        // No catch here, on purpose. The refusals of this use case — OperatorNotFound (404),
+        // LastPlatformAdmin and CannotRevokeOwnAccount (409) — live in identity's Domain layer, which
+        // admin must not reference (G3c); `ExceptionProblemMapping` answers each with its own status.
+        // A blanket `catch (RuntimeException)` used to turn all three into a 404, so revoking the last
+        // platform administrator looked like « operator not found ».
+        $this->revokeOperator->revoke(
+            new RevokeOperatorCommand($operatorId),
+            actor: 'operator:'.$operator->operatorId,
+            correlationId: null,
+        );
 
         return new JsonResponse(null, 204);
     }

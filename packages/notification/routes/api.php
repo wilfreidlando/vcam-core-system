@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Core\Notification\Presentation\Http\Controllers\GetNotificationStatusController;
+use Core\Notification\Presentation\Http\Controllers\ListNotificationsController;
 use Core\Notification\Presentation\Http\Controllers\SendFileNotificationController;
 use Core\Notification\Presentation\Http\Controllers\SendImageNotificationController;
 use Core\Notification\Presentation\Http\Controllers\SendTextNotificationController;
@@ -53,6 +54,9 @@ Route::middleware(['project.auth'])
                 ->name('notifications.send-image');
             Route::post('/file', SendFileNotificationController::class)
                 ->name('notifications.send-file');
+            // ADR-0088 §2 — the cursor listing; read-only.
+            Route::get('/', ListNotificationsController::class)
+                ->name('notifications.list');
             Route::get('/{notificationId}', GetNotificationStatusController::class)
                 ->whereUuid('notificationId')
                 ->name('notifications.status');

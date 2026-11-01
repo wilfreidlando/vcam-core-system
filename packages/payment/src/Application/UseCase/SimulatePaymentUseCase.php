@@ -66,6 +66,10 @@ final readonly class SimulatePaymentUseCase implements SimulatePayment
             status: PaymentStatus::from($command->status),
             reason: $command->reason ?? ($command->status === 'succeeded' ? null : 'Simulated'),
             occurredAt: $this->clock->now()->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
+            // A simulated provider confirms exactly what was requested
+            // (ADR-0077): the settlement is verified, never an exception.
+            confirmedAmountMinor: $command->status === PaymentStatus::Succeeded->value ? $payment->amount : null,
+            confirmedCurrency: $command->status === PaymentStatus::Succeeded->value ? $payment->currency : null,
         ), 'simulation');
 
         $updated = $this->payments->find($payment->id) ?? $payment;

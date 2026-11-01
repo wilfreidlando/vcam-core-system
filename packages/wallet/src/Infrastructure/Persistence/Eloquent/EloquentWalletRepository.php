@@ -62,7 +62,7 @@ final class EloquentWalletRepository implements WalletRepository
         return $wallets;
     }
 
-    public function findByProject(string $projectId, int $page, int $perPage, ?string $search = null): array
+    public function findByProject(string $projectId, int $page, int $perPage, ?string $search = null, ?array $projectIds = null, array $searchPartyIds = []): array
     {
         // `orderBy`/`skip`/`take`/`count` are forwarded by Eloquent\Builder
         // to the underlying query builder rather than declared on it
@@ -71,12 +71,24 @@ final class EloquentWalletRepository implements WalletRepository
         // calls, and `WalletRecord::hydrate()` restores the casts after.
         $query = WalletRecord::query()->where('project_id', $projectId);
         if ($search !== null && $search !== '') {
-            $query->where(function (\Illuminate\Database\Eloquent\Builder $inner) use ($search): void {
+            $query->where(function (\Illuminate\Database\Eloquent\Builder $inner) use ($search, $searchPartyIds): void {
                 $inner->where('party_id', 'ilike', '%'.$search.'%')
                     ->orWhere('currency', 'ilike', '%'.$search.'%');
+
+                if ($searchPartyIds !== []) {
+                    // @phpstan-ignore staticMethod.dynamicCall
+                    $inner->orWhereIn('party_id', $searchPartyIds);
+                }
             });
         }
         $base = $query->toBase();
+
+        if ($projectIds !== null) {
+            // ADR-0069 §2 — the scope filters at the query level, so the
+            // rows of another tenant are never materialised and the total
+            // is scoped like the rows.
+            $base->whereIn('project_id', $projectIds);
+        }
 
         $total = (clone $base)->count();
 

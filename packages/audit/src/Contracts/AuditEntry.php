@@ -26,6 +26,8 @@ final readonly class AuditEntry
      * @param array<string, mixed>|null $before State before the change, for mutations.
      * @param array<string, mixed>|null $after State after the change, for mutations.
      * @param array<string, mixed> $context Anything else worth keeping — never a secret or an unhashed credential.
+     * @param string|null $projectId ADR-0069 §2 — the Project the entry concerns, when it concerns one.
+     * @param string|null $organizationId ADR-0069 §2 — the Organization the entry concerns, when it concerns one.
      */
     public function __construct(
         public string $actor,
@@ -36,5 +38,7 @@ final readonly class AuditEntry
         public array $context,
         public ?string $correlationId,
         public DateTimeImmutable $occurredAt,
+        public ?string $projectId = null,
+        public ?string $organizationId = null,
     ) {}
 }

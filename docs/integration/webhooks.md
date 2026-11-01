@@ -24,6 +24,30 @@ statut partent vers vos endpoints abonnés à `payment.status_changed`.
 Le staging et la production du Core sont deux déploiements distincts : un endpoint
 enregistré sur le staging ne reçoit que les événements du staging.
 
+### En local : une adresse privée
+
+Par défaut, le Core n'appelle que des adresses **publiques**. C'est une protection
+contre le SSRF : un point d'entrée est réessayé pendant des heures, et une adresse
+interne d'aujourd'hui peut devenir un canal d'exfiltration demain.
+
+Mais en local, votre application n'a pas d'adresse publique : elle est sur le
+réseau Docker, à côté du Core (`http://api:8000`). Le Core refuse alors
+l'enregistrement — et le flux ne se boucle pas.
+
+Deux drapeaux, à poser **dans le `.env` du Core local** (et dans aucun autre) :
+
+```bash
+OUTBOUND_ALLOW_INSECURE_HTTP=true      # le point d'entrée est en http://
+OUTBOUND_ALLOW_PRIVATE_TARGETS=true    # il est sur une adresse privée (172.x, 10.x…)
+```
+
+Le second est **refusé au démarrage** du Core hors de `APP_ENV=local` : aucune
+variable d'environnement ne suffit à ouvrir les adresses privées sur un déploiement
+qui fait face à Internet (ADR-0115). Le loopback (`127.0.0.1`) et l'adresse de
+métadonnées du cloud (`169.254.169.254`) restent refusés, même en local.
+
+En production, votre application a une adresse publique : rien à poser.
+
 ## 2. Ce que le Core envoie
 
 ```http
@@ -76,6 +100,8 @@ Champ `data` de l'enveloppe, par type. Le schéma complet est publié dans `/doc
 | `currency` | string | Code ISO 4217. |
 | `failure_reason` | string \| null | Raison de l'échec, si `status` n'est pas `succeeded`. |
 | `occurred_at` | string | Date du changement, RFC 3339 UTC. |
+| `confirmed_amount` | integer \| null | Montant que le prestataire confirme avoir encaissé, en unités mineures, sur un paiement `succeeded`. `null` si la source ne l'a pas confirmé, et pour tout autre statut. |
+| `exception` | string \| null | `amount_mismatch` ou `currency_mismatch` quand le prestataire confirme autre chose que le montant ou la devise demandés : le paiement est `succeeded` mais **n'est pas imputé** (aucun wallet crédité) ; l'exploitant le traite. `null` sinon. Liste ouverte : ignorez une valeur inconnue. |
 
 #### 3.1 Statuts d'un paiement
 
@@ -225,6 +251,37 @@ SECRET="whsec_…"; TS="1791028722"; BODY='{"id":"…","type":"…","data":{…}
 printf '%s' "$TS.$BODY" | openssl dgst -sha256 -hmac "$SECRET"
 # doit afficher la même valeur que l'en-tête X-Signature
 ```
+
+### Changer de secret sans rien casser — `POST /v1/webhook-endpoints/{id}/rotate-secret`
+
+Portée `webhooks:write`, 10 appels par minute au plus. Le nouveau secret est renvoyé
+**une seule fois** ([ADR-0082](../adr/0082-cles-d-api-portees-rotation-et-secrets-de-webhook.md) §5).
+
+```bash
+curl -s -X POST "$BASE_URL/v1/webhook-endpoints/01a101a1-7b5c-7374-808b-2d1c2b3b7121/rotate-secret" \
+  -H "Authorization: Bearer $API_KEY" -H "Content-Type: application/json" -H "Accept: application/json" \
+  -d '{"overlap_hours": 24}'
+```
+
+```json
+{"id":"01a101a1-7b5c-7374-808b-2d1c2b3b7121","secret":"whsec_…","previous_secret_expires_at":"2026-10-25T10:00:00+00:00"}
+```
+
+Pendant le recouvrement (`overlap_hours`, 24 h par défaut, de 1 à 72), chaque livraison
+porte **deux** signatures, même format, même `X-Timestamp` :
+
+| En-tête | Calculé avec |
+|---|---|
+| `X-Signature` | le **nouveau** secret |
+| `X-Signature-Previous` | l'**ancien** secret |
+
+Marche à suivre : déployez le nouveau secret chez le destinataire avant
+`previous_secret_expires_at`. Un vérificateur qui accepte l'une **ou** l'autre
+signature passe la bascule sans rejet ; un vérificateur qui ne lit que `X-Signature`
+fonctionne dès que son secret est à jour. À l'échéance, l'ancien secret est effacé et
+`X-Signature-Previous` disparaît. `GET /v1/webhook-endpoints` indique l'échéance en
+cours dans `previous_secret_expires_at` (`null` hors recouvrement). L'exploitant peut
+mettre fin au recouvrement plus tôt depuis la console (motif obligatoire, journalisé).
 
 ## 5. Tester son endpoint — `POST /v1/webhook-endpoints/{id}/test`
 

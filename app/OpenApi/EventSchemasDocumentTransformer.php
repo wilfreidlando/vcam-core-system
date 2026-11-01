@@ -88,6 +88,16 @@ final class EventSchemasDocumentTransformer implements DocumentTransformer
         $occurredAt->setDescription('When the Core recorded this status (UTC). Use it to ignore an older notification arriving after a newer one.');
         $occurredAt->example('2026-10-03T10:15:00Z');
 
+        $confirmedAmount = new OpenApiTypes\IntegerType;
+        $confirmedAmount->setDescription('ADR-0077: amount the provider confirmed it collected, in minor units, on a settled payment. null when the source did not confirm an amount, and on any other status.');
+        $confirmedAmount->nullable(true);
+        $confirmedAmount->example(5000);
+
+        $exception = new OpenApiTypes\StringType;
+        $exception->setDescription('ADR-0077: amount_mismatch or currency_mismatch when the provider confirmed something else than requested. The payment is settled but NOT allocated: no wallet is credited. null otherwise. Open enumeration: ignore values you do not know.');
+        $exception->nullable(true);
+        $exception->example(null);
+
         $data = new OpenApiTypes\ObjectType;
         $data->addProperty('payment_id', $paymentId);
         $data->addProperty('reference', $reference);
@@ -97,6 +107,8 @@ final class EventSchemasDocumentTransformer implements DocumentTransformer
         $data->addProperty('currency', $currency);
         $data->addProperty('failure_reason', $failureReason);
         $data->addProperty('occurred_at', $occurredAt);
+        $data->addProperty('confirmed_amount', $confirmedAmount);
+        $data->addProperty('exception', $exception);
         $data->setRequired(['payment_id', 'reference', 'status', 'is_final', 'amount', 'currency', 'failure_reason', 'occurred_at']);
         $data->setDescription('`data` of a `payment.status_changed` event.');
 
@@ -120,6 +132,8 @@ final class EventSchemasDocumentTransformer implements DocumentTransformer
                 'currency' => 'XAF',
                 'failure_reason' => null,
                 'occurred_at' => '2026-10-03T10:15:00Z',
+                'confirmed_amount' => 5000,
+                'exception' => null,
             ],
         ];
     }

@@ -2,8 +2,8 @@
 
 Les commandes de ce document ont été **exécutées pour de vrai** contre une instance
 du Core branchée sur une vraie application MyCoolPay et un vrai WAHA (WhatsApp), puis
-mises à jour pour le contrat actuel (réponses minimales, `is_final`, une seule clé par
-projet, simulateur de paiement du staging) ; les réponses de ces mises à jour sont celles
+mises à jour pour le contrat actuel (réponses minimales, `is_final`, clés nommées à
+portée, simulateur de paiement du staging) ; les réponses de ces mises à jour sont celles
 de la suite de tests d'intégration. Identifiants et secrets remplacés par des exemples.
 
 **Le Core n'a qu'un environnement** ([ADR-0066](../adr/0066-un-seul-environnement-staging-pour-les-tests.md)).
@@ -26,10 +26,32 @@ export PHONE="+2376XXXXXXXX"                               # un numéro qui vous
 export SESSION="ma-boutique"                               # nom de la session WhatsApp fourni par l'administrateur (§5)
 ```
 
-- **Clé API** : un projet a **exactement une clé**, créée avec le projet dans la
-  console (`/admin/projects/<id>/api-keys/create`) et affichée **une seule fois**.
-  Régénérer une clé remplace l'ancienne immédiatement ; révoquer la supprime. Le staging
-  et la production sont deux déploiements distincts : chacun a ses projets et ses clés.
+- **Clés API** ([ADR-0082](../adr/0082-cles-d-api-portees-rotation-et-secrets-de-webhook.md)) :
+  un projet a **plusieurs clés nommées** (10 au plus), une par composant — serveur,
+  portail, versements… Chaque clé ne porte que ses **portées** (modèles : *Serveur
+  complet*, *Lecture seule*, *Portail uniquement*, *Application cliente*, *Versements*) ;
+  un appel hors portée
+  reçoit `403`. La première clé, « Clé principale » (*Serveur complet* : tout sauf
+  `payouts:write`), est créée avec le projet. Toute clé est affichée **une seule fois**,
+  dans la console (`/admin/projects/<id>/api-keys/create`).
+
+  > **Vous branchez un logiciel au Core ?** Lisez d'abord
+  > **[Brancher une application cliente](brancher-une-application-cliente.md)** : c'est
+  > le parcours d'une application cliente (déclarer son locataire, lire ses droits,
+  > compter son usage, ouvrir le portail, recevoir ses événements). Le présent guide
+  > couvre les **paiements**, les **portefeuilles**, les **notifications** et les
+  > **exports**.
+  - **Restriction réseau** (facultative) : une clé limitée à des blocs (`203.0.113.0/24`,
+    `2001:db8::/32`) répond `403` avec `type` …`/key-origin-not-allowed` depuis toute
+    autre adresse.
+  - **Expiration** (facultative) : une clé expirée répond `401`, comme une clé inconnue.
+  - **Rotation sans coupure** : « Faire tourner » crée une remplaçante avec les mêmes
+    portées et le même réseau ; l'ancienne reste valide 1 à 30 jours (7 par défaut), le
+    temps de déployer la nouvelle, puis cesse de fonctionner seule.
+  - **Révocation d'urgence** : immédiate, motif obligatoire, journalisée.
+
+  Le staging et la production sont deux déploiements distincts : chacun a ses projets
+  et ses clés.
 - **En-têtes communs** : `Authorization: Bearer $API_KEY`, `Accept: application/json`,
   et `Content-Type: application/json` pour les requêtes avec corps.
 - **Erreurs** : format RFC 7807 (`application/problem+json`) avec `type`, `title`,
@@ -577,6 +599,55 @@ Pairing-code : `200` avec `{"code":"2692-4822"}`. Session inconnue de votre proj
 session globale) : `422` `channel-session-not-found`, comme ci-dessus. Le pairing-code déclenche une
 notification de liaison sur le numéro fourni : n'utilisez que le vôtre.
 
+## 6 bis. Lister ses données et les exporter (ADR-0088)
+
+### Listings à curseur
+
+`GET /v1/payments`, `GET /v1/notifications` et `GET /v1/usage` (comme `/v1/customers`, `/v1/plans`,
+`/v1/subscriptions`, `/v1/invoices`) se lisent **page après page** avec un curseur opaque : repassez
+`next_cursor` en `cursor` pour la page suivante, `null` quand il n'y en a plus. `limit` va de 1 à 100 (50 par
+défaut). L'ordre est stable — du plus ancien au plus récent, départagé par l'identifiant : lire tout le
+listing pendant que de nouvelles lignes arrivent ne répète rien et n'omet rien de ce qui existait au début.
+
+| Listing | Portée | Filtres |
+| --- | --- | --- |
+| `GET /v1/payments` | `payments:read` | `status`, `created_from`, `created_to` |
+| `GET /v1/notifications` | `notifications:read` | `status`, `channel`, `created_from`, `created_to` |
+| `GET /v1/usage` | `usage:read` | `meter`, `customer_ref`, `created_from`, `created_to` |
+
+`created_from` est inclus, `created_to` exclu (ISO 8601). Une clé ne voit jamais les lignes d'un autre projet.
+
+```bash
+curl -s "$CORE/v1/payments?status=succeeded&limit=2" -H "Authorization: Bearer $KEY"
+# {"data":[{"id":"…","status":"succeeded","is_final":true,"amount":5000,"currency":"XAF",
+#           "channel":"mtn_momo","created_at":"…","updated_at":"…"}, …],
+#  "next_cursor":"MjAyNi0xMC0yOSAw…"}
+curl -s "$CORE/v1/payments?status=succeeded&limit=2&cursor=MjAyNi0xMC0yOSAw…" -H "Authorization: Bearer $KEY"
+```
+
+Un curseur qui n'est pas le vôtre : `422`.
+
+### Export complet — `POST /v1/exports` (portée `exports:write`)
+
+```bash
+curl -s -X POST "$CORE/v1/exports" -H "Authorization: Bearer $KEY" -H "Idempotency-Key: export-2026-11"
+# 202 {"id":"9f1c…","status":"queued","created_at":"…","expires_at":"…","download_url":null, …}
+curl -s "$CORE/v1/exports/9f1c…" -H "Authorization: Bearer $KEY"
+# 200 {"status":"done","download_url":"https://…/exports/9f1c…/download?expires=…&signature=…",
+#      "download_url_expires_at":"…", …}
+curl -s -o export.zip "https://…/exports/9f1c…/download?expires=…&signature=…"   # sans clé d'API
+```
+
+L'export est construit en arrière-plan : interrogez `GET /v1/exports/{id}` jusqu'à `done` (ou `failed`,
+avec `error`). Le lien est **signé et valable 15 minutes** ; il ne demande pas de clé — ne le partagez pas.
+Altéré ou expiré, il répond `403` : redemandez `GET /v1/exports/{id}` pour un lien neuf. Le même
+`Idempotency-Key` rend le même export. L'archive `.zip` contient un fichier JSON Lines par type d'objet
+(`customers`, `plans`, `subscriptions`, `invoices`, `usage`, `payments`, `notifications`, `wallets`,
+`wallet_transactions`, `ledger_transactions`, `trial_balance`), **chaque ligne au format de l'API**, plus un
+`manifest.json` (`as_of`, nombre de lignes). Le fichier est chiffré au repos et supprimé 7 jours après la
+demande (`expires_at`) ; les données personnelles d'un client effacé restent effacées. La console propose le
+même geste (« Export des données » sur la page du projet).
+
 ## 7. Récapitulatif
 
 | Endpoint | Testé en réel | Résultat |
@@ -598,6 +669,8 @@ notification de liaison sur le numéro fourni : n'utilisez que le vôtre.
 | `POST /v1/notifications/image` | oui (WAHA) | 201 `sent` |
 | `POST /v1/notifications/file` | oui (WAHA) | 201 `sent` |
 | `GET /v1/notifications/{id}` | oui | 200 |
+| `GET /v1/payments`, `/v1/notifications`, `/v1/usage` (curseur) | tests d'intégration (parcours sous insertions concurrentes) | 200 / 403 / 422 |
+| `POST /v1/exports`, `GET /v1/exports/{id}`, lien signé | tests d'intégration | 202 / 200 / 403 / 404 / 409 |
 | `GET …/qr`, `GET …/screenshot`, `POST …/pairing-code` | oui (WAHA) | 200 / 422 si non enregistrée |
 
 Le passage d'un paiement à un statut final, l'événement qui en découle et le crédit du

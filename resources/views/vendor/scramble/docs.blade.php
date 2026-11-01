@@ -1,13 +1,22 @@
 <!doctype html>
-<html lang="en" data-theme="{{ $config->renderer()->get('theme', 'light') }}">
+{{-- A13 — application française : la langue du document est le français (SC 3.1.2). --}}
+<html lang="fr" data-theme="{{ $config->renderer()->get('theme', 'light') }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="color-scheme" content="{{ $config->renderer()->get('theme', 'light') }}">
     <title>{{ $config->get('ui.title') ?? config('app.name') . ' - API Docs' }}</title>
 
-    <script src="https://unpkg.com/@stoplight/elements@8.4.2/web-components.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/@stoplight/elements@8.4.2/styles.min.css">
+    {{-- Audit 2026-10-29 #14 / G-1 — the bundles of the documentation are third-party code
+         served on the API's own origin. `integrity` pins their content cryptographically: a
+         compromised CDN (or a modified package) can no longer execute on this origin. The
+         version is already exact (8.4.2) — it must stay exact for the hash to hold. --}}
+    <script src="https://unpkg.com/@stoplight/elements@8.4.2/web-components.min.js"
+            integrity="sha384-JQMvMNVvV8QXHXbrUyttKUojmPo2SI/3ztEsfv2seW/Gdqh8uvfVZSc/8rpCSYP4"
+            crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@stoplight/elements@8.4.2/styles.min.css"
+          integrity="sha384-4SEI8azIKLxyKQW9QIuPrsJaVzrXaKHhlf82/u3KR1Cw5T9lYqsgzg+4MWygH2N2"
+          crossorigin="anonymous">
 
     @include('scramble::dev-tools', ['renderer' => 'elements'])
 

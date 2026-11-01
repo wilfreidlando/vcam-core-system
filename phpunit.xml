@@ -42,14 +42,69 @@
             <directory>tests/Feature</directory>
         </testsuite>
 
-        <!-- Per-module suites. Every bounded context tests itself. -->
+        <!-- Sectors — one bounded context, one agent, one test database.
+             Each context tests itself: a sector agent runs its own suite
+             (`make test-sector SECTOR=billing`) instead of the whole
+             ninety-nine seconds. The integration gate runs them all. -->
+        <testsuite name="billing">
+            <directory>packages/billing/tests</directory>
+        </testsuite>
+        <testsuite name="payment">
+            <directory>packages/payment/tests</directory>
+        </testsuite>
+        <testsuite name="identity">
+            <directory>packages/identity/tests</directory>
+        </testsuite>
+        <testsuite name="ledger">
+            <directory>packages/ledger/tests</directory>
+        </testsuite>
+        <testsuite name="wallet">
+            <directory>packages/wallet/tests</directory>
+        </testsuite>
+        <testsuite name="parties">
+            <directory>packages/parties/tests</directory>
+        </testsuite>
+        <testsuite name="notification">
+            <directory>packages/notification/tests</directory>
+        </testsuite>
+        <testsuite name="webhook">
+            <directory>packages/webhook/tests</directory>
+        </testsuite>
+        <testsuite name="events">
+            <directory>packages/events/tests</directory>
+        </testsuite>
+        <testsuite name="audit">
+            <directory>packages/audit/tests</directory>
+        </testsuite>
+        <testsuite name="admin">
+            <directory>packages/admin/tests</directory>
+        </testsuite>
+        <!-- The hosted customer space (ADR-0075). The sector already
+             existed in the Makefile; the suite was never declared here,
+             so the portal's own tests were run by no named suite. -->
+        <testsuite name="portal">
+            <directory>packages/portal/tests</directory>
+        </testsuite>
+        <testsuite name="support">
+            <directory>packages/support/tests</directory>
+        </testsuite>
+        <testsuite name="fees">
+            <directory>packages/fees/tests</directory>
+        </testsuite>
+        <testsuite name="storage">
+            <directory>packages/storage/tests</directory>
+        </testsuite>
+        <testsuite name="developer-platform">
+            <directory>packages/developer-platform/tests</directory>
+        </testsuite>
+
+        <!-- The application-level suites: they span several modules on
+             purpose (the documented API examples, the console flows). -->
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
-            <directory>packages/*/tests/Unit</directory>
         </testsuite>
         <testsuite name="Integration">
             <directory>tests/Integration</directory>
-            <directory>packages/*/tests/Integration</directory>
         </testsuite>
     </testsuites>
 
@@ -79,9 +134,16 @@
         <env name="CORE_ENVIRONMENT" value="sandbox"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="EVENTS_RELAY_ON_COMMIT" value="false"/>
+        <!-- Hermetic: a developer's own .env (the simulator is on in dev) must not change what the suite proves. -->
+        <env name="PAYMENT_SIMULATOR_ENABLED" value="false" force="true"/>
         <!-- Connect-time SSRF re-check resolves real DNS; it is covered
              hermetically by GuardedHttpTransportTest instead. -->
         <env name="OUTBOUND_ENFORCE_AT_CONNECT" value="false"/>
+        <!-- ADR-0115 — the private ranges are a local-only convenience. The
+             suite must not inherit them from a developer's .env: the guard
+             itself is covered hermetically by OutboundUrlGuardTest. -->
+        <env name="OUTBOUND_ALLOW_PRIVATE_TARGETS" value="false" force="true"/>
         <!-- WAHA auth needs a non-empty key; tests must not depend on a
              developer .env to provide one. -->
         <env name="WAHA_API_KEY" value="test-waha-api-key"/>

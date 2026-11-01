@@ -6,6 +6,7 @@ namespace Core\Wallet\Presentation\Http\Presenters;
 
 use Core\Wallet\Contracts\PartyWalletView;
 use Core\Wallet\Contracts\WalletOperationView;
+use Core\Wallet\Contracts\WalletSummaryView;
 use Core\Wallet\Contracts\WalletTransactionView;
 use DateTimeInterface;
 
@@ -46,6 +47,23 @@ final class WalletJson
     {
         return [
             'wallet_id' => $wallet->walletId,
+            'party' => $wallet->partyExternalRef,
+            'currency' => $wallet->currency,
+            'available_minor' => $wallet->availableMinor,
+            'held_minor' => $wallet->heldMinor,
+            'status' => $wallet->status,
+        ];
+    }
+
+    /**
+     * A wallet as the project export lists it: the same keys as `wallet()`.
+     *
+     * @return array<string, mixed>
+     */
+    public static function summary(WalletSummaryView $wallet): array
+    {
+        return [
+            'wallet_id' => $wallet->id,
             'party' => $wallet->partyExternalRef,
             'currency' => $wallet->currency,
             'available_minor' => $wallet->availableMinor,

@@ -8,6 +8,7 @@ use Core\Payment\Domain\Model\Payment;
 use Core\Payment\PaymentStatus;
 use Core\Payment\Tests\Unit\Fakes\FixedClock;
 use Core\Payment\Tests\Unit\Fakes\InMemoryPaymentRepository;
+use Core\Support\Access\AccessScope;
 
 function stuckPaymentForListing(string $id, PaymentStatus $status = PaymentStatus::Processing): Payment
 {
@@ -37,7 +38,7 @@ it('returns an empty list when no payment is stuck', function (): void {
         stuckAfterMinutes: 15,
     );
 
-    $views = $useCase->list(new ListStuckPaymentsCommand(limit: 100));
+    $views = $useCase->list(new ListStuckPaymentsCommand(limit: 100), AccessScope::platform());
 
     expect($views)->toBe([]);
 });
@@ -52,7 +53,7 @@ it('maps each stuck payment to a narrow StuckPaymentView', function (): void {
         stuckAfterMinutes: 15,
     );
 
-    $views = $useCase->list(new ListStuckPaymentsCommand(limit: 100));
+    $views = $useCase->list(new ListStuckPaymentsCommand(limit: 100), AccessScope::platform());
 
     expect($views)->toHaveCount(1);
 
@@ -75,7 +76,7 @@ it('never returns a terminal-status payment', function (): void {
         stuckAfterMinutes: 15,
     );
 
-    $views = $useCase->list(new ListStuckPaymentsCommand(limit: 100));
+    $views = $useCase->list(new ListStuckPaymentsCommand(limit: 100), AccessScope::platform());
 
     expect($views)->toBe([]);
 });
@@ -92,7 +93,7 @@ it('honours the limit passed in the command', function (): void {
         stuckAfterMinutes: 15,
     );
 
-    $views = $useCase->list(new ListStuckPaymentsCommand(limit: 2));
+    $views = $useCase->list(new ListStuckPaymentsCommand(limit: 2), AccessScope::platform());
 
     expect($views)->toHaveCount(2);
 });

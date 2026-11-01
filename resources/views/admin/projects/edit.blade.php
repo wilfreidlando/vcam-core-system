@@ -16,38 +16,29 @@
             @csrf
             @method('PUT')
 
-            <div>
-                <label for="name" class="block text-base font-medium text-slate-700 mb-1">Nom</label>
-                <input
-                    type="text"
-                    name="name"
-                    id="name"
-                    value="{{ old('name', $project->name) }}"
-                    required
-                    autofocus
-                    class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm" />
-                @error('name')
-                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                @enderror
-            </div>
+            <x-admin.field name="name" label="Nom" :value="$project->name" required autofocus />
 
-            <div>
-                <label for="status" class="block text-base font-medium text-slate-700 mb-1">Statut</label>
-                <select
-                    name="status"
-                    id="status"
-                    required
-                    class="block w-full rounded-md border border-slate-300 px-4 py-2.5 text-base shadow-sm bg-white">
-                    @foreach ($statuses as $status)
-                        <option value="{{ $status }}" @selected(old('status', $project->status) === $status)>
-                            {{ $status === 'active' ? 'Actif' : 'Suspendu' }}
-                        </option>
-                    @endforeach
-                </select>
-                @error('status')
-                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                @enderror
-            </div>
+            <x-admin.field
+                name="status"
+                label="Statut"
+                type="select"
+                :value="$project->status"
+                required
+                :options="collect($statuses)->mapWithKeys(fn ($status) => [$status => match ($status) {
+                    'active' => 'Actif',
+                    'suspended' => 'Suspendu',
+                    'archived' => 'Archivé (définitif — révoque les clés)',
+                    default => $status,
+                }])->all()" />
+
+            {{-- ADR-0069 §3 — a status change is audited with its reason. --}}
+            <x-admin.field
+                name="reason"
+                label="Motif du changement de statut"
+                type="textarea"
+                rows="2"
+                maxlength="500"
+                hint="Obligatoire si le statut change." />
 
             <button
                 type="submit"
@@ -55,7 +46,7 @@
                 Enregistrer les modifications
             </button>
 
-            <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="block text-center text-base text-slate-500 hover:text-slate-700">
+            <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="block text-center text-base text-slate-600 hover:text-slate-800 py-1.5 px-2.5">
                 Annuler
             </a>
         </form>

@@ -76,9 +76,48 @@ Points d'attention en le remplissant :
 | `MTN_MOMO_*` / `ORANGE_MONEY_*` | Laisser vide tant que ces adaptateurs ne sont pas construits (hors périmètre actuel — voir `CLAUDE.md`) ; MyCoolPay ne passe pas par ces variables, voir [§9](#9-enregistrer-une-application-provider-mycoolpay) |
 | `WAHA_BASE_URL` / `WAHA_API_KEY` | **Obligatoires pour les notifications WhatsApp** : l'adresse de votre instance WAHA (joignable depuis le conteneur, pas `localhost`) et sa clé d'API. Sans elles, tout envoi WhatsApp répond `201` avec `status: failed` (`requires a non-empty api_key credential`). |
 | `WAHA_WEBHOOK_SECRET` | Secret partagé de l'en-tête `X-Webhook-Secret` des webhooks entrants de WAHA. Il n'y a pas de session par défaut : chaque client envoie avec sa propre session (`variables.session`). |
+| `PII_ENCRYPTION_KEYS` | Clé de chiffrement des données personnelles (ADR-0083 §2), **distincte de `APP_KEY`** — voir [§2 bis](#2-bis-clés-de-confidentialité). Vide tant qu'aucune donnée personnelle n'est stockée ; dès qu'il y en a, une valeur manquante fait échouer l'écriture au lieu de stocker en clair. |
+| `PII_BLIND_INDEX_KEY` | Clé des index aveugles (recherche exacte sans données en clair). Distincte de la précédente : la perdre rend les index inutilisables, la divulguer les rend réversibles. |
 
 `.env` ne doit **jamais** être commité — il ne l'est pas
 (`.gitignore`/`.dockerignore` l'excluent déjà tous les deux).
+
+## 2 bis. Clés de confidentialité
+
+Les données personnelles (clients, contacts) sont chiffrées au repos avec une
+clé **qui n'est pas `APP_KEY`** (ADR-0083 §2). Deux clés distinctes, jamais
+dans le dépôt ni dans la base : elles vivent dans l'environnement de
+déploiement, comme `APP_KEY`.
+
+```bash
+# clé de chiffrement (32 octets aléatoires)
+docker compose -f compose.prod.yaml exec app php artisan privacy:generate-key --key-version=1
+# → PII_ENCRYPTION_KEYS=v1:base64:…
+
+# clé des index aveugles
+docker compose -f compose.prod.yaml exec app php artisan privacy:generate-key --blind-index
+# → PII_BLIND_INDEX_KEY=base64:…
+```
+
+Les deux lignes vont dans `.env`, puis la stack redémarre. Sans elles,
+l'application démarre normalement (le Core ne stocke encore aucune donnée
+personnelle) mais **toute écriture de donnée personnelle échoue bruyamment** :
+jamais de valeur en clair en base.
+
+### Rotation
+
+1. Générer une nouvelle version et l'ajouter **en tête** de la liste, l'ancienne
+   conservée : `PII_ENCRYPTION_KEYS=v2:base64:…,v1:base64:…`. Les deux
+   versions déchiffrent pendant la transition ; seule la première chiffre.
+2. Faire re-chiffrer les lignes concernées par le module qui les détient
+   (le port `PersonalDataCipher` expose `needsReEncryption()` pour cela).
+3. Retirer l'ancienne version de la liste une fois la reprise terminée.
+4. La clé d'index aveugle se change de la même façon, mais **elle ne se
+   re-chiffre pas** : changer la clé d'index change tous les index, donc il
+   faut reconstruire les index (opération du module détenteur).
+
+> Ne jamais retirer une version de `PII_ENCRYPTION_KEYS` avant d'avoir
+> re-chiffré toutes ses lignes : elles deviennent illisibles, définitivement.
 
 ## 3. Construire les images
 
@@ -168,16 +207,19 @@ qu'en CLI.
 ## 8. Provisionner le premier client (Organization / Project / clé API)
 
 Depuis la console (self-service, ADR-0052) — **recommandé** : `/admin/organizations/create`
-puis `/admin/projects/create`, puis générer une clé API depuis la fiche du
-Project. La console n'y demande jamais de choisir des scopes : une clé de
-Project est toujours émise avec `ApiKeyScopes::ALL` (décision explicite,
-voir son docblock) — une clé d'intégration est faite pour utiliser le Core
-en entier, pas un sous-ensemble choisi à la main.
+puis `/admin/projects/create`, puis gérer les clés API depuis la fiche du
+Project. Le projet est créé avec une première clé, « Clé principale », qui
+porte le modèle **Serveur complet** (toutes les portées sauf `payouts:write`,
+qu'on mérite de garder pour une clé dédiée — ADR-0082 §2).
 
-Équivalent CLI (utile pour scripter un provisioning) — la commande CLI, elle,
-accepte `--scope` à la carte (c'est un outil de bootstrap plus bas niveau) ;
-pour obtenir le même résultat que la console, lister les 9 scopes de
-`ApiKeyScopes::ALL` (`packages/identity/src/Contracts/ApiKeyScopes.php`) :
+Un projet peut détenir **plusieurs clés nommées** (10 au plus), une par
+composant : serveur, portail, versements… Chacune ne porte que ses portées.
+Dans la console, on choisit un modèle (Serveur complet / Lecture seule /
+Portail uniquement / Application cliente / Versements / Personnalisée), éventuellement une
+restriction réseau (blocs CIDR) et une expiration ; la clé s'affiche **une
+seule fois**.
+
+Équivalent CLI (utile pour scripter un provisioning) :
 
 ```bash
 docker compose -f compose.prod.yaml exec app php artisan identity:create-organization "Nom du client"
@@ -187,12 +229,29 @@ docker compose -f compose.prod.yaml exec app php artisan identity:create-project
 # → note le Project id affiché
 
 docker compose -f compose.prod.yaml exec app php artisan identity:issue-api-key <project-id> \
-    --scope='*'
+    --name="Serveur de facturation" --template=server
 ```
 
-Un projet a une seule clé (ADR-0066) ; `--replace` la régénère. Pour tester
-sans argent réel, utilisez le déploiement de staging. La clé est affichée en
-clair une seule fois, comme le mot de passe opérateur.
+Pour changer de clé sans couper le service (ADR-0082 §3) :
+
+```bash
+# 1. créer la remplaçante (même nom, mêmes portées)
+docker compose -f compose.prod.yaml exec app php artisan identity:issue-api-key <project-id> \
+    --name="Serveur de facturation" --template=server
+# 2. déployer la nouvelle clé dans l'application
+# 3. faire tourner : l'ancienne reste valide 7 jours, puis s'éteint seule
+docker compose -f compose.prod.yaml exec app php artisan identity:rotate-api-key <api-key-id> --grace-days=7
+```
+
+En cas de fuite, révocation immédiate, motif obligatoire et journalisé :
+
+```bash
+docker compose -f compose.prod.yaml exec app php artisan identity:revoke-api-key <api-key-id> \
+    --reason="Clé apparue dans un dépôt"
+```
+
+Pour tester sans argent réel, utilisez le déploiement de staging. Une clé est
+affichée en clair une seule fois, comme le mot de passe opérateur.
 
 ## 9. Enregistrer une application provider (MyCoolPay)
 

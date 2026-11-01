@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Identity\Contracts;
 
+use Core\Support\Access\AccessScope;
+
 /**
  * The admin console's own organization listing (review finding, Lot 6
  * follow-up — replaces a workaround that de-duplicated organizations
@@ -13,5 +15,8 @@ namespace Core\Identity\Contracts;
  */
 interface ListOrganizations
 {
-    public function list(ListOrganizationsCommand $command): OrganizationPage;
+    /**
+     * The scope is required (ADR-0069 §2).
+     */
+    public function list(ListOrganizationsCommand $command, AccessScope $scope): OrganizationPage;
 }

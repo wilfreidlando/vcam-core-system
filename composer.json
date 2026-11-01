@@ -19,12 +19,14 @@
         "core/billing": "*@dev",
         "core/developer-platform": "*@dev",
         "core/events": "*@dev",
+        "core/export": "*@dev",
         "core/fees": "*@dev",
         "core/identity": "*@dev",
         "core/ledger": "*@dev",
         "core/notification": "*@dev",
         "core/parties": "*@dev",
         "core/payment": "*@dev",
+        "core/portal": "*@dev",
         "core/storage": "*@dev",
         "core/support": "*@dev",
         "core/wallet": "*@dev",
@@ -35,6 +37,7 @@
         "laravel/passport": "^13.8",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
+        "league/commonmark": "^2.10",
         "pragmarx/google2fa": "^8.0"
     },
     "require-dev": {
@@ -69,6 +72,7 @@
     "autoload-dev": {
         "psr-4": {
             "Tests\\": "tests/",
+            "App\\Core\\": "docs/integration/kit-laravel/app/Core/",
             "Core\\Tooling\\": "tools/",
             "Core\\Identity\\Tests\\": "packages/identity/tests/",
             "Core\\Parties\\Tests\\": "packages/parties/tests/",
@@ -78,7 +82,8 @@
             "Core\\Payment\\Tests\\": "packages/payment/tests/",
             "Core\\Events\\Tests\\": "packages/events/tests/",
             "Core\\Webhook\\Tests\\": "packages/webhook/tests/",
-            "Core\\Notification\\Tests\\": "packages/notification/tests/"
+            "Core\\Notification\\Tests\\": "packages/notification/tests/",
+            "Core\\Billing\\Tests\\": "packages/billing/tests/"
         }
     },
     "scripts": {

@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $type
  * @property string|null $external_ref
  * @property string $idempotency_key
+ * @property string|null $reverses_transaction_id
  */
 final class LedgerTransactionRecord extends Model
 {
@@ -23,7 +24,7 @@ final class LedgerTransactionRecord extends Model
 
     protected $table = 'ledger_transactions';
 
-    protected $fillable = ['id', 'project_id', 'type', 'external_ref', 'idempotency_key'];
+    protected $fillable = ['id', 'project_id', 'type', 'external_ref', 'idempotency_key', 'reverses_transaction_id'];
 
     /**
      * @return HasMany<LedgerEntryRecord, $this>

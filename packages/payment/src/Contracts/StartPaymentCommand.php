@@ -48,5 +48,20 @@ final readonly class StartPaymentCommand
          * `POST /v1/webhook-endpoints`) before it ever reaches this DTO.
          */
         public ?string $callbackUrl = null,
+        /**
+         * ADR-0076 §3 (amended by ADR-0094 §9) — the INTENTION of the
+         * collection, which decides the ledger entry written when the
+         * payment settles. `null` means "no explicit intention": the
+         * purpose is then derived from the rest of the command (a wallet
+         * credit when `walletRecipientExternalRef` is set, a plain
+         * collection otherwise).
+         *
+         * Optional on purpose: no published contract is broken
+         * (ADR-0086), and the historical behaviour — `direct` — stays
+         * the default. The vocabulary lives in `Contracts\PaymentPurpose`;
+         * an unknown value is refused, never silently ignored: a
+         * mistyped intention would book the money on the wrong account.
+         */
+        public ?string $purpose = null,
     ) {}
 }

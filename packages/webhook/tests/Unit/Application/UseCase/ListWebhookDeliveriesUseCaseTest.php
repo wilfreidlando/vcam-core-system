@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Core\Support\Access\AccessScope;
 use Core\Webhook\Application\UseCase\ListWebhookDeliveriesUseCase;
 use Core\Webhook\Contracts\ListWebhookDeliveriesCommand;
 use Core\Webhook\Domain\Model\WebhookDelivery;
@@ -34,7 +35,7 @@ it('lists across every status when none is given', function (): void {
 
     $useCase = new ListWebhookDeliveriesUseCase($repository);
 
-    $page = $useCase->list(new ListWebhookDeliveriesCommand);
+    $page = $useCase->list(new ListWebhookDeliveriesCommand, AccessScope::platform());
 
     expect($page->total)->toBe(3)
         ->and($page->items)->toHaveCount(3)
@@ -48,7 +49,7 @@ it('narrows to one status when given', function (): void {
 
     $useCase = new ListWebhookDeliveriesUseCase($repository);
 
-    $page = $useCase->list(new ListWebhookDeliveriesCommand(status: 'delivered'));
+    $page = $useCase->list(new ListWebhookDeliveriesCommand(status: 'delivered'), AccessScope::platform());
 
     expect($page->total)->toBe(1)
         ->and($page->items[0]->id)->toBe('d2')
@@ -62,7 +63,7 @@ it('silently ignores an unrecognised status, same convention as ListPaymentsComm
 
     $useCase = new ListWebhookDeliveriesUseCase($repository);
 
-    $page = $useCase->list(new ListWebhookDeliveriesCommand(status: 'not-a-real-status'));
+    $page = $useCase->list(new ListWebhookDeliveriesCommand(status: 'not-a-real-status'), AccessScope::platform());
 
     expect($page->total)->toBe(1);
 });
@@ -74,8 +75,55 @@ it('narrows to one project when given', function (): void {
 
     $useCase = new ListWebhookDeliveriesUseCase($repository);
 
-    $page = $useCase->list(new ListWebhookDeliveriesCommand(projectId: 'project-a'));
+    $page = $useCase->list(new ListWebhookDeliveriesCommand(projectId: 'project-a'), AccessScope::platform());
 
     expect($page->total)->toBe(1)
         ->and($page->items[0]->id)->toBe('d1');
+});
+
+it('lists nothing when the requested project is outside the accounts scope', function (): void {
+    // ADR-0069 §2 — an explicit project outside the scope yields an
+    // empty page, never another tenant's deliveries.
+    $repository = new InMemoryWebhookDeliveryRepository;
+    $repository->create(deliveryWithStatus('d1', WebhookDeliveryStatus::Pending, 'project-a'));
+
+    $useCase = new ListWebhookDeliveriesUseCase($repository);
+
+    $page = $useCase->list(
+        new ListWebhookDeliveriesCommand(projectId: 'project-a'),
+        AccessScope::forOrganization('org-1', ['project-b']),
+    );
+
+    expect($page->total)->toBe(0)
+        ->and($page->items)->toBeEmpty();
+});
+
+it('lists only the projects of the accounts scope when no project is given', function (): void {
+    // ADR-0069 §2 — the restriction is applied by the query, not by the
+    // caller: the listing never crosses the account's projects.
+    $repository = new InMemoryWebhookDeliveryRepository;
+    $repository->create(deliveryWithStatus('d1', WebhookDeliveryStatus::Pending, 'project-a'));
+    $repository->create(deliveryWithStatus('d2', WebhookDeliveryStatus::Pending, 'project-b'));
+
+    $useCase = new ListWebhookDeliveriesUseCase($repository);
+
+    $page = $useCase->list(
+        new ListWebhookDeliveriesCommand,
+        AccessScope::forOrganization('org-1', ['project-a']),
+    );
+
+    expect($page->total)->toBe(1)
+        ->and($page->items[0]->id)->toBe('d1');
+});
+
+it('lists nothing for an account without any membership', function (): void {
+    $repository = new InMemoryWebhookDeliveryRepository;
+    $repository->create(deliveryWithStatus('d1', WebhookDeliveryStatus::Pending, 'project-a'));
+
+    $useCase = new ListWebhookDeliveriesUseCase($repository);
+
+    $page = $useCase->list(new ListWebhookDeliveriesCommand, AccessScope::none());
+
+    expect($page->total)->toBe(0)
+        ->and($page->items)->toBeEmpty();
 });

@@ -1,6 +1,9 @@
 @props([
     'label' => '',
     'value' => 0,
+    // A ready-made text (an amount with its currency, « 85 000 XAF ») shown as it is:
+    // `value` is a number and is formatted as one.
+    'text' => null,
     'hint' => '',
     'tone' => 'slate', // 'slate' | 'emerald' | 'amber' | 'rose'
 ])
@@ -34,7 +37,7 @@
     <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
             <p class="text-sm uppercase tracking-wider font-semibold text-slate-500 truncate">{{ $label }}</p>
-            <p class="mt-1 text-3xl font-semibold {{ $toneText }}">{{ number_format((float) $value) }}</p>
+            <p class="mt-1 text-3xl font-semibold {{ $toneText }}">{{ $text ?? number_format((float) $value) }}</p>
             @if ($hint !== '')
                 <p class="mt-1 text-sm text-slate-500">{{ $hint }}</p>
             @endif

@@ -45,6 +45,9 @@ final class FakeChannelSessionProvider implements ChannelSessionProvider, Notifi
 
     public ChannelSessionState $nextState = ChannelSessionState::Linked;
 
+    /** @var list<string> the sessions whose live state was actually asked for */
+    public array $sessionStateCalls = [];
+
     public function __construct(
         private readonly ProviderCode $code,
     ) {
@@ -68,6 +71,8 @@ final class FakeChannelSessionProvider implements ChannelSessionProvider, Notifi
 
     public function getSessionState(string $sessionRef): ChannelSessionState
     {
+        $this->sessionStateCalls[] = $sessionRef;
+
         return $this->nextState;
     }
 

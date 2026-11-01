@@ -12,6 +12,7 @@ use Core\Payment\Tests\Unit\Fakes\FakePaymentGatewayRegistry;
 use Core\Payment\Tests\Unit\Fakes\FakePaymentStatusChangeHandler;
 use Core\Payment\Tests\Unit\Fakes\FixedClock;
 use Core\Payment\Tests\Unit\Fakes\InMemoryPaymentRepository;
+use Core\Support\Access\AccessScope;
 use Core\Support\Integration\Exception\ProviderTransientError;
 use Core\Support\Integration\Provider\ProviderCode;
 use Psr\Log\NullLogger;
@@ -50,7 +51,7 @@ it('does nothing when no payment is stuck', function (): void {
         journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
-    $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand);
+    $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand, AccessScope::platform());
 
     expect($summary->checked)->toBe(0)
         ->and($summary->updated)->toBe(0)
@@ -79,7 +80,7 @@ it('does not call the handler when checkStatus reports the same status', functio
         journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
-    $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand);
+    $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand, AccessScope::platform());
 
     expect($summary->checked)->toBe(1)
         ->and($summary->updated)->toBe(0)
@@ -107,7 +108,7 @@ it('hands the handler a correctly-shaped event when the provider reports a settl
         journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
-    $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand);
+    $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand, AccessScope::platform());
 
     expect($summary->checked)->toBe(1)
         ->and($summary->updated)->toBe(1)
@@ -142,7 +143,7 @@ it('logs and skips a payment whose provider call fails, without aborting the bat
         journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
-    $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand);
+    $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand, AccessScope::platform());
 
     expect($summary->checked)->toBe(2)
         ->and($summary->updated)->toBe(0)
@@ -179,7 +180,7 @@ it('logs and skips a payment whose handler fails with a non-provider exception, 
         journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
-    $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand);
+    $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand, AccessScope::platform());
 
     expect($summary->checked)->toBe(2)
         ->and($summary->updated)->toBe(0)
@@ -209,7 +210,7 @@ it('honours limitOverride over the configured batch size', function (): void {
         journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
     );
 
-    $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand(limitOverride: 2));
+    $summary = $useCase->reconcile(new ReconcileStuckPaymentsCommand(limitOverride: 2), AccessScope::platform());
 
     expect($summary->checked)->toBe(2);
 });
@@ -234,7 +235,7 @@ it('takes stuck payments in turn, so payments the provider keeps answering pendi
         stuckAfterMinutes: 2,
         batchSize: 2,
         journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
-    ))->reconcile(new ReconcileStuckPaymentsCommand);
+    ))->reconcile(new ReconcileStuckPaymentsCommand, AccessScope::platform());
 
     // First run: the two oldest; they are marked as checked even though nothing changed.
     expect($run('2026-09-15T10:00:00Z')->checked)->toBe(2)
@@ -267,8 +268,42 @@ it('marks a payment as checked even when its provider call fails (ADR-0067)', fu
         stuckAfterMinutes: 2,
         batchSize: 100,
         journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
-    ))->reconcile(new ReconcileStuckPaymentsCommand);
+    ))->reconcile(new ReconcileStuckPaymentsCommand, AccessScope::platform());
 
     expect($summary->errors)->toBe(1)
         ->and($payments->reconciledAt)->toHaveKey('p1');
+});
+
+it('only reconciles the payments of the projects in the scope (ADR-0069 §2)', function (): void {
+    $payments = new InMemoryPaymentRepository;
+    $payments->create(stuckPayment('p1', PaymentStatus::Processing));
+
+    $gateway = new FakePaymentGateway(ProviderCode::fromString('fake-provider'));
+    $gateway->checkStatusException = new RuntimeException('The provider must never be asked about a foreign payment.');
+    $registry = new FakePaymentGatewayRegistry;
+    $registry->register($gateway);
+
+    $useCase = new ReconcileStuckPaymentsUseCase(
+        payments: $payments,
+        gateways: $registry,
+        statusChangeHandler: new FakePaymentStatusChangeHandler,
+        clock: new FixedClock,
+        logger: new NullLogger,
+        stuckAfterMinutes: 15,
+        batchSize: 100,
+        journey: Core\Payment\Tests\Unit\Fakes\InMemoryPaymentTimeline::journey(),
+    );
+
+    $foreign = $useCase->reconcile(new ReconcileStuckPaymentsCommand, AccessScope::forProject('another-project'));
+    $nothing = $useCase->reconcile(new ReconcileStuckPaymentsCommand, AccessScope::none());
+
+    expect($foreign->checked)->toBe(0)
+        ->and($foreign->errors)->toBe(0)
+        ->and($nothing->checked)->toBe(0);
+
+    // Positive control: in scope, the very same payment is selected and the
+    // provider is asked (here it fails, which the batch counts as an error).
+    $own = $useCase->reconcile(new ReconcileStuckPaymentsCommand, AccessScope::forProject('project-1'));
+
+    expect($own->errors)->toBe(1);
 });

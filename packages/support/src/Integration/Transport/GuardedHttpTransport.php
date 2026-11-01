@@ -40,7 +40,7 @@ final readonly class GuardedHttpTransport implements HttpTransport
             return $this->inner->send($method, $url, $headers, $body, $timeoutSeconds);
         }
 
-        $addresses = $this->guard->resolvePublicAddresses($url);
+        $addresses = $this->guard->resolveAcceptableAddresses($url);
         if ($addresses === []) {
             throw new ProviderPermanentError(
                 'Destination URL is not publicly reachable (blocked or unresolvable host).',

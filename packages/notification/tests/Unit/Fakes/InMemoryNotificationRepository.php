@@ -65,11 +65,12 @@ final class InMemoryNotificationRepository implements NotificationRepository
         return count($this->notifications);
     }
 
-    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage): array
+    public function findByProject(string $projectId, ?NotificationStatus $status, int $page, int $perPage, ?array $projectIds = null): array
     {
         $matching = array_values(array_filter(
             $this->notifications,
             static fn (Notification $notification): bool => $notification->projectId === $projectId
+                && ($projectIds === null || in_array($notification->projectId, $projectIds, true))
                 && ($status === null || $notification->status === $status),
         ));
 
@@ -77,6 +78,19 @@ final class InMemoryNotificationRepository implements NotificationRepository
         $offset = ($page - 1) * $perPage;
 
         return ['items' => array_slice($matching, $offset, $perPage), 'total' => $total];
+    }
+
+    public function listByCursor(string $projectId, ?NotificationStatus $status, ?string $channel, ?DateTimeImmutable $createdFrom, ?DateTimeImmutable $createdTo, ?string $cursor, int $limit): array
+    {
+        $matching = array_values(array_filter(
+            $this->notifications,
+            static fn (Notification $notification): bool => $notification->projectId === $projectId
+                && ($status === null || $notification->status === $status)
+                && ($channel === null || $notification->channel === $channel),
+        ));
+
+        // The ordering and the cursor are proven against the real database.
+        return ['items' => array_slice($matching, 0, $limit), 'nextCursor' => null];
     }
 
     public function redactContentCreatedBefore(DateTimeImmutable $before): int

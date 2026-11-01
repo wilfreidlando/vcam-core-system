@@ -13,6 +13,7 @@ use Core\Identity\Contracts\IssueApiKeyCommand;
 use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
@@ -93,6 +94,53 @@ final class StartPaymentHttpFlowTest extends TestCase
         $secret = $response->json('callback_secret');
         self::assertIsString($secret);
         self::assertNotSame('', $secret);
+    }
+
+    /**
+     * ADR-0081 S-07/S-08 — the callback secret is shown once. A replay of the
+     * same `Idempotency-Key` returns the same payment without it, and the
+     * idempotency store never kept it in clear.
+     */
+    #[Test]
+    public function a_replayed_payment_creation_never_hands_the_callback_secret_out_again(): void
+    {
+        [$token, $projectId] = $this->authenticatedProject();
+        $this->registerMyCoolPayApplication($projectId, 'pub-flow-replay');
+
+        Http::fake([
+            'my-coolpay.com/api/pub-flow-replay/payin' => Http::response([
+                'status' => 'success',
+                'transaction_ref' => 'tx-payin-replay',
+                'action' => 'PENDING',
+            ], 201),
+        ]);
+
+        $body = [
+            'channel' => 'mtn_momo',
+            'amount' => 1_000,
+            'currency' => 'XAF',
+            'reason' => 'Order #replay',
+            'callback_url' => 'https://example.com/callbacks/payments',
+        ];
+        $headers = ['Authorization' => "Bearer {$token}", 'Idempotency-Key' => (string) Str::uuid()];
+
+        $first = $this->postJson('/v1/payments/payin', $body, $headers);
+        $replay = $this->postJson('/v1/payments/payin', $body, $headers);
+
+        $first->assertStatus(201);
+        $secret = $first->json('callback_secret');
+        self::assertIsString($secret);
+        $first->assertHeaderMissing('X-Core-Shown-Once');
+
+        $replay->assertStatus(201)
+            ->assertJsonPath('id', $first->json('id'))
+            ->assertJsonMissingPath('callback_secret')
+            ->assertHeaderMissing('X-Core-Shown-Once');
+
+        $stored = DB::table('idempotency_keys')->where('key', $headers['Idempotency-Key'])->value('response_body');
+        self::assertIsString($stored);
+        self::assertStringNotContainsString($secret, $stored);
+        self::assertStringNotContainsString('callback_secret', $stored);
     }
 
     #[Test]
@@ -266,7 +314,7 @@ final class StartPaymentHttpFlowTest extends TestCase
         )->project;
 
         $issued = app(IssueApiKey::class)->issue(
-            new IssueApiKeyCommand($project->id, [$scope], replaceExisting: true),
+            new IssueApiKeyCommand($project->id, [$scope]),
             actor: 'service:test',
             correlationId: null,
         );

@@ -44,6 +44,8 @@ Aucun port n'est publié sur Internet.
 
 Modèles : `.env.production.example` et `.env.staging.example`. Droits des `.env` : `600`, propriétaire `root`. **La règle : jamais les secrets de la production au staging** (écart actuel : voir « Écarts connus »).
 
+**La checklist** — dans quel ordre poser ces clés, ce que chacune protège, et ce que casse le fait de la changer : [Les secrets du Core](operations/secretes-et-clefs.md).
+
 ## 4. Premier déploiement d'un environnement
 
 > **Commandes.** Elles s'écrivent `/app/vps-platform/bin/deploy.sh …` ou `make staging-deploy` / `make prod-promote`, ou `vps-deploy …` quand les commandes courtes de la plateforme sont installées (`vps` donne l'aide, `vps where` dit où est la plateforme).

@@ -140,4 +140,117 @@ final class PayloadRedactorTest extends TestCase
         self::assertSame(42, $redactor->redact(42));
         self::assertNull($redactor->redact(null));
     }
+
+    #[Test]
+    public function personal_data_is_redacted(): void
+    {
+        // ADR-0093 §6 / ADR-0081 S-17 — a name, an address and a phone
+        // number are personal data: they are encrypted at rest, and they
+        // must never be written in clear in a log.
+        $redactor = new PayloadRedactor(new SensitiveKeySet);
+
+        /** @var array<string, mixed> $redacted */
+        $redacted = $redactor->redact([
+            'display_name' => 'Marie Ngo Bell',
+            'email' => 'marie@example.cm',
+            'phone' => '+237699887766',
+            'variables' => ['phone_number' => '+237699887766'],
+            'plan_code' => 'mensuel',
+        ]);
+
+        self::assertSame('***REDACTED***', $redacted['display_name']);
+        self::assertSame('***REDACTED***', $redacted['email']);
+        self::assertSame('***REDACTED***', $redacted['phone']);
+        self::assertSame('mensuel', $redacted['plan_code']);
+
+        /** @var array<string, mixed> $variables */
+        $variables = $redacted['variables'];
+        self::assertSame('***REDACTED***', $variables['phone_number']);
+    }
+
+    #[Test]
+    public function one_time_codes_are_redacted_but_diagnostic_codes_are_kept(): void
+    {
+        $redactor = new PayloadRedactor(new SensitiveKeySet);
+
+        /** @var array<string, mixed> $redacted */
+        $redacted = $redactor->redact([
+            // Audit 2026-10-29 #2 — the console's MFA field is named `code`.
+            'code' => '123456',
+            'otp' => '654321',
+            'mfa_code' => '111111',
+            'sms_code' => '222222',
+            'verification_code' => '333333',
+            'totp' => '444444',
+            'Code' => '555555',
+            'nested' => ['code' => '666666'],
+            // Not secrets: an operator needs them in a log line.
+            'status_code' => 502,
+            'provider_code' => 'my-coolpay',
+            'error_code' => 'E42',
+            'postal_code' => 'BP 12',
+            'footprint' => 'kept',
+        ]);
+
+        foreach (['code', 'otp', 'mfa_code', 'sms_code', 'verification_code', 'totp', 'Code'] as $key) {
+            self::assertSame('***REDACTED***', $redacted[$key], $key);
+        }
+        self::assertSame(['code' => '***REDACTED***'], $redacted['nested']);
+        self::assertSame(502, $redacted['status_code']);
+        self::assertSame('my-coolpay', $redacted['provider_code']);
+        self::assertSame('E42', $redacted['error_code']);
+        self::assertSame('BP 12', $redacted['postal_code']);
+        self::assertSame('kept', $redacted['footprint']);
+    }
+
+    #[Test]
+    public function provider_signatures_and_macs_are_redacted(): void
+    {
+        $redactor = new PayloadRedactor(new SensitiveKeySet);
+
+        /** @var array<string, mixed> $redacted */
+        $redacted = $redactor->redact([
+            'signature' => md5('secret'),
+            'mac' => 'abc',
+            'hmac' => 'def',
+            'payload_checksum' => 'ghi',
+            'machine' => 'kept',
+            'transaction_ref' => 'tx-1',
+        ]);
+
+        foreach (['signature', 'mac', 'hmac', 'payload_checksum'] as $key) {
+            self::assertSame('***REDACTED***', $redacted[$key], $key);
+        }
+        self::assertSame('kept', $redacted['machine']);
+        self::assertSame('tx-1', $redacted['transaction_ref']);
+    }
+
+    #[Test]
+    public function the_customers_own_name_and_the_search_terms_are_redacted(): void
+    {
+        // Audit 2026-10-29 #9 / #19 — the customer's name travels in the
+        // payment payload and the operator's search term in the query
+        // string: both are personal data (ADR-0083 §1) and both were
+        // logged in clear.
+        $redactor = new PayloadRedactor(new SensitiveKeySet);
+
+        /** @var array<string, mixed> $redacted */
+        $redacted = $redactor->redact([
+            'customer_name' => 'Marie Ngo Bell',
+            'contact_name' => 'Marie Ngo Bell',
+            'search' => 'marie@example.cm',
+            'q' => '+237699887766',
+            // Not personal data: the operator needs these in a log line.
+            'plan_name' => 'Mensuel',
+            'provider_name' => 'my-coolpay',
+            'method_name' => 'card',
+        ]);
+
+        foreach (['customer_name', 'contact_name', 'search', 'q'] as $key) {
+            self::assertSame('***REDACTED***', $redacted[$key], $key);
+        }
+        self::assertSame('Mensuel', $redacted['plan_name']);
+        self::assertSame('my-coolpay', $redacted['provider_name']);
+        self::assertSame('card', $redacted['method_name']);
+    }
 }

@@ -17,6 +17,11 @@ use Illuminate\Database\Eloquent\Model;
  * @property CarbonImmutable|null $revoked_at
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable|null $last_used_at
+ * @property string $name
+ * @property list<string> $allowed_cidrs
+ * @property CarbonImmutable|null $expires_at
+ * @property string|null $replaced_by_api_key_id
+ * @property string|null $last_used_ip
  */
 final class ApiKeyRecord extends Model
 {
@@ -24,14 +29,16 @@ final class ApiKeyRecord extends Model
 
     protected $table = 'api_keys';
 
-    protected $fillable = ['id', 'project_id', 'prefix', 'key_hash', 'scopes', 'revoked_at'];
+    protected $fillable = ['id', 'project_id', 'prefix', 'key_hash', 'scopes', 'revoked_at', 'name', 'allowed_cidrs', 'expires_at', 'replaced_by_api_key_id'];
 
     protected $casts = [
         'scopes' => PostgresTextArrayCast::class,
+        'allowed_cidrs' => PostgresTextArrayCast::class,
         // CarbonImmutable extends \DateTimeImmutable directly, so the
         // repository can hand these straight to the Domain entity.
         'revoked_at' => 'immutable_datetime',
         'created_at' => 'immutable_datetime',
         'last_used_at' => 'immutable_datetime',
+        'expires_at' => 'immutable_datetime',
     ];
 }

@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use Core\Ledger\Contracts\Direction;
+use Core\Ledger\Contracts\ResolveOrCreateAccountCommand;
 use Core\Support\Money\Money;
 use Core\Wallet\Application\UseCase\DebitWalletUseCase;
 use Core\Wallet\Contracts\DebitWalletCommand;
 use Core\Wallet\Domain\Exception\InsufficientFunds;
 use Core\Wallet\Domain\Exception\WalletNotFound;
 use Core\Wallet\Domain\Exception\WalletProjectMismatch;
+use Core\Wallet\Domain\Model\SystemAccount;
 use Core\Wallet\Domain\Model\Wallet;
 use Core\Wallet\Domain\Model\WalletBalance;
 use Core\Wallet\Tests\Unit\Fakes\FakeAccountResolver;
@@ -21,7 +23,7 @@ use Core\Wallet\Tests\Unit\Fakes\PassthroughUnitOfWork;
 use Core\Wallet\Tests\Unit\Fakes\SequentialIdentifier;
 
 /**
- * @return array{0: DebitWalletUseCase, 1: InMemoryWalletBalanceRepository, 2: FakeLedgerPoster, 3: InMemoryEventOutbox, 4: string}
+ * @return array{0: DebitWalletUseCase, 1: InMemoryWalletBalanceRepository, 2: FakeLedgerPoster, 3: InMemoryEventOutbox, 4: string, 5: FakeAccountResolver}
  */
 function makeDebitUseCase(int $initialAvailableMinor = 1_000, string $currency = 'XAF'): array
 {
@@ -29,6 +31,7 @@ function makeDebitUseCase(int $initialAvailableMinor = 1_000, string $currency =
     $balances = new InMemoryWalletBalanceRepository;
     $ledgerPoster = new FakeLedgerPoster;
     $outbox = new InMemoryEventOutbox;
+    $accounts = new FakeAccountResolver;
 
     $wallet = new Wallet('wallet-1', 'project-1', 'party-1', $currency, 'active');
     $wallets->save($wallet);
@@ -38,14 +41,29 @@ function makeDebitUseCase(int $initialAvailableMinor = 1_000, string $currency =
         new PassthroughUnitOfWork,
         $wallets,
         $balances,
-        new FakeAccountResolver,
+        $accounts,
         $ledgerPoster,
         $outbox,
         new SequentialIdentifier,
         new FixedClock,
     );
 
-    return [$useCase, $balances, $ledgerPoster, $outbox, $wallet->id];
+    return [$useCase, $balances, $ledgerPoster, $outbox, $wallet->id, $accounts];
+}
+
+/**
+ * The account the debit CREDITS — the one that is not the wallet's own
+ * account, as the ledger resolver was asked for it.
+ */
+function counterpartyAccount(FakeAccountResolver $accounts): ResolveOrCreateAccountCommand
+{
+    foreach ($accounts->calls as $call) {
+        if ($call->kind !== SystemAccount::WALLET) {
+            return $call;
+        }
+    }
+
+    throw new RuntimeException('No counterparty account was resolved.');
 }
 
 it('debits an existing wallet with sufficient funds', function (): void {
@@ -75,7 +93,7 @@ it('rejects a debit that would overdraw the available balance', function (): voi
     $useCase->debit(new DebitWalletCommand('project-1', $walletId, 101, null, 'idem-1'));
 })->throws(InsufficientFunds::class);
 
-it('posts a balanced double-entry transaction: debit wallet, credit clearing', function (): void {
+it('posts a balanced double-entry transaction: debit wallet, credit withdrawal', function (): void {
     [$useCase, , $ledgerPoster, , $walletId] = makeDebitUseCase(1_000);
 
     $useCase->debit(new DebitWalletCommand('project-1', $walletId, 400, null, 'idem-1'));
@@ -83,8 +101,36 @@ it('posts a balanced double-entry transaction: debit wallet, credit clearing', f
     expect($ledgerPoster->posted)->toHaveCount(1);
 
     $entries = $ledgerPoster->posted[0]->entries;
-    expect($entries[0]->direction)->toBe(Direction::Debit)
-        ->and($entries[1]->direction)->toBe(Direction::Credit);
+    expect($entries)->toHaveCount(2)
+        ->and($entries[0]->direction)->toBe(Direction::Debit)
+        ->and($entries[1]->direction)->toBe(Direction::Credit)
+        ->and($entries[0]->amountMinor)->toBe($entries[1]->amountMinor);
+});
+
+/**
+ * ADR-0076 §2 — the money that leaves a wallet leaves the books with it:
+ * its counterparty is the project's `withdrawal` account, the one that
+ * carries the recorded exits. It is NOT `clearing`, which is what the
+ * provider holds for the project: a wallet debit would inflate the
+ * provider's account with money it never held, and leave the historical
+ * project-level account with a balance no settlement explains.
+ */
+it('credits the project withdrawal account, never the clearing account (ADR-0076 §2)', function (): void {
+    [$useCase, , , , $walletId, $accounts] = makeDebitUseCase(1_000);
+
+    $useCase->debit(new DebitWalletCommand('project-1', $walletId, 400, null, 'idem-1'));
+
+    $counterparty = counterpartyAccount($accounts);
+
+    $kinds = [];
+    foreach ($accounts->calls as $call) {
+        $kinds[] = $call->kind;
+    }
+
+    expect($counterparty->kind)->toBe(SystemAccount::WITHDRAWAL)
+        ->and($counterparty->reference)->toBe(SystemAccount::PROJECT_LEVEL)
+        // No clearing account is even opened by a debit.
+        ->and($kinds)->not->toContain(SystemAccount::CLEARING);
 });
 
 it('appends a wallet.debited event to the outbox', function (): void {

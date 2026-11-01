@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Admin\Concerns;
 
 use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\GetProjectCommand;
+use Core\Support\Access\AccessScope;
 use RuntimeException;
 
 /**
@@ -27,12 +28,12 @@ trait ResolvesProjectNames
      *                               resolved, so the UI never shows a
      *                               blank cell)
      */
-    private function resolveProjectNames(GetProject $getProject, array $projectIds): array
+    private function resolveProjectNames(GetProject $getProject, array $projectIds, AccessScope $scope): array
     {
         $names = [];
         foreach (array_unique($projectIds) as $projectId) {
             try {
-                $names[$projectId] = $getProject->get(new GetProjectCommand($projectId))->name;
+                $names[$projectId] = $getProject->get(new GetProjectCommand($projectId), $scope)->name;
             } catch (RuntimeException) {
                 $names[$projectId] = $projectId;
             }

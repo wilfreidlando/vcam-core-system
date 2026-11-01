@@ -6,12 +6,14 @@ namespace Core\Support\Http\Middleware;
 
 use Closure;
 use Core\Support\Http\ProblemDetails;
+use Core\Support\Http\ShownOnce;
 use Core\Support\Idempotency\IdempotencyKeyAlreadyLocked;
 use Core\Support\Idempotency\IdempotencyScope;
 use Core\Support\Idempotency\IdempotencyStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 /**
  * The HTTP-level idempotency guard ADR-0025 designs and G7 requires on
@@ -23,8 +25,10 @@ use Symfony\Component\HttpFoundation\Response;
  *   - header absent               -> 400 `idempotency-key-required`
  *   - unknown key                 -> lock it, run the route, cache the
  *                                     response, release
- *   - known, same request, done   -> replay the cached response verbatim,
- *                                     the route handler never runs again
+ *   - known, same request, done   -> replay the cached response, the route
+ *                                     handler never runs again — minus the
+ *                                     secrets shown once (`ShownOnce`),
+ *                                     which are never stored
  *   - known, different request    -> 409 `idempotency-key-conflict` (the
  *                                     key was reused for a different body)
  *   - known, still in flight      -> 409 (a concurrent request holds the
@@ -83,8 +87,10 @@ final class RequireIdempotencyKey
                 );
             }
 
-            // Same key, same body, already completed: replay verbatim.
-            // The route handler never runs — no second effect.
+            // Same key, same body, already completed: replay the stored
+            // response. The route handler never runs — no second effect.
+            // A secret shown once at creation was never stored, so the
+            // replay does not carry it (ADR-0081 S-07).
             return new JsonResponse($existing->responseBody, $existing->responseStatus ?? 200);
         }
 
@@ -100,13 +106,28 @@ final class RequireIdempotencyKey
             );
         }
 
-        $response = $next($request);
+        try {
+            $response = $next($request);
+        } catch (Throwable $exception) {
+            // The request **failed**: it produced no effect, so the key
+            // goes back to the caller. A key that stayed locked would
+            // make every retry of a failed request answer 409 "already
+            // in progress" for ever — the caller could never try again
+            // with the key it was given.
+            $this->store->release($scope, $key);
+
+            throw $exception;
+        }
+
+        // ADR-0081 S-07/S-08 — the secrets the route shows once are dropped
+        // from the stored copy: never kept in clear, never replayed.
+        $shownOnce = ShownOnce::take($response);
 
         $content = $response->getContent();
         $decoded = json_decode($content !== false && $content !== '' ? $content : '{}', true);
         /** @var array<string, mixed> $body */
         $body = is_array($decoded) ? $decoded : [];
-        $this->store->complete($scope, $key, $response->getStatusCode(), $body);
+        $this->store->complete($scope, $key, $response->getStatusCode(), ShownOnce::forget($body, $shownOnce));
 
         return $response;
     }

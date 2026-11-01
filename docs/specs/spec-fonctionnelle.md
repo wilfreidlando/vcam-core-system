@@ -320,3 +320,219 @@ Le MVP est considéré comme réussi lorsque :
 1. Un scénario de migration en shadow mode démontre la cohérence entre ancienne et nouvelle implémentation avant bascule.
 
 Fin de la Spécification Fonctionnelle — Version 1.0
+
+---
+
+# Addendum 1.0 — Plateforme multi-tenant de projets SaaS (2026-10-24)
+
+> **Addendum daté, statut proposé.** Le document Word
+> `source/Spec_Fonctionnelle_Core_System.docx` reste la référence des §1 à §11
+> ci-dessus. Cet addendum décrit les capacités décidées par les ADR-0068 à
+> ADR-0090 (tous proposés). Il ne nomme aucun produit.
+
+## F1. Objet
+
+Faire du Core la plateforme qui **gère des projets SaaS de bout en bout**, pour
+l'entreprise comme pour des organisations tierces : identifier, vendre,
+mesurer, servir le client, compter l'argent, piloter, en restant générique
+(aucun concept métier d'un projet).
+
+## F2. Acteurs
+
+| Acteur | Description | Accès |
+|---|---|---|
+| **Personnel de la plateforme** | exploite la plateforme pour toutes les organisations | console, rôle de plateforme |
+| **Membre d'organisation** | gère les projets de son organisation (propriétaire, administrateur, finance, support, lecture) | console, portée limitée à son organisation |
+| **Serveur d'un projet** | l'application SaaS, côté serveur | API `/v1`, clés à portée |
+| **Client d'un projet** | la partie qui paie le projet (entreprise ou particulier) | portail client |
+| **Utilisateur final** | utilise l'application sans en être le payeur | **aucun** : inconnu du Core |
+| **Prestataire** | encaisse, verse, livre les messages | callbacks authentifiés |
+
+## F3. Capacités, par pilier
+
+### F3.1 Services de plateforme (existants, étendus)
+
+- Organisations, projets (cycle `active` / `suspended` / `archived`), comptes
+  console scopés par organisation (ADR-0069).
+- Plusieurs clés d'API nommées par projet, portées choisies, rotation sans
+  coupure, restriction réseau (ADR-0082).
+- Paiement, notification, webhook, audit : inchangés, plus la vérification du
+  montant confirmé (ADR-0077) et la double signature pendant la rotation d'un
+  secret de webhook (ADR-0082).
+- Catalogue de capacités et pages de démarrage testées (ADR-0087).
+
+### F3.2 Commerce SaaS (nouveau)
+
+| Capacité | Ce que le projet peut faire | ADR |
+|---|---|---|
+| Clients | déclarer, mettre à jour, suspendre, effacer, exporter ses clients | 0070, 0083 |
+| Catalogue | créer des plans, publier des versions (prix, devise, intervalle, essai, délai de grâce, fonctionnalités), archiver | 0071 |
+| Abonnements | abonner un client (avec ou sans essai), annuler, changer de plan ; lire l'état et la prochaine échéance | 0072 |
+| Factures | factures de période automatiques, factures manuelles, paiement en ligne, encaissement hors ligne, documents | 0073 |
+| Usage et quotas | déclarer un usage, appliquer une limite, lire droits et compteurs ; décompte automatique des notifications | 0074 |
+| Portail client | ouvrir le portail d'un client ; laisser le client payer, télécharger, suivre son usage, changer de plan | 0075 |
+
+### F3.3 Grand livre (étendu)
+
+- Toute somme est écrite, dans un plan de comptes par projet (ADR-0076).
+- Exceptions d'argent (écart de montant, surpaiement…) traitées à quatre yeux
+  (ADR-0077).
+- Rapprochement : invariants internes, relevé et solde du prestataire
+  (ADR-0078).
+- Versements sortants (ADR-0079).
+
+### F3.4 Pilotage
+
+Console de portefeuille : clients actifs, essais, impayés, revenu récurrent
+mensuel par devise, attrition, encaissé, créances par ancienneté, exceptions,
+usage, santé technique, onboarding du projet (ADR-0080).
+
+## F4. Parcours fonctionnels
+
+### F4.1 Une organisation tierce met un projet SaaS en service
+
+1. Le personnel de la plateforme crée l'organisation et invite son
+   propriétaire (jeton d'activation).
+2. Le propriétaire active son compte (mot de passe + MFA), crée le projet,
+   invite ses membres.
+3. L'administrateur émet une clé « serveur complet » et une clé « portail
+   uniquement », enregistre son application prestataire, un endpoint de
+   webhook (test réussi), publie deux plans, personnalise le portail.
+4. La liste de contrôle d'onboarding est verte ; le projet est en service.
+
+### F4.2 Un client s'abonne avec un essai, puis paie
+
+1. Le projet crée son tenant chez lui, puis `PUT /v1/customers/AE0001`.
+2. `POST /v1/subscriptions {customer_ref: AE0001, plan_code: pro, trial_days: 14}`
+   → `trialing` ; webhook `subscription.created`.
+3. À J−7 de la fin d'essai : facture de la première période ;
+   `subscription.renewal_due` ; à J−3 : `subscription.trial_will_end`.
+4. Le projet ouvre le portail pour le client ; le client paie par mobile
+   money.
+5. Paiement confirmé avec le bon montant → facture payée → à la fin de
+   l'essai, l'abonnement passe `active` ; webhooks `invoice.paid`,
+   `subscription.activated`.
+
+### F4.3 Un client paie en avance, puis oublie le renouvellement suivant
+
+1. Le client paie la facture de la période suivante dès sa création : la
+   période suivante est couverte, aucun jour perdu.
+2. Au renouvellement d'après, il ne paie pas : à l'échéance, `past_due` ; le
+   projet garde l'accès pendant le délai de grâce du plan.
+3. À la fin du délai de grâce : `expired` ; le projet ferme l'accès sur
+   `subscription.expired`.
+
+### F4.4 Le client paie par virement
+
+1. La finance de l'organisation enregistre l'encaissement hors ligne
+   (référence, montant, date, pièce) ; au-delà du seuil, un second membre
+   valide.
+2. La facture est soldée, la période couverte, l'abonnement actif ; le grand
+   livre porte l'encaissement au compte `manual_receipts:bank_transfer`.
+
+### F4.5 Un quota est atteint
+
+1. Le plan « pro » limite `whatsapp_messages` à 1 000 par période.
+2. Le projet envoie une notification avec `customer_ref` ; le Core décompte
+   une unité dans la même transaction que la création de la notification.
+3. À 800 : `usage.threshold_reached`. À 1 000 : l'envoi suivant reçoit
+   `429 quota-exceeded`, rien n'est envoyé ni créé.
+4. Le client passe au plan supérieur depuis le portail (changement à
+   l'échéance, ou immédiat si le projet l'autorise).
+
+### F4.6 Le prestataire confirme un montant différent
+
+1. Le callback confirme 4 000 XAF pour une facture de 5 000 XAF.
+2. Le paiement est `succeeded`, l'argent est écrit au compte
+   `payment_exceptions`, la facture reste ouverte, une exception `high` est
+   ouverte.
+3. La finance impute partiellement ou rembourse hors plateforme ; un second
+   membre approuve au-delà du seuil.
+
+### F4.7 Un projet reverse de l'argent à un partenaire
+
+1. `POST /v1/payouts` depuis le wallet du partenaire.
+2. Le Core écrit d'abord (`payout_in_transit`), appelle le prestataire avec
+   l'application du projet, confirme par callback, consultation ou balayage.
+3. Au-delà du seuil du projet, le versement attend l'approbation d'un second
+   membre.
+
+### F4.8 Un client demande l'effacement de ses données
+
+Le projet appelle `POST /v1/customers/{ref}/erase` : identité effacée,
+abonnements annulés, portail fermé ; grand livre et factures intacts.
+
+## F5. Règles de gestion
+
+### F5.1 Commerce
+
+- Un plan publié ne change jamais ; changer un prix = publier une version.
+- Un abonnement fige prix, devise et intervalle de sa version.
+- Les périodes d'un abonnement ne se chevauchent jamais.
+- Un client a les droits de son plan si l'abonnement est en essai, actif, ou
+  impayé pendant le délai de grâce (si le plan le permet) ; jamais s'il est
+  suspendu.
+- Pas d'activation sans argent : seuls un paiement confirmé, un encaissement
+  hors ligne ou une période offerte (motivée) ouvrent une période.
+- Une facture émise est immuable ; sa numérotation est sans trou par projet
+  et par année.
+- Un usage n'est compté qu'une fois par clé d'idempotence ; un dépassement est
+  refusé **avant** l'effet.
+
+### F5.2 Argent
+
+- Toute somme est écrite au grand livre, cloisonnée par projet.
+- Un encaissement dont le montant confirmé diffère n'est jamais imputé
+  automatiquement.
+- Toute opération financière manuelle au-delà d'un seuil exige deux personnes.
+- Un rapprochement constate ; seule une personne corrige, par écriture
+  compensatoire.
+
+### F5.3 Ce qui reste au projet
+
+- Ses tenants, ses utilisateurs finaux, leurs rôles et leur authentification.
+- Le cloisonnement de ses données, en fail-closed.
+- La forme des messages envoyés à ses clients (le Core émet des événements).
+- Ses indicateurs métier.
+
+## F6. Rôles
+
+| Rôle | Portée | Exemples d'actions |
+|---|---|---|
+| Rôles de plateforme existants (ADR-0044) | toutes organisations | exploitation, sessions de canal globales, files |
+| `org_owner` | son organisation | membres, archivage de projet, tout `org_admin` |
+| `org_admin` | son organisation | projets, clés, webhooks, prestataires, catalogue, portail |
+| `org_finance` | son organisation | factures, encaissements hors ligne, exceptions, versements, grand livre |
+| `org_support` | son organisation | clients, abonnements (prolonger, suspendre avec motif) |
+| `org_viewer` | son organisation | lecture |
+
+## F7. Ce que le Core refuse
+
+Voir `docs/gouvernance/liste-negative.md` : cloisonnement des données des
+applications, fournisseur d'identité des utilisateurs finaux, flux JWT
+transitoire, inscription libre-service, microservices et plugins dynamiques.
+
+## F8. Critères d'acceptation (plan de recette)
+
+Chaque critère est vérifié par un test automatisé ou par la recette
+bout-en-bout sur le staging (horloge de test + simulateur de paiement).
+
+| # | Critère |
+|---|---|
+| R-01 | Un membre de l'organisation A n'accède à aucune donnée de l'organisation B (404 partout). |
+| R-02 | Une clé sans portée `payouts:write` ne peut pas verser. |
+| R-03 | Le parcours F4.2 se déroule sur horloge de test, webhooks reçus dans l'ordre logique ou rejoués sans effet. |
+| R-04 | Paiement anticipé (F4.3) : aucune période perdue, aucun chevauchement. |
+| R-05 | Impayé puis grâce puis expiration (F4.3) aux dates attendues. |
+| R-06 | Encaissement hors ligne au-dessus du seuil : n'écrit rien au grand livre tant qu'il n'est pas validé (ADR-0095 : un compte valide, l'auteur peut valider son propre reçu ; la règle des quatre yeux reste pour les exceptions d'argent et les corrections du grand livre). |
+| R-07 | Limite d'usage 1, 50 requêtes simultanées : une seule admise ; même clé rejouée : comptée une fois. |
+| R-08 | Notification refusée par quota : aucune notification créée, aucun appel prestataire. |
+| R-09 | Montant confirmé différent : aucune imputation, exception ouverte, grand livre équilibré. |
+| R-10 | Tout paiement réussi a son écriture ; balance de vérification nulle par projet et devise. |
+| R-11 | Portail : lien réutilisé ou expiré refusé ; URL de retour hors liste refusée ; client A ne voit pas les factures de B. |
+| R-12 | Versement en délai dépassé : reste `pending`, aucune contre-passation ; la consultation tranche. |
+| R-13 | Effacement d'un client : aucune donnée personnelle restante, grand livre inchangé. |
+| R-14 | Projet suspendu : `/v1` refusé, callbacks prestataires toujours traités. |
+| R-15 | Recette bout-en-bout avec une application réelle : tenant → client → abonnement → notification avec quota → paiement → portail → webhook → accès ouvert puis fermé à l'expiration. |
+
+Fin de l'addendum — 2026-10-24

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\View\AuditLabels;
 use Core\Audit\Contracts\AuditQuery;
 use Core\Audit\Contracts\AuditSearchCriteria;
 use Core\Identity\Contracts\ListOperators;
@@ -52,11 +53,16 @@ final class DashboardController
         private readonly ListOrganizations $listOrganizations,
         private readonly ListProjects $listProjects,
         private readonly ListOperators $listOperators,
+        private readonly AuditLabels $labels,
     ) {}
 
     public function show(): Response
     {
-        if (! $this->operator->hasPermission('audit:read')) {
+        // ADR-0069 §2 — the dashboard opens to any account holding
+        // `audit:read` in at least one organization; every figure below is
+        // then read through the scope of the permission that opens it, so
+        // an account never counts what it may not see.
+        if (! $this->operator->hasPermissionAnywhere('audit:read')) {
             abort(403, 'La permission audit:read est requise.');
         }
 
@@ -74,6 +80,9 @@ final class DashboardController
             'title' => 'Tableau de bord',
             'stats' => $stats,
             'recentAudit' => $recentAudit,
+            // F-08 — readable actors, the raw identifier stays in `title`.
+            'actorLabels' => $this->labels->actors(array_merge(array_map(static fn ($entry): string => $entry->actor, $recentAudit), array_map(static fn ($entry): string => $entry->resource, $recentAudit)), $this->operator),
+            'isPlatformOperator' => $this->operator->isPlatformRole(),
         ]);
     }
 
@@ -83,7 +92,10 @@ final class DashboardController
     private function paymentsLast24h(): array
     {
         try {
-            $summary = $this->paymentActivity->summarize(new PaymentActivitySummaryWindow(self::ACTIVITY_WINDOW_HOURS));
+            $summary = $this->paymentActivity->summarize(
+                new PaymentActivitySummaryWindow(self::ACTIVITY_WINDOW_HOURS),
+                $this->operator->scopeFor('payments:read'),
+            );
 
             return ['total' => $summary->total, 'succeeded' => $summary->succeeded];
         } catch (Throwable) {
@@ -98,7 +110,7 @@ final class DashboardController
                 projectId: null,
                 page: 1,
                 perPage: 1,
-            ));
+            ), $this->operator->scopeFor('webhooks:read'));
 
             return $page->total;
         } catch (Throwable) {
@@ -109,7 +121,7 @@ final class DashboardController
     private function stuckPaymentsCount(): int
     {
         try {
-            return $this->countStuckPayments->count();
+            return $this->countStuckPayments->count($this->operator->scopeFor('payments:reconcile:write'));
         } catch (Throwable) {
             return 0;
         }
@@ -123,7 +135,7 @@ final class DashboardController
     private function organizationsCount(): int
     {
         try {
-            return $this->listOrganizations->list(new ListOrganizationsCommand(page: 1, perPage: 1))->total;
+            return $this->listOrganizations->list(new ListOrganizationsCommand(page: 1, perPage: 1), $this->operator->scopeFor('projects:read'))->total;
         } catch (Throwable) {
             return 0;
         }
@@ -132,7 +144,7 @@ final class DashboardController
     private function projectsCount(): int
     {
         try {
-            return $this->listProjects->list(new ListProjectsCommand(page: 1, perPage: 1))->total;
+            return $this->listProjects->list(new ListProjectsCommand(page: 1, perPage: 1), $this->operator->scopeFor('projects:read'))->total;
         } catch (Throwable) {
             return 0;
         }
@@ -141,7 +153,7 @@ final class DashboardController
     private function operatorsCount(): int
     {
         try {
-            return $this->listOperators->list(new ListOperatorsCommand(page: 1, perPage: 1))->total;
+            return $this->listOperators->list(new ListOperatorsCommand(page: 1, perPage: 1), $this->operator->scopeFor('operators:read'))->total;
         } catch (Throwable) {
             return 0;
         }
@@ -162,7 +174,7 @@ final class DashboardController
                 to: null,
                 page: 1,
                 perPage: 8,
-            ));
+            ), $this->operator->scopeFor('audit:read'));
 
             return $result->items;
         } catch (Throwable) {

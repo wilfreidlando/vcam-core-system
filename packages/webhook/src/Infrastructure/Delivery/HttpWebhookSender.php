@@ -83,11 +83,30 @@ final readonly class HttpWebhookSender implements WebhookSender
             'X-Delivery-Id' => $delivery->id,
         ];
 
-        $timestamp = $this->clock->now()->getTimestamp();
+        $now = $this->clock->now();
+        $timestamp = $now->getTimestamp();
         $this->signer->sign($policy, $headers, $body, $timestamp);
+
+        // ADR-0082 §5 — during a rotation's overlap, the same payload is also
+        // signed with the previous secret: a receiver that has not switched
+        // yet verifies `X-Signature-Previous`, same format, same timestamp.
+        $previousSecret = $endpoint->previousSecretAt($now);
+        if ($previousSecret !== null) {
+            $previousHeaders = [];
+            $this->signer->sign(
+                new SignaturePolicy(algorithm: SignatureAlgorithm::HmacSha256, secret: $previousSecret),
+                $previousHeaders,
+                $body,
+                $timestamp,
+            );
+            $headers['X-Signature-Previous'] = $previousHeaders['X-Signature'];
+        }
 
         $shownHeaders = $headers;
         $shownHeaders['X-Signature'] = '***REDACTED***';
+        if (isset($shownHeaders['X-Signature-Previous'])) {
+            $shownHeaders['X-Signature-Previous'] = '***REDACTED***';
+        }
         $startedAt = hrtime(true);
 
         try {

@@ -53,12 +53,19 @@ final class EloquentChannelSessionRepository implements ChannelSessionRepository
         return $this->find($projectId, $channel, $sessionRef) ?? $this->find(null, $channel, $sessionRef);
     }
 
-    public function findAllFor(?string $projectId, string $channel): array
+    public function findAllFor(?string $projectId, string $channel, ?array $projectIds = null): array
     {
-        $models = ChannelSessionRecord::query()
+        $query = ChannelSessionRecord::query()
             ->where('project_id', $projectId)
-            ->where('channel', $channel)
-            ->get();
+            ->where('channel', $channel);
+
+        if ($projectIds !== null) {
+            // ADR-0069 §2 — the scope filters at the query level, so
+            // another tenant's sessions are never materialised.
+            $query->getQuery()->whereIn('project_id', $projectIds);
+        }
+
+        $models = $query->get();
 
         $sessions = [];
         foreach ($models as $record) {

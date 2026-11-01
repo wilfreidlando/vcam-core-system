@@ -131,12 +131,126 @@ réconciliation, résolution des composants Blade, entre autres —
 puis une troisième tranche livrant la gestion self-service des opérateurs
 (créer/lister/révoquer, JSON et console web, réservé à `PlatformAdmin` —
 [ADR-0050](docs/adr/0050-gestion-self-service-des-operateurs.md))
-→ Lot 7 migration pilote. `billing`, `storage`, `fees`, `developer-platform`
-restent des scaffolds Lot 0 vides, **explicitement hors périmètre de la
-version de production** de ce Core
-([ADR-0048](docs/adr/0048-billing-storage-fees-developer-platform-hors-perimetre-production.md)) —
+→ Lot 7 migration pilote → **Lot 8 Fondations de sécurité et d'identité —
+livré** : organisations, projets et **portée d'accès**
+(`Core\Support\Access\AccessScope`) ; console scopée par organisation —
+appartenances, rôles `org_*`, invitations par jeton d'activation à usage unique
+(32 octets aléatoires, haché, 72 h), refus de la privélégation, protection du
+dernier propriétaire (`409 last-owner`) — et cycle de vie d'un projet (`active` ⇄
+`suspended`, `active|suspended → archived`) ; l'`AccessScope` est un paramètre
+**requis** de tout port de lecture que la console appelle (garde-fou **G16** :
+règle PHPStan `AdminQueriesAreScopedRule`, et aucun gabarit Blade ne résout un
+port) ; le journal d'audit est scopé par organisation/projet et prouvé
+tamper-evident (append-only — UPDATE/DELETE/TRUNCATE refusés — et chaîne
+d'empreintes SHA-256 quotidiennes, ADR-0081 S-16) ; un secret n'est utilisable
+**qu'une fois**, à sa création, et le middleware d'idempotence ne le
+réenregistre pas (ADR-0081 S-07, garde-fou **G14**) ; toute route console
+porteuse d'un identifiant a un test **IDOR généré** « organisation A sur une
+ressource de B → 404, jamais 403 » (garde-fou **G15**) ; clés d'API multiples
+et nommées à portée (10 au plus par projet), rotation guidée, restriction CIDR
+et expiration facultatives, révocation motivée, et rotation du secret de webhook
+à double signature (ADR-0082) ; service de chiffrement et index aveugle des
+données personnelles dans `core/support` (`privacy:generate-key`, ADR-0083)
+([ADR-0069](docs/adr/0069-organisations-projets-et-acces-console-scopes.md),
+[ADR-0081](docs/adr/0081-modele-de-menace-et-exigences-de-securite.md),
+[ADR-0082](docs/adr/0082-cles-d-api-portees-rotation-et-secrets-de-webhook.md),
+[ADR-0083](docs/adr/0083-donnees-personnelles-chiffrement-conservation-effacement.md))
+→ **Lot 9 — Grand livre complet — livré** : toute somme confirmée est
+écrite au grand livre (plan de comptes par projet), compte de règlement
+**par prestataire** (`clearing:<prestataire>`, avec reclassement motivé
+et refus de deviner), isolation inter-projets en base (**G13**),
+immuabilité des transactions, lectures par période et balance
+(`ListLedgerTransactions`, `TrialBalance`, `AccountStatement`),
+corrections d'exploitation à quatre vues (contre-passation obligatoire,
+invariants revérifiés au moment où l'argent bouge), exceptions d'argent
+avec **bassin vérifié avant tout mouvement** et résolution à quatre yeux,
+contrôle horaire des invariants (`invariants:check`) et registre des
+rapprochements (`reconciliation_runs`)
+([ADR-0076](docs/adr/0076-grand-livre-complet-plan-de-comptes.md),
+[ADR-0077](docs/adr/0077-confirmation-des-encaissements-et-exceptions.md),
+[ADR-0078](docs/adr/0078-rapprochement-et-controles-d-invariants.md)).
+→ **Lot 10 — Commerce I (clients, catalogue, abonnements) — livré** : le
+module `billing` entre en production. **Clients** d'un projet (identité
+minimale **chiffrée** + index aveugle, effacement qui détruit l'identité et
+garde la ligne — ADR-0070, ADR-0083) ; **catalogue** de plans et de
+versions (une version publiée est **figée** par un trigger de base, ADR-0071) ;
+**abonnements** et leurs périodes (machine d'états, exclusion des périodes
+qui se chevauchent, verrou optimiste, ADR-0072) ; ordonnanceur
+`billing:advance-subscriptions` sur `Clock` ; réglages par projet
+(`billing_settings`) ; **API publique** (16 routes `/v1`, un `FormRequest`
+par mutation) ; **console** (clients, offres et abonnements d'un projet,
+chaque geste audité) — **la facture reste au lot 11** : la déclaration du
+paiement d'une période écrit le fait et **ne bouge pas d'argent**
+([ADR-0092](docs/adr/0092-lot-10-lAbonnement-et-la-facture-au-lot-11.md)).
+Le **lot 11** ajoute la **facture** et son **encaissement** (ADR-0073,
+ADR-0094, ADR-0095) : un document figé à l'émission, numéroté sans trou
+(`FACT-2026-000042`), taxé par ligne (arrondi demi-supérieur, stocké), dont
+l'émission inscrit la créance au grand livre et dont l'annulation la
+contre-passe ; puis le paiement **en ligne** (`POST /v1/invoices/{id}/pay`),
+l'imputation sur la créance par le `payment.status_changed` — jamais
+partielle, un surpaiement part en exception — et l'**encaissement hors
+ligne** dans la console (un reçu qui porte sa méthode, sa référence et son
+montant ; ADR-0095 a retiré les quatre vues : **un** compte valide). Le
+`purpose` du paiement existe enfin (ADR-0094 §9) : un règlement de facture
+est crédité `collections`, jamais `revenue`.
+Le plan pour livrer **tous** les modules (état réel, lots restants, définition de « livré », décisions
+à écrire) est dans [docs/specs/plan-livraison-complet.md](docs/specs/plan-livraison-complet.md).
+Le **lot 12** livre l'autorité de quota (ADR-0074) : journal d'usage,
+compteur atomique (`UPDATE` conditionnel — aucun dépassement sous concurrence,
+prouvé par `tools/checks/usage-concurrency.sh`), `POST /v1/usage`,
+`GET /v1/customers/{ref}/entitlements`, et le décompte de chaque notification
+dans la transaction qui la crée (port `QuotaGuard`, arête `notification → billing`).
+Le **lot 13** livre le module `portal` (ADR-0075, ADR-0097) : un seul appel
+`POST /v1/portal/sessions` (qui peut aussi déclarer le client et l'abonner) ouvre
+l'espace client hébergé — tableau de bord, abonnement et changement d'offre,
+factures, paiement (canaux routés par la plateforme, aucune configuration),
+paiements, utilisation, profil — sous CSP stricte, sans JavaScript. Un SaaS se
+branche avec `docs/integration/kit-laravel/INSTALL.md`. La **connexion directe par code**
+(ADR-0075 §2, [ADR-0100](docs/adr/0100-portail-connexion-par-code-arete-notification.md), lot 17, désactivée par
+défaut) : `GET|POST /portal/{projectId}/login` envoie un code à 6 chiffres (HMAC, 10 min, 5 essais) par la session
+WhatsApp du projet, réponse identique que le numéro existe ou non, limites fermées en cas de panne, arête
+`portal → notification` ; elle n'ouvre que le portail. Les événements
+`subscription.*`, `invoice.*` et `usage.*` sont abonnables par webhook.
+Le **lot 14** (en cours) ajoute à la console : réglages du portail et du commerce, usage,
+portefeuille, fiche client, et par projet une page **Indicateurs** (courbes SVG serveur lues dans
+`billing_daily_metrics`, remplie chaque nuit par `billing:snapshot-metrics`, créances par ancienneté,
+checklist « prêt à encaisser »). `storage`, `fees` et `developer-platform` ne sont **pas nécessaires pour le moment** (
+[ADR-0099](docs/adr/0099-fees-storage-et-extensions-commerce-refuses.md) ; coquilles laissées vides,
+rien à construire). **ADR-0068 amends ADR-0048** :
+`billing` et `developer-platform` **entrent en production** (`billing` au lot 10,
+`developer-platform` plus tard) ; `storage` et `fees` restent **hors
+périmètre** de la version de production
+([ADR-0048](docs/adr/0048-billing-storage-fees-developer-platform-hors-perimetre-production.md),
+amendé par [ADR-0068](docs/adr/0068-cible-plateforme-saas-trois-piliers.md)) —
 voir « Ce qui n'est PAS encore construit » ci-dessous. Détail de chaque lot :
 [docs/specs/plan-delivery-mvp.md](docs/specs/plan-delivery-mvp.md) §4.
+
+Le **lot 15** livre la réversibilité (ADR-0088, [ADR-0101](docs/adr/0101-export-par-projet-module-et-aretes.md)) :
+`GET /v1/payments`, `/v1/notifications` et `/v1/usage` rejoignent les listings par curseur opaque de `billing`
+(`{data, next_cursor}`, `limit` ≤ 100, ordre stable `(created_at, id)`, jamais les lignes d'un autre projet) ;
+le module **`export`** (hub de lecture, arêtes `export → identity, audit, ledger, billing, payment, notification,
+wallet` par `Contracts/`, personne ne dépend de lui) produit sur `POST /v1/exports` (portée `exports:write`,
+`Idempotency-Key`, ou console `org_owner`/`org_admin`/plateforme) une archive `.zip` de fichiers JSON Lines au format
+de l'API publique (chaque module expose `…ExportRecords`, qui réutilise ses sérialiseurs) + la balance à la date de
+l'export, construite par un job, chiffrée par blocs avec la clé de l'application sur le disque privé `exports`,
+téléchargée par un lien signé de 15 minutes (`403` si altéré ou expiré) et supprimée après 7 jours par
+`exports:purge-expired` (quotidienne).
+
+**Gouvernance des ADR** : la série ADR-0068 → ADR-0090 a été **ratifiée par le
+comité d'architecture le 2026-10-27** — sept de ces ADR avaient déjà leur code
+livré et conforme au moment de la décision, donc la décision a suivi le code
+(après vérification de conformité, pas avant). ADR-0091 consigne les huit
+contrats publics que le code avait introduits sans décision écrite ; ADR-0092
+consigne les décisions du **lot 10** (la facture reste au lot 11, la
+déclaration d'un paiement ne bouge pas d'argent, la console est portée par
+le projet) et ADR-0093 les corrections que la revue de code du lot 10 a
+apportées (pause depuis tout état non final, isolement de l'échec d'un
+contrat dans l'ordonnanceur, déclaration de paiement limitée à la période
+courante, effacement final, `retired` final, PII jamais affichée ni
+journalisée en clair, clé d'idempotence libérée quand la requête échoue,
+verrou optimiste du client dans l'écriture). Un ADR
+accepté ne se réécrit pas : on le **remplace** par un nouvel ADR et on met à
+jour le statut de l'ancien (« amendé par ADR-XXXX », « Remplacé par ADR-XXXX »).
 
 **Aucune capacité métier n'est implémentée avant que Lot 0 soit vert**
 (`make ci` et `make guard-test` passants — c'est le cas).
@@ -222,9 +336,12 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   un événement Laravel interne auquel `webhook` s'abonne
   (`FanOutRelayedEventListener`, `ShouldQueue`) — jamais de deuxième
   lecteur de l'outbox. `POST/GET /v1/webhook-endpoints` (self-service,
-  contrairement aux clés d'API qui restent CLI-only), secret HMAC généré
+  les clés d'API, elles, se gèrent en console ou en CLI), secret HMAC généré
   une fois et chiffré au repos (`Crypt`, jamais haché — il doit être relu
-  en clair pour signer chaque livraison). La livraison HTTP ne passe **pas**
+  en clair pour signer chaque livraison) ; rotation sans coupure
+  (`POST /v1/webhook-endpoints/{id}/rotate-secret`, ADR-0082 §5) : l'ancien
+  secret signe encore `X-Signature-Previous` pendant 1 à 72 h, puis
+  `webhooks:purge-expired-secrets` l'efface. La livraison HTTP ne passe **pas**
   par `ExternalApiCaller` (conçu pour un catalogue de providers, pas une
   URL Project dynamique avec retry sur des heures) : elle compose
   directement `Core\Support\Integration\Transport\HttpTransport` +
@@ -234,8 +351,10 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   via `POST /v1/admin/webhook-deliveries/{id}/replay` (ADR-0044) — les deux
   convergent sur le même `Contracts\ReplayWebhookDelivery` +
   `Contracts\QueueWebhookDelivery`. Ce qui reste hors périmètre :
-  `notification`/`billing` ne consomment pas encore `OutboxEventPublished`
-  (Lot 5+).
+  `notification` ne consomme pas encore `OutboxEventPublished` (Lot 5+) —
+  `payment` le consomme depuis le lot 3 (la livraison du callback) et
+  `billing` depuis le lot 11b (`InvoicePaymentStatusListener` : l'imputation
+  d'un règlement de facture sur sa créance).
 - Module `admin` : **trois tranches du Lot 6 livrées** — voir
   [ADR-0044](docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md),
   [ADR-0045](docs/adr/0045-lot-6-listing-generique-admin.md) et
@@ -247,9 +366,13 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   la première connexion via `pragmarx/google2fa` (pas de rendu QR serveur
   — plateforme API-only). Flux : `POST /v1/operators/login` →
   `mfa/enroll` (1ère connexion) ou `mfa/verify` (connexions suivantes) →
-  jeton Sanctum ; création d'opérateur possible en CLI
-  (`identity:create-operator`) **ou** en self-service depuis le Lot 6,
-  troisième tranche (ADR-0050 — voir plus bas). Quatre capacités
+  jeton Sanctum ; **un compte console n'est jamais ouvert par un mot de
+  passe choisi par le système** (ADR-0081 S-07) : il s'ouvre par une
+  invitation à jeton d'activation à usage unique — en CLI
+  (`identity:invite-operator`, pour le tout premier compte d'un
+  environnement) **ou** en self-service depuis le Lot 6, troisième
+  tranche (ADR-0050 — voir plus bas) ; l'invité choisit son mot de passe
+  à l'activation. Quatre capacités
   exposées sous `/v1/admin/*` (middleware `operator.auth`, jamais
   `project.auth` — et donc jamais `idempotency`, câblée sur
   `ProjectContext`) : `GET /audit-log` (nouveau port
@@ -276,11 +399,16 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   route `POST`, donc hors du champ G7/`idempotency`. Convention de
   pagination (`page`/`per_page`, `{data, meta}`) reprise telle quelle
   d'`AuditQuery` (ADR-0044). Troisième
-  tranche (ADR-0050) : gestion self-service des opérateurs — créer/lister/
+  tranche (ADR-0050) : gestion self-service des opérateurs — inviter/lister/
   révoquer via `POST/GET /v1/admin/operators`,
   `POST /v1/admin/operators/{id}/revoke`, réservé à `operators:read`/
   `operators:write` (seul `PlatformAdmin` les porte) ; même capacité côté
-  console web (`/admin/operators`). Quatrième tranche (ADR-0052) : CRUD
+  console web (`/admin/operators`). Depuis le **lot 9**, `POST /v1/admin/
+  operators` n'est plus une création : c'est une **invitation** — la
+  réponse porte `invitation_id` et le jeton d'activation **une seule
+  fois**, et le compte n'existe qu'à l'activation
+  (`POST /v1/admin/operator-invitations/accept`, route publique — c'est
+  l'invitation qui donne accès, et l'invité y choisit son mot de passe). Quatrième tranche (ADR-0052) : CRUD
   opérateur complet (`PUT /v1/admin/operators/{id}` + `/admin/operators/{id}/edit`
   en plus de create/list/revoke), création self-service Organizations/Projects
   (`POST /v1/admin/organizations`, `POST /v1/admin/projects`, permission
@@ -297,7 +425,11 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   règles de frais (module hors périmètre de production, ADR-0048), billing
   (idem), monitoring opérationnel/OTel, détail des écritures ledger par
   wallet (aucun port de lecture correspondant dans `packages/ledger` à ce
-  jour).
+  jour). Depuis le **lot 9**, la console porte aussi les **corrections
+  d'exploitation** (`/admin/ledger-adjustments`) : proposition, approbation
+  par un **autre** compte console, puis écriture au grand livre — la
+  console n'écrit jamais au grand livre elle-même, elle passe par le port
+  `Core\Ledger\Contracts\LedgerAdjustments`.
 - Identity/Audit sont livrés (Lot 1) : Organization/Project/ApiKey, middleware
   d'auth Project, `GET /v1/whoami`, module Audit minimal. Voir
   `packages/identity/README.md`. Depuis le Lot 6 (ADR-0044), `identity`
@@ -314,7 +446,9 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   `wallets:write`/`wallets:read` ; **jamais de crédit libre** (la valeur
   n'entre que par un paiement confirmé avec `wallet_recipient_external_ref`).
   **Un seul environnement** (ADR-0066, remplace ADR-0060) : plus de
-  sandbox/live ni de `Core\Support\Environment`, une clé par projet ; les
+  sandbox/live ni de `Core\Support\Environment` ; **plusieurs clés nommées
+  à portée par projet** (ADR-0082, amende ADR-0066 : 10 au plus, CIDR et
+  expiration facultatifs, rotation guidée, révocation motivée) ; les
   tests se font sur le déploiement de staging, où `PAYMENT_SIMULATOR_ENABLED`
   active le simulateur de paiement (`POST /v1/payments/{id}/simulate`,
   jamais en production). Historique de départ (Lot 2, pour mémoire) :
@@ -328,6 +462,24 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   encore possible à `CreditWallet`/`DebitWallet` en pratique est
   `HandlePaymentStatusChangedUseCase`, qui dérive toujours son `partyId`
   du même `projectId`.
+- Module `billing` : **Lot 10 livré** — les **clients** d'un projet
+  (identité minimale chiffrée + index aveugle, effacement qui détruit
+  l'identité et garde la ligne — ADR-0070, ADR-0083), le **catalogue** de
+  plans et de versions (une version publiée est figée par un trigger de
+  base — ADR-0071), les **abonnements** et leurs périodes (machine d'états,
+  exclusion des périodes qui se chevauchent, verrou optimiste — ADR-0072),
+  l'ordonnanceur `billing:advance-subscriptions`, les réglages par projet
+  (`billing_settings`), l'API publique `/v1/customers`, `/v1/plans`,
+  `/v1/subscriptions`, `/v1/invoices` et la console (clients, offres,
+  abonnements et factures d'un projet ; chaque geste est audité).
+  **Ce qui n'existe pas encore** : l'usage et les quotas (lot 12), le portail
+  client (lot 13), la console de portefeuille (lot 14) et le **rendu du
+  reçu** (ADR-0073 §5 — le reçu est une projection de la facture et de ses
+  encaissements, rien n'est stocké).
+  Ne pas supposer qu'un abonnement est encaissé : une période déclarée
+  payée est un **fait enregistré**, et le chemin qui **bouge l'argent** est
+  l'encaissement — `POST /v1/invoices/{id}/pay` ou un reçu hors ligne.
+  Voir `packages/billing/README.md`.
 - Module `payment` : **orchestration Lot 3 livrée** — voir
   [ADR-0038](docs/adr/0038-conception-lot-3-payment-channel-routage-etat-callback.md)
   et [ADR-0039](docs/adr/0039-payment-gateway-registry-typed.md). Le champ

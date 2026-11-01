@@ -7,6 +7,7 @@ use Core\Payment\Contracts\ListPaymentsCommand;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\PaymentStatus;
 use Core\Payment\Tests\Unit\Fakes\InMemoryPaymentRepository;
+use Core\Support\Access\AccessScope;
 
 function listablePayment(string $id, string $projectId, PaymentStatus $status = PaymentStatus::Succeeded): Payment
 {
@@ -35,7 +36,7 @@ it('lists only the requesting project\'s payments', function (): void {
     $payments->create(listablePayment('p2', 'project-b'));
 
     $useCase = new ListPaymentsUseCase($payments);
-    $page = $useCase->list(new ListPaymentsCommand('project-a'));
+    $page = $useCase->list(new ListPaymentsCommand('project-a'), AccessScope::platform());
 
     expect($page->total)->toBe(1)
         ->and($page->items[0]->id)->toBe('p1');
@@ -47,7 +48,7 @@ it('filters by canonical status', function (): void {
     $payments->create(listablePayment('p2', 'project-a', PaymentStatus::Failed));
 
     $useCase = new ListPaymentsUseCase($payments);
-    $page = $useCase->list(new ListPaymentsCommand('project-a', status: 'failed'));
+    $page = $useCase->list(new ListPaymentsCommand('project-a', status: 'failed'), AccessScope::platform());
 
     expect($page->total)->toBe(1)
         ->and($page->items[0]->id)->toBe('p2');
@@ -58,7 +59,7 @@ it('treats an unrecognised status string as no filter', function (): void {
     $payments->create(listablePayment('p1', 'project-a'));
 
     $useCase = new ListPaymentsUseCase($payments);
-    $page = $useCase->list(new ListPaymentsCommand('project-a', status: 'not-a-real-status'));
+    $page = $useCase->list(new ListPaymentsCommand('project-a', status: 'not-a-real-status'), AccessScope::platform());
 
     expect($page->total)->toBe(1);
 });

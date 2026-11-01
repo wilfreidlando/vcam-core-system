@@ -28,9 +28,16 @@ interface WebhookDeliveryRepository
      * the full delivery history a diagnosing operator needs, not just the
      * dead queue (`ListWebhookDeliveries`, review finding).
      *
+     * `projectIds` is the account's scope (ADR-0069 §2): when given, only
+     * the deliveries of those projects are returned — the restriction is
+     * applied by the query, never by the caller. `null` means "no
+     * restriction" (a platform scope); an empty list means "nothing is
+     * visible".
+     *
+     * @param list<string>|null $projectIds
      * @return array{items: list<WebhookDelivery>, total: int}
      */
-    public function findByStatusPaginated(?WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage): array;
+    public function findByStatusPaginated(?WebhookDeliveryStatus $status, ?string $projectId, int $page, int $perPage, ?array $projectIds = null): array;
 
     /**
      * `pending` deliveries whose due time (`next_retry_at`, or creation for
@@ -44,8 +51,13 @@ interface WebhookDeliveryRepository
     /**
      * Every delivery (fan-out and replays) of these outbox events, oldest first.
      *
+     * `projectIds` is the account's scope (ADR-0069 §2): when given, only
+     * the deliveries of those projects are returned. `null` means "no
+     * restriction"; an empty list means "nothing is visible".
+     *
      * @param list<string> $eventIds
+     * @param list<string>|null $projectIds
      * @return list<WebhookDelivery>
      */
-    public function findByEventIds(array $eventIds): array;
+    public function findByEventIds(array $eventIds, ?array $projectIds = null): array;
 }

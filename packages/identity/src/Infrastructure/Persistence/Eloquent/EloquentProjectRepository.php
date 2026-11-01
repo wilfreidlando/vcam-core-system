@@ -13,7 +13,13 @@ final class EloquentProjectRepository implements ProjectRepository
     {
         ProjectRecord::query()->updateOrCreate(
             ['id' => $project->id],
-            ['organization_id' => $project->organizationId, 'name' => $project->name(), 'status' => $project->status()],
+            [
+                'organization_id' => $project->organizationId,
+                'name' => $project->name(),
+                'status' => $project->status(),
+                'status_changed_at' => $project->statusChangedAt,
+                'status_reason' => $project->statusReason,
+            ],
         );
     }
 
@@ -24,7 +30,7 @@ final class EloquentProjectRepository implements ProjectRepository
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findAll(?string $organizationId, int $page, int $perPage, ?string $search = null): array
+    public function findAll(?string $organizationId, int $page, int $perPage, ?string $search = null, ?array $organizationIds = null): array
     {
         $query = ProjectRecord::query();
         if ($organizationId !== null) {
@@ -40,6 +46,13 @@ final class EloquentProjectRepository implements ProjectRepository
         // positive ("dynamic call to static method") on those forwarded
         // calls, and `ProjectRecord::hydrate()` restores the casts after.
         $base = $query->toBase();
+
+        // ADR-0069 §2 — the account's scope narrows the query itself, so the
+        // paginated `total` is scoped like the rows. `null` = no restriction
+        // (a platform scope); an empty list matches nothing.
+        if ($organizationIds !== null) {
+            $base->whereIn('organization_id', $organizationIds);
+        }
 
         $total = (clone $base)->count();
 
@@ -63,8 +76,32 @@ final class EloquentProjectRepository implements ProjectRepository
         return ['items' => $projects, 'total' => $total];
     }
 
+    public function findAllByOrganization(string $organizationId): array
+    {
+        $rows = ProjectRecord::query()
+            ->where('organization_id', $organizationId)
+            ->toBase()
+            ->get()
+            ->map(static fn (object $row): array => (array) $row)
+            ->all();
+
+        $projects = [];
+        foreach (ProjectRecord::hydrate($rows) as $record) {
+            $projects[] = $this->toDomain($record);
+        }
+
+        return $projects;
+    }
+
     private function toDomain(ProjectRecord $record): Project
     {
-        return new Project($record->id, $record->organization_id, $record->name, $record->status);
+        return new Project(
+            $record->id,
+            $record->organization_id,
+            $record->name,
+            $record->status,
+            $record->status_changed_at,
+            $record->status_reason,
+        );
     }
 }

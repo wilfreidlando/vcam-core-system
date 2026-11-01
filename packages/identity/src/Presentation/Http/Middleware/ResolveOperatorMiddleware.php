@@ -32,7 +32,9 @@ use Symfony\Component\HttpFoundation\Response;
  *     manually pasting a Bearer token. An upstream `operator.session`
  *     middleware on the web plane has already resolved the context in
  *     this case — the bound check at the top short-circuits before any
- *     token lookup.
+ *     token lookup. READ-ONLY: for an unsafe method (POST/PUT/PATCH/DELETE)
+ *     the cookie is refused (401) because this plane carries no CSRF token
+ *     (gap #7) — a write needs the Bearer header.
  *  3. Otherwise: 401 problem+json for an API caller
  *     (`Accept: application/json`), or a redirect to `/admin/login` for
  *     a browser navigation. The redirect is what the operator sees as
@@ -82,6 +84,17 @@ final class ResolveOperatorMiddleware
             if ($request->hasSession()) {
                 $sessionToken = $request->session()->get(self::SESSION_KEY);
                 if (is_string($sessionToken) && $sessionToken !== '') {
+                    // Écart #7 (annexe sécurité 2026-10-29) : ce plan n'a pas de
+                    // jeton CSRF. Une écriture portée par le seul cookie de session
+                    // est donc atteignable depuis n'importe quel site : le cookie
+                    // ne sert qu'à LIRE. Une écriture exige l'en-tête Bearer.
+                    // La session n'est pas effacée : ce n'est pas une déconnexion.
+                    if (! $request->isMethodSafe()) {
+                        return ProblemDetails::unauthenticated(
+                            'Les écritures de l\'API d\'administration exigent un jeton Bearer ; le cookie de session n\'est accepté qu\'en lecture.',
+                        );
+                    }
+
                     $token = $sessionToken;
                 }
             }

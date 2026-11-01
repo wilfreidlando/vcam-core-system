@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
 use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\GetProjectCommand;
 use Core\Identity\Contracts\OperatorContext;
 use Core\Notification\Contracts\GetNotificationDetails;
+use Core\Notification\Contracts\GetNotificationDetailsCommand;
 use Core\Notification\Contracts\ListNotifications;
 use Core\Notification\Contracts\ListNotificationsCommand;
 use Illuminate\Http\Request;
@@ -24,6 +26,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class NotificationsController
 {
+    use ResolvesScopedProject;
+
     private const STATUSES = ['queued', 'sent', 'delivered', 'read', 'failed'];
 
     public function __construct(
@@ -34,14 +38,12 @@ final class NotificationsController
 
     public function index(string $projectId, Request $request, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('notifications:read')) {
-            abort(403, 'La permission notifications:read est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'notifications:read');
 
         Validator::make(['project_id' => $projectId], ['project_id' => 'uuid'])->validate();
 
         try {
-            $project = $this->getProject->get(new GetProjectCommand($projectId));
+            $project = $this->getProject->get(new GetProjectCommand($projectId), $scope);
         } catch (RuntimeException) {
             abort(404, 'Projet introuvable.');
         }
@@ -58,7 +60,7 @@ final class NotificationsController
             status: $status === '' ? null : $status,
             page: $page,
             perPage: $perPage,
-        ));
+        ), $scope);
 
         return response()->view('admin.notifications.index', [
             'title' => 'Notifications',
@@ -74,24 +76,26 @@ final class NotificationsController
 
     public function show(string $projectId, string $notificationId, OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('notifications:read')) {
-            abort(403, 'La permission notifications:read est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'notifications:read');
 
         Validator::make(
             ['project_id' => $projectId, 'notification_id' => $notificationId],
             ['project_id' => 'uuid', 'notification_id' => 'uuid'],
         )->validate();
 
-        $notification = $this->details->get($notificationId);
-        // Scoped to the Project in the URL: a notification of another
-        // Project is "not found" here, never shown under the wrong name.
-        if ($notification === null || $notification->projectId !== $projectId) {
+        // ADR-0069 §2 — the port filters: a notification of another
+        // Project, or of a Project outside the operator's scope, is "not
+        // found" here, never shown under the wrong name.
+        $notification = $this->details->get(
+            new GetNotificationDetailsCommand($notificationId, $projectId),
+            $scope,
+        );
+        if ($notification === null) {
             abort(404, 'Notification introuvable pour ce projet.');
         }
 
         try {
-            $project = $this->getProject->get(new GetProjectCommand($projectId));
+            $project = $this->getProject->get(new GetProjectCommand($projectId), $scope);
         } catch (RuntimeException) {
             abort(404, 'Projet introuvable.');
         }

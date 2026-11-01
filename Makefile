@@ -10,6 +10,8 @@ export HOST_GID
 
 DC      := docker compose
 EXEC    := $(DC) exec -T app
+# The database every gate runs against; never the developer's own (`core`).
+TEST_DB ?= core_testing
 RUN     := $(DC) run --rm --no-deps app
 
 DC_PROD := docker compose -f compose.prod.yaml
@@ -90,12 +92,94 @@ arch-graph: ## Render the module dependency graph
 
 .PHONY: schema
 schema: ## Schema guardrails: anti-PII, money columns (CI job: schema)
-	$(EXEC) php artisan migrate:fresh --env=testing
+	# The test database, named explicitly: without a `.env.testing`, `--env=testing` falls back to `.env`
+	# and would wipe the developer's own database on every `make ci`.
+	$(DC) exec -T -e DB_DATABASE=$(TEST_DB) app php artisan migrate:fresh --env=testing
 	$(EXEC) vendor/bin/pest --group=schema
 
 .PHONY: test
 test: ## Run the test suite in parallel (CI job: tests)
 	$(EXEC) vendor/bin/pest --parallel
+
+# ─── Recette (R-01…R-15) ──────────────────────────────────────────────────
+# The acceptance criteria of the functional spec (docs/specs/spec-fonctionnelle.md
+# §F8), and the one proof a test cannot give: the quota's atomicity under
+# real concurrency.
+.PHONY: recette
+recette: ## Run the acceptance criteria R-01…R-15 (CI job: recette)
+	$(EXEC) vendor/bin/pest tests/Integration/RecetteCriteriaTest.php tests/Integration/SaasRecetteEndToEndTest.php tests/Integration/SaasLifecycleFlowTest.php
+
+.PHONY: recette-concurrence
+recette-concurrence: ## Prove the quota's atomicity with real concurrent processes (R-07)
+	bash tools/checks/usage-concurrency.sh
+
+# ─── Styles (ADR-0106) ─────────────────────────────────────────────────────
+# The console's stylesheet is compiled by Tailwind's CLI and **committed**
+# with the code: the images need no Node. Node is only needed to compile it,
+# and to prove that the committed file is the one the templates produce.
+# The image carries no git, so the comparison is made with `cmp` — the same
+# check, on the host and in the container.
+CSS_IMAGE ?= node:22-alpine
+CSS        := docker run --rm -v "$(CURDIR):/app" -w /app -u "$(HOST_UID):$(HOST_GID)" -e HOME=/tmp $(CSS_IMAGE)
+
+.PHONY: css
+css: ## Compile the console's stylesheet (Tailwind)
+	$(CSS) sh -lc 'npm ci --silent && npm run build:css'
+
+.PHONY: css-check
+css-check: ## Prove the committed stylesheet is up to date (CI job: styles)
+	$(CSS) sh -lc 'npm ci --silent && npm run check:css'
+
+# ─── Sectors (parallel work) ────────────────────────────────────────────────
+# One sector = one bounded context = one agent = one test database. A sector
+# agent runs its OWN suite and the gates its own change can break — never the
+# whole ninety-nine seconds. The integration gate (`make ci`) runs everything,
+# once, at the end.
+#
+# Each session MUST pass its own database: the suite is shared otherwise.
+DB      ?= core_testing
+SECTOR  ?=
+
+.PHONY: sectors
+sectors: ## List the test sectors (one bounded context each)
+	@printf '  %-22s %s\n' \
+	  'billing' 'clients, catalogue, abonnements, factures, encaissement' \
+	  'payment' 'paiements, prestataires, callbacks, refunds' \
+	  'identity' 'organisations, projets, cles, operateurs, MFA' \
+	  'ledger' 'grand livre, invariants, exceptions d argent' \
+	  'wallet' 'portefeuilles, transferts, sorties' \
+	  'parties' 'tiers sans identite' \
+	  'notification' 'notifications, cascade de secours, WAHA' \
+	  'webhook' 'endpoints, livraisons, DLQ, rejeu' \
+	  'events' 'outbox transactionnelle, relais' \
+	  'audit' 'journal infalsifiable, lecture scopee' \
+	  'admin' 'console operateur' \
+	  'portal' 'espace client heberge' \
+	  'support' 'socle partage' \
+	  'fees' 'moteur de frais (scaffold)' \
+	  'storage' 'fichiers (scaffold)' \
+	  'developer-platform' 'registre de capacites (scaffold)'
+
+.PHONY: test-sector
+test-sector: ## Run one sector's suite: make test-sector SECTOR=billing DB=core_testing_s1
+	@test -n "$(SECTOR)" || { echo "SECTOR is required — see 'make sectors'"; exit 1; }
+	$(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest --testsuite=$(SECTOR) --parallel --do-not-fail-on-empty-test-suite
+
+.PHONY: check-sector
+check-sector: ## The gate a sector agent runs: style, static analysis, its suite, the schema, its IDOR cases
+	@test -n "$(SECTOR)" || { echo "SECTOR is required — see 'make sectors'"; exit 1; }
+	$(EXEC) vendor/bin/pint --test
+	$(EXEC) vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+	$(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest --testsuite=$(SECTOR) --parallel --do-not-fail-on-empty-test-suite
+	$(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest --testsuite=Schema --parallel
+	case "$(SECTOR)" in \
+	  billing|identity|wallet|notification|payment|ledger|webhook) \
+	    $(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest \
+	      tests/Architecture/Idor/ConsoleIdorTest.php --filter='$(SECTOR)::' --parallel ;; \
+	  portal) \
+	    $(DC) exec -T -e DB_DATABASE=$(DB) app vendor/bin/pest \
+	      tests/Architecture/Idor/PortalIdorTest.php --filter='portal::' --parallel ;; \
+	esac
 
 .PHONY: coverage
 coverage: ## Run the test suite with coverage
@@ -110,7 +194,7 @@ hygiene: ## Composer and secret hygiene (CI job: hygiene)
 	$(EXEC) composer audit --locked
 
 .PHONY: ci
-ci: hygiene lint-check stan arch schema test ## Run every gate, exactly as CI does
+ci: hygiene lint-check stan arch schema css-check test ## Run every gate, exactly as CI does
 
 .PHONY: guard-test
 guard-test: ## Prove the guardrails bite: inject violations, expect failures, revert
@@ -198,3 +282,11 @@ prod-logs: ## Tail production container logs
 .PHONY: prod-shell
 prod-shell: ## Open a shell in the production app container
 	$(DC_PROD) exec app bash
+
+.PHONY: e2e-seed
+e2e-seed: ## Seed a project, a console login and a portal link for the browser end-to-end session (dev only)
+	@$(EXEC) php artisan tinker --execute="require 'tools/checks/e2e-seed.php';" | grep -o '^\(LINK\|E2E_[A-Z_]*\)=.*' | sed "s#localhost:8000#localhost:$${APP_PORT:-8010}#"
+
+.PHONY: portal-demo
+portal-demo: ## Seed demo data and print a fresh one-time link to the customer portal (dev only)
+	@$(EXEC) php artisan tinker --execute="require 'tools/checks/portal-demo.php';" | grep -o 'LINK=.*' | sed "s/^LINK=//; s#localhost:8000#localhost:$${APP_PORT:-8010}#"

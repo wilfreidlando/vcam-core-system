@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Wallet\Application\UseCase;
 
+use Core\Parties\Contracts\PartyLookup;
+use Core\Support\Access\AccessScope;
 use Core\Wallet\Contracts\ListWallets;
 use Core\Wallet\Contracts\ListWalletsCommand;
 use Core\Wallet\Contracts\WalletPage;
@@ -20,24 +22,42 @@ final readonly class ListWalletsUseCase implements ListWallets
         private WalletRepository $wallets,
         private WalletBalanceRepository $balances,
         private LoggerInterface $logger,
+        private PartyLookup $parties,
     ) {}
 
-    public function list(ListWalletsCommand $command): WalletPage
+    public function list(ListWalletsCommand $command, AccessScope $scope): WalletPage
     {
-        $result = $this->wallets->findByProject($command->projectId, $command->page, $command->perPage, $command->search);
+        // ADR-0069 §2 — an explicit project outside the account's scope
+        // yields nothing rather than another tenant's wallets.
+        if (! $scope->allowsProject($command->projectId)) {
+            return new WalletPage([], 0, $command->page, $command->perPage);
+        }
+
+        // The filter is applied at the query level, so the rows of another
+        // tenant are never materialised — not just hidden after the fact.
+        $result = $this->wallets->findByProject(
+            $command->projectId,
+            $command->page,
+            $command->perPage,
+            $command->search,
+            $scope->projectFilter(),
+            // The operator searches by the reference they see (« partner:7 »), not by an internal id.
+            $command->search === null || $command->search === '' ? [] : $this->parties->idsMatchingRef($command->projectId, $command->search),
+        );
 
         $walletIds = array_map(static fn (Wallet $wallet): string => $wallet->id, $result['items']);
         $balances = $this->balances->findMany($walletIds);
+        $partyRefs = $this->parties->externalRefsOf($command->projectId, array_values(array_unique(array_map(static fn (Wallet $wallet): string => $wallet->partyId, $result['items']))));
 
         $items = array_map(
-            fn (Wallet $wallet): WalletSummaryView => $this->toSummary($wallet, $balances[$wallet->id] ?? null),
+            fn (Wallet $wallet): WalletSummaryView => $this->toSummary($wallet, $balances[$wallet->id] ?? null, $partyRefs[$wallet->partyId] ?? null),
             $result['items'],
         );
 
         return new WalletPage($items, $result['total'], $command->page, $command->perPage);
     }
 
-    private function toSummary(Wallet $wallet, ?WalletBalance $balance): WalletSummaryView
+    private function toSummary(Wallet $wallet, ?WalletBalance $balance, ?string $partyExternalRef): WalletSummaryView
     {
         if ($balance === null) {
             // Every wallet is `initialize()`d in the same transaction it
@@ -59,6 +79,7 @@ final readonly class ListWalletsUseCase implements ListWallets
             status: $wallet->status,
             availableMinor: $balance?->available->amountMinor() ?? 0,
             heldMinor: $balance?->held->amountMinor() ?? 0,
+            partyExternalRef: $partyExternalRef,
         );
     }
 }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Core\Payment\Presentation\Http\Controllers\GetPaymentStatusController;
+use Core\Payment\Presentation\Http\Controllers\ListPaymentsController;
 use Core\Payment\Presentation\Http\Controllers\SimulatePaymentController;
 use Core\Payment\Presentation\Http\Controllers\StartPayinPaymentController;
 use Core\Payment\Presentation\Http\Controllers\StartPaylinkPaymentController;
@@ -40,6 +41,9 @@ Route::middleware(['project.auth'])
             ->middleware('idempotency')
             ->whereUuid('paymentId')
             ->name('payments.simulate');
+        // ADR-0088 §2 — the cursor listing; read-only, so no `idempotency`.
+        Route::get('/payments', ListPaymentsController::class)
+            ->name('payments.list');
         Route::get('/payments/{paymentId}', GetPaymentStatusController::class)
             ->whereUuid('paymentId')
             ->name('payments.status');

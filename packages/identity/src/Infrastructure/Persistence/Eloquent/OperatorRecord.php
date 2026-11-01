@@ -14,7 +14,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string $email
  * @property string $name
  * @property string $password_hash
- * @property string $role
+ * @property string|null $role
  * @property string|null $mfa_secret_encrypted
  * @property bool $mfa_enabled
  * @property int|null $mfa_last_verified_timestep

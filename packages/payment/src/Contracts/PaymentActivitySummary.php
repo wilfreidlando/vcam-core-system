@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace Core\Payment\Contracts;
 
+use Core\Support\Access\AccessScope;
+
 /**
- * A global (cross-project) read for the admin dashboard — the one
- * deliberate exception to `ListPayments`'s project-scoping (ADR-0045):
- * an operator console overview needs a platform-wide count, never
- * individual payment rows. Read-only, no row-level data leaves this
- * port.
+ * A read over the payment activity of a window — for the admin dashboard.
+ * Read-only, no row-level data leaves this port: only counts.
  */
 interface PaymentActivitySummary
 {
-    public function summarize(PaymentActivitySummaryWindow $window): PaymentActivitySummaryView;
+    /**
+     * The scope is required (ADR-0069 §2): only the payments of the
+     * projects the console account may see are counted. The filter is
+     * applied in the aggregation query itself, so the payments of another
+     * tenant are never counted, let alone materialised.
+     */
+    public function summarize(PaymentActivitySummaryWindow $window, AccessScope $scope): PaymentActivitySummaryView;
 }

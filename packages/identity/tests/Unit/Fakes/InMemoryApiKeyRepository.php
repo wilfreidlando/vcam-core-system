@@ -10,6 +10,9 @@ use DateTimeImmutable;
 
 final class InMemoryApiKeyRepository implements ApiKeyRepository
 {
+    /** @var list<array{id: string, ip: ?string}> */
+    public array $touches = [];
+
     /** @var array<string, ApiKey> */
     private array $apiKeys = [];
 
@@ -42,21 +45,23 @@ final class InMemoryApiKeyRepository implements ApiKeyRepository
         ));
     }
 
-    public function findOneByProject(string $projectId): ?ApiKey
+    public function countActiveByProject(string $projectId, DateTimeImmutable $now): int
     {
-        foreach ($this->apiKeys as $key) {
-            if ($key->projectId === $projectId) {
-                return $key;
-            }
-        }
-
-        return null;
+        return count(array_filter(
+            $this->apiKeys,
+            static fn (ApiKey $k): bool => $k->projectId === $projectId && $k->isUsableAt($now),
+        ));
     }
+
+    public function lockProject(string $projectId): void {}
 
     public function delete(string $id): void
     {
         unset($this->apiKeys[$id]);
     }
 
-    public function touchLastUsed(string $id, DateTimeImmutable $at): void {}
+    public function touchLastUsed(string $id, DateTimeImmutable $at, ?string $ip = null): void
+    {
+        $this->touches[] = ['id' => $id, 'ip' => $ip];
+    }
 }

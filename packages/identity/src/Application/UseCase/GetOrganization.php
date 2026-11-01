@@ -9,6 +9,7 @@ use Core\Identity\Contracts\GetOrganizationCommand;
 use Core\Identity\Contracts\OrganizationView;
 use Core\Identity\Domain\Exception\OrganizationNotFound;
 use Core\Identity\Domain\Port\OrganizationRepository;
+use Core\Support\Access\AccessScope;
 
 final readonly class GetOrganization implements GetOrganizationPort
 {
@@ -16,10 +17,15 @@ final readonly class GetOrganization implements GetOrganizationPort
         private OrganizationRepository $organizations,
     ) {}
 
-    public function get(GetOrganizationCommand $command): OrganizationView
+    public function get(GetOrganizationCommand $command, AccessScope $scope): OrganizationView
     {
         $organization = $this->organizations->find($command->organizationId)
             ?? throw OrganizationNotFound::withId($command->organizationId);
+
+        // ADR-0069 §2 / S-04 — "not found", never "forbidden".
+        if (! $scope->allowsOrganization($organization->id)) {
+            throw OrganizationNotFound::withId($command->organizationId);
+        }
 
         return new OrganizationView(
             id: $organization->id,

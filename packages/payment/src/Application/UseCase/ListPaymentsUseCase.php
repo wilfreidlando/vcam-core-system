@@ -12,6 +12,7 @@ use Core\Payment\Contracts\PaymentView;
 use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\PaymentStatus;
+use Core\Support\Access\AccessScope;
 
 final readonly class ListPaymentsUseCase implements ListPayments
 {
@@ -19,11 +20,17 @@ final readonly class ListPaymentsUseCase implements ListPayments
         private PaymentRepository $payments,
     ) {}
 
-    public function list(ListPaymentsCommand $command): PaymentPage
+    public function list(ListPaymentsCommand $command, AccessScope $scope): PaymentPage
     {
         $status = $command->status !== null ? PaymentStatus::tryFrom($command->status) : null;
 
-        $result = $this->payments->findByProject($command->projectId, $status, $command->page, $command->perPage);
+        // ADR-0069 §2 — an explicit project outside the account's scope
+        // yields nothing rather than another tenant's payments.
+        if ($command->projectId !== null && ! $scope->allowsProject($command->projectId)) {
+            return new PaymentPage([], 0, $command->page, $command->perPage);
+        }
+
+        $result = $this->payments->findByProject($command->projectId, $status, $command->page, $command->perPage, $scope->projectFilter());
 
         $items = array_map(
             static fn (Payment $payment): PaymentView => PaymentViews::from($payment),

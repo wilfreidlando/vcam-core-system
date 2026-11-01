@@ -1,6 +1,6 @@
 # ADR-0052 — Console admin : CRUD organizations/projects, CRUD opérateur complet, self-service des applications provider, prévisualisation de réconciliation, visibilité wallet enrichie
 
-- **Statut** : Accepté
+- **Statut** : Accepté — amendé par [ADR-0091](0091-decisions-implicites-du-code-livre-formalisees.md) (la mise à jour d'une organisation ou d'un projet passe par les ports `UpdateProject`/`UpdateOrganization`, leur lecture par `GetOrganization`, qui reçoit l'`AccessScope`)
 - **Date** : 2026-09-20
 - **Décideurs** : décision de l'utilisateur (retour direct après usage réel
   de la console livrée par ADR-0044/0045/0046/0047/0050)

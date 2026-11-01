@@ -93,9 +93,18 @@ final class InMemoryPaymentRepository implements PaymentRepository
      * `$threshold` is not a candidate, and never-checked payments come
      * first (insertion order), then the least recently checked.
      */
-    public function findStuckSince(DateTimeImmutable $threshold, int $limit, DateTimeImmutable $createdAfter): array
+    public function findStuckSince(DateTimeImmutable $threshold, int $limit, DateTimeImmutable $createdAfter, ?array $projectIds = null): array
     {
-        return array_slice($this->stuckCandidates($threshold), 0, $limit);
+        $candidates = $this->stuckCandidates($threshold);
+
+        if ($projectIds !== null) {
+            $candidates = array_values(array_filter(
+                $candidates,
+                static fn (Payment $payment): bool => in_array($payment->projectId, $projectIds, true),
+            ));
+        }
+
+        return array_slice($candidates, 0, $limit);
     }
 
     public function markReconciliationChecked(string $paymentId, DateTimeImmutable $checkedAt): void
@@ -103,11 +112,12 @@ final class InMemoryPaymentRepository implements PaymentRepository
         $this->reconciledAt[$paymentId] = $checkedAt;
     }
 
-    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage): array
+    public function findByProject(?string $projectId, ?PaymentStatus $status, int $page, int $perPage, ?array $projectIds = null): array
     {
         $matching = array_values(array_filter(
             $this->payments,
             static fn (Payment $payment): bool => ($projectId === null || $payment->projectId === $projectId)
+                && ($projectIds === null || in_array($payment->projectId, $projectIds, true))
                 && ($status === null || $payment->status === $status),
         ));
 
@@ -117,26 +127,78 @@ final class InMemoryPaymentRepository implements PaymentRepository
         return ['items' => array_slice($matching, $offset, $perPage), 'total' => $total];
     }
 
+    public function listByCursor(string $projectId, ?PaymentStatus $status, ?DateTimeImmutable $createdFrom, ?DateTimeImmutable $createdTo, ?string $cursor, int $limit): array
+    {
+        $matching = array_values(array_filter(
+            $this->payments,
+            static fn (Payment $payment): bool => $payment->projectId === $projectId
+                && ($status === null || $payment->status === $status),
+        ));
+
+        // The ordering and the cursor are proven against the real database.
+        return ['items' => array_slice($matching, 0, $limit), 'nextCursor' => null];
+    }
+
     /**
      * Same candidate set as findStuckSince().
      */
-    public function countStuckSince(DateTimeImmutable $threshold, DateTimeImmutable $createdAfter): int
+    public function countStuckSince(DateTimeImmutable $threshold, DateTimeImmutable $createdAfter, ?array $projectIds = null): int
     {
-        return count($this->stuckCandidates($threshold));
+        $candidates = $this->stuckCandidates($threshold);
+
+        if ($projectIds !== null) {
+            // ADR-0069 §2 — the scope filters the count.
+            $candidates = array_values(array_filter(
+                $candidates,
+                static fn (Payment $payment): bool => in_array($payment->projectId, $projectIds, true),
+            ));
+        }
+
+        return count($candidates);
     }
 
     /**
      * Same reasoning: ignores `$since`, counts every payment held.
      */
-    public function countRecentByStatus(DateTimeImmutable $since): array
+    public function countRecentByStatus(DateTimeImmutable $since, ?array $projectIds = null): array
     {
-        $total = count($this->payments);
+        $payments = array_values($this->payments);
+
+        if ($projectIds !== null) {
+            // ADR-0069 §2 — the scope filters the counts.
+            $payments = array_values(array_filter(
+                $payments,
+                static fn (Payment $payment): bool => in_array($payment->projectId, $projectIds, true),
+            ));
+        }
+
+        $total = count($payments);
         $succeeded = count(array_filter(
-            $this->payments,
+            $payments,
             static fn (Payment $payment): bool => $payment->status === PaymentStatus::Succeeded,
         ));
 
         return ['total' => $total, 'succeeded' => $succeeded];
+    }
+
+    public function findSucceededUpdatedSince(DateTimeImmutable $since, int $limit): array
+    {
+        $found = array_values(array_filter(
+            $this->payments,
+            static fn (Payment $p): bool => $p->status === PaymentStatus::Succeeded,
+        ));
+
+        return array_slice($found, 0, $limit);
+    }
+
+    public function findByIds(array $ids): array
+    {
+        return array_values(array_filter($this->payments, static fn (Payment $p): bool => in_array($p->id, $ids, true)));
+    }
+
+    public function projectsWithActivitySince(DateTimeImmutable $since): array
+    {
+        return array_values(array_unique(array_map(static fn (Payment $p): string => $p->projectId, array_values($this->payments))));
     }
 
     /** @return list<Payment> */

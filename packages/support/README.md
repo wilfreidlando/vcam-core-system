@@ -18,6 +18,27 @@ Décision de référence : [ADR-0020](../../docs/adr/0020-shared-kernel-support.
 | `Money` — enveloppe de brick/money | `src/Money/` | Livré — Lot 2 — [ADR-0021](../../docs/adr/0021-wrapper-money.md) |
 | Middleware d'idempotence + port `IdempotencyStore` | `src/Idempotency/` | Lot 2 — [ADR-0025](../../docs/adr/0025-design-idempotence.md) |
 | Socle d'intégration externe (HTTP sortant) | `src/Integration/` | **Livré** — [ADR-0026](../../docs/adr/0026-integration-providers-externes.md) + [ADR-0031](../../docs/adr/0031-socle-integration-en-parallele-du-lot-2.md) + [ADR-0034](../../docs/adr/0034-socle-integration-scope-structure.md) |
+| Chiffrement et index aveugle des données personnelles | `src/Privacy/` | **Livré** — [ADR-0083](../../docs/adr/0083-donnees-personnelles-chiffrement-conservation-effacement.md) — socle du lot 8 |
+| Portée d'accès console (organisations et projets visibles) | `src/Access/AccessScope.php` | **Livré** — [ADR-0069](../../docs/adr/0069-organisations-projets-et-acces-console-scopes.md) §2 — socle du lot 8 |
+
+### Portée d'accès console (ADR-0069)
+
+`Access\AccessScope` est une value object **sans persistance** : elle dit
+quelles organisations et quels projets un compte console voit, et quelles
+permissions il y tient. Elle vit dans le noyau partagé — et non dans
+`identity` — parce que le module `ledger` ne dépend d'aucun autre module (G2)
+alors que la console appelle aussi ses ports de lecture.
+
+- `AccessScope::platform()` — un rôle de plateforme : toutes les organisations.
+- `AccessScope::forProject($projectId)` — la portée d'un appelant qui détient
+  déjà un projet (clé d'API projet, service de validation).
+- `AccessScope::forOrganization($organizationId, $projectIds)` — une
+  organisation et, au besoin, ses projets.
+- `AccessScope::none()` — un compte sans aucune appartenance : il ne voit rien.
+
+Ce que la portée **ne** fait pas : décider qui est autorisé. Les permissions
+par organisation sont le métier d'`identity` (`OrganizationRole`). La portée
+est la décision de *visibilité*, résolue une fois par requête.
 
 ### Composition du socle d'intégration
 
@@ -34,6 +55,25 @@ Décision de référence : [ADR-0020](../../docs/adr/0020-shared-kernel-support.
 - **Correlation** : `CorrelationIdProvider` (port) + `LaravelContextCorrelationIdProvider`
 - **Token cache** : `TokenCache` (port seul — l'impl Valkey viendra de l'app shell)
 - **Exceptions** : `ProviderException` + `ProviderTransientError`, `ProviderPermanentError`, `ProviderAuthError`, `ProviderDisabledException`, `UnknownProviderStatusException`, `TokenCacheUnavailableException`
+
+### Confidentialité des données personnelles (ADR-0083)
+
+- `Privacy\PersonalDataCipher` (port) + `Privacy\EncrypterPersonalDataCipher` :
+  AES-256-GCM, clé **déduiée** (`PII_ENCRYPTION_KEYS`, distincte de `APP_KEY`)
+  et **versionnée** — le chiffrement porte sa version (`pii:v2:…`), toutes les
+  versions configurées déchiffrent pendant une rotation, et
+  `needsReEncryption()` dit ce qui doit être re-chiffré.
+- `Privacy\BlindIndex` (port) + `Privacy\HmacBlindIndex` :
+  `HMAC-SHA256(clé, valeur normalisée)` en hex — recherche exacte et unicité
+  sans donnée en clair. Clé distincte (`PII_BLIND_INDEX_KEY`).
+- `Privacy\PersonalDataMask` : masquage d'affichage (`a***@d***.cm`).
+- `Privacy\PersonalDataKind` : normalisation (email en minuscules, téléphone
+  en chiffres) avant index.
+- Clés : jamais dans le dépôt ni dans la base ; `php artisan
+  privacy:generate-key` les produit, le runbook de rotation est dans
+  [docs/operations/deploiement-production.md](../../docs/operations/deploiement-production.md) §2 bis.
+- Sans clé, l'écriture de donnée personnelle **échoue** (`MissingPersonalDataKey`)
+  : jamais de repli en clair.
 
 ### Pattern d'un adapter (template)
 

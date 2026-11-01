@@ -39,12 +39,16 @@ final class TriggerPaymentReconciliationController
      */
     public function __invoke(OperatorContext $operator): JsonResponse|Response
     {
-        if (! $operator->hasPermission('payments:reconcile:write')) {
+        // ADR-0069 §2 — the run only touches the payments of the projects
+        // where the account holds the permission.
+        $scope = $operator->scopeFor('payments:reconcile:write');
+        if ($scope->isEmpty()) {
             return ProblemDetails::forbidden('The payments:reconcile:write permission is required.');
         }
 
         $summary = $this->reconcileStuckPayments->reconcile(
             new ReconcileStuckPaymentsCommand(limitOverride: self::ON_DEMAND_BATCH_LIMIT),
+            $scope,
         );
 
         $this->audit->record(new AuditEntry(
@@ -56,6 +60,9 @@ final class TriggerPaymentReconciliationController
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            // The run of an account of a single organization is that
+            // organization's event; a platform run belongs to the platform.
+            organizationId: count($scope->organizationIds) === 1 ? $scope->organizationIds[0] : null,
         ));
 
         return new JsonResponse([

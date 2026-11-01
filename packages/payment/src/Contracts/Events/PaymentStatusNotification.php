@@ -19,7 +19,7 @@ use InvalidArgumentException;
 final readonly class PaymentStatusNotification
 {
     /** The exact keys of `toPayload()` — the published contract (OpenAPI `PaymentStatusChangedData`). */
-    public const FIELDS = ['payment_id', 'reference', 'status', 'is_final', 'amount', 'currency', 'failure_reason', 'occurred_at'];
+    public const FIELDS = ['payment_id', 'reference', 'status', 'is_final', 'amount', 'currency', 'failure_reason', 'occurred_at', 'confirmed_amount', 'exception'];
 
     public function __construct(
         public string $paymentId,
@@ -30,6 +30,19 @@ final readonly class PaymentStatusNotification
         public string $currency,
         public ?string $failureReason,
         public string $occurredAt,
+        /**
+         * ADR-0077 — what the provider confirmed it collected, on a
+         * settled payment; `null` when the source did not confirm an
+         * amount, and on any other status. Additive field (ADR-0086 §2).
+         */
+        public ?int $confirmedAmount = null,
+        /**
+         * ADR-0077 — `amount_mismatch` or `currency_mismatch` when the
+         * provider confirmed something else than requested: the payment
+         * is settled but NOT allocated (no wallet credited). `null`
+         * otherwise. Open enumeration: ignore values you do not know.
+         */
+        public ?string $exception = null,
     ) {}
 
     /**
@@ -46,6 +59,8 @@ final readonly class PaymentStatusNotification
             'currency' => $this->currency,
             'failure_reason' => $this->failureReason,
             'occurred_at' => $this->occurredAt,
+            'confirmed_amount' => $this->confirmedAmount,
+            'exception' => $this->exception,
         ];
     }
 
@@ -71,6 +86,8 @@ final readonly class PaymentStatusNotification
             currency: is_string($payload['currency'] ?? null) ? $payload['currency'] : '',
             failureReason: is_string($failure) ? $failure : null,
             occurredAt: is_string($payload['occurred_at'] ?? null) ? $payload['occurred_at'] : '',
+            confirmedAmount: is_int($payload['confirmed_amount'] ?? null) ? $payload['confirmed_amount'] : null,
+            exception: is_string($payload['exception'] ?? null) ? $payload['exception'] : null,
         );
     }
 }

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Core\Identity\Tests\Integration;
 
-use Core\Identity\Contracts\CreateOperator;
-use Core\Identity\Contracts\CreateOperatorCommand;
+use Core\Identity\Contracts\AcceptOperatorInvitation;
+use Core\Identity\Contracts\AcceptOperatorInvitationCommand;
+use Core\Identity\Contracts\InviteOperator;
+use Core\Identity\Contracts\InviteOperatorCommand;
 use Core\Identity\OperatorRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
@@ -23,18 +25,21 @@ final class OperatorAuthHttpFlowTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * The password every operator of this test signs in with: the invitee
+     * chooses it at activation (ADR-0081 S-07), so a test that needs to
+     * know it must choose it itself.
+     */
+    private const string PASSWORD = 'a chosen passphrase';
+
     #[Test]
     public function a_fresh_operator_enrolls_mfa_on_first_login_and_authenticates(): void
     {
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand('ops@example.com', 'Ops', OperatorRole::SupportOperator->value),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = $this->createOperator('ops@example.com', OperatorRole::SupportOperator);
 
         $login = $this->jsonBody($this->postJson('/v1/operators/login', [
             'email' => 'ops@example.com',
-            'password' => $created->plaintextPassword,
+            'password' => self::PASSWORD,
         ])->assertOk());
 
         self::assertSame('mfa_enrollment', $login['purpose']);
@@ -53,13 +58,13 @@ final class OperatorAuthHttpFlowTest extends TestCase
             'code' => $code,
         ])->assertCreated());
 
-        self::assertSame($created->operatorId, $confirm['operator_id']);
+        self::assertSame($created, $confirm['operator_id']);
         $accessToken = $this->stringField($confirm, 'access_token');
 
         $this->getJson('/v1/operators/me', ['Authorization' => "Bearer {$accessToken}"])
             ->assertOk()
             ->assertJson([
-                'operator_id' => $created->operatorId,
+                'operator_id' => $created,
                 'email' => 'ops@example.com',
                 'role' => 'support_operator',
             ]);
@@ -68,15 +73,11 @@ final class OperatorAuthHttpFlowTest extends TestCase
     #[Test]
     public function a_returning_operator_skips_straight_to_mfa_verification(): void
     {
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand('ops2@example.com', 'Ops Two', OperatorRole::FinanceOperator->value),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = $this->createOperator('ops2@example.com', OperatorRole::FinanceOperator);
 
         $firstLogin = $this->jsonBody($this->postJson('/v1/operators/login', [
             'email' => 'ops2@example.com',
-            'password' => $created->plaintextPassword,
+            'password' => self::PASSWORD,
         ])->assertOk());
         $enroll = $this->jsonBody($this->postJson('/v1/operators/mfa/enroll', [
             'challenge_token' => $firstLogin['challenge_token'],
@@ -90,7 +91,7 @@ final class OperatorAuthHttpFlowTest extends TestCase
 
         $secondLogin = $this->jsonBody($this->postJson('/v1/operators/login', [
             'email' => 'ops2@example.com',
-            'password' => $created->plaintextPassword,
+            'password' => self::PASSWORD,
         ])->assertOk());
 
         self::assertSame('mfa', $secondLogin['purpose']);
@@ -106,20 +107,16 @@ final class OperatorAuthHttpFlowTest extends TestCase
             'code' => $verifyCode,
         ])->assertCreated());
 
-        self::assertSame($created->operatorId, $verify['operator_id']);
+        self::assertSame($created, $verify['operator_id']);
     }
 
     #[Test]
     public function logout_revokes_the_token(): void
     {
-        $created = app(CreateOperator::class)->create(
-            new CreateOperatorCommand('ops3@example.com', 'Ops Three', OperatorRole::ReadOnlyAuditor->value),
-            actor: 'service:test',
-            correlationId: null,
-        );
+        $created = $this->createOperator('ops3@example.com', OperatorRole::ReadOnlyAuditor);
         $login = $this->jsonBody($this->postJson('/v1/operators/login', [
             'email' => 'ops3@example.com',
-            'password' => $created->plaintextPassword,
+            'password' => self::PASSWORD,
         ])->assertOk());
         $enroll = $this->jsonBody($this->postJson('/v1/operators/mfa/enroll', [
             'challenge_token' => $login['challenge_token'],
@@ -148,6 +145,28 @@ final class OperatorAuthHttpFlowTest extends TestCase
         $this->getJson('/v1/operators/me')
             ->assertStatus(401)
             ->assertHeader('Content-Type', 'application/problem+json');
+    }
+
+    /**
+     * Invites an email address, then activates the invitation with the
+     * chosen password — the real path an account takes since ADR-0081
+     * S-07.
+     */
+    private function createOperator(string $email, OperatorRole $role): string
+    {
+        $invitation = app(InviteOperator::class)->invite(
+            new InviteOperatorCommand($email, $role->value),
+            actor: 'service:test',
+            correlationId: null,
+        );
+
+        $accepted = app(AcceptOperatorInvitation::class)->accept(new AcceptOperatorInvitationCommand(
+            token: (string) $invitation->token,
+            name: 'Ops',
+            password: self::PASSWORD,
+        ));
+
+        return $accepted->operatorId;
     }
 
     /**

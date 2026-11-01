@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
+use Core\Identity\Presentation\Http\Middleware\RequireOperatorStepUp;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -22,7 +23,10 @@ use Illuminate\Support\Facades\Route;
  * handler).
  */
 
-Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): void {
+// Écart #5 : l'alias vit ici tant que bootstrap/app.php ne le déclare pas (Route::aliasMiddleware est idempotent).
+Route::aliasMiddleware('operator.step_up', RequireOperatorStepUp::class);
+
+Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->group(function (): void {
 
     // Unauthenticated: login + MFA challenge + logout.
     // 'operator-auth' (AppServiceProvider::configureRateLimiting) is the
@@ -39,10 +43,46 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
     });
     Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
+    // The invitee's door: an activation token becomes an account (ADR-0069 §4). Public — the token
+    // is the credential — and throttled by the dedicated limiter of the JSON acceptance routes.
+    Route::middleware(['throttle:invitation-accept'])->group(function (): void {
+        Route::get('invitation', [App\Http\Controllers\Admin\InvitationController::class, 'show'])->name('invitation.show');
+        Route::post('invitation', [App\Http\Controllers\Admin\InvitationController::class, 'accept'])->name('invitation.accept');
+    });
+
     // Authenticated: the whole operator console.
     Route::middleware(['operator.session'])->group(function (): void {
 
         Route::get('/', [DashboardController::class, 'show'])->name('dashboard');
+
+        // ADR-0113 — le guide de l'opérateur, rendu depuis le Markdown de
+        // `docs/manuel/parcours/`. Des segments littéraux, pas de paramètre :
+        // un parcours est un document, il n'appartient à aucun client et ne
+        // porte aucun identifiant de ressource — il n'y a donc rien à
+        // isoler, et le manifeste IDOR n'a pas à le connaître.
+        Route::prefix('guide')->group(function (): void {
+            Route::get('/', [App\Http\Controllers\Admin\GuideController::class, 'index'])->name('guide.index');
+
+            foreach (['acces', 'vendre', 'argent', 'livraisons', 'piloter'] as $famille) {
+                Route::get($famille, [App\Http\Controllers\Admin\GuideController::class, 'famille'])
+                    ->defaults('famille', $famille)
+                    ->name('guide.'.$famille);
+            }
+        });
+
+        // Écart #5 (annexe sécurité 2026-10-29, G-4) — l'élévation de privilège : avant une
+        // action qui **déplace de l'argent** (`operator.step_up`), l'opérateur ressaisit un
+        // code TOTP, valable 5 minutes. 'console-step-up' (AdminServiceProvider) plafonne
+        // les essais de code.
+        //
+        // ADR-0105 : l'élévation est réservée à l'argent. Les autres écritures sensibles
+        // (endpoints webhook, clés d'API, opérateurs, membres d'organisation, effacement
+        // d'un client) restent auditées et plafonnées (`throttle:console-sensitive`), mais ne
+        // redemandent plus de code TOTP : le MFA de la connexion reste la preuve.
+        Route::get('step-up', [App\Http\Controllers\Admin\StepUpController::class, 'show'])->name('step-up.show');
+        Route::post('step-up', [App\Http\Controllers\Admin\StepUpController::class, 'verify'])
+            ->middleware(['throttle:console-step-up'])
+            ->name('step-up.verify');
 
         Route::prefix('audit-log')->group(function (): void {
             Route::get('/', [App\Http\Controllers\Admin\AuditLogController::class, 'index'])
@@ -60,7 +100,7 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             Route::get('create', [App\Http\Controllers\Admin\OrganizationsController::class, 'create'])
                 ->name('organizations.new');
             Route::post('/', [App\Http\Controllers\Admin\OrganizationsController::class, 'store'])
-                ->name('organizations.store');
+                ->name('organizations.store')->middleware(['throttle:console-sensitive']);
             // No JSON route named `admin.organizations.edit`/`.update`
             // exists yet in `packages/admin/routes/api.php` (only
             // `.create` does), so no collision-avoidance suffix is
@@ -70,6 +110,40 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             Route::put('{organizationId}', [App\Http\Controllers\Admin\OrganizationsController::class, 'update'])
                 ->name('organizations.update');
         });
+
+        // ADR-0069 §1/§4 — the members of an organization: list, invite,
+        // revoke, change role. Kept outside the `organizations` prefix
+        // group above so the URL reads `/admin/organizations/{id}/members`
+        // without a doubled prefix.
+        // Named `organizations.members.*` — `packages/admin/routes/api.php`
+        // owns the JSON plane's `admin.organizations.members` (the GET
+        // listing) and `admin.organizations.members.revoke`/`.update`
+        // (the mutations); the web plane's own names end in `.index`,
+        // `.invite`, `.store`, `.revoke.web` and `.role.web` so the two
+        // planes never share a final name — the same collision-avoidance
+        // convention the rest of this file follows.
+        Route::prefix('organizations/{organizationId}/members')->group(function (): void {
+            Route::get('/', [App\Http\Controllers\Admin\OrganizationMembersController::class, 'index'])
+                ->whereUuid('organizationId')
+                ->name('organizations.members.index');
+            Route::get('invite', [App\Http\Controllers\Admin\OrganizationMembersController::class, 'create'])
+                ->whereUuid('organizationId')
+                ->name('organizations.members.invite');
+            Route::post('/', [App\Http\Controllers\Admin\OrganizationMembersController::class, 'store'])
+                ->whereUuid('organizationId')
+                ->name('organizations.members.store')->middleware(['throttle:console-sensitive']);
+            Route::post('{operatorId}/revoke', [App\Http\Controllers\Admin\OrganizationMembersController::class, 'revoke'])
+                ->whereUuid('organizationId')
+                ->whereUuid('operatorId')
+                ->name('organizations.members.revoke.web')->middleware(['throttle:console-sensitive']);
+            Route::put('{operatorId}/role', [App\Http\Controllers\Admin\OrganizationMembersController::class, 'updateRole'])
+                ->whereUuid('organizationId')
+                ->whereUuid('operatorId')
+                ->name('organizations.members.role.web')->middleware(['throttle:console-sensitive']);
+        });
+
+        // ADR-0080 §1 — the portfolio: every project the operator may see, with its indicators.
+        Route::get('portfolio', [App\Http\Controllers\Admin\PortfolioController::class, 'index'])->name('portfolio');
 
         Route::prefix('projects')->group(function (): void {
             Route::get('/', [App\Http\Controllers\Admin\ProjectsController::class, 'index'])
@@ -85,7 +159,7 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             Route::get('create', [App\Http\Controllers\Admin\ProjectsController::class, 'create'])
                 ->name('projects.new');
             Route::post('/', [App\Http\Controllers\Admin\ProjectsController::class, 'store'])
-                ->name('projects.store');
+                ->name('projects.store')->middleware(['throttle:console-sensitive']);
             Route::get('{projectId}', [App\Http\Controllers\Admin\ProjectsController::class, 'show'])
                 ->name('projects.show');
             // Same reasoning as `organizations.edit`/`.update` above — no
@@ -124,7 +198,7 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             Route::get('{projectId}/whatsapp-sessions', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'index'])
                 ->name('projects.channel-sessions.index');
             Route::post('{projectId}/whatsapp-sessions', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'store'])
-                ->name('projects.channel-sessions.store');
+                ->name('projects.channel-sessions.store')->middleware(['throttle:console-sensitive']);
             Route::get('{projectId}/whatsapp-sessions/{sessionRef}/qr', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'qr'])
                 ->where('sessionRef', '[A-Za-z0-9_-]+')->name('projects.channel-sessions.qr');
             Route::get('{projectId}/whatsapp-sessions/{sessionRef}/screenshot', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'screenshot'])
@@ -134,29 +208,47 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             Route::post('{projectId}/whatsapp-sessions/{sessionRef}/pairing-code', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'pairingCode'])
                 ->where('sessionRef', '[A-Za-z0-9_-]+')->name('projects.channel-sessions.pairing-code');
             Route::post('{projectId}/whatsapp-sessions/{sessionRef}/delete', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'destroy'])
-                ->where('sessionRef', '[A-Za-z0-9_-]+')->name('projects.channel-sessions.delete');
+                ->where('sessionRef', '[A-Za-z0-9_-]+')->name('projects.channel-sessions.delete')->middleware(['throttle:console-sensitive']);
             Route::get('{projectId}/provider-applications/create', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'create'])
                 ->name('projects.provider-applications.create');
             Route::post('{projectId}/provider-applications', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'store'])
-                ->name('projects.provider-applications.store');
+                ->name('projects.provider-applications.store')->middleware(['throttle:console-sensitive']);
             Route::get('{projectId}/provider-applications/{applicationId}/edit', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'edit'])
                 ->name('projects.provider-applications.edit');
             Route::post('{projectId}/provider-applications/{applicationId}/delete', [App\Http\Controllers\Admin\ProviderApplicationsController::class, 'destroy'])
-                ->name('projects.provider-applications.delete');
+                ->name('projects.provider-applications.delete')->middleware(['throttle:console-sensitive']);
             // No collision risk with `packages/webhook/routes/api.php`'s
             // `webhook-endpoints.register`/`.list` — those are unprefixed
             // (the Project/API-key plane), these are `admin.projects.*`
             // (the operator console plane).
+            // ADR-0110 §5 / ADR-0107 §6 — the page where an operator
+            // registers the webhook endpoint of a client application: the
+            // application never registers it itself, the operator hands it
+            // the secret out of band.
+            Route::get('{projectId}/webhook-endpoints', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'index'])
+                ->name('projects.webhook-endpoints.index');
+            // The historical URL of the same page — it still answers, with
+            // the same page: the links already handed out keep working.
             Route::get('{projectId}/webhook-endpoints/create', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'create'])
                 ->name('projects.webhook-endpoints.create');
             Route::post('{projectId}/webhook-endpoints', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'store'])
-                ->name('projects.webhook-endpoints.store');
+                ->name('projects.webhook-endpoints.store')->middleware(['throttle:console-sensitive']);
             Route::put('{projectId}/webhook-endpoints/{endpointId}', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'update'])
-                ->name('projects.webhook-endpoints.update');
+                ->name('projects.webhook-endpoints.update')->middleware(['throttle:console-sensitive']);
             Route::post('{projectId}/webhook-endpoints/{endpointId}/activate', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'activate'])
-                ->name('projects.webhook-endpoints.activate');
+                ->name('projects.webhook-endpoints.activate')->middleware(['throttle:console-sensitive']);
             Route::post('{projectId}/webhook-endpoints/{endpointId}/deactivate', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'deactivate'])
-                ->name('projects.webhook-endpoints.deactivate');
+                ->name('projects.webhook-endpoints.deactivate')->middleware(['throttle:console-sensitive']);
+            // ADR-0082 §5 — secret rotation (double signature) and its early end.
+            Route::post('{projectId}/webhook-endpoints/{endpointId}/rotate-secret', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'rotateSecret'])
+                ->name('projects.webhook-endpoints.rotate-secret')->middleware(['throttle:console-sensitive']);
+            // ADR-0063 — one signed test event, sent now, so the operator
+            // can tell a wrong URL from a wrong secret before the first
+            // real event exists.
+            Route::post('{projectId}/webhook-endpoints/{endpointId}/test', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'test'])
+                ->name('projects.webhook-endpoints.test')->middleware(['throttle:console-sensitive']);
+            Route::post('{projectId}/webhook-endpoints/{endpointId}/revoke-previous-secret', [App\Http\Controllers\Admin\WebhookEndpointsController::class, 'revokePreviousSecret'])
+                ->name('projects.webhook-endpoints.revoke-previous-secret')->middleware(['throttle:console-sensitive']);
             // Review finding: API key issuance/revocation was genuinely
             // CLI-only (`identity:issue-api-key`/`identity:revoke-api-key`),
             // unlike organizations/projects/operators which already had
@@ -165,9 +257,153 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             Route::get('{projectId}/api-keys/create', [App\Http\Controllers\Admin\ApiKeysController::class, 'create'])
                 ->name('projects.api-keys.create');
             Route::post('{projectId}/api-keys', [App\Http\Controllers\Admin\ApiKeysController::class, 'store'])
-                ->name('projects.api-keys.store');
+                ->name('projects.api-keys.store')->middleware(['throttle:console-sensitive']);
+            Route::post('{projectId}/api-keys/{apiKeyId}/rotate', [App\Http\Controllers\Admin\ApiKeysController::class, 'rotate'])
+                ->name('projects.api-keys.rotate')->middleware(['throttle:console-sensitive']);
             Route::post('{projectId}/api-keys/{apiKeyId}/revoke', [App\Http\Controllers\Admin\ApiKeysController::class, 'revoke'])
-                ->name('projects.api-keys.revoke');
+                ->name('projects.api-keys.revoke')->middleware(['throttle:console-sensitive']);
+
+            // ADR-0070 / ADR-0071 / ADR-0072 — the commerce of a Project:
+            // the customers it declares, its plan catalogue and its
+            // subscription contracts. The JSON plane owns
+            // `customers.*` / `plans.*` / `subscriptions.*`
+            // (`packages/billing/routes/api.php`, unprefixed); these are
+            // the console's own names, under `admin.projects.`.
+            // ADR-0097 / ADR-0074 — the commerce settings of a project: its
+            // customer portal, its billing settings and what its customers consume.
+            Route::get('{projectId}/portal', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'portal'])->name('projects.portal');
+            Route::post('{projectId}/portal', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'savePortal'])->name('projects.portal.save');
+            Route::get('{projectId}/commerce-settings', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'settings'])->name('projects.commerce-settings');
+            Route::post('{projectId}/commerce-settings', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'saveSettings'])->name('projects.commerce-settings.save');
+            Route::get('{projectId}/usage', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'usage'])->name('projects.usage');
+            Route::get('{projectId}/indicators', [App\Http\Controllers\Admin\ProjectIndicatorsController::class, 'show'])->name('projects.indicators');
+            // ADR-0073 — « une vue créances (factures ouvertes, en retard,
+            // irrécouvrables) lue dans le grand livre ». Lecture seule :
+            // aucune écriture d'argent depuis cet écran.
+            Route::get('{projectId}/receivables', [App\Http\Controllers\Admin\BillingReceivablesController::class, 'index'])->name('projects.receivables.index');
+            Route::get('{projectId}/ledger', [App\Http\Controllers\Admin\ProjectLedgerController::class, 'show'])->name('projects.ledger');
+
+            // ADR-0088 §3 / ADR-0101 — « Export des données » of a project: ask for it,
+            // list the past ones, download one through a signed link made at the click.
+            Route::get('{projectId}/exports', [App\Http\Controllers\Admin\ProjectExportsController::class, 'index'])->name('projects.exports');
+            Route::post('{projectId}/exports', [App\Http\Controllers\Admin\ProjectExportsController::class, 'store'])->name('projects.exports.store')->middleware(['throttle:console-sensitive']);
+            Route::post('{projectId}/exports/{exportId}/download', [App\Http\Controllers\Admin\ProjectExportsController::class, 'download'])->name('projects.exports.download')->middleware(['throttle:console-sensitive']);
+
+            Route::prefix('{projectId}/customers')->group(function (): void {
+                // The reference is format-checked in the route (the
+                // column carries the same CHECK constraint): a
+                // reference that does not match it is a route that does
+                // not exist, not a 500.
+                Route::get('/', [App\Http\Controllers\Admin\BillingCustomersController::class, 'index'])
+                    ->name('projects.customers.index');
+                Route::get('create', [App\Http\Controllers\Admin\BillingCustomersController::class, 'create'])
+                    ->name('projects.customers.new');
+                Route::post('/', [App\Http\Controllers\Admin\BillingCustomersController::class, 'store'])
+                    ->name('projects.customers.store')->middleware(['throttle:console-sensitive']);
+                Route::get('{externalRef}', [App\Http\Controllers\Admin\CustomerOverviewController::class, 'show'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.show');
+                Route::post('{externalRef}/subscribe', [App\Http\Controllers\Admin\CustomerOverviewController::class, 'subscribe'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.subscribe.web');
+                Route::get('{externalRef}/edit', [App\Http\Controllers\Admin\BillingCustomersController::class, 'edit'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.edit');
+                Route::post('{externalRef}', [App\Http\Controllers\Admin\BillingCustomersController::class, 'update'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.update.web');
+                Route::post('{externalRef}/suspend', [App\Http\Controllers\Admin\BillingCustomersController::class, 'suspend'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.suspend.web');
+                Route::post('{externalRef}/reactivate', [App\Http\Controllers\Admin\BillingCustomersController::class, 'reactivate'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.reactivate.web');
+                Route::post('{externalRef}/erase', [App\Http\Controllers\Admin\BillingCustomersController::class, 'erase'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.erase.web')->middleware(['throttle:console-sensitive']);
+            });
+
+            Route::prefix('{projectId}/plans')->group(function (): void {
+                Route::get('/', [App\Http\Controllers\Admin\BillingPlansController::class, 'index'])
+                    ->name('projects.plans.index');
+                Route::get('create', [App\Http\Controllers\Admin\BillingPlansController::class, 'create'])
+                    ->name('projects.plans.new');
+                Route::post('/', [App\Http\Controllers\Admin\BillingPlansController::class, 'store'])
+                    ->name('projects.plans.store');
+                // The « add a version » form of the new-plan page names its plan in the
+                // body: the plan code is a field there, not a path segment.
+                Route::post('versions', [App\Http\Controllers\Admin\BillingPlansController::class, 'storeVersionOfPlan'])
+                    ->name('projects.plans.versions.add');
+                Route::post('{code}/versions', [App\Http\Controllers\Admin\BillingPlansController::class, 'storeVersion'])
+                    ->name('projects.plans.versions.store');
+                Route::post('{code}/versions/{version}/publish', [App\Http\Controllers\Admin\BillingPlansController::class, 'publish'])
+                    ->whereNumber('version')
+                    ->name('projects.plans.versions.publish.web');
+                Route::post('{code}/archive', [App\Http\Controllers\Admin\BillingPlansController::class, 'archive'])
+                    ->name('projects.plans.archive.web');
+            });
+
+            Route::prefix('{projectId}/subscriptions')->group(function (): void {
+                Route::get('/', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'index'])
+                    ->name('projects.subscriptions.index');
+                Route::get('{subscriptionId}', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'show'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.show');
+                Route::post('{subscriptionId}/pause', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'pause'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.pause.web');
+                Route::post('{subscriptionId}/resume', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'resume'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.resume.web');
+                Route::post('{subscriptionId}/cancel', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'cancel'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.cancel.web');
+                Route::post('{subscriptionId}/change-plan', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'changePlan'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.change-plan.web');
+                Route::post('{subscriptionId}/complimentary', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'complimentary'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.complimentary.web');
+                Route::post('{subscriptionId}/pay', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'pay'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.pay.web');
+            });
+
+            // Les factures — ADR-0073. La console appelle les mêmes
+            // contrats publiés que l'API : une facture qu'elle refuse
+            // est une facture que l'API refuse aussi.
+            Route::prefix('{projectId}/invoices')->group(function (): void {
+                Route::get('/', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'index'])
+                    ->name('projects.invoices.index');
+                Route::get('create', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'create'])
+                    ->name('projects.invoices.new');
+                Route::post('/', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'store'])
+                    ->name('projects.invoices.store')->middleware(['throttle:console-sensitive']);
+                Route::get('{invoiceId}', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'show'])
+                    ->whereUuid('invoiceId')
+                    ->name('projects.invoices.show');
+                Route::post('{invoiceId}/issue', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'issue'])
+                    ->whereUuid('invoiceId')
+                    ->name('projects.invoices.issue.web')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                Route::post('{invoiceId}/void', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'void'])
+                    ->whereUuid('invoiceId')
+                    ->name('projects.invoices.void.web')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+                Route::post('{invoiceId}/uncollectible', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'uncollectible'])
+                    ->whereUuid('invoiceId')
+                    ->name('projects.invoices.uncollectible.web')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+
+                // L'encaissement hors ligne — ADR-0073 §4, ADR-0095.
+                Route::post('{invoiceId}/receipts', [App\Http\Controllers\Admin\BillingInvoiceReceiptsController::class, 'store'])
+                    ->whereUuid('invoiceId')
+                    ->name('projects.invoices.receipts.store')->middleware(['throttle:console-sensitive']);
+            });
+
+            // Les encaissements hors ligne du projet — ADR-0073 §4.
+            Route::get('{projectId}/receipts', [App\Http\Controllers\Admin\BillingInvoiceReceiptsController::class, 'index'])
+                ->name('projects.receipts.index');
+            Route::post('{projectId}/receipts/{receiptId}/approve', [App\Http\Controllers\Admin\BillingInvoiceReceiptsController::class, 'approve'])
+                ->whereUuid('receiptId')
+                ->name('projects.receipts.approve.web')->middleware(['operator.step_up', 'throttle:console-sensitive']);
         });
 
         Route::prefix('payments')->group(function (): void {
@@ -207,6 +443,48 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->name('reconciliation.run-one');
         });
 
+        // ADR-0077 — the money exceptions queue (console only, no JSON twin yet).
+        Route::prefix('money-exceptions')->group(function (): void {
+            Route::get('/', [App\Http\Controllers\Admin\MoneyExceptionsController::class, 'index'])
+                ->name('money-exceptions.index');
+            Route::get('{exception}', [App\Http\Controllers\Admin\MoneyExceptionsController::class, 'show'])
+                ->whereUuid('exception')
+                ->name('money-exceptions.show');
+            Route::post('{exception}/resolve', [App\Http\Controllers\Admin\MoneyExceptionsController::class, 'resolve'])
+                ->whereUuid('exception')
+                ->name('money-exceptions.resolve')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+            Route::post('{exception}/approve', [App\Http\Controllers\Admin\MoneyExceptionsController::class, 'approve'])
+                ->whereUuid('exception')
+                ->name('money-exceptions.approve')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+            Route::post('{exception}/reject', [App\Http\Controllers\Admin\MoneyExceptionsController::class, 'reject'])
+                ->whereUuid('exception')
+                ->name('money-exceptions.reject')->middleware(['throttle:console-sensitive']);
+        });
+
+        // ADR-0076 §6 — the operating corrections of the ledger (console
+        // only, no JSON twin yet): propose, then approve or refuse.
+        Route::prefix('ledger-adjustments')->group(function (): void {
+            Route::get('/', [App\Http\Controllers\Admin\LedgerAdjustmentsController::class, 'index'])
+                ->name('ledger-adjustments.index');
+            // Named `ledger-adjustments.new`, not `.create` — the JSON
+            // plane owns no `admin.ledger-adjustments.create`, but the
+            // same "no two planes share a final name" convention the rest
+            // of this file follows.
+            Route::get('create', [App\Http\Controllers\Admin\LedgerAdjustmentsController::class, 'create'])
+                ->name('ledger-adjustments.new');
+            Route::post('/', [App\Http\Controllers\Admin\LedgerAdjustmentsController::class, 'store'])
+                ->name('ledger-adjustments.store')->middleware(['throttle:console-sensitive']);
+            Route::get('{adjustment}', [App\Http\Controllers\Admin\LedgerAdjustmentsController::class, 'show'])
+                ->whereUuid('adjustment')
+                ->name('ledger-adjustments.show');
+            Route::post('{adjustment}/approve', [App\Http\Controllers\Admin\LedgerAdjustmentsController::class, 'approve'])
+                ->whereUuid('adjustment')
+                ->name('ledger-adjustments.approve')->middleware(['operator.step_up', 'throttle:console-sensitive']);
+            Route::post('{adjustment}/reject', [App\Http\Controllers\Admin\LedgerAdjustmentsController::class, 'reject'])
+                ->whereUuid('adjustment')
+                ->name('ledger-adjustments.reject')->middleware(['throttle:console-sensitive']);
+        });
+
         // ADR-0050: operator self-service — mirrors packages/admin's JSON
         // /v1/admin/operators endpoints for the console web plane.
         // WhatsApp sessions of the PLATFORM (no owner Project): usable by
@@ -215,7 +493,7 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             Route::get('/', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'index'])
                 ->name('channel-sessions.index');
             Route::post('/', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'store'])
-                ->name('channel-sessions.store');
+                ->name('channel-sessions.store')->middleware(['throttle:console-sensitive']);
             Route::get('{sessionRef}/qr', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'qr'])
                 ->where('sessionRef', '[A-Za-z0-9_-]+')->name('channel-sessions.qr');
             Route::get('{sessionRef}/screenshot', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'screenshot'])
@@ -225,7 +503,7 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             Route::post('{sessionRef}/pairing-code', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'pairingCode'])
                 ->where('sessionRef', '[A-Za-z0-9_-]+')->name('channel-sessions.pairing-code');
             Route::post('{sessionRef}/delete', [App\Http\Controllers\Admin\ChannelSessionsController::class, 'destroy'])
-                ->where('sessionRef', '[A-Za-z0-9_-]+')->name('channel-sessions.delete');
+                ->where('sessionRef', '[A-Za-z0-9_-]+')->name('channel-sessions.delete')->middleware(['throttle:console-sensitive']);
         });
 
         Route::prefix('operators')->group(function (): void {
@@ -237,10 +515,10 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
             Route::get('create', [App\Http\Controllers\Admin\OperatorsController::class, 'create'])
                 ->name('operators.new');
             Route::post('/', [App\Http\Controllers\Admin\OperatorsController::class, 'store'])
-                ->name('operators.store');
+                ->name('operators.store')->middleware(['throttle:console-sensitive']);
             // `.revoke.web` — JSON owns `admin.operators.revoke` (also POST).
             Route::post('{operatorId}/revoke', [App\Http\Controllers\Admin\OperatorsController::class, 'revoke'])
-                ->name('operators.revoke.web');
+                ->name('operators.revoke.web')->middleware(['throttle:console-sensitive']);
             // Literal segments (`create`, `{operatorId}/edit`) always win
             // over a parameter route for an exact match in Laravel, so
             // this doesn't collide with `operators/create` above.
@@ -248,7 +526,7 @@ Route::middleware(['web'])->prefix('admin')->name('admin.')->group(function (): 
                 ->name('operators.edit');
             // `.update.web` — JSON owns `admin.operators.update` (also PUT).
             Route::put('{operatorId}', [App\Http\Controllers\Admin\OperatorsController::class, 'update'])
-                ->name('operators.update.web');
+                ->name('operators.update.web')->middleware(['throttle:console-sensitive']);
         });
     });
 });

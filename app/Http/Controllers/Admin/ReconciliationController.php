@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Concerns\ResolvesProjectNames;
+use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
 use Core\Identity\Contracts\GetProject;
@@ -16,6 +17,7 @@ use Core\Payment\Contracts\ReconcilePaymentCommand;
 use Core\Payment\Contracts\ReconcileStuckPayments;
 use Core\Payment\Contracts\ReconcileStuckPaymentsCommand;
 use Core\Payment\Domain\Exception\PaymentNotFound;
+use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,6 +33,7 @@ use Throwable;
 final class ReconciliationController
 {
     use ResolvesProjectNames;
+    use ResolvesScopedProject;
 
     /**
      * Mirrors TriggerPaymentReconciliationController::ON_DEMAND_BATCH_LIMIT
@@ -52,11 +55,9 @@ final class ReconciliationController
 
     public function new(OperatorContext $operator): Response
     {
-        if (! $operator->hasPermission('payments:reconcile:write')) {
-            abort(403, 'La permission payments:reconcile:write est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'payments:reconcile:write');
 
-        $previewPayments = $this->previewStuckPayments();
+        $previewPayments = $this->previewStuckPayments($scope);
         $projectIds = array_map(
             static fn ($payment): string => $payment->projectId,
             $previewPayments,
@@ -71,15 +72,15 @@ final class ReconciliationController
             'title' => 'Lancer une réconciliation',
             'result' => session('admin.reconciliation.last_result'),
             'previewPayments' => $previewPayments,
-            'projectNames' => $this->resolveProjectNames($this->getProject, $projectIds),
+            'projectNames' => $this->resolveProjectNames($this->getProject, $projectIds, $scope),
         ]);
     }
 
     public function run(Request $request, OperatorContext $operator): RedirectResponse
     {
-        if (! $operator->hasPermission('payments:reconcile:write')) {
-            abort(403, 'La permission payments:reconcile:write est requise.');
-        }
+        // ADR-0069 §2 — the run only touches the payments of the projects
+        // where the account holds the permission.
+        $scope = $this->permittedScope($operator, 'payments:reconcile:write');
 
         /** @var array{limit_override?: string|int} $data */
         // @phpstan-ignore-next-line — Laravel's Request::validate() return type is dynamic-array in stubs.
@@ -91,7 +92,7 @@ final class ReconciliationController
         try {
             $summary = $this->reconcile->reconcile(new ReconcileStuckPaymentsCommand(
                 limitOverride: $limit,
-            ));
+            ), $scope);
         } catch (Throwable $e) {
             return back()->withErrors(['limit_override' => 'Échec de la réconciliation : '.$e->getMessage()]);
         }
@@ -109,6 +110,7 @@ final class ReconciliationController
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            organizationId: count($scope->organizationIds) === 1 ? $scope->organizationIds[0] : null,
         ));
 
         // Persist the last summary in the session so the redirect lands
@@ -144,14 +146,12 @@ final class ReconciliationController
      */
     public function runOne(string $payment, OperatorContext $operator): RedirectResponse
     {
-        if (! $operator->hasPermission('payments:reconcile:write')) {
-            abort(403, 'La permission payments:reconcile:write est requise.');
-        }
+        $scope = $this->permittedScope($operator, 'payments:reconcile:write');
 
         Validator::make(['payment' => $payment], ['payment' => 'uuid'])->validate();
 
         try {
-            $result = $this->reconcileOne->reconcile(new ReconcilePaymentCommand($payment));
+            $result = $this->reconcileOne->reconcile(new ReconcilePaymentCommand($payment), $scope);
         } catch (PaymentNotFound) {
             return back()->withErrors(['payment' => 'Paiement introuvable.']);
         } catch (Throwable $e) {
@@ -175,6 +175,7 @@ final class ReconciliationController
             context: [],
             correlationId: null,
             occurredAt: $this->clock->now(),
+            projectId: $result->projectId,
         ));
 
         $shortId = substr($payment, 0, 8).'…';
@@ -196,10 +197,10 @@ final class ReconciliationController
      *
      * @return list<\Core\Payment\Contracts\StuckPaymentView>
      */
-    private function previewStuckPayments(): array
+    private function previewStuckPayments(AccessScope $scope): array
     {
         try {
-            return $this->listStuck->list(new ListStuckPaymentsCommand(self::ON_DEMAND_BATCH_LIMIT));
+            return $this->listStuck->list(new ListStuckPaymentsCommand(self::ON_DEMAND_BATCH_LIMIT), $scope);
         } catch (Throwable) {
             return [];
         }

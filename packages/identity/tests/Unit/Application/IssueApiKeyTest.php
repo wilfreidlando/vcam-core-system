@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Core\Identity\Application\UseCase\IssueApiKey;
 use Core\Identity\Contracts\IssueApiKeyCommand;
+use Core\Identity\Domain\Exception\ApiKeyLimitReached;
+use Core\Identity\Domain\Exception\InvalidApiKeySettings;
 use Core\Identity\Domain\Exception\ProjectNotActive;
 use Core\Identity\Domain\Exception\ProjectNotFound;
 use Core\Identity\Domain\Model\ApiKey;
@@ -25,7 +27,7 @@ final readonly class IssueApiKeyFixture
         public RecordingAuditLogger $audit,
     ) {}
 
-    public static function make(): self
+    public static function make(int $maxKeysPerProject = 10): self
     {
         $projects = new InMemoryProjectRepository;
         $apiKeys = new InMemoryApiKeyRepository;
@@ -39,6 +41,7 @@ final readonly class IssueApiKeyFixture
             $audit,
             new FixedClock,
             new PassthroughUnitOfWork,
+            $maxKeysPerProject,
         );
 
         return new self($useCase, $projects, $apiKeys, $audit);
@@ -103,23 +106,57 @@ it('refuses to issue a key for an inactive project', function (): void {
     );
 })->throws(ProjectNotActive::class);
 
-it('refuses a second key for the same project (ADR-0066)', function (): void {
+it('issues several named keys, then refuses past the per-project limit (ADR-0082 §1)', function (): void {
+    $fixture = IssueApiKeyFixture::make(maxKeysPerProject: 2);
+    $fixture->projects->save(Project::create('project-1', 'org-1', 'Test Project'));
+
+    $fixture->useCase->issue(new IssueApiKeyCommand('project-1', ['payments:write'], name: 'Serveur'), actor: 'operator:1', correlationId: null);
+    $fixture->useCase->issue(new IssueApiKeyCommand('project-1', ['portal:write'], name: 'Portail'), actor: 'operator:1', correlationId: null);
+
+    expect(array_map(static fn (ApiKey $k): string => $k->name, $fixture->apiKeys->findAllByProject('project-1')))
+        ->toBe(['Serveur', 'Portail']);
+
+    $fixture->useCase->issue(new IssueApiKeyCommand('project-1', ['payments:read'], name: 'De trop'), actor: 'operator:1', correlationId: null);
+})->throws(ApiKeyLimitReached::class);
+
+it('refuses a scope nobody knows, instead of storing a typo (ADR-0082 §2)', function (): void {
     $fixture = IssueApiKeyFixture::make();
     $fixture->projects->save(Project::create('project-1', 'org-1', 'Test Project'));
 
-    $fixture->useCase->issue(new IssueApiKeyCommand('project-1', ['payments:write']), actor: 'operator:1', correlationId: null);
+    $fixture->useCase->issue(new IssueApiKeyCommand('project-1', ['payments:wrte']), actor: 'operator:1', correlationId: null);
+})->throws(InvalidApiKeySettings::class, 'payments:wrte');
 
-    $fixture->useCase->issue(new IssueApiKeyCommand('project-1', ['payments:write']), actor: 'operator:1', correlationId: null);
-})->throws(Core\Identity\Domain\Exception\ApiKeyAlreadyExists::class);
-
-it('regenerating replaces the project key', function (): void {
+it('stores the network restriction in canonical form and audits it', function (): void {
     $fixture = IssueApiKeyFixture::make();
     $fixture->projects->save(Project::create('project-1', 'org-1', 'Test Project'));
 
-    $first = $fixture->useCase->issue(new IssueApiKeyCommand('project-1', ['*']), actor: 'operator:1', correlationId: null);
-    $regenerated = $fixture->useCase->issue(new IssueApiKeyCommand('project-1', ['*'], replaceExisting: true), actor: 'operator:1', correlationId: null);
+    $issued = $fixture->useCase->issue(
+        new IssueApiKeyCommand('project-1', ['payouts:write'], name: 'Versements', allowedCidrs: ['203.0.113.77/24', '2001:db8::1']),
+        actor: 'operator:1',
+        correlationId: null,
+    );
 
-    expect($fixture->apiKeys->find($first->apiKeyId))->toBeNull()
-        ->and($fixture->apiKeys->find($regenerated->apiKeyId))->not->toBeNull()
-        ->and(array_map(static fn ($e) => $e->action, $fixture->audit->entries))->toContain('api_key.replaced', 'api_key.regenerated');
+    $stored = $fixture->apiKeys->find($issued->apiKeyId);
+    assert($stored instanceof ApiKey);
+
+    expect($stored->allowedCidrs())->toBe(['203.0.113.0/24', '2001:db8::1/128'])
+        ->and($fixture->audit->entries[0]->after['allowed_cidrs'] ?? null)->toBe(['203.0.113.0/24', '2001:db8::1/128']);
 });
+
+it('refuses an invalid network block', function (): void {
+    $fixture = IssueApiKeyFixture::make();
+    $fixture->projects->save(Project::create('project-1', 'org-1', 'Test Project'));
+
+    $fixture->useCase->issue(new IssueApiKeyCommand('project-1', [], allowedCidrs: ['10.0.0.0/33']), actor: 'operator:1', correlationId: null);
+})->throws(InvalidApiKeySettings::class);
+
+it('refuses an expiry that is already past', function (): void {
+    $fixture = IssueApiKeyFixture::make();
+    $fixture->projects->save(Project::create('project-1', 'org-1', 'Test Project'));
+
+    $fixture->useCase->issue(
+        new IssueApiKeyCommand('project-1', [], expiresAt: new DateTimeImmutable('2026-09-01T00:00:00Z')),
+        actor: 'operator:1',
+        correlationId: null,
+    );
+})->throws(InvalidApiKeySettings::class);

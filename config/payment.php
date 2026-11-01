@@ -29,4 +29,12 @@ return [
         'max_age_hours' => (int) env('PAYMENT_RECONCILIATION_MAX_AGE_HOURS', 24),
         'batch_size' => (int) env('PAYMENT_RECONCILIATION_BATCH_SIZE', 100),
     ],
+
+    'exceptions' => [
+        // ADR-0077 §4, ADR-0081 S-15: resolving a money exception whose
+        // booked amount reaches this threshold (minor units) needs a second
+        // person's approval. Per-project thresholds come with billing
+        // settings (ADR-0073); this is the platform-wide default.
+        'approval_threshold_minor' => (int) env('PAYMENT_EXCEPTION_APPROVAL_THRESHOLD_MINOR', 50000),
+    ],
 ];
