@@ -15,7 +15,7 @@
     {{-- Statut et erreurs : rendus par le layout (role="status" / role="alert"). --}}
 
     @if (! empty($created))
-        <x-admin.alert variant="success" title="Point d\'entrée enregistré : {{ $created['url'] }}">
+        <x-admin.alert variant="success" title="Point d'entrée enregistré : {{ $created['url'] }}">
             <p>Secret de signature — copiez-le maintenant, il ne sera plus jamais affiché :</p>
             <code class="mt-1 block rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900 break-all">{{ $created['secret'] }}</code>
             <p class="mt-2">Remettez-le à l'application cliente hors du Core : l'application n'a pas de clé d'écriture, elle n'a que ce secret.</p>
@@ -56,7 +56,7 @@
          used to query active-only, so a deactivated endpoint simply
          vanished — no way to see it was there, let alone reactivate or
          edit it). --}}
-    <x-admin.table caption="Points d\'entrée enregistrés pour ce projet" :headers="['URL de réception', 'Événements', 'État', 'Dernière livraison', '']">
+    <x-admin.table caption="Points d'entrée enregistrés pour ce projet" :headers="['URL de réception', 'Événements', 'État', 'Dernière livraison', '']">
         <tbody class="divide-y divide-slate-100 bg-white">
         @forelse ($endpoints as $endpoint)
             @php
@@ -102,7 +102,7 @@
                                 class="rounded-md px-2.5 py-1.5 font-medium text-indigo-700 hover:bg-indigo-50">
                             <span x-show="notEditing">Modifier</span>
                             <span x-show="editing" x-cloak>Fermer</span>
-                            <span class="sr-only"> le point d\'entrée {{ $endpoint->url }}</span>
+                            <span class="sr-only"> le point d'entrée {{ $endpoint->url }}</span>
                         </button>
 
                         <form method="POST" action="{{ route('admin.projects.webhook-endpoints.test', ['projectId' => $project->id, 'endpointId' => $endpoint->id]) }}">
