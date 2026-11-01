@@ -58,28 +58,66 @@ final class OutboundUrlGuard
      *                                                           IP address a hostname resolves to, or an empty list if
      *                                                           it doesn't resolve. Defaults to real DNS
      *                                                           (`dns_get_record`).
+     * @param bool $allowPrivateTargets Whether the private ranges (RFC 1918,
+     *                                  unique-local IPv6) are acceptable
+     *                                  destinations. **Local development
+     *                                  only** (ADR-0115): a Core and the
+     *                                  client application it talks to
+     *                                  usually share a host or a Docker
+     *                                  network. The loopback, the
+     *                                  link-local range (which holds the
+     *                                  cloud metadata address) and the
+     *                                  reserved ranges stay refused
+     *                                  whatever this flag says.
      */
-    public function __construct(?callable $resolveHost = null)
-    {
+    public function __construct(
+        ?callable $resolveHost = null,
+        private readonly bool $allowPrivateTargets = false,
+    ) {
         $this->resolveHost = $resolveHost ?? self::systemResolver(...);
+    }
+
+    /**
+     * A copy of this guard that accepts the private ranges.
+     *
+     * The guard is immutable: a caller that needs the local-development
+     * behaviour asks for it explicitly instead of mutating a shared
+     * instance.
+     */
+    public function withPrivateTargets(): self
+    {
+        return new self($this->resolveHost, true);
+    }
+
+    /**
+     * Whether this guard accepts the private ranges.
+     */
+    public function allowsPrivateTargets(): bool
+    {
+        return $this->allowPrivateTargets;
     }
 
     public function isSafe(string $url): bool
     {
-        return $this->resolvePublicAddresses($url) !== [];
+        return $this->resolveAcceptableAddresses($url) !== [];
     }
 
     /**
      * Every address `$url`'s host resolves to, or an empty list when the
      * URL is not safe to call (bad scheme, blocked host, unresolvable, or
-     * ANY resolved address not publicly routable). The non-empty result
-     * is what `GuardedHttpTransport` pins the connection to, so the
-     * address checked here is the address actually connected to — closing
-     * the DNS-rebinding window between validation and connection.
+     * ANY resolved address not acceptable). The non-empty result is what
+     * `GuardedHttpTransport` pins the connection to, so the address
+     * checked here is the address actually connected to — closing the
+     * DNS-rebinding window between validation and connection.
+     *
+     * "Acceptable" means publicly routable — unless this guard was built
+     * with `allowPrivateTargets` (ADR-0115), where the private ranges of a
+     * local network are acceptable too. The loopback and the link-local
+     * range are never acceptable.
      *
      * @return list<string>
      */
-    public function resolvePublicAddresses(string $url): array
+    public function resolveAcceptableAddresses(string $url): array
     {
         $parts = parse_url($url);
         if ($parts === false || ! isset($parts['scheme'], $parts['host'])) {
@@ -105,7 +143,7 @@ final class OutboundUrlGuard
         }
 
         foreach ($addresses as $address) {
-            if (! $this->isPubliclyRoutable($address)) {
+            if (! $this->isAcceptableAddress($address)) {
                 return [];
             }
         }
@@ -144,15 +182,26 @@ final class OutboundUrlGuard
      * benchmarking range `198.18.0.0/15`. Mapped/NAT64 forms are unwrapped
      * to their embedded IPv4 and re-checked; the extra ranges are blocked
      * explicitly.
+     *
+     * The private ranges (RFC 1918, unique-local IPv6) are refused unless
+     * this guard was built with `allowPrivateTargets` (ADR-0115). The
+     * reserved ranges — loopback, link-local (the cloud metadata address
+     * lives there), unspecified, multicast — are refused **always**: a
+     * local deployment has no reason to call the metadata service, and
+     * `localhost` means the Core itself, never the client application.
      */
-    private function isPubliclyRoutable(string $ip): bool
+    private function isAcceptableAddress(string $ip): bool
     {
         $embedded = self::embeddedIpv4($ip);
         if ($embedded !== null) {
-            return $this->isPubliclyRoutable($embedded);
+            return $this->isAcceptableAddress($embedded);
         }
 
-        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+        $flags = $this->allowPrivateTargets
+            ? FILTER_FLAG_NO_RES_RANGE
+            : (FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, $flags) === false) {
             return false;
         }
 

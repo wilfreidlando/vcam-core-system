@@ -140,6 +140,10 @@
         <!-- Connect-time SSRF re-check resolves real DNS; it is covered
              hermetically by GuardedHttpTransportTest instead. -->
         <env name="OUTBOUND_ENFORCE_AT_CONNECT" value="false"/>
+        <!-- ADR-0115 — the private ranges are a local-only convenience. The
+             suite must not inherit them from a developer's .env: the guard
+             itself is covered hermetically by OutboundUrlGuardTest. -->
+        <env name="OUTBOUND_ALLOW_PRIVATE_TARGETS" value="false" force="true"/>
         <!-- WAHA auth needs a non-empty key; tests must not depend on a
              developer .env to provide one. -->
         <env name="WAHA_API_KEY" value="test-waha-api-key"/>

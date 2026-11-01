@@ -21,6 +21,7 @@ use Core\Support\Integration\Provider\TaggedProviderRegistry;
 use Core\Support\Integration\Redaction\PayloadRedactor;
 use Core\Support\Integration\Redaction\SensitiveKeySet;
 use Core\Support\Integration\Security\OutboundUrlGuard;
+use Core\Support\Integration\Security\PrivateTargetsForbidden;
 use Core\Support\Integration\Signing\HmacSha256RequestSigner;
 use Core\Support\Integration\Signing\RequestSigner;
 use Core\Support\Integration\Telemetry\OtlpHttpSpanExporter;
@@ -114,7 +115,17 @@ final class IntegrationServiceProvider extends ServiceProvider
             );
         });
 
-        $this->app->singleton(OutboundUrlGuard::class, fn (): OutboundUrlGuard => new OutboundUrlGuard);
+        // ADR-0115 — the private ranges are refused by default; the local
+        // flag opens them, and only there. The refusal happens in **code**,
+        // at startup: no environment variable alone can open the private
+        // ranges on a deployment that faces the internet.
+        if ((bool) config('integration.outbound.allow_private_targets', false) && ! $this->app->environment('local')) {
+            throw PrivateTargetsForbidden::inEnvironment($this->app->environment());
+        }
+
+        $this->app->singleton(OutboundUrlGuard::class, fn (): OutboundUrlGuard => new OutboundUrlGuard(
+            allowPrivateTargets: (bool) config('integration.outbound.allow_private_targets', false),
+        ));
 
         // Audit 2026-10-03 §2.1 — the transport for Project-chosen URLs.
         // Modules opt in per sender with a contextual binding.

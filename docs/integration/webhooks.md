@@ -24,6 +24,30 @@ statut partent vers vos endpoints abonnés à `payment.status_changed`.
 Le staging et la production du Core sont deux déploiements distincts : un endpoint
 enregistré sur le staging ne reçoit que les événements du staging.
 
+### En local : une adresse privée
+
+Par défaut, le Core n'appelle que des adresses **publiques**. C'est une protection
+contre le SSRF : un point d'entrée est réessayé pendant des heures, et une adresse
+interne d'aujourd'hui peut devenir un canal d'exfiltration demain.
+
+Mais en local, votre application n'a pas d'adresse publique : elle est sur le
+réseau Docker, à côté du Core (`http://api:8000`). Le Core refuse alors
+l'enregistrement — et le flux ne se boucle pas.
+
+Deux drapeaux, à poser **dans le `.env` du Core local** (et dans aucun autre) :
+
+```bash
+OUTBOUND_ALLOW_INSECURE_HTTP=true      # le point d'entrée est en http://
+OUTBOUND_ALLOW_PRIVATE_TARGETS=true    # il est sur une adresse privée (172.x, 10.x…)
+```
+
+Le second est **refusé au démarrage** du Core hors de `APP_ENV=local` : aucune
+variable d'environnement ne suffit à ouvrir les adresses privées sur un déploiement
+qui fait face à Internet (ADR-0115). Le loopback (`127.0.0.1`) et l'adresse de
+métadonnées du cloud (`169.254.169.254`) restent refusés, même en local.
+
+En production, votre application a une adresse publique : rien à poser.
+
 ## 2. Ce que le Core envoie
 
 ```http
