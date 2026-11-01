@@ -27,8 +27,20 @@ use Core\Portal\Application\Dto\PortalSettingsData;
 use Core\Portal\Application\UseCase\OpenPortalSessionUseCase;
 use Core\Portal\Application\UseCase\PortalSettingsService;
 
-$org = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Demo SaaS'), actor: 'service:demo', correlationId: null);
-$project = app(CreateProject::class)->create(new CreateProjectCommand($org->id, 'Mon Auto-École'), actor: 'service:demo', correlationId: null)->project->id;
+// Idempotent : le script est relancé souvent pendant une recette, et il
+// ne doit pas empiler des organisations « Demo SaaS » identiques. On
+// reprend le projet le plus récent s'il existe déjà.
+$existing = Illuminate\Support\Facades\DB::table('projects')
+    ->where('name', 'Mon Auto-École')
+    ->orderByDesc('created_at')
+    ->value('id');
+
+$project = is_string($existing) ? $existing : null;
+
+if ($project === null) {
+    $org = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Demo SaaS'), actor: 'service:demo', correlationId: null);
+    $project = app(CreateProject::class)->create(new CreateProjectCommand($org->id, 'Mon Auto-École'), actor: 'service:demo', correlationId: null)->project->id;
+}
 
 app(PortalSettingsService::class)->save($project, new PortalSettingsData(
     'Mon Auto-École', null, '#0f766e', 'mailto:support@mon-auto-ecole.cm', 'fr', ['http://localhost:8000'], true, true, [],

@@ -8,6 +8,7 @@ use FilesystemIterator;
 use PHPUnit\Framework\Attributes\Test;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use SplFileInfo;
 use Tests\TestCase;
 
 /**
@@ -241,16 +242,14 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
 
             $found = array_values(array_unique(array_column($this->offencesIn($screen), 0)));
 
-            foreach ($declared as $term) {
-                if (! in_array($term, $found, true)) {
-                    $problems[] = $screen.' : le terme « '.$term.' » a disparu — l\'écran est réécrit, remontez-le dans REWRITTEN.';
-                }
+            // Les termes annoncés doivent être encore là, et aucun terme
+            // nouveau ne doit s'être glissé — d'où les deux différences.
+            foreach (array_diff($declared, $found) as $term) {
+                $problems[] = $screen.' : le terme « '.$term.' » a disparu — l\'écran est réécrit, remontez-le dans REWRITTEN.';
             }
 
-            foreach ($found as $term) {
-                if (! in_array($term, $declared, true)) {
-                    $problems[] = $screen.' : le terme « '.$term.' » est apparu — réécrivez l\'écran, ou déclarez-le dans la ratchet.';
-                }
+            foreach (array_diff($found, $declared) as $term) {
+                $problems[] = $screen.' : le terme « '.$term.' » est apparu — réécrivez l\'écran, ou déclarez-le dans la ratchet.';
             }
         }
 
@@ -358,6 +357,7 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
             );
 
             foreach ($iterator as $file) {
+                /** @var SplFileInfo $file */
                 if ($file->isFile() && str_ends_with($file->getFilename(), '.blade.php')) {
                     $files[] = $directory.'/'.str_replace('\\', '/', substr($file->getPathname(), strlen($path) + 1));
                 }
@@ -421,7 +421,7 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
             foreach ($matches[0] as [$chunk, $position]) {
                 $chunk = trim((string) preg_replace('/\s+/u', ' ', $chunk));
                 if ($chunk !== '') {
-                    $found[] = [$chunk, $this->lineAt($source, (int) $position)];
+                    $found[] = [$chunk, $this->lineAt($source, $position)];
                 }
             }
         }
@@ -429,7 +429,7 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
         // Les valeurs des attributs que l'on lit.
         if (preg_match_all('/([a-zA-Z_:@.\-\[\]]+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\')/s', $masked, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE) > 0) {
             foreach ($matches as $match) {
-                $raw = (string) ($match[1][0] ?? '');
+                $raw = $match[1][0];
 
                 // Un attribut dynamique (`:label="…"`) est une expression : sa
                 // valeur est calculée, ses mots sont relus par l'extraction des
@@ -448,7 +448,7 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
                     continue;
                 }
 
-                $found[] = [$value, $this->lineAt($source, (int) $match[0][1])];
+                $found[] = [$value, $this->lineAt($source, $match[0][1])];
             }
         }
 
@@ -481,19 +481,21 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
 
         if (preg_match_all('/(?::[a-zA-Z-]+|v-bind:[a-zA-Z-]+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\')/s', $source, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE) > 0) {
             foreach ($matches as $match) {
-                $blocks[] = [(($match[2][0] ?? '') !== '') ? $match[2][0] : ($match[3][0] ?? ''), (int) $match[0][1]];
+                $double = isset($match[1]) ? $match[1][0] : '';
+                $single = isset($match[2]) ? $match[2][0] : '';
+                $blocks[] = [$double !== '' ? $double : $single, $match[0][1]];
             }
         }
 
         if (preg_match_all('/@php\b(.*?)@endphp/s', $source, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE) > 0) {
             foreach ($matches as $match) {
-                $blocks[] = [(string) $match[1][0], (int) $match[0][1]];
+                $blocks[] = [$match[1][0], $match[0][1]];
             }
         }
 
         if (preg_match_all('/@(?:section|yield)\s*\((.*?)\)/s', $source, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE) > 0) {
             foreach ($matches as $match) {
-                $blocks[] = [(string) $match[1][0], (int) $match[0][1]];
+                $blocks[] = [$match[1][0], $match[0][1]];
             }
         }
 
@@ -526,7 +528,7 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
                 continue;
             }
 
-            $raw = (string) $token[1];
+            $raw = $token[1];
             $inner = substr($raw, 1, -1);
             $strings[] = str_replace(['\\\\', "\\'", '\\"'], ['\\', "'", '"'], $inner);
         }
@@ -594,7 +596,7 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
                 if (! isset($match[0][1])) {
                     continue;
                 }
-                $ranges[] = [(int) $match[0][1], (int) $match[0][1] + strlen((string) $match[0][0])];
+                $ranges[] = [$match[0][1], $match[0][1] + strlen($match[0][0])];
             }
         }
 
@@ -619,7 +621,7 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
             }
 
             $next = $source[$position + 1] ?? '';
-            if ($next !== '' && ! preg_match('/[a-zA-Z\/!]/', $next)) {
+            if ($next !== '' && preg_match('/[a-zA-Z\/!]/', $next) !== 1) {
                 $offset = $position + 1;
 
                 continue;
@@ -673,7 +675,7 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
 
             $offset = $position + 1;
             $previous = $position > 0 ? $source[$position - 1] : ' ';
-            if (! preg_match('/[\s(\[{,]/', $previous)) {
+            if (preg_match('/[\s(\[{,]/', $previous) !== 1) {
                 continue;
             }
 
@@ -681,7 +683,7 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
                 continue;
             }
 
-            $end = $position + strlen((string) $match[0]);
+            $end = $position + strlen($match[0]);
             $cursor = $end;
             while ($cursor < $length && ($source[$cursor] === ' ' || $source[$cursor] === "\t")) {
                 $cursor++;
@@ -693,7 +695,7 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
                 for ($i = $cursor; $i < $length; $i++) {
                     $char = $source[$i];
                     if ($quote !== null) {
-                        if ($char === $quote && ($i === 0 || $source[$i - 1] !== '\\')) {
+                        if ($char === $quote && $source[$i - 1] !== '\\') {
                             $quote = null;
                         }
 
