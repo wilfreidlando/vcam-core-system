@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Mail\OperatorInvitationMail;
 use Core\Identity\Contracts\InviteOperator;
 use Core\Identity\Contracts\InviteOperatorCommand;
 use Core\Identity\Contracts\ListOperators;
@@ -22,8 +23,10 @@ use Core\Identity\OperatorRole;
 use Core\Support\Access\AccessScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use RuntimeException;
+use Throwable;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -110,11 +113,45 @@ final class OperatorsController
         // write the clear token to the session store, where it would
         // outlive the response that carries it. The invitee chooses their
         // own password when they activate the invitation.
+        //
+        // The invitation ALSO travels by email: the invited person should
+        // not need the operator to hand them a token in person. The email
+        // carries the token in clear — it is the one place it belongs, and
+        // it is single-use. If the mail cannot leave (no SMTP configured,
+        // a relay down), the invitation stands and the operator copies the
+        // token from the page below.
+        $token = (string) $invitation->token;
+        $emailSent = $this->sendInvitation($invitation->email, $token, $invitation->expiresAt->format('d/m/Y H:i'));
+
         return $this->renderIndex($request, $operator, [
             'email' => $invitation->email,
-            'token' => (string) $invitation->token,
+            'token' => $token,
             'expires_at' => $invitation->expiresAt->format('Y-m-d H:i'),
+            'email_sent' => $emailSent,
         ]);
+    }
+
+    /**
+     * Envoie l'invitation à l'invité.
+     *
+     * Un échec d'envoi n'annule **rien** : l'invitation existe, et
+     * l'opérateur copie le jeton affiché sur la page. C'est un envoi, pas
+     * une condition : la console ne doit jamais dépendre d'un relais SMTP.
+     */
+    private function sendInvitation(string $email, string $token, string $expiresAt): bool
+    {
+        try {
+            Mail::to($email)->send(new OperatorInvitationMail(
+                email: $email,
+                token: $token,
+                expiresAt: $expiresAt,
+                invitationUrl: route('admin.invitation.show'),
+            ));
+
+            return true;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     public function revoke(string $operatorId, OperatorContext $operator): RedirectResponse
