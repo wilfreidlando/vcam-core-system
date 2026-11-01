@@ -162,7 +162,7 @@ final class WebhookDeliveriesController
                 ->withErrors(['id' => "Cette livraison n'est pas en échec ; aucun rejeu nécessaire."]);
         } catch (WebhookEndpointInactive) {
             return redirect()->route('admin.webhook-deliveries.dead.web')
-                ->withErrors(['id' => "L'endpoint de cette livraison est désactivé : réactivez-le avant de rejouer."]);
+                ->withErrors(['id' => "Le point d'entrée de cette livraison est désactivé : réactivez-le avant de rejouer."]);
         }
 
         // The JSON API's equivalent controller queues the new delivery

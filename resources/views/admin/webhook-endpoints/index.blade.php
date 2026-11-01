@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Endpoints webhook')
+@section('title', 'Points d\'entrée des événements')
 @section('subtitle', $project->name)
 
 @section('content')
@@ -15,10 +15,10 @@
     {{-- Statut et erreurs : rendus par le layout (role="status" / role="alert"). --}}
 
     @if (! empty($created))
-        <x-admin.alert variant="success" title="Endpoint enregistré : {{ $created['url'] }}">
+        <x-admin.alert variant="success" title="Point d\'entrée enregistré : {{ $created['url'] }}">
             <p>Secret de signature — copiez-le maintenant, il ne sera plus jamais affiché :</p>
             <code class="mt-1 block rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900 break-all">{{ $created['secret'] }}</code>
-            <p class="mt-2">Remettez-le à l'application cliente hors du Core (ADR-0110 §5) : l'application n'a pas de clé d'écriture, elle n'a que ce secret.</p>
+            <p class="mt-2">Remettez-le à l'application cliente hors du Core : l'application n'a pas de clé d'écriture, elle n'a que ce secret.</p>
         </x-admin.alert>
     @endif
 
@@ -56,7 +56,7 @@
          used to query active-only, so a deactivated endpoint simply
          vanished — no way to see it was there, let alone reactivate or
          edit it). --}}
-    <x-admin.table caption="Endpoints webhook enregistrés pour ce projet" :headers="['URL de réception', 'Événements', 'État', 'Dernière livraison', '']">
+    <x-admin.table caption="Points d\'entrée enregistrés pour ce projet" :headers="['URL de réception', 'Événements', 'État', 'Dernière livraison', '']">
         <tbody class="divide-y divide-slate-100 bg-white">
         @forelse ($endpoints as $endpoint)
             @php
@@ -102,7 +102,7 @@
                                 class="rounded-md px-2.5 py-1.5 font-medium text-indigo-700 hover:bg-indigo-50">
                             <span x-show="notEditing">Modifier</span>
                             <span x-show="editing" x-cloak>Fermer</span>
-                            <span class="sr-only"> l'endpoint {{ $endpoint->url }}</span>
+                            <span class="sr-only"> le point d\'entrée {{ $endpoint->url }}</span>
                         </button>
 
                         <form method="POST" action="{{ route('admin.projects.webhook-endpoints.test', ['projectId' => $project->id, 'endpointId' => $endpoint->id]) }}">
@@ -208,7 +208,7 @@
         @empty
             <tr>
                 <td colspan="5" class="px-4 py-8 text-center text-base text-slate-600">
-                    Aucun endpoint webhook enregistré pour ce projet pour le moment.
+                    Aucun point d'entrée enregistré pour ce projet pour le moment.
                 </td>
             </tr>
         @endforelse
@@ -220,7 +220,7 @@
         <h2 class="text-lg font-semibold text-slate-900 mb-1">Enregistrer le point d'entrée d'une application cliente</h2>
         <p class="text-base text-slate-600 mb-3">
             Chaque événement publié par ce projet (client créé, abonnement renouvelé, facture
-            réglée, quota atteint…) sera livré, signé (HMAC-SHA256), à cette URL. Le secret
+            réglée, limite atteinte…) sera livré, signé (HMAC-SHA256), à cette URL. Le secret
             de signature n'est affiché qu'une seule fois, juste après l'enregistrement :
             remettez-le à l'application cliente hors du Core.
         </p>
@@ -231,14 +231,14 @@
             <x-admin.errors />
 
             <x-admin.field name="url" type="url" label="URL de réception" id="url" required autofocus
-                           placeholder="https://exemple.com/webhooks/core" class="font-mono"
+                           placeholder="https://exemple.com/evenements/core" class="font-mono"
                            hint="L'adresse que le Core appellera — elle doit être joignable depuis l'extérieur." />
 
             <div x-data="eventSelection" data-all="{{ old('all') === '1' ? 'true' : 'false' }}">
                 <fieldset aria-describedby="events-hint{{ $errors->has('events') ? ' events-error' : '' }}">
                     <legend class="block text-base font-medium text-slate-700 mb-1">Sur quoi voulez-vous être notifié ?</legend>
                     <p id="events-hint" class="mb-2 text-sm text-slate-600">
-                        Les événements du commerce du projet (clients, abonnements, factures, quotas) sont
+                        Les événements du commerce du projet (clients, abonnements, factures, limites d'usage) sont
                         pré-sélectionnés : ce sont ceux dont une application cliente a besoin. Voir
                         <a href="{{ route('admin.webhook-events.index') }}" class="text-indigo-700 hover:text-indigo-900 underline">le détail de ce que chaque événement envoie</a>.
                     </p>
@@ -277,7 +277,7 @@
             <button
                 type="submit"
                 class="w-full inline-flex justify-center items-center rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-base font-medium text-white shadow-sm">
-                Enregistrer l'endpoint
+                Enregistrer le point d'entrée
             </button>
 
             <a href="{{ route('admin.projects.show', ['projectId' => $project->id]) }}" class="block text-center text-base text-slate-600 hover:text-slate-800">

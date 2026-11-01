@@ -132,6 +132,7 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
         'resources/views/admin/payments/partials/journey.blade.php',
         'resources/views/admin/projects/edit.blade.php',
         'resources/views/admin/projects/index.blade.php',
+        'resources/views/admin/projects/show.blade.php',
         'resources/views/components/admin/alert.blade.php',
         'resources/views/components/admin/confirm-dialog.blade.php',
         'resources/views/components/admin/curve.blade.php',
@@ -181,6 +182,7 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
         'resources/views/admin/wallets/ledger.blade.php',
         'resources/views/admin/webhook-deliveries/dead.blade.php',
         'resources/views/admin/webhook-deliveries/show.blade.php',
+        'resources/views/admin/webhook-endpoints/index.blade.php',
         'resources/views/admin/webhook-events/index.blade.php',
     ];
 
@@ -197,8 +199,6 @@ final class ConsoleScreensSpeakPlainFrenchTest extends TestCase
      * @var array<string, list<string>>
      */
     private const NOT_YET_REWRITTEN = [
-        'resources/views/admin/webhook-endpoints/index.blade.php' => ['ADR', 'endpoint', 'quota', 'webhook'],
-        'resources/views/admin/projects/show.blade.php' => ['endpoint', 'grand livre', 'provider', 'quota', 'wallet', 'webhook'],
         'resources/views/admin/billing/customers/show.blade.php' => [],
     ];
 
