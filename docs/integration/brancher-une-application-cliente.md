@@ -46,7 +46,13 @@ export TENANT="auto-ecole-42"                              # VOTRE référence d
 
 ```
 customers:read · usage:read · usage:write · portal:write · subscriptions:read · invoices:read
+notifications:write · notifications:read
 ```
+
+Les deux dernières portées sont celles des **messages** : votre application prévient
+ses propres clients, et le Core n'est que la passerelle WhatsApp. Les messages
+ne sont pas du commerce — vous n'écrivez toujours aucun client, aucune offre,
+aucun abonnement, aucune facture.
 
 Vérifiez-la — la réponse dit ce qu'elle est autorisée à faire :
 
@@ -57,7 +63,7 @@ curl -s "$BASE_URL/v1/whoami" \
 ```
 
 ```json
-{"project_id":"01a101a1-7a96-712d-b63a-e3bbc27ae721","organization_id":"01a101a1-7a88-7241-b0aa-99f174f09b01","scopes":["customers:read","usage:read","usage:write","portal:write","subscriptions:read","invoices:read"]}
+{"project_id":"01a101a1-7a96-712d-b63a-e3bbc27ae721","organization_id":"01a101a1-7a88-7241-b0aa-99f174f09b01","scopes":["customers:read","usage:read","usage:write","portal:write","subscriptions:read","invoices:read","notifications:write","notifications:read"]}
 ```
 
 Si votre clé porte `*` ou le modèle « Serveur complet », demandez une clé
@@ -293,6 +299,8 @@ Les offres, c'est **vous** qui les publiez dans le Core (opérateur), une fois :
 | compter son usage | `POST /v1/usage` | `usage:write` |
 | ouvrir le portail | `POST /v1/portal/sessions` | `portal:write` |
 | lire son état commercial | `GET /v1/subscriptions`, `GET /v1/invoices` | `subscriptions:read`, `invoices:read` |
+| **prévenir** ses clients | `POST /v1/notifications/text` | `notifications:write` |
+| suivre l'envoi d'un message | `GET /v1/notifications/{id}` | `notifications:read` |
 | recevoir ses événements | webhook signé | — |
 
 Et ce que vous **ne** ferez pas : **créer un client**, créer une offre, créer un

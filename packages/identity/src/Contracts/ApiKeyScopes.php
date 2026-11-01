@@ -92,6 +92,13 @@ final class ApiKeyScopes
                 'portal:write',
                 'subscriptions:read',
                 'invoices:read',
+                // Les messages ne sont pas du commerce : l'application
+                // cliente prévient **ses propres** clients, et le Core n'est
+                // que la passerelle WhatsApp. C'est la clé du projet qui
+                // envoie, et c'est normal — sans ces deux portées, le premier
+                // client réel ne peut pas écrire un seul message.
+                'notifications:write',
+                'notifications:read',
             ],
             self::TEMPLATE_PAYOUTS => ['payouts:read', 'payouts:write'],
             default => [],

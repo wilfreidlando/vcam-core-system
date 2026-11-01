@@ -34,7 +34,16 @@ final class ClientApplicationScopeTest extends TestCase
     public function the_template_carries_exactly_the_scopes_a_client_application_needs(): void
     {
         self::assertSame(
-            ['customers:read', 'usage:read', 'usage:write', 'portal:write', 'subscriptions:read', 'invoices:read'],
+            [
+                'customers:read',
+                'usage:read',
+                'usage:write',
+                'portal:write',
+                'subscriptions:read',
+                'invoices:read',
+                'notifications:write',
+                'notifications:read',
+            ],
             ApiKeyScopes::template(ApiKeyScopes::TEMPLATE_CLIENT_APP),
         );
     }

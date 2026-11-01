@@ -130,5 +130,7 @@ final class ClientApplicationContractFixture
         'portal:write',
         'subscriptions:read',
         'invoices:read',
+        'notifications:write',
+        'notifications:read',
     ];
 }
