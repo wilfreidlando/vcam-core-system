@@ -314,10 +314,23 @@ refusé. »`
 | Champ | Ce qu'il fait |
 |---|---|
 | `« Ce que la plateforme compte pour vous »` | les correspondances `capacité = compteur`, une par ligne |
+| `« Catalogue de packs »` | ce que les clients peuvent acheter **en plus** de leur quota — une ligne par pack : `code \| compteur \| quantité \| prix \| libellé` (voir [11 — Les suppléments de quota](11-supplements-de-quota.md)) |
 | `« Rendre l'unité quand un message n'a atteint personne »` | rembourse le quota d'un envoi échoué |
 | `« Exiger customer_ref sur tout appel mesuré »` | refuse une mesure sans client |
 
 Chaque enregistrement est journalisé (`billing.settings_changed`).
+
+---
+
+## 8. Les suppléments de quota
+
+Un quota épuisé ne se débloque pas seulement en renouvelant l'abonnement : une **quantité
+achetée en plus** peut s'ajouter au compteur, sur le même abonnement. Le mécanisme — la
+limite effective, le cycle de vie, l'API d'achat et ce que le portail en fait — est
+expliqué dans **[11 — Les suppléments de quota](11-supplements-de-quota.md)**.
+
+En résumé : l'achat passe par l'API opérateur, le supplément ne compte qu'une fois sa
+facture réglée, et le portail affiche la limite augmentée.
 
 ---
 
