@@ -25,6 +25,9 @@ is a contract decision: it is the surface you must keep stable.
 - **The collection of an invoice** (ADR-0073 §2, §4; ADR-0094 §§8-13;
   ADR-0095) — `PayInvoice`, `ListInvoicePayments`, `RecordManualReceipt`,
   `ApproveManualReceipt`, `ListManualReceipts`.
+- **Supplements** (ADR-0117) — `PurchaseSubscriptionSupplement`,
+  `ListSubscriptionSupplements`: units bought **on top of** the limit of a
+  metered feature, with their own invoice.
 
 ## Rules the surface follows
 

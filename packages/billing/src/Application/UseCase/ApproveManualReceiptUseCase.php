@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Billing\Application\UseCase;
 
 use Core\Billing\Application\Port\InvoiceLedger;
+use Core\Billing\Application\Service\SubscriptionSupplementActivator;
 use Core\Billing\Application\Support\InvoiceEvents;
 use Core\Billing\Application\Support\ManualReceiptViews;
 use Core\Billing\Contracts\ApproveManualReceipt;
@@ -16,6 +17,7 @@ use Core\Billing\Domain\Exception\ManualReceiptApprovalRefused;
 use Core\Billing\Domain\Exception\ManualReceiptNotFound;
 use Core\Billing\Domain\Model\Customer;
 use Core\Billing\Domain\Model\Invoice;
+use Core\Billing\Domain\Model\InvoiceStatus;
 use Core\Billing\Domain\Port\CustomerRepository;
 use Core\Billing\Domain\Port\InvoiceRepository;
 use Core\Billing\Domain\Port\ManualReceiptRepository;
@@ -50,6 +52,7 @@ final readonly class ApproveManualReceiptUseCase implements ApproveManualReceipt
         private EventOutbox $outbox,
         private Identifier $identifier,
         private Clock $clock,
+        private SubscriptionSupplementActivator $activator,
     ) {}
 
     public function approve(ApproveManualReceiptCommand $command): ManualReceiptView
@@ -89,6 +92,15 @@ final readonly class ApproveManualReceiptUseCase implements ApproveManualReceipt
                 throw InvoiceNotFound::becauseId($receipt->invoiceId);
             }
 
+            // ADR-0073 §3 — a receipt is approved against an invoice that
+            // is still waiting for its money. Between the recording and
+            // the approval the invoice may have been annulled or written
+            // off: the receipt then waits on the operator, it is not
+            // imputed on a dead invoice.
+            if ($invoice->status !== InvoiceStatus::Open) {
+                throw InvoiceNotPayable::becauseStatus($invoice->id, $invoice->status->value);
+            }
+
             // ADR-0094 §10 — what is still due may have shrunk since the
             // receipt was recorded: a receipt that no longer fits is
             // refused, not partially imputed.
@@ -109,6 +121,11 @@ final readonly class ApproveManualReceiptUseCase implements ApproveManualReceipt
             $this->invoices->save($invoice);
 
             $this->publishPaid($invoice, $now);
+
+            // ADR-0117 §4 — the money arrived: the supplements the
+            // invoice carries grant their allowance from this instant, in
+            // this very transaction.
+            $this->activator->settle($invoice);
 
             return ManualReceiptViews::from($receipt);
         });

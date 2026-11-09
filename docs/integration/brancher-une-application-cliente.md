@@ -255,6 +255,7 @@ Les événements qui vous concernent :
 | `subscription.renewed`, `subscription.plan_changed` | l'offre a changé |
 | `subscription.past_due`, `subscription.canceled`, `subscription.expired` | l'abonnement se termine |
 | `subscription.trial_will_end`, `subscription.renewal_due` | à anticiper |
+| `subscription.supplement_purchased`, `subscription.supplement_activated` | un supplément de quota a été acheté / payé : la limite annoncée par `entitlements` a grandi |
 | `invoice.issued`, `invoice.paid`, `invoice.payment_failed`, `invoice.voided` | l'état d'une facture |
 | `usage.threshold_reached`, `usage.limit_reached` | un quota est bientôt atteint / atteint |
 

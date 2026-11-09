@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Billing\Infrastructure\Persistence\Usage;
 
+use Core\Billing\Domain\Model\FeatureOverage;
 use Core\Billing\Domain\Model\UsageAdmission;
 use Core\Billing\Domain\Model\UsageAdmissionRequest;
 use Core\Billing\Domain\Model\UsageCounterSnapshot;
@@ -125,24 +126,33 @@ final class PostgresUsageStore implements UsageStore
             throw new RuntimeException('The usage counter could not be opened.');
         }
 
-        // b'. A gauge never opens a new window, so its terms would stay those of
-        //     the day it was created: refresh them from the plan as it is now (an
-        //     upgrade, or billing switched on after usage was recorded) BEFORE the
-        //     check reads the limit. It writes only when something changed, so the
-        //     hot row is not rewritten on every admission.
-        if ($r->windowStart === null) {
-            DB::table('usage_counters')
-                ->where('id', $counterId)
-                ->where(function (Builder $q) use ($r): void {
-                    $q->whereRaw('limit_value IS DISTINCT FROM ?', [$r->limit])
-                        ->orWhere('overage', '<>', $r->overage->value)
-                        ->orWhereRaw('threshold_bps IS DISTINCT FROM ?', [$r->thresholdBps]);
-                })
-                ->update(['limit_value' => $r->limit, 'overage' => $r->overage->value, 'threshold_bps' => $r->thresholdBps]);
-        }
+        // b'. The terms of the counter are those of the plan **as they are
+        //     now**, and they are refreshed on every admission: the
+        //     effective limit moves when a supplement is bought
+        //     (ADR-0117 §3), and the counter must follow it.
+        //
+        //     For the plan itself nothing moves inside a window — a change
+        //     of plan opens a new period, therefore a new window
+        //     (ADR-0074 §3) — so the refresh writes only when something
+        //     really changed, and the hot row is not rewritten on every
+        //     admission.
+        DB::table('usage_counters')
+            ->where('id', $counterId)
+            ->where(function (Builder $q) use ($r): void {
+                $q->whereRaw('limit_value IS DISTINCT FROM ?', [$r->limit])
+                    ->orWhere('overage', '<>', $r->overage->value)
+                    ->orWhereRaw('threshold_bps IS DISTINCT FROM ?', [$r->thresholdBps]);
+            })
+            ->update(['limit_value' => $r->limit, 'overage' => $r->overage->value, 'threshold_bps' => $r->thresholdBps]);
 
         // c. Check and spend in ONE statement. `record` mode skips the limit.
         //    `$r->quantity` is an int: interpolating it is safe.
+        //
+        //    The limit that is spent is the **effective** one the caller
+        //    resolved — the limit of the plan version plus the allowance
+        //    of the active supplements (ADR-0117 §3). A limit of `null`
+        //    is an unlimited right (ADR-0071 §3), and the `allow` overage
+        //    never refuses (ADR-0074 §3).
         $quantity = $r->quantity;
         $enforce = $r->mode === UsageMode::Enforce;
 
@@ -150,20 +160,21 @@ final class PostgresUsageStore implements UsageStore
             ->where('id', $counterId)
             ->whereRaw('used + ? >= 0', [$quantity])
             // A release (negative) is never refused for being over a limit.
-            ->when($enforce && $quantity > 0, static function (Builder $query) use ($quantity): void {
-                $query->where(static function (Builder $within) use ($quantity): void {
-                    $within->whereNull('limit_value')
-                        ->orWhere('overage', 'allow')
-                        ->orWhereRaw('used + ? <= limit_value', [$quantity]);
-                });
-            })
+            ->when(
+                $enforce && $quantity > 0 && $r->limit !== null && $r->overage !== FeatureOverage::Allow,
+                static function (Builder $query) use ($quantity, $r): void {
+                    $query->whereRaw('used + ? <= ?', [$quantity, $r->limit]);
+                },
+            )
             ->incrementEach(['used' => $quantity], ['updated_at' => $this->ts($r->now)]);
 
         // The row is locked by our UPDATE (or read as it stands if refused).
-        $counter = DB::table('usage_counters')->where('id', $counterId)->first(['used', 'limit_value', 'threshold_bps']);
+        $counter = DB::table('usage_counters')->where('id', $counterId)->first(['used']);
         $used = $this->int($counter->used ?? 0);
-        $limit = $this->nullableInt($counter->limit_value ?? null);
-        $thresholdBps = $this->nullableInt($counter->threshold_bps ?? null);
+        // The limit that is reported is the one that was enforced: the
+        // effective limit of the request (ADR-0117 §3).
+        $limit = $r->limit;
+        $thresholdBps = $r->thresholdBps;
 
         if ($affected === 0) {
             throw new UsageRefusal(UsageAdmission::refused(
@@ -226,11 +237,6 @@ final class PostgresUsageStore implements UsageStore
     private function int(mixed $value): int
     {
         return is_numeric($value) ? (int) $value : 0;
-    }
-
-    private function nullableInt(mixed $value): ?int
-    {
-        return $value === null ? null : $this->int($value);
     }
 
     private function moment(mixed $value): ?DateTimeImmutable

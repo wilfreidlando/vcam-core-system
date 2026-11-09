@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Billing\Application\UseCase;
 
 use Core\Billing\Application\Port\InvoiceLedger;
+use Core\Billing\Application\Service\SubscriptionSupplementActivator;
 use Core\Billing\Application\Support\InvoiceEvents;
 use Core\Billing\Application\Support\InvoiceViews;
 use Core\Billing\Contracts\InvoiceView;
@@ -43,6 +44,7 @@ final readonly class MarkInvoiceUncollectibleUseCase implements MarkInvoiceUncol
         private EventOutbox $outbox,
         private Identifier $identifier,
         private Clock $clock,
+        private SubscriptionSupplementActivator $activator,
     ) {}
 
     public function markUncollectible(MarkInvoiceUncollectibleCommand $command): InvoiceView
@@ -64,6 +66,15 @@ final readonly class MarkInvoiceUncollectibleUseCase implements MarkInvoiceUncol
             $invoice->version++;
 
             $this->invoices->save($invoice);
+
+            // ADR-0121 — la facture passe en irrécouvrable : elle ne sera
+            // plus jamais encaissée, donc le supplément qu'elle porte
+            // n'accordera jamais rien. Sans cette transition, le
+            // supplément resterait `pending` à jamais — et le portail
+            // retirerait le compteur de son offre (le client ne pourrait
+            // plus jamais recharger), sans qu'aucun geste opérateur ne
+            // puisse lever le blocage.
+            $this->activator->cancel($invoice);
 
             $customer = $this->customers->findById($invoice->customerId);
             $customerRef = $customer instanceof Customer ? $customer->externalRef : '';

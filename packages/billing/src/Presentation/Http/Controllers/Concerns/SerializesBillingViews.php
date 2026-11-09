@@ -10,6 +10,7 @@ use Core\Billing\Contracts\InvoicePaymentView;
 use Core\Billing\Contracts\InvoiceView;
 use Core\Billing\Contracts\PlanVersionView;
 use Core\Billing\Contracts\PlanView;
+use Core\Billing\Contracts\SubscriptionSupplementView;
 use Core\Billing\Contracts\SubscriptionView;
 use Core\Billing\Contracts\UsageRecordRow;
 use DateTimeInterface;
@@ -241,6 +242,36 @@ trait SerializesBillingViews
             'tax_amount_minor' => $view->taxAmountMinor,
             'period_start' => $view->periodStart,
             'period_end' => $view->periodEnd,
+        ];
+    }
+
+    /**
+     * A supplement — ADR-0117 §2: the units bought **on top of** the
+     * limit of a metered feature, and the invoice that carries them.
+     *
+     * @return array<string, mixed>
+     */
+    protected function supplementView(SubscriptionSupplementView $view): array
+    {
+        return [
+            'id' => $view->id,
+            'project_id' => $view->projectId,
+            'subscription_id' => $view->subscriptionId,
+            'customer_ref' => $view->customerRef,
+            'meter' => $view->meter,
+            'feature_key' => $view->featureKey,
+            'quantity' => $view->quantity,
+            'unit_price_minor' => $view->unitPriceMinor,
+            'total_minor' => $view->totalMinor,
+            'currency' => $view->currency,
+            'status' => $view->status,
+            'invoice_id' => $view->invoiceId,
+            'invoice_number' => $view->invoiceNumber,
+            'period_id' => $view->periodId,
+            'activated_at' => $view->activatedAt,
+            'canceled_at' => $view->canceledAt,
+            'created_at' => $view->createdAt,
+            'updated_at' => $view->updatedAt,
         ];
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Billing\Application\UseCase;
 
+use Core\Billing\Application\Service\EffectiveLimitResolver;
 use Core\Billing\Application\Support\Iso8601;
 use Core\Billing\Contracts\ConsumeUsage;
 use Core\Billing\Contracts\ConsumeUsageCommand;
@@ -61,6 +62,7 @@ final readonly class ConsumeUsageUseCase implements ConsumeUsage
         private SubscriptionPeriodRepository $periods,
         private PlanVersionRepository $versions,
         private UsageStore $store,
+        private EffectiveLimitResolver $limits,
         private EventOutbox $outbox,
         private Identifier $identifier,
         private Clock $clock,
@@ -109,11 +111,13 @@ final readonly class ConsumeUsageUseCase implements ConsumeUsage
         }
 
         foreach ($granted as [$subscription, $feature]) {
-            if ($feature->meter !== $command->meter || $feature->type !== FeatureType::Limit) {
+            $meter = $feature->meter;
+
+            if ($meter === null || $meter !== $command->meter || $feature->type !== FeatureType::Limit) {
                 continue;
             }
 
-            return $this->spend($command, $customer, $subscription, $feature, $mode, $now);
+            return $this->spend($command, $customer, $subscription, $feature, $meter, $mode, $now);
         }
 
         return $this->refusal(UsageDecision::FEATURE_NOT_INCLUDED, $command->meter);
@@ -153,6 +157,7 @@ final readonly class ConsumeUsageUseCase implements ConsumeUsage
         Customer $customer,
         Subscription $subscription,
         FeatureDefinition $feature,
+        string $meter,
         UsageMode $mode,
         DateTimeImmutable $now,
     ): UsageDecision {
@@ -172,6 +177,12 @@ final readonly class ConsumeUsageUseCase implements ConsumeUsage
             $windowEnd = $period->endsAt;
         }
 
+        // ADR-0117 §3 — the limit that is spent is the **effective** one:
+        // the limit of the plan version plus the allowance of the active
+        // supplements of the contract. The resolver is the single source
+        // of that sum, and the entitlements read the same one.
+        $limit = $this->limits->forSubscription($subscription)->limitFor($meter, $feature->limit, $feature->reset);
+
         $admission = $this->store->admit(new UsageAdmissionRequest(
             recordId: $this->identifier->generate(),
             projectId: $command->projectId,
@@ -185,7 +196,7 @@ final readonly class ConsumeUsageUseCase implements ConsumeUsage
             mode: $mode,
             windowStart: $windowStart,
             windowEnd: $windowEnd,
-            limit: $feature->limit,
+            limit: $limit,
             overage: $feature->overage ?? FeatureOverage::Block,
             thresholdBps: $feature->thresholdBps,
         ));

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Billing\Application\UseCase;
 
 use Core\Billing\Application\Port\InvoiceLedger;
+use Core\Billing\Application\Service\SubscriptionSupplementActivator;
 use Core\Billing\Application\Support\InvoiceEvents;
 use Core\Billing\Application\Support\InvoiceViews;
 use Core\Billing\Contracts\InvoiceView;
@@ -43,6 +44,7 @@ final readonly class VoidInvoiceUseCase implements VoidInvoice
         private EventOutbox $outbox,
         private Identifier $identifier,
         private Clock $clock,
+        private SubscriptionSupplementActivator $activator,
     ) {}
 
     public function void(VoidInvoiceCommand $command): InvoiceView
@@ -64,6 +66,10 @@ final readonly class VoidInvoiceUseCase implements VoidInvoice
             $invoice->version++;
 
             $this->invoices->save($invoice);
+
+            // ADR-0117 §4 — the invoice is annulled before any money
+            // arrived: the supplements it carried never granted anything.
+            $this->activator->cancel($invoice);
 
             $customer = $this->customers->findById($invoice->customerId);
             $customerRef = $customer instanceof Customer ? $customer->externalRef : '';

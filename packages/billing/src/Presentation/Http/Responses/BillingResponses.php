@@ -268,6 +268,47 @@ final class BillingResponses
         .'}';
 
     /**
+     * ADR-0117 §2 — a supplement: the units bought on top of the limit
+     * of a metered feature, and the invoice that carries them.
+     */
+    public const SUPPLEMENT = 'array{'
+        .'id: string, '
+        .'project_id: string, '
+        .'subscription_id: string, '
+        .'customer_ref: string, '
+        .'meter: string, '
+        .'feature_key: string, '
+        .'quantity: int, '
+        .'unit_price_minor: int, '
+        .'total_minor: int, '
+        .'currency: string, '
+        .'status: string, '
+        .'invoice_id: string|null, '
+        .'invoice_number: string|null, '
+        .'period_id: string|null, '
+        .'activated_at: string|null, '
+        .'canceled_at: string|null, '
+        .'created_at: string, '
+        .'updated_at: string'
+        .'}';
+
+    /**
+     * ADR-0117 §4 — what a purchase answers: the supplement, and the
+     * invoice that carries it.
+     */
+    public const SUPPLEMENT_PURCHASE = 'array{'
+        .'supplement: '.self::SUPPLEMENT.', '
+        .'invoice: '.self::INVOICE
+        .'}';
+
+    /**
+     * The supplements of one contract.
+     */
+    public const SUPPLEMENT_PAGE = 'array{'
+        .'data: list<'.self::SUPPLEMENT.'>'
+        .'}';
+
+    /**
      * ADR-0074 §4 — what a customer may do, and how much is left.
      */
     public const ENTITLEMENTS = 'array{'
