@@ -12,8 +12,10 @@ use App\Infrastructure\DatabaseUnitOfWork;
 use App\Infrastructure\Guide\GuideCatalog;
 use App\Infrastructure\Guide\GuideRenderer;
 use App\Infrastructure\ProjectIdempotencyScope;
+use App\Listeners\CoreNoticeListener;
 use App\OpenApi\ExceptionProblemResponseExtension;
 use App\OpenApi\ProblemDetailsStaticMethodReturnTypeExtension;
+use Core\Events\Contracts\OutboxEventPublished;
 use Core\Support\Clock;
 use Core\Support\Http\Middleware\LimitRequestBody;
 use Core\Support\Idempotency\IdempotencyScope;
@@ -86,6 +88,12 @@ final class AppServiceProvider extends ServiceProvider
 
         Model::preventLazyLoading($strict);
         Model::preventAccessingMissingAttributes($strict);
+
+        // ADR-0118 — the Core's notices to its customers, on the events the
+        // outbox relay republishes. The composition lives in the shell (the
+        // composition root); the sending, the journal and the idempotence
+        // belong to the `notification` module.
+        Event::listen(OutboxEventPublished::class, CoreNoticeListener::class);
 
         // Load the admin web UI routes under the `web` middleware group.
         // They live in routes/admin.php (separate from the platform's
