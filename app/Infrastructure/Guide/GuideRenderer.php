@@ -51,9 +51,9 @@ final class GuideRenderer
             'max_nesting_level' => 32,
         ]);
 
-        $environment->addExtension(new CommonMarkCoreExtension());
-        $environment->addExtension(new TableExtension());
-        $environment->addExtension(new StrikethroughExtension());
+        $environment->addExtension(new CommonMarkCoreExtension);
+        $environment->addExtension(new TableExtension);
+        $environment->addExtension(new StrikethroughExtension);
 
         return new MarkdownConverter($environment);
     }

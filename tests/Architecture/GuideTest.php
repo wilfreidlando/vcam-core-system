@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Architecture;
 
+use FilesystemIterator;
 use PHPUnit\Framework\Attributes\Test;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -237,7 +238,7 @@ final class GuideTest extends TestCase
     }
 
     /**
-     * @param  list<string>  $files
+     * @param list<string> $files
      */
     private function wordsOf(array $files): string
     {
@@ -261,7 +262,7 @@ final class GuideTest extends TestCase
         }
 
         $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
+            new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS),
         );
 
         $files = [];

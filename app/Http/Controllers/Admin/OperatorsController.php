@@ -26,8 +26,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use RuntimeException;
-use Throwable;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 /**
  * Operator self-service (ADR-0050): the console web mirror of
@@ -131,29 +131,6 @@ final class OperatorsController
         ]);
     }
 
-    /**
-     * Envoie l'invitation à l'invité.
-     *
-     * Un échec d'envoi n'annule **rien** : l'invitation existe, et
-     * l'opérateur copie le jeton affiché sur la page. C'est un envoi, pas
-     * une condition : la console ne doit jamais dépendre d'un relais SMTP.
-     */
-    private function sendInvitation(string $email, string $token, string $expiresAt): bool
-    {
-        try {
-            Mail::to($email)->send(new OperatorInvitationMail(
-                email: $email,
-                token: $token,
-                expiresAt: $expiresAt,
-                invitationUrl: route('admin.invitation.show'),
-            ));
-
-            return true;
-        } catch (Throwable) {
-            return false;
-        }
-    }
-
     public function revoke(string $operatorId, OperatorContext $operator): RedirectResponse
     {
         if (! $operator->hasPermission('operators:write')) {
@@ -232,6 +209,29 @@ final class OperatorsController
 
         return redirect()->route('admin.operators.index')
             ->with('status', 'Opérateur mis à jour : '.$data['email']);
+    }
+
+    /**
+     * Envoie l'invitation à l'invité.
+     *
+     * Un échec d'envoi n'annule **rien** : l'invitation existe, et
+     * l'opérateur copie le jeton affiché sur la page. C'est un envoi, pas
+     * une condition : la console ne doit jamais dépendre d'un relais SMTP.
+     */
+    private function sendInvitation(string $email, string $token, string $expiresAt): bool
+    {
+        try {
+            Mail::to($email)->send(new OperatorInvitationMail(
+                email: $email,
+                token: $token,
+                expiresAt: $expiresAt,
+                invitationUrl: route('admin.invitation.show'),
+            ));
+
+            return true;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /**

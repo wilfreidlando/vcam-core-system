@@ -16,15 +16,15 @@ namespace App\Infrastructure\Guide;
 final readonly class GuideFlow
 {
     /**
-     * @param string $numero      'F01' — the number the guide quotes everywhere.
-     * @param string $titre       'Se connecter et confirmer mon identité'.
-     * @param string $situation   'Ouvrir la console le matin' — what the reader came to do.
-     * @param string $famille     'acces' — the slug of the family it belongs to.
+     * @param string $numero 'F01' — the number the guide quotes everywhere.
+     * @param string $titre 'Se connecter et confirmer mon identité'.
+     * @param string $situation 'Ouvrir la console le matin' — what the reader came to do.
+     * @param string $famille 'acces' — the slug of the family it belongs to.
      * @param string $familleTitre 'Se connecter et gérer les accès'.
-     * @param string $profil      'Opérateur' — who the flow is written for.
-     * @param string $temps       '2 minutes'.
-     * @param string $chemin      The path of the Markdown file, relative to the guide root.
-     * @param string $contenu     The Markdown body, front matter excluded.
+     * @param string $profil 'Opérateur' — who the flow is written for.
+     * @param string $temps '2 minutes'.
+     * @param string $chemin The path of the Markdown file, relative to the guide root.
+     * @param string $contenu The Markdown body, front matter excluded.
      */
     public function __construct(
         public string $numero,
