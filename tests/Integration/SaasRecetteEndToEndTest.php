@@ -49,12 +49,19 @@ final class SaasRecetteEndToEndTest extends TestCase
 
     private const SAAS_WEBHOOK = 'https://mon-saas.example.cm/webhooks/core';
 
+    /** L'URL du webhook : unique par test, pour qu'un reliquat ne collide jamais. */
+    private string $webhook = '';
+
     #[Test]
     public function a_saas_goes_from_first_call_to_paid_subscription_to_quota_limit(): void
     {
         config(['payment.simulator.enabled' => true]);
         Http::preventStrayRequests();
-        Http::fake([self::SAAS_WEBHOOK => Http::response('', 204)]);
+
+        // Une URL unique par test : deux tests qui partagent la meme URL
+        // ne peuvent pas se marcher dessus (le projet, lui, est neuf).
+        $this->webhook = self::SAAS_WEBHOOK.'/'.uniqid();
+        Http::fake([$this->webhook => Http::response('', 204)]);
 
         [$token, $projectId] = $this->project();
         $api = ['Authorization' => "Bearer {$token}"];
@@ -62,7 +69,7 @@ final class SaasRecetteEndToEndTest extends TestCase
 
         // 1. The SaaS registers the endpoint that will tell it about changes.
         $this->postJson('/v1/webhook-endpoints', [
-            'url' => self::SAAS_WEBHOOK,
+            'url' => $this->webhook,
             'events' => ['subscription.activated', 'invoice.paid', 'usage.limit_reached'],
         ], $api)->assertStatus(201);
 
@@ -115,8 +122,8 @@ final class SaasRecetteEndToEndTest extends TestCase
         // 5. The invoice is settled, the contract is alive, the SaaS was told.
         self::assertSame('paid', DB::table('invoices')->where('id', $invoiceId)->value('status'));
         $this->getJson('/v1/customers/AE0001/entitlements', $api)->assertOk()->assertJsonPath('active', true)->assertJsonPath('plan_code', 'pro');
-        Http::assertSent(fn (Request $r): bool => $r->url() === self::SAAS_WEBHOOK && str_contains($r->body(), '"type":"invoice.paid"'));
-        Http::assertSent(fn (Request $r): bool => $r->url() === self::SAAS_WEBHOOK && str_contains($r->body(), '"type":"subscription.activated"'));
+        Http::assertSent(fn (Request $r): bool => $r->url() === $this->webhook && str_contains($r->body(), '"type":"invoice.paid"'));
+        Http::assertSent(fn (Request $r): bool => $r->url() === $this->webhook && str_contains($r->body(), '"type":"subscription.activated"'));
 
         // 6. The tenant uses its quota (3 students); the fourth is refused and writes nothing.
         foreach ([1, 2, 3] as $n) {

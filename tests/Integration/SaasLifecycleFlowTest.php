@@ -55,6 +55,9 @@ final class SaasLifecycleFlowTest extends TestCase
 
     private string $projectId = '';
 
+    /** L'URL du webhook : unique par test, pour qu'un reliquat ne collide jamais. */
+    private string $webhook = '';
+
     #[Test]
     public function an_unpaid_renewal_runs_through_grace_then_expiry_and_the_customer_comes_back(): void
     {
@@ -112,7 +115,7 @@ final class SaasLifecycleFlowTest extends TestCase
         foreach (['subscription.created', 'invoice.paid', 'subscription.activated', 'subscription.past_due', 'subscription.expired'] as $expected) {
             self::assertContains($expected, $types, "event {$expected} was published");
         }
-        Http::assertSent(fn (\Illuminate\Http\Client\Request $r): bool => $r->url() === self::WEBHOOK && str_contains($r->body(), '"type":"subscription.expired"'));
+        Http::assertSent(fn (\Illuminate\Http\Client\Request $r): bool => $r->url() === $this->webhook && str_contains($r->body(), '"type":"subscription.expired"'));
     }
 
     #[Test]
@@ -141,6 +144,10 @@ final class SaasLifecycleFlowTest extends TestCase
     {
         parent::setUp();
 
+        // Une URL unique par test : deux tests qui partagent la meme URL
+        // ne peuvent pas se marcher dessus (le projet, lui, est neuf).
+        $this->webhook = self::WEBHOOK.'/'.uniqid();
+
         $this->clock = new class(new DateTimeImmutable('2026-11-01T08:00:00Z')) implements Clock
         {
             public function __construct(public DateTimeImmutable $moment) {}
@@ -155,7 +162,7 @@ final class SaasLifecycleFlowTest extends TestCase
 
         config(['payment.simulator.enabled' => true]);
         Http::preventStrayRequests();
-        Http::fake([self::WEBHOOK => Http::response('', 204)]);
+        Http::fake([$this->webhook => Http::response('', 204)]);
 
         $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Mon SaaS'), actor: 'service:test', correlationId: null);
         $project = app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Mon Auto-École'), actor: 'service:test', correlationId: null)->project;
@@ -171,7 +178,7 @@ final class SaasLifecycleFlowTest extends TestCase
         ));
         app(PublishPlanVersion::class)->publish(new PublishPlanVersionCommand(projectId: $this->projectId, planCode: 'pro', version: $version->version, actor: 'test', correlationId: null));
 
-        $this->postJson('/v1/webhook-endpoints', ['url' => self::WEBHOOK, 'events' => ['*']], $this->api())->assertStatus(201);
+        $this->postJson('/v1/webhook-endpoints', ['url' => $this->webhook, 'events' => ['*']], $this->api())->assertStatus(201);
         $this->putJson('/v1/portal/settings', [
             'display_name' => 'Mon Auto-École', 'allow_plan_change' => true, 'allow_self_cancel' => true,
             'allowed_return_urls' => ['https://mon-saas.example.cm/compte'],

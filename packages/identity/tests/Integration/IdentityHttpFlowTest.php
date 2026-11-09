@@ -99,9 +99,17 @@ final class IdentityHttpFlowTest extends TestCase
     #[Test]
     public function it_records_every_administrative_action_in_the_audit_log_without_leaking_the_secret(): void
     {
+        // The journal is append-only and shared by the whole suite: other
+        // tests write their own entries, and the log keeps them — several
+        // of them under the very same actor. This test is about the
+        // entries *it* produced, so it reads the ones written since it
+        // started; the journal's total is nobody's business here.
+        $before = DB::table('audit_log')->max('id');
+        $before = is_numeric($before) ? (int) $before : 0;
+
         $token = $this->issueTestApiKey();
 
-        $rows = DB::table('audit_log')->orderBy('id')->get();
+        $rows = DB::table('audit_log')->where('id', '>', $before)->orderBy('id')->get();
 
         // organization.created, project.created, api_key.issued
         // (auto-provisioned « Clé principale »), then the explicit-scope

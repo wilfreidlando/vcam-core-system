@@ -86,6 +86,15 @@ final class AuditTamperEvidenceTest extends TestCase
     public function a_sealed_day_verifies_and_an_altered_one_is_detected(): void
     {
         $yesterday = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->modify('-1 day')->setTime(10, 0);
+
+        // The seal covers a whole day, and the suite writes audit entries
+        // of its own — on the day that just ended when it runs after
+        // midnight. Counting the day *before* inserting our entries says
+        // how many the seal will find beyond ours; the assertion is about
+        // what this test adds, not about what the rest of the suite
+        // happened to write yesterday.
+        $alreadyThere = $this->entriesOn($yesterday);
+
         foreach (['created', 'updated'] as $i => $verb) {
             DB::table('audit_log')->insert([
                 'actor' => 'operator:op-1',
@@ -100,7 +109,7 @@ final class AuditTamperEvidenceTest extends TestCase
         $sealed = $digests->sealThrough($yesterday);
 
         self::assertCount(1, $sealed);
-        self::assertSame(2, $sealed[0]->entriesCount);
+        self::assertSame($alreadyThere + 2, $sealed[0]->entriesCount);
         self::assertTrue($digests->verify()->isIntact());
         self::assertSame([], $digests->sealThrough($yesterday), 'A sealed day is never sealed again.');
 
@@ -119,7 +128,18 @@ final class AuditTamperEvidenceTest extends TestCase
     {
         DB::table('audit_log')->insert(['actor' => 'service:test', 'action' => 'probe.today', 'resource' => 'probe:2']);
 
-        self::assertSame([], app(AuditDigests::class)->sealThrough(new DateTimeImmutable('now')));
+        $sealed = app(AuditDigests::class)->sealThrough(new DateTimeImmutable('now'));
+
+        // The day being written is never sealed. The days before it may
+        // be — the suite writes audit entries of its own, and the sealer
+        // walks the whole log up to the last complete day.
+        $today = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d');
+
+        self::assertNotContains(
+            $today,
+            array_map(static fn ($day): string => $day->day, $sealed),
+            'The day being written must never be sealed.',
+        );
     }
 
     #[Test]
@@ -178,5 +198,16 @@ final class AuditTamperEvidenceTest extends TestCase
         DB::statement('ALTER TABLE audit_log ENABLE TRIGGER audit_log_immutable');
 
         self::assertSame([$yesterday->format('Y-m-d')], $digests->verify()->brokenDays);
+    }
+
+    /**
+     * How many audit entries a day already holds.
+     */
+    private function entriesOn(DateTimeImmutable $day): int
+    {
+        return DB::table('audit_log')
+            ->where('created_at', '>=', $day->format('Y-m-d').' 00:00:00+00')
+            ->where('created_at', '<', $day->modify('+1 day')->format('Y-m-d').' 00:00:00+00')
+            ->count();
     }
 }

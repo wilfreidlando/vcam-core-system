@@ -35,6 +35,14 @@ final class TransferConcurrencyTest extends TestCase
 
     private const ATTEMPTS_PER_DIRECTION = 5;
 
+    /**
+     * Wallets created by the test, so the outbox rows they produced can
+     * be removed when the test is over.
+     *
+     * @var list<string>
+     */
+    private array $walletIds = [];
+
     #[Test]
     public function crossing_transfers_neither_deadlock_nor_overdraw(): void
     {
@@ -50,6 +58,8 @@ final class TransferConcurrencyTest extends TestCase
                 $projectId, $party->id, self::INITIAL_MINOR, 'XAF', null, (string) Str::uuid(),
             ))->walletId;
         }
+
+        $this->walletIds = array_values($walletIds);
 
         $handles = [];
         for ($i = 0; $i < self::ATTEMPTS_PER_DIRECTION; $i++) {
@@ -91,6 +101,32 @@ final class TransferConcurrencyTest extends TestCase
     }
 
     /**
+     * The outbox rows this test leaves behind must not outlive it.
+     *
+     * The fixture is genuinely committed (the subprocesses need to see
+     * it), so its `wallet.credited` / `wallet.debited` events stay in
+     * `event_outbox` as real, unpublished rows. The relay test and the
+     * webhook test neutralise that backlog in their own `setUp`; the
+     * readiness probe does not, and an outbox row older than five
+     * minutes makes it report the Core as degraded — a failure that has
+     * nothing to do with the code under test.
+     *
+     * The ledger rows cannot be deleted: the grand livre is append-only
+     * by design (ADR-0006). The outbox has no such trigger, and its
+     * rows are a queue, not a record of value.
+     */
+    protected function tearDown(): void
+    {
+        foreach ($this->walletIds as $walletId) {
+            DB::table('event_outbox')
+                ->where('payload->wallet_id', $walletId)
+                ->delete();
+        }
+
+        parent::tearDown();
+    }
+
+    /**
      * @return resource
      */
     private function startTransfer(string $projectId, string $from, string $to)
@@ -104,6 +140,13 @@ final class TransferConcurrencyTest extends TestCase
             'DB_USERNAME' => $this->configString('database.connections.pgsql.username'),
             'DB_PASSWORD' => $this->configString('database.connections.pgsql.password'),
             'APP_ENV' => 'testing',
+            // The safety flags must be **the ones of the parent process**:
+            // the subprocess rebuilds its environment by hand and would
+            // otherwise inherit the developer's local .env, where the
+            // private targets are allowed — the Core would then refuse to
+            // start (ADR-0115) and every transfer would fail.
+            'OUTBOUND_ALLOW_PRIVATE_TARGETS' => $this->flag('integration.outbound.allow_private_targets'),
+            'OUTBOUND_ALLOW_INSECURE_HTTP' => $this->flag('integration.outbound.allow_insecure_http'),
         ];
 
         $process = proc_open(
@@ -127,5 +170,13 @@ final class TransferConcurrencyTest extends TestCase
         $value = config($key);
 
         return is_scalar($value) ? (string) $value : '';
+    }
+
+    /**
+     * A boolean flag, as the environment spells it.
+     */
+    private function flag(string $key): string
+    {
+        return filter_var(config($key), FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
     }
 }

@@ -44,6 +44,14 @@ final class WalletConcurrencyTest extends TestCase
 
     private const CONCURRENT_ATTEMPTS = 10;
 
+    /**
+     * Wallet created by the test, so the outbox rows it produced can be
+     * removed when the test is over.
+     *
+     * @var list<string>
+     */
+    private array $walletIds = [];
+
     #[Test]
     public function ten_concurrent_debits_against_one_wallet_never_overdraw_it(): void
     {
@@ -61,6 +69,8 @@ final class WalletConcurrencyTest extends TestCase
             (string) Str::uuid(),
         ));
         $walletId = $walletView->walletId;
+
+        $this->walletIds = [$walletId];
 
         $handles = [];
         for ($i = 0; $i < self::CONCURRENT_ATTEMPTS; $i++) {
@@ -108,6 +118,32 @@ final class WalletConcurrencyTest extends TestCase
     }
 
     /**
+     * The outbox rows this test leaves behind must not outlive it.
+     *
+     * The fixture is genuinely committed (the subprocesses need to see
+     * it), so its `wallet.credited` / `wallet.debited` events stay in
+     * `event_outbox` as real, unpublished rows. The relay test and the
+     * webhook test neutralise that backlog in their own `setUp`; the
+     * readiness probe does not, and an outbox row older than five
+     * minutes makes it report the Core as degraded — a failure that has
+     * nothing to do with the code under test.
+     *
+     * The ledger rows cannot be deleted: the grand livre is append-only
+     * by design (ADR-0006). The outbox has no such trigger, and its
+     * rows are a queue, not a record of value.
+     */
+    protected function tearDown(): void
+    {
+        foreach ($this->walletIds as $walletId) {
+            DB::table('event_outbox')
+                ->where('payload->wallet_id', $walletId)
+                ->delete();
+        }
+
+        parent::tearDown();
+    }
+
+    /**
      * @return resource
      */
     private function startDebitProcess(string $walletId, int $amountMinor)
@@ -121,6 +157,14 @@ final class WalletConcurrencyTest extends TestCase
             'DB_USERNAME' => $this->configString('database.connections.pgsql.username'),
             'DB_PASSWORD' => $this->configString('database.connections.pgsql.password'),
             'APP_ENV' => 'testing',
+            // The safety flags must be **the ones of the parent process**.
+            // The subprocess rebuilds its environment by hand, so it would
+            // otherwise inherit the developer's local .env — where the
+            // private targets are allowed — and the Core would refuse to
+            // start (ADR-0115): every debit would fail, and the test
+            // would prove nothing.
+            'OUTBOUND_ALLOW_PRIVATE_TARGETS' => $this->flag('integration.outbound.allow_private_targets'),
+            'OUTBOUND_ALLOW_INSECURE_HTTP' => $this->flag('integration.outbound.allow_insecure_http'),
         ];
 
         $command = [PHP_BINARY, base_path('artisan'), 'test:debit-wallet-once', self::PROJECT_ID, $walletId, (string) $amountMinor];
@@ -148,5 +192,13 @@ final class WalletConcurrencyTest extends TestCase
         self::assertIsScalar($value, "Expected config('{$key}') to be scalar.");
 
         return (string) $value;
+    }
+
+    /**
+     * A boolean flag, as the environment spells it.
+     */
+    private function flag(string $key): string
+    {
+        return filter_var(config($key), FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
     }
 }
