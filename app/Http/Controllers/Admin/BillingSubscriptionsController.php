@@ -22,10 +22,16 @@ use Core\Billing\Contracts\ListSubscriptionPeriods;
 use Core\Billing\Contracts\ListSubscriptionPeriodsCommand;
 use Core\Billing\Contracts\ListSubscriptions;
 use Core\Billing\Contracts\ListSubscriptionsCommand;
+use Core\Billing\Contracts\ListSubscriptionSupplements;
+use Core\Billing\Contracts\ListSubscriptionSupplementsCommand;
+use Core\Billing\Contracts\ManageBillingSettings;
 use Core\Billing\Contracts\PauseSubscription;
 use Core\Billing\Contracts\PauseSubscriptionCommand;
+use Core\Billing\Contracts\PurchaseSubscriptionSupplementPack;
+use Core\Billing\Contracts\PurchaseSubscriptionSupplementPackCommand;
 use Core\Billing\Contracts\ResumeSubscription;
 use Core\Billing\Contracts\ResumeSubscriptionCommand;
+use Core\Billing\Domain\Exception\InvalidSubscriptionSupplement;
 use Core\Billing\Domain\Exception\InvalidSubscriptionTransition;
 use Core\Billing\Domain\Exception\PlanNotFound;
 use Core\Billing\Domain\Exception\SubscriptionNotFound;
@@ -34,7 +40,10 @@ use Core\Identity\Contracts\OperatorContext;
 use Core\Support\Clock;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -60,6 +69,9 @@ final class BillingSubscriptionsController
         private readonly ListSubscriptions $listSubscriptions,
         private readonly GetSubscription $getSubscription,
         private readonly ListSubscriptionPeriods $listPeriods,
+        private readonly ListSubscriptionSupplements $listSupplements,
+        private readonly ManageBillingSettings $billing,
+        private readonly PurchaseSubscriptionSupplementPack $purchasePack,
         private readonly PauseSubscription $pauseSubscription,
         private readonly ResumeSubscription $resumeSubscription,
         private readonly CancelSubscription $cancelSubscription,
@@ -110,12 +122,130 @@ final class BillingSubscriptionsController
             $scope,
         );
 
+        // ADR-0119 §5 — les packs que le projet propose et les
+        // suppléments déjà accordés à cet abonnement.
+        $reglages = $this->billing->get($projectId, $scope);
+        $supplements = $this->listSupplements->list(
+            new ListSubscriptionSupplementsCommand($projectId, $subscriptionId),
+            $scope,
+        );
+
         return response()->view('admin.billing.subscriptions.show', [
             'title' => sprintf('Abonnement %s', $subscription->customerRef),
             'projectId' => $projectId,
             'subscription' => $subscription,
             'periods' => $periods->items,
+            'packs' => $reglages === null ? [] : $reglages->supplementPacks,
+            'supplements' => $supplements,
         ]);
+    }
+
+    /**
+     * ADR-0119 §5 — l'opérateur accorde un pack de quota à un
+     * abonnement.
+     *
+     * Le prix vient du **catalogue du projet**, jamais du formulaire ; la
+     * clé d'idempotence est dérivée côté serveur (ADR-0119 §6) : un
+     * double envoi du formulaire n'achète qu'une fois.
+     *
+     * L'allocation n'est pas accordée ici : elle le sera quand la
+     * facture qu'il vient d'émettre sera réglée (ADR-0117 §2).
+     */
+    public function grantSupplement(Request $request, OperatorContext $operator, string $projectId, string $subscriptionId): RedirectResponse
+    {
+        $scope = $this->permittedScope($operator, 'subscriptions:write');
+        $this->resolveScopedProject($this->getProject, $operator, $projectId, 'subscriptions:write');
+
+        /** @var array{pack_code: string, reason?: string|null, nonce?: string|null} $data */
+        $data = Validator::make($request->all(), [
+            'pack_code' => ['required', 'string', 'max:64'],
+            'reason' => ['nullable', 'string', 'max:500'],
+            'nonce' => ['nullable', 'uuid'],
+        ])->validate();
+
+        $reglages = $this->billing->get($projectId, $scope);
+        $pack = null;
+
+        foreach ($reglages === null ? [] : $reglages->supplementPacks as $offre) {
+            if ($offre->code === $data['pack_code']) {
+                $pack = $offre;
+
+                break;
+            }
+        }
+
+        if ($pack === null) {
+            return back()->withErrors(['resource' => 'Ce pack n\'existe pas dans le catalogue du projet.']);
+        }
+
+        try {
+            $purchase = $this->purchasePack->purchase(new PurchaseSubscriptionSupplementPackCommand(
+                projectId: $projectId,
+                subscriptionId: $subscriptionId,
+                packCode: $pack->code,
+                // ADR-0121 — la clé dit **quel** geste : le contrat, le
+                // pack et le nonce du formulaire. Un nonce seul ne le
+                // disait pas : le navigateur qui restitue la page après
+                // un « retour » rejouait la même clé, et le pack choisi
+                // entre-temps était remplacé par l'achat déjà fait — le
+                // console annonçait un pack accordé qui ne l'était pas.
+                // La clé est **hachée** : la colonne en tire 128
+                // caractères au plus, et le portail procède de même.
+                idempotencyKey: 'console-pack:'.hash(
+                    'sha256',
+                    $projectId.'|'.$subscriptionId.'|'.$pack->code.'|'.($data['nonce'] ?? (string) Str::uuid()),
+                ),
+                actor: $this->actor($operator),
+                correlationId: null,
+            ));
+        } catch (SubscriptionNotFound $exception) {
+            return $this->refused($exception);
+        } catch (InvalidSubscriptionSupplement|RuntimeException $exception) {
+            Log::warning('Supplément de quota refusé', [
+                'project_id' => $projectId,
+                'subscription_id' => $subscriptionId,
+                'pack_code' => $pack->code,
+                'reason' => $exception->getMessage(),
+            ]);
+
+            return back()->withErrors(['resource' => 'Le supplément n\'a pas pu être accordé à cet abonnement.']);
+        }
+
+        $this->audit->record(new AuditEntry(
+            actor: $this->actor($operator),
+            action: 'billing.subscription.supplement_granted',
+            resource: 'subscription:'.$subscriptionId,
+            before: null,
+            after: [
+                'changed_fields' => ['supplement'],
+                'pack_code' => $pack->code,
+                'meter' => $purchase->supplement->meter,
+                'quantity' => $purchase->supplement->quantity,
+                // The **frozen** amount of the purchase, not the price the
+                // catalogue carries today: the project may have re-declared
+                // the pack since, and the journal must not contradict the
+                // invoice it points at.
+                'total_minor' => $purchase->supplement->totalMinor,
+                'supplement_id' => $purchase->supplement->id,
+                'invoice_id' => $purchase->invoice->id,
+                'invoice_number' => $purchase->invoice->number,
+            ],
+            context: array_filter([
+                'project_id' => $projectId,
+                'reason' => $data['reason'] ?? null,
+            ], static fn (mixed $value): bool => $value !== null),
+            correlationId: null,
+            occurredAt: $this->clock->now(),
+            projectId: $projectId,
+        ));
+
+        return redirect()
+            ->route('admin.projects.subscriptions.show', [$projectId, $subscriptionId])
+            ->with('status', sprintf(
+                'Supplément de %d unité(s) accordé — facture %s à encaisser.',
+                $pack->quantity,
+                $purchase->invoice->number ?? $purchase->invoice->id,
+            ));
     }
 
     public function pause(Request $request, OperatorContext $operator, string $projectId, string $subscriptionId): RedirectResponse

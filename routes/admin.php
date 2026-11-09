@@ -275,6 +275,9 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
             Route::post('{projectId}/portal', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'savePortal'])->name('projects.portal.save');
             Route::get('{projectId}/commerce-settings', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'settings'])->name('projects.commerce-settings');
             Route::post('{projectId}/commerce-settings', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'saveSettings'])->name('projects.commerce-settings.save');
+            // ADR-0118 §4 — what the project wants its customers notified
+            // about: the commerce's events, on the only channel there is.
+            Route::post('{projectId}/system-notifications', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'saveSystemNotifications'])->name('projects.system-notifications.save');
             Route::get('{projectId}/usage', [App\Http\Controllers\Admin\ProjectCommerceController::class, 'usage'])->name('projects.usage');
             Route::get('{projectId}/indicators', [App\Http\Controllers\Admin\ProjectIndicatorsController::class, 'show'])->name('projects.indicators');
             // ADR-0073 — « une vue créances (factures ouvertes, en retard,
@@ -367,6 +370,12 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
                 Route::post('{subscriptionId}/pay', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'pay'])
                     ->whereUuid('subscriptionId')
                     ->name('projects.subscriptions.pay.web');
+                // ADR-0119 §5 — le pack de quota accordé par l'opérateur.
+                // La clé d'idempotence est dérivée côté serveur : le
+                // formulaire ne la fournit jamais.
+                Route::post('{subscriptionId}/supplements', [App\Http\Controllers\Admin\BillingSubscriptionsController::class, 'grantSupplement'])
+                    ->whereUuid('subscriptionId')
+                    ->name('projects.subscriptions.supplements.grant.web');
             });
 
             // Les factures — ADR-0073. La console appelle les mêmes

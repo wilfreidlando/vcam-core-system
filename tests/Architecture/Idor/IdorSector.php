@@ -78,6 +78,8 @@ final class IdorSector
         'admin.projects.ledger' => 'ledger',
         'admin.projects.wallets' => 'wallet',
         'admin.projects.notifications' => 'notification',
+        // ADR-0118 §4 — what a project wants its customers notified about.
+        'admin.projects.system-notifications' => 'notification',
         'admin.projects.api-keys' => 'identity',
         'admin.projects.provider-applications' => 'identity',
         'admin.projects.webhook-endpoints' => 'identity',

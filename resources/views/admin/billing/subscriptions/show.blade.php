@@ -150,6 +150,63 @@
             </form>
         </div>
 
+        <div class="rounded-lg border border-slate-200 bg-white p-5">
+            <h2 class="text-base font-semibold text-slate-900">Packs accordés</h2>
+            <p class="mt-1 text-sm text-slate-600">
+                Une quantité achetée <strong>en plus</strong> de la limite d'usage, sur le même compteur :
+                l'abonnement n'est ni renouvelé ni modifié. La limite n'augmente qu'une fois la
+                facture réglée.
+            </p>
+
+            @if ($supplements !== [])
+                <ul class="mt-3 divide-y divide-slate-200">
+                    @foreach ($supplements as $supplement)
+                        <li class="flex flex-wrap items-baseline justify-between gap-2 py-2">
+                            <span class="text-sm text-slate-900">
+                                {{ $supplement->meter }} — {{ $supplement->quantity }} unité(s)
+                                @if ($supplement->invoiceNumber)
+                                    <span class="text-slate-500">(facture {{ $supplement->invoiceNumber }})</span>
+                                @endif
+                            </span>
+                            <span class="text-xs text-slate-600">
+                                {{ $supplement->totalMinor }} {{ $supplement->currency }} —
+                                @if ($supplement->status === 'active')
+                                    <span class="font-medium text-emerald-700">actif</span>
+                                @elseif ($supplement->status === 'pending')
+                                    <span class="font-medium text-amber-700">en attente de paiement</span>
+                                @else
+                                    <span class="font-medium text-slate-500">annulé</span>
+                                @endif
+                            </span>
+                        </li>
+                    @endforeach
+                </ul>
+            @else
+                <p class="mt-3 text-sm text-slate-600">Aucun pack accordé à cet abonnement.</p>
+            @endif
+
+            @if ($packs !== [])
+                <form method="POST" action="{{ route('admin.projects.subscriptions.supplements.grant.web', [$projectId, $subscription->id]) }}"
+                      class="mt-4 flex flex-wrap items-end gap-3">
+                    @csrf
+                    {{-- Le nonce rend le double envoi sans effet : la même
+                         clé d'idempotence, donc un seul achat (ADR-0119 §6). --}}
+                    <input type="hidden" name="nonce" value="{{ \Illuminate\Support\Str::uuid() }}">
+                    <x-admin.field name="pack_code" type="select" label="Pack du catalogue" required
+                                   :options="collect($packs)->mapWithKeys(fn ($pack) => [$pack->code => $pack->label.' — '.$pack->quantity.' unité(s)'])->all()" />
+                    <x-admin.field name="reason" label="Motif" maxlength="500" optional wrapper-class="min-w-48 flex-1" />
+                    <button type="submit" class="rounded-md bg-indigo-700 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
+                        Accorder le pack
+                    </button>
+                </form>
+            @else
+                <p class="mt-3 text-sm text-slate-600">
+                    Ce projet ne propose aucun pack :
+                    <a href="{{ route('admin.projects.commerce-settings', $projectId) }}" class="font-medium underline">déclarez-en dans les réglages du commerce</a>.
+                </p>
+            @endif
+        </div>
+
         <div class="rounded-lg border border-amber-200 bg-amber-50 p-5">
             <h2 class="text-base font-semibold text-amber-900">Déclarer un règlement</h2>
             <p class="mt-1 text-sm text-amber-800">

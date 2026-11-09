@@ -157,6 +157,9 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.portal.save', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.commerce-settings', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.commerce-settings.save', Nature::Project, Outcome::NotFound),
+            // ADR-0118 §4 — the declarations of a project about what its
+            // customers should be notified about.
+            Entry::isolated('admin.projects.system-notifications.save', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.indicators', Nature::Project, Outcome::NotFound),
             // ADR-0073 — the receivables screen is read-only, but it is
             // still a project page: an account of another organization
@@ -193,6 +196,7 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.subscriptions.change-plan.web', Nature::Subscription, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.subscriptions.complimentary.web', Nature::Subscription, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.subscriptions.pay.web', Nature::Subscription, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.subscriptions.supplements.grant.web', Nature::Subscription, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
 
             // The invoices (ADR-0073) follow the same rule: a **read**
             // answers 404, a **mutation** answers the console's
