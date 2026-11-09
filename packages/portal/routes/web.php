@@ -57,6 +57,10 @@ Route::middleware([PortalSecurityHeaders::class])
             Route::get('/invoices/{invoiceId}', [PortalPagesController::class, 'invoice'])->whereUuid('invoiceId')->name('portal.invoice');
             Route::post('/invoices/{invoiceId}/pay', [PortalPagesController::class, 'pay'])->whereUuid('invoiceId')->name('portal.invoice.pay');
             Route::get('/usage', [PortalPagesController::class, 'usage'])->name('portal.usage');
+            // ADR-0119 §3 — l'achat d'un pack. Le code du pack voyage
+            // dans le corps : il ne désigne pas une ressource d'un autre
+            // client, et le Core le résout dans le projet de la session.
+            Route::post('/packs', [PortalPagesController::class, 'buyPack'])->name('portal.packs.purchase');
             Route::post('/logout', [PortalPagesController::class, 'logout'])->name('portal.logout');
         });
     });

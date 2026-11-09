@@ -28,6 +28,11 @@ is a contract decision: it is the surface you must keep stable.
 - **Supplements** (ADR-0117) — `PurchaseSubscriptionSupplement`,
   `ListSubscriptionSupplements`: units bought **on top of** the limit of a
   metered feature, with their own invoice.
+- **The catalogue of packs** (ADR-0119) — `PurchaseSubscriptionSupplementPack`:
+  the customer of a portal buys a **pack** the project declared (meter,
+  quantity, unit price in minor units, label), never a price of his own. The
+  catalogue lives in the project settings (`SaveBillingSettingsCommand` /
+  `BillingSettingsView`, ADR-0119 §1).
 
 ## Rules the surface follows
 

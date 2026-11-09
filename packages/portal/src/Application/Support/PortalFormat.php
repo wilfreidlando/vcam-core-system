@@ -58,6 +58,14 @@ final class PortalFormat
         return ($minor < 0 ? '−' : '').$grouped."\u{00A0}".strtoupper($currency);
     }
 
+    /**
+     * Un nombre que le client lit : « 500 », « 2 500 ».
+     */
+    public static function count(int $value): string
+    {
+        return number_format($value, 0, ',', "\u{202F}");
+    }
+
     public static function date(?string $iso): string
     {
         if ($iso === null || $iso === '') {

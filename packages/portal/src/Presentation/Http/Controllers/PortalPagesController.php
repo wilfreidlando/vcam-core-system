@@ -211,7 +211,34 @@ final class PortalPagesController
     {
         $who = $this->who($request);
 
-        return $this->page('portal::usage', $who, ['entitlements' => $this->workspace->entitlements($who)]);
+        return $this->page('portal::usage', $who, ['usage' => $this->workspace->usage($who)]);
+    }
+
+    /**
+     * ADR-0119 §3 — le client achète un pack du catalogue.
+     *
+     * La facture produite est affichée au client, avec le chemin de
+     * paiement qui existe déjà : il règle dans « Factures », comme
+     * toutes les autres factures (ADR-0075 §5).
+     */
+    public function buyPack(Request $request): RedirectResponse|Response
+    {
+        $who = $this->who($request);
+
+        try {
+            $purchase = $this->workspace->buyPack(
+                $who,
+                $request->string('pack')->toString(),
+                $request->string('nonce')->toString(),
+            );
+        } catch (PortalActionRefused $refused) {
+            return response()->view('portal::error', $this->data($who, [
+                'title' => 'Rechargement impossible',
+                'message' => $refused->getMessage(),
+            ]), 422);
+        }
+
+        return new RedirectResponse('/portal/invoices/'.$purchase->invoiceId);
     }
 
     public function cancel(Request $request, string $subscriptionId): RedirectResponse|Response

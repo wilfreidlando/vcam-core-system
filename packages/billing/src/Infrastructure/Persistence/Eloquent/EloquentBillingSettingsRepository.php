@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Billing\Infrastructure\Persistence\Eloquent;
 
 use Core\Billing\Domain\Model\BillingSettings;
+use Core\Billing\Domain\Model\SupplementPack;
 use Core\Billing\Domain\Port\BillingSettingsRepository;
 use stdClass;
 
@@ -42,6 +43,7 @@ final class EloquentBillingSettingsRepository implements BillingSettingsReposito
             meterMappings: $this->mappingsOf($record->meter_mappings),
             refundFailedUsage: $record->refund_failed_usage,
             requireCustomerRef: $record->require_customer_ref,
+            supplementPacks: $this->packsOf($record->supplement_packs),
         );
     }
 
@@ -82,6 +84,7 @@ final class EloquentBillingSettingsRepository implements BillingSettingsReposito
             'retain_invoice_identity' => $settings->retainInvoiceIdentity,
             'document_branding' => $this->branding($settings->documentBranding),
             'meter_mappings' => $this->branding($settings->meterMappings),
+            'supplement_packs' => $this->packs($settings->supplementPacks),
             'refund_failed_usage' => $settings->refundFailedUsage,
             'require_customer_ref' => $settings->requireCustomerRef,
         ];
@@ -129,5 +132,59 @@ final class EloquentBillingSettingsRepository implements BillingSettingsReposito
         }
 
         return $mappings;
+    }
+
+    /**
+     * ADR-0119 §1 — le catalogue des packs, écrit comme un **tableau**
+     * JSON (jamais un objet : la colonne porte une liste).
+     *
+     * @param list<SupplementPack> $packs
+     */
+    private function packs(array $packs): string
+    {
+        $rows = [];
+
+        foreach ($packs as $pack) {
+            $rows[] = $pack->toArray();
+        }
+
+        return (string) json_encode($rows);
+    }
+
+    /**
+     * ADR-0119 §1 — le catalogue des packs, relu.
+     *
+     * Une ligne illisible est **ignorée** : un réglage corrompu ne doit
+     * pas rendre le portail illisible.
+     *
+     * @return list<SupplementPack>
+     */
+    private function packsOf(?string $json): array
+    {
+        if ($json === null || $json === '') {
+            return [];
+        }
+
+        $decoded = json_decode($json, true);
+
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        $packs = [];
+
+        foreach ($decoded as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $pack = SupplementPack::fromArray($row);
+
+            if ($pack !== null) {
+                $packs[] = $pack;
+            }
+        }
+
+        return $packs;
     }
 }

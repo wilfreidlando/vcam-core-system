@@ -30,21 +30,31 @@ use Core\Billing\Contracts\ListPlans;
 use Core\Billing\Contracts\ListPlansCommand;
 use Core\Billing\Contracts\ListSubscriptions;
 use Core\Billing\Contracts\ListSubscriptionsCommand;
+use Core\Billing\Contracts\ListSubscriptionSupplements;
+use Core\Billing\Contracts\ListSubscriptionSupplementsCommand;
+use Core\Billing\Contracts\ManageBillingSettings;
 use Core\Billing\Contracts\PayInvoice;
 use Core\Billing\Contracts\PayInvoiceCommand;
 use Core\Billing\Contracts\PlanVersionView;
+use Core\Billing\Contracts\PurchaseSubscriptionSupplementPack;
+use Core\Billing\Contracts\PurchaseSubscriptionSupplementPackCommand;
 use Core\Billing\Contracts\SubscriptionView;
+use Core\Billing\Contracts\SupplementPackView;
 use Core\Payment\Contracts\NoProviderForChannelException;
 use Core\Payment\Contracts\PaymentChannel;
 use Core\Payment\Contracts\PaymentProviderRouter;
 use Core\Portal\Application\Dto\PortalHome;
 use Core\Portal\Application\Dto\PortalInvoiceDetail;
+use Core\Portal\Application\Dto\PortalPackGroup;
+use Core\Portal\Application\Dto\PortalPackOffer;
+use Core\Portal\Application\Dto\PortalPackPurchase;
 use Core\Portal\Application\Dto\PortalPaymentLine;
 use Core\Portal\Application\Dto\PortalPaymentOutcome;
 use Core\Portal\Application\Dto\PortalPlanOption;
 use Core\Portal\Application\Dto\PortalPlans;
 use Core\Portal\Application\Dto\PortalPrincipal;
 use Core\Portal\Application\Dto\PortalProfile;
+use Core\Portal\Application\Dto\PortalUsage;
 use Core\Portal\Application\Exception\PortalActionRefused;
 use Core\Portal\Application\Support\PortalFormat;
 use Core\Portal\Application\Support\PortalLinks;
@@ -85,6 +95,9 @@ final readonly class PortalWorkspace
         private KeepSubscriptionRenewing $keepRenewing,
         private PaymentProviderRouter $router,
         private GetEntitlements $entitlements,
+        private ManageBillingSettings $settings,
+        private ListSubscriptionSupplements $supplements,
+        private PurchaseSubscriptionSupplementPack $purchasePack,
         private SecretHasher $hasher,
         private PortalLinks $links,
         private LoggerInterface $logger,
@@ -425,7 +438,223 @@ final readonly class PortalWorkspace
 
     public function entitlements(PortalPrincipal $who): ?EntitlementsView
     {
-        return $this->entitlements->get(new GetEntitlementsCommand($who->projectId, $who->customerRef), $this->scope($who));
+        $droits = $this->entitlements->get(new GetEntitlementsCommand($who->projectId, $who->customerRef), $this->scope($who));
+
+        if ($droits === null) {
+            return null;
+        }
+
+        // Un compteur n'apparaît qu'une fois.
+        //
+        // Les droits sont exposés deux fois quand le projet déclare une
+        // capacité (ADR-0074 §5) : sous le nom du plan, et sous le nom de
+        // la capacité que consomme l'application cliente. Les deux lignes
+        // portent le même compteur. Le propriétaire ne caresse qu'une
+        // seule ligne par quota ; l'application cliente, elle, continue de
+        // lire la capacité — cette déduplication est celle du portail.
+        $vus = [];
+        $compteurs = [];
+
+        foreach ($droits->entitlements as $droit) {
+            if ($droit->meter !== null) {
+                if (in_array($droit->meter, $compteurs, true)) {
+                    continue;
+                }
+
+                $compteurs[] = $droit->meter;
+            }
+
+            $vus[] = $droit;
+        }
+
+        return new EntitlementsView(
+            $droits->customerRef,
+            $droits->active,
+            $droits->planCode,
+            $droits->subscriptionId,
+            $vus,
+        );
+    }
+
+    /**
+     * ADR-0119 §4 — la page « Utilisation » : les droits, et les packs
+     * du catalogue.
+     *
+     * L'offre **n'est pas conditionnée à l'usage** : dès que le projet
+     * propose un pack pour un compteur, le pack est dessiné. Le client
+     * n'a pas à vérifier lui-même où il en est de son quota pour savoir
+     * qu'il peut en acheter — la décision du commanditaire.
+     *
+     * Deux seules conditions retirent un pack de la page : le contrat
+     * n'est pas dans la devise du projet (le Core refuserait l'achat),
+     * et un rechargement de ce compteur attend déjà son paiement.
+     */
+    public function usage(PortalPrincipal $who): PortalUsage
+    {
+        $entitlements = $this->entitlements($who);
+        $groups = [];
+
+        if ($entitlements !== null && $entitlements->active) {
+            $catalogue = $this->catalogueOf($who);
+
+            // ADR-0119 §2 — les packs sont tarifés dans la devise du
+            // projet : un contrat dans une autre devise ne peut pas les
+            // acheter (le Core refuserait), le portail ne les propose donc
+            // pas — il n'offre jamais ce qu'il ne peut pas vendre.
+            if ($catalogue['currency'] !== $this->currencyOf($who, $entitlements->subscriptionId)) {
+                $catalogue = ['items' => [], 'currency' => $catalogue['currency']];
+            }
+
+            // Un rechargement déjà en cours (facture ouverte) : le client
+            // n'achète pas deux fois le même quota.
+            $enAttente = $this->pendingMeters($who, $entitlements->subscriptionId);
+
+            foreach ($entitlements->entitlements as $entitlement) {
+                if ($entitlement->type !== 'limit' || $entitlement->meter === null) {
+                    continue;
+                }
+
+                $limit = $entitlement->limit;
+                $used = $entitlement->used ?? 0;
+
+                // Un compteur sans plafond n'a rien à recevoir
+                // (ADR-0117 §3 : un supplément y serait refusé).
+                if ($limit === null || $limit <= 0) {
+                    continue;
+                }
+
+                // ADR-0119 §4 — le pack est **proposé** dès que le projet
+                // en propose un pour ce compteur : on n'envoie pas le
+                // client vérifier lui-même où il en est de son quota.
+                // (La décision du commanditaire : l'offre est visible,
+                // l'usage ne la conditionne pas.)
+                if (in_array($entitlement->meter, $enAttente, true)) {
+                    continue;
+                }
+
+                $packs = [];
+
+                foreach ($catalogue['items'] as $pack) {
+                    if ($pack->meter !== $entitlement->meter) {
+                        continue;
+                    }
+
+                    // ADR-0121 — le portail n'offre jamais ce qu'il ne peut
+                    // pas vendre : un pack à prix nul est refusé par le
+                    // Core (le grand livre refuse une ligne à zéro), donc
+                    // le bouton « Recharger » échouerait toujours. Un
+                    // catalogue déclaré avant la règle ne doit pas
+                    // ressusciter une offre morte.
+                    if ($pack->totalMinor <= 0) {
+                        continue;
+                    }
+
+                    $packs[] = new PortalPackOffer(
+                        $pack->code,
+                        $pack->label,
+                        $pack->quantity,
+                        $pack->totalMinor,
+                        $catalogue['currency'],
+                    );
+                }
+
+                if ($packs === []) {
+                    continue;
+                }
+
+                $subject = self::subjectOf($entitlement->key);
+
+                $groups[] = new PortalPackGroup(
+                    $subject,
+                    self::messageOf($subject, $used, $limit),
+                    $limit,
+                    $used,
+                    $packs,
+                );
+            }
+        }
+
+        return new PortalUsage($entitlements, $groups, bin2hex(random_bytes(16)));
+    }
+
+    /**
+     * ADR-0119 §3 — le client achète un pack du catalogue.
+     *
+     * Le client cite le **code** d'un pack : jamais un prix, jamais une
+     * quantité. Ce que le pack contient a été déclaré par le projet.
+     *
+     * La facture produite est une facture comme les autres : elle se
+     * règle par le chemin de paiement qui existe déjà (ADR-0075 §5).
+     */
+    public function buyPack(PortalPrincipal $who, string $packCode, string $nonce): PortalPackPurchase
+    {
+        $this->assertWritable($who, 'le rechargement');
+
+        if (preg_match('/^[a-f0-9]{16,64}$/', $nonce) !== 1) {
+            throw PortalActionRefused::because('Le formulaire a expiré, rechargez la page.');
+        }
+
+        $catalogue = $this->catalogueOf($who);
+        $pack = null;
+
+        foreach ($catalogue['items'] as $candidate) {
+            if ($candidate->code === $packCode) {
+                $pack = $candidate;
+
+                break;
+            }
+        }
+
+        // Le pack a quitté le catalogue entre le clic et l'achat.
+        if ($pack === null) {
+            throw PortalActionRefused::because('Ce pack n\'est plus disponible. Choisissez-en un autre.');
+        }
+
+        $entitlements = $this->entitlements($who);
+
+        if ($entitlements === null || ! $entitlements->active || $entitlements->subscriptionId === null) {
+            throw PortalActionRefused::because('Votre abonnement est introuvable.');
+        }
+
+        // L'abonnement ne porte plus ce quota : le Core refuserait
+        // l'achat, le client ne voit qu'une phrase claire.
+        if (! self::carries($entitlements, $pack->meter)) {
+            throw PortalActionRefused::because('Votre abonnement ne compte plus ce quota : contactez le support.');
+        }
+
+        // Un rechargement qui attend déjà son paiement n'est plus
+        // **proposé** (ADR-0119 §4) ; l'achat, lui, reste rejouable : la
+        // clé d'idempotence ci-dessous fait qu'un double clic rend le
+        // même résultat, au lieu d'être refusé.
+
+        // ADR-0119 §6 — la clé du geste, dérivée du formulaire côté
+        // serveur : un double clic rejoue la même clé, donc n'achète
+        // qu'une fois.
+        $key = 'portal-pack:'.$this->hasher->hash($who->sessionId.'|'.$pack->code.'|'.$nonce, 'pack');
+
+        try {
+            $view = $this->purchasePack->purchase(new PurchaseSubscriptionSupplementPackCommand(
+                projectId: $who->projectId,
+                subscriptionId: $entitlements->subscriptionId,
+                packCode: $pack->code,
+                idempotencyKey: $key,
+                actor: 'portal:'.$who->customerId,
+            ));
+        } catch (RuntimeException $e) {
+            // Les raisons du domaine (« compteur absent du plan », « pack
+            // retiré ») ne sont pas pour les yeux du client ; le journal
+            // les garde pour l'opérateur.
+            $this->logger->warning('portal.buy_pack.refused', ['pack' => $pack->code, 'reason' => $e->getMessage()]);
+
+            throw PortalActionRefused::because('Le rechargement n\'a pas pu être enregistré. Réessayez ou contactez le support.');
+        }
+
+        return new PortalPackPurchase(
+            $view->invoice->id,
+            $view->invoice->number ?? '',
+            $view->invoice->totalMinor,
+            $view->invoice->currency,
+        );
     }
 
     /**
@@ -523,6 +752,107 @@ final readonly class PortalWorkspace
 
             throw PortalActionRefused::because('Cet abonnement ne peut plus être résilié.');
         }
+    }
+
+    /**
+     * ADR-0119 §1 — le catalogue du projet, et la devise de ses packs.
+     *
+     * @return array{items: list<SupplementPackView>, currency: string}
+     */
+    private function catalogueOf(PortalPrincipal $who): array
+    {
+        $settings = $this->settings->get($who->projectId, $this->scope($who));
+
+        if ($settings === null) {
+            return ['items' => [], 'currency' => ''];
+        }
+
+        return ['items' => $settings->supplementPacks, 'currency' => $settings->defaultCurrency];
+    }
+
+    /**
+     * La devise du contrat : celle dans laquelle le pack sera facturé.
+     */
+    private function currencyOf(PortalPrincipal $who, ?string $subscriptionId): string
+    {
+        if ($subscriptionId === null) {
+            return '';
+        }
+
+        $subscription = $this->subscription->get(
+            new GetSubscriptionCommand($who->projectId, $subscriptionId),
+            $this->scope($who),
+        );
+
+        if ($subscription === null) {
+            return '';
+        }
+
+        return $subscription->currency;
+    }
+
+    /**
+     * Les compteurs dont un supplément attend encore son paiement.
+     *
+     * @return list<string>
+     */
+    private function pendingMeters(PortalPrincipal $who, ?string $subscriptionId): array
+    {
+        if ($subscriptionId === null) {
+            return [];
+        }
+
+        $meters = [];
+
+        foreach ($this->supplements->list(
+            new ListSubscriptionSupplementsCommand($who->projectId, $subscriptionId),
+            $this->scope($who),
+        ) as $supplement) {
+            if ($supplement->status === 'pending') {
+                $meters[] = $supplement->meter;
+            }
+        }
+
+        return $meters;
+    }
+
+    /**
+     * Le nom lisible du quota : la clé de la fonctionnalité du plan.
+     */
+    private static function subjectOf(string $key): string
+    {
+        return str_replace(['_', '.'], ' ', $key);
+    }
+
+    /**
+     * La phrase qui dit ce qui se passe — sans un mot de jargon.
+     */
+    private static function messageOf(string $subject, int $used, int $limit): string
+    {
+        if ($used >= $limit) {
+            return sprintf('Vous avez épuisé vos %s %s.', PortalFormat::count($limit), $subject);
+        }
+
+        return sprintf(
+            'Il vous reste %s %s sur %s.',
+            PortalFormat::count($limit - $used),
+            $subject,
+            PortalFormat::count($limit),
+        );
+    }
+
+    /**
+     * Le contrat porte-t-il ce quota ?
+     */
+    private static function carries(EntitlementsView $entitlements, string $meter): bool
+    {
+        foreach ($entitlements->entitlements as $entitlement) {
+            if ($entitlement->type === 'limit' && $entitlement->meter === $meter) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

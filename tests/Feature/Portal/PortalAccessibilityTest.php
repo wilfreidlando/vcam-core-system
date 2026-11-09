@@ -142,7 +142,7 @@ final class PortalAccessibilityTest extends TestCase
     {
         $on = $this->entitlement('boolean', 'priority_support', true);
         $off = $this->entitlement('boolean', 'custom.domain', false);
-        $html = $this->render('usage', ['entitlements' => $this->entitlements([$on, $off])]);
+        $html = $this->render('usage', ['usage' => $this->usage([$on, $off])]);
 
         self::assertStringContainsString('<span class="sr-only">(inclus)</span>', $html);
         self::assertStringContainsString('<span class="sr-only">(non inclus)</span>', $html);
@@ -186,8 +186,8 @@ final class PortalAccessibilityTest extends TestCase
     #[Test]
     public function an_unlimited_meter_agrees_in_number_too(): void
     {
-        $one = $this->render('usage', ['entitlements' => $this->entitlements([$this->entitlement('limit', 'sms', true, used: 1)])]);
-        $many = $this->render('usage', ['entitlements' => $this->entitlements([$this->entitlement('limit', 'sms', true, used: 12)])]);
+        $one = $this->render('usage', ['usage' => $this->usage([$this->entitlement('limit', 'sms', true, used: 1)])]);
+        $many = $this->render('usage', ['usage' => $this->usage([$this->entitlement('limit', 'sms', true, used: 12)])]);
 
         self::assertStringContainsString('1 utilisé · illimité', $one);
         self::assertStringContainsString('12 utilisés · illimité', $many);
@@ -326,6 +326,17 @@ final class PortalAccessibilityTest extends TestCase
     private function entitlements(array $list): stdClass
     {
         return $this->obj(['active' => true, 'entitlements' => $list]);
+    }
+
+    /**
+     * The usage page receives one object (ADR-0119): the entitlements, the
+     * packs offered, and the nonce of the form.
+     *
+     * @param list<stdClass> $list
+     */
+    private function usage(array $list): stdClass
+    {
+        return $this->obj(['entitlements' => $this->entitlements($list), 'groups' => [], 'nonce' => 'n']);
     }
 
     /**

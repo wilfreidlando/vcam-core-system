@@ -21,6 +21,7 @@ final readonly class BillingSettings
     /**
      * @param array<string, mixed> $documentBranding the free marks of the printed documents
      * @param array<string, string> $meterMappings which capability of the Core feeds which meter (ADR-0074 §5)
+     * @param list<SupplementPack> $supplementPacks the packs the project offers to its customers (ADR-0119 §1)
      */
     public function __construct(
         public string $projectId,
@@ -36,6 +37,7 @@ final readonly class BillingSettings
         public array $meterMappings = [],
         public bool $refundFailedUsage = true,
         public bool $requireCustomerRef = false,
+        public array $supplementPacks = [],
     ) {}
 
     /**

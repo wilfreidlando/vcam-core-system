@@ -53,6 +53,7 @@ use Core\Billing\Application\UseCase\PauseSubscriptionUseCase;
 use Core\Billing\Application\UseCase\PayInvoiceUseCase;
 use Core\Billing\Application\UseCase\ProjectMetricsUseCase;
 use Core\Billing\Application\UseCase\PublishPlanVersionUseCase;
+use Core\Billing\Application\UseCase\PurchaseSubscriptionSupplementPackUseCase;
 use Core\Billing\Application\UseCase\PurchaseSubscriptionSupplementUseCase;
 use Core\Billing\Application\UseCase\ReactivateCustomerUseCase;
 use Core\Billing\Application\UseCase\RecordManualReceiptUseCase;
@@ -100,6 +101,7 @@ use Core\Billing\Contracts\PayInvoice;
 use Core\Billing\Contracts\ProjectMetrics;
 use Core\Billing\Contracts\PublishPlanVersion;
 use Core\Billing\Contracts\PurchaseSubscriptionSupplement;
+use Core\Billing\Contracts\PurchaseSubscriptionSupplementPack;
 use Core\Billing\Contracts\ReactivateCustomer;
 use Core\Billing\Contracts\RecordManualReceipt;
 use Core\Billing\Contracts\ResumeSubscription;
@@ -238,6 +240,11 @@ final class BillingServiceProvider extends ServiceProvider
         // of a metered feature, and the history of those purchases.
         $this->app->bind(PurchaseSubscriptionSupplement::class, PurchaseSubscriptionSupplementUseCase::class);
         $this->app->bind(ListSubscriptionSupplements::class, ListSubscriptionSupplementsUseCase::class);
+
+        // ADR-0119 §3 — l'achat d'un **pack** du catalogue : c'est le
+        // geste du client final dans le portail, il cite un code et
+        // jamais un prix.
+        $this->app->bind(PurchaseSubscriptionSupplementPack::class, PurchaseSubscriptionSupplementPackUseCase::class);
 
         // The invoices — the document that carries the receivable
         // (ADR-0073, ADR-0094).
