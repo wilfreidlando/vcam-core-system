@@ -5,17 +5,23 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
+use App\Notices\CoreNoticeCatalogue;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
+use Core\Billing\Contracts\BillingSettingsView;
 use Core\Billing\Contracts\ListUsage;
 use Core\Billing\Contracts\ManageBillingSettings;
 use Core\Billing\Contracts\SaveBillingSettingsCommand;
 use Core\Billing\Domain\Exception\InvalidBillingSettings;
 use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Notification\Contracts\ManageSystemNotificationSettings;
+use Core\Notification\Contracts\SaveSystemNotificationSettingsCommand;
+use Core\Notification\Contracts\SystemNotificationPreferenceView;
 use Core\Portal\Contracts\ManagePortalSettings;
 use Core\Portal\Contracts\SavePortalSettingsCommand;
 use Core\Portal\Domain\Exception\InvalidPortalSettings;
+use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,6 +46,7 @@ final class ProjectCommerceController
         private readonly GetProject $getProject,
         private readonly ManagePortalSettings $portal,
         private readonly ManageBillingSettings $billing,
+        private readonly ManageSystemNotificationSettings $systemNotifications,
         private readonly ListUsage $usage,
         private readonly AuditLogger $audit,
         private readonly Clock $clock,
@@ -115,7 +122,58 @@ final class ProjectCommerceController
             'title' => 'Réglages du commerce',
             'projectId' => $projectId,
             'settings' => $this->billing->get($projectId, $scope),
+            'noticeEvents' => $this->noticeEvents($projectId, $scope),
         ]);
+    }
+
+    /**
+     * ADR-0118 §4 — what the project wants its customers notified about.
+     *
+     * The declarations are the project's own: the commerce's events, named
+     * by the console, on the only channel that exists today (WhatsApp).
+     */
+    public function saveSystemNotifications(Request $request, OperatorContext $operator, string $projectId): RedirectResponse
+    {
+        $scope = $this->permittedScope($operator, 'plans:write');
+        $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
+
+        $validated = Validator::make($request->all(), [
+            'events' => ['nullable', 'array'],
+            'events.*' => ['string', 'in:'.implode(',', CoreNoticeCatalogue::events())],
+        ])->validate();
+
+        $preferences = [];
+        $events = $validated['events'] ?? [];
+        if (is_array($events)) {
+            foreach ($events as $eventType) {
+                if (is_string($eventType)) {
+                    $preferences[] = new SystemNotificationPreferenceView($eventType, CoreNoticeCatalogue::CHANNEL);
+                }
+            }
+        }
+
+        $before = $this->systemNotifications->get($projectId, $scope);
+
+        $saved = $this->systemNotifications->save(new SaveSystemNotificationSettingsCommand(
+            projectId: $projectId,
+            preferences: $preferences,
+            actor: $this->actor($operator),
+        ), $scope);
+
+        $this->audit->record(new AuditEntry(
+            actor: $this->actor($operator),
+            action: 'notification.system_settings_changed',
+            resource: 'project:'.$projectId,
+            before: $before === null ? null : (array) $before,
+            after: $saved === null ? null : (array) $saved,
+            context: [],
+            correlationId: null,
+            occurredAt: $this->clock->now(),
+            projectId: $projectId,
+        ));
+
+        return redirect()->route('admin.projects.commerce-settings', $projectId)
+            ->with('status', 'Notifications système enregistrées.');
     }
 
     public function saveSettings(Request $request, OperatorContext $operator, string $projectId): RedirectResponse
@@ -123,7 +181,7 @@ final class ProjectCommerceController
         $scope = $this->permittedScope($operator, 'plans:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
 
-        /** @var array{timezone: string, default_currency: string, renewal_lead_days: int|string|string, incomplete_expiry_hours: int|string|string, invoice_prefix: string, default_tax_rate_percent: numeric-string|int|float|null, manual_receipt_threshold?: int|string|string|null, meter_mappings?: string|null} $data */
+        /** @var array{timezone: string, default_currency: string, renewal_lead_days: int|string|string, incomplete_expiry_hours: int|string|string, invoice_prefix: string, default_tax_rate_percent: numeric-string|int|float|null, manual_receipt_threshold?: int|string|string|null, meter_mappings?: string|null, supplement_packs?: string|null} $data */
         $data = Validator::make($request->all(), [
             'timezone' => ['required', 'string', 'max:64'],
             'default_currency' => ['required', 'string', 'size:3'],
@@ -133,6 +191,7 @@ final class ProjectCommerceController
             'default_tax_rate_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'manual_receipt_threshold' => ['nullable', 'integer', 'min:0'],
             'meter_mappings' => ['nullable', 'string', 'max:4000'],
+            'supplement_packs' => ['nullable', 'string', 'max:8000'],
             'refund_failed_usage' => ['nullable', 'boolean'],
             'require_customer_ref' => ['nullable', 'boolean'],
         ])->validate();
@@ -154,6 +213,7 @@ final class ProjectCommerceController
                 refundFailedUsage: $request->boolean('refund_failed_usage'),
                 requireCustomerRef: $request->boolean('require_customer_ref'),
                 actor: $this->actor($operator),
+                supplementPacks: $this->packs($data['supplement_packs'] ?? null, $before),
             ), $scope);
         } catch (InvalidBillingSettings $e) {
             return back()->withInput()->withErrors(['resource' => $e->getMessage()]);
@@ -202,6 +262,28 @@ final class ProjectCommerceController
     }
 
     // ---------------------------------------------------------------- helpers
+
+    /**
+     * The notifiable events, with the label the console shows and whether
+     * the project declared them (ADR-0118 §4).
+     *
+     * @return list<array{event: string, label: string, checked: bool}>
+     */
+    private function noticeEvents(string $projectId, AccessScope $scope): array
+    {
+        $settings = $this->systemNotifications->get($projectId, $scope);
+        $events = [];
+
+        foreach (CoreNoticeCatalogue::labels() as $eventType => $label) {
+            $events[] = [
+                'event' => $eventType,
+                'label' => $label,
+                'checked' => $settings !== null && $settings->wants($eventType, CoreNoticeCatalogue::CHANNEL),
+            ];
+        }
+
+        return $events;
+    }
 
     private function actor(OperatorContext $operator): string
     {
@@ -264,5 +346,68 @@ final class ProjectCommerceController
         }
 
         return $out;
+    }
+
+    /**
+     * ADR-0119 §1 — le catalogue de packs, lu depuis la zone de texte.
+     *
+     * Une ligne par pack : `code | compteur | quantité | prix | libellé`.
+     * Le prix est en unités mineures de la devise du projet (G5 : jamais
+     * de float) ; pour XAF, l'unité mineure est le franc.
+     *
+     * Le compteur d'un pack doit être un compteur que le projet a
+     * déclaré : un pack qui ne vise rien n'a pas de sens.
+     *
+     * @param BillingSettingsView|null $reglages the settings before the save
+     * @return list<array{code: string, meter: string, quantity: int, unit_price_minor: int, label: string}>
+     */
+    private function packs(?string $text, ?BillingSettingsView $reglages): array
+    {
+        $packs = [];
+        $compteurs = $reglages === null ? [] : array_values($reglages->meterMappings);
+
+        foreach ($this->lines($text) as $line) {
+            $champs = array_map('trim', explode('|', $line));
+
+            if (count($champs) !== 5) {
+                throw new InvalidBillingSettings('Un pack doit avoir cinq champs : code | compteur | quantité | prix | libellé.');
+            }
+
+            [$code, $meter, $quantity, $prix, $label] = $champs;
+
+            if (preg_match('/^[a-z0-9_-]{1,64}$/', $code) !== 1) {
+                throw new InvalidBillingSettings('Le code d\'un pack est en minuscules, chiffres, « _ » et « - » (64 caractères au plus).');
+            }
+
+            if (preg_match('/^[a-z0-9_.]{1,64}$/', $meter) !== 1) {
+                throw new InvalidBillingSettings('Le compteur d\'un pack est un nom de compteur : lettres minuscules, chiffres, « . » et « _ ».');
+            }
+
+            if ($compteurs !== [] && ! in_array($meter, $compteurs, true)) {
+                throw new InvalidBillingSettings('Le compteur « '.$meter.' » n\'est pas un compteur déclaré par ce projet.');
+            }
+
+            if (preg_match('/^\d{1,9}$/', $quantity) !== 1 || (int) $quantity < 1) {
+                throw new InvalidBillingSettings('La quantité d\'un pack est un entier au moins égal à 1.');
+            }
+
+            if (preg_match('/^\d{1,12}$/', $prix) !== 1) {
+                throw new InvalidBillingSettings('Le prix d\'un pack est un entier positif, en unités mineures de la devise du projet.');
+            }
+
+            if ($label === '' || mb_strlen($label) > 120) {
+                throw new InvalidBillingSettings('Le libellé d\'un pack est obligatoire (120 caractères au plus).');
+            }
+
+            $packs[] = [
+                'code' => $code,
+                'meter' => $meter,
+                'quantity' => (int) $quantity,
+                'unit_price_minor' => (int) $prix,
+                'label' => $label,
+            ];
+        }
+
+        return $packs;
     }
 }

@@ -137,6 +137,56 @@ The invoice is created **draft** and issued in that very transaction: the
 observer sees an **open** invoice, and the number is attributed at the
 issuance (ADR-0094 §6). A trial is free and carries none (ADR-0072 §1).
 
+## The supplement (ADR-0117)
+
+A **supplement** is a quantity bought **on top of** the limit of a
+metered feature — the pack of fifty extra WhatsApp messages a customer
+buys when his plan of a hundred is exhausted.
+
+- it is **not** a subscription and **not** a second counter: the customer
+  keeps his plan, his period and his counter; what is bought is an
+  allowance, on the very meter of one of his features;
+- it carries **its own invoice** — created and issued by the invoice
+  module, like every other sum of the module;
+- the allowance is granted **when that invoice is paid** — in the very
+  transaction that settles it, online or offline. An order that is not
+  paid for yet grants nothing;
+- an annulled invoice cancels the supplement it carried, and so does an
+  invoice written off as a bad debt: the money will never arrive, and the
+  meter must not stay locked behind a purchase that grants nothing.
+
+The limit that is spent — and the limit the entitlements announce — is the
+**effective** one: the limit of the plan version **plus** the sum of the
+supplements **activated in the period in progress** (ADR-0121). A pack
+covers the period it was paid for; it does not carry over to the next
+one. That sum is computed in one place
+only (`EffectiveLimitResolver`), so the number a client is told and the
+number the quota is enforced against never drift apart.
+
+## The catalogue of packs (ADR-0119)
+
+A **pack** is an offer the project declares for its customers: the meter
+it extends, the quantity it adds, the price of one unit in minor units
+(G5) and the label the customer reads. It lives in the project settings
+(`billing_settings.supplement_packs`), like the capability → meter
+declarations — not in a table of its own, not in a plan.
+
+- the rules are checked **in the code**, never by a database constraint:
+  the meter must be one the project counts, the quantity at least one, the
+  price strictly positive, the label non-empty, the code unique;
+- the packs are carried over untouched when a settings save does not carry
+  them, so saving the settings from the console never empties the
+  catalogue.
+
+The customer of a portal buys a pack through
+`Contracts\PurchaseSubscriptionSupplementPack`: he cites the **code** of
+an offer, never a price of his own. The purchase produces the same thing
+as the operator's route — a `pending` supplement and its invoice — and
+the replay of the same gesture buys only once (the key of the gesture is
+durable, unique per project). The operator's route
+(`POST /v1/subscriptions/{id}/supplements`) is unchanged: it declares a
+quantity and a price, like the lines of a manual invoice.
+
 ## The period arithmetic
 
 The periods are computed in the **project's timezone** (`billing_settings`,
@@ -162,6 +212,8 @@ arithmetic is explicit in `Domain/Model/BillingInterval.php`.
 | `POST /v1/subscriptions` | `subscriptions:write` + `Idempotency-Key` | Creates the contract, its first period |
 | `GET /v1/subscriptions/{id}` · `GET /v1/subscriptions?customer_ref=&status=` | `subscriptions:read` | The contract and its current period |
 | `POST /v1/subscriptions/{id}/cancel` · `/change-plan` | `subscriptions:write` | The operator's gestures |
+| `POST /v1/subscriptions/{id}/supplements` | `subscriptions:write` + `Idempotency-Key` | Buys units added **on top of** the limit of a metered feature — with its own invoice |
+| `GET /v1/subscriptions/{id}/supplements` | `subscriptions:read` | The purchases of the contract, and the ones still waiting for their payment |
 | `GET /v1/invoices/{id}` · `GET /v1/invoices?customer_ref=&status=` | `invoices:read` | The document, its lines and what has been paid of it |
 | `GET /v1/invoices/{id}/document` | `invoices:read` | The printable invoice, as HTML |
 | `POST /v1/invoices` | `invoices:write` + `Idempotency-Key` | Creates a **draft** manual invoice |

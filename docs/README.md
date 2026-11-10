@@ -13,6 +13,7 @@
 | Savoir **pourquoi** une décision a été prise | [Index des ADR](adr/README.md) |
 | **Intégrer** un produit au Core (appels, clés, webhooks) | **[Brancher une application cliente](integration/brancher-une-application-cliente.md)**, [Guide `curl` de l'intégrateur](integration/guide-curl-integrateur.md), [Webhooks et `callback_url`](integration/webhooks.md), [Kit Laravel](integration/kit-laravel/INSTALL.md) |
 | **Apprendre à utiliser** la console opérateur, le portail client et l'API | [Manuel d'utilisation](manuel/README.md) |
+| **Recharger un quota épuisé** sans renouveler un abonnement | [Les suppléments de quota](manuel/reference/11-supplements-de-quota.md) |
 | **Savoir où en est la livraison** et ce qu'il reste à faire | [Plan de livraison complet](specs/plan-livraison-complet.md) |
 | **Savoir si la recette est bonne** et ce qui la prouve | [Matrice de recette R-01 → R-15](specs/recette-matrice.md) |
 

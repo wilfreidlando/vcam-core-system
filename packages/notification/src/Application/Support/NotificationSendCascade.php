@@ -18,6 +18,7 @@ use Core\Notification\Contracts\NotificationQuotaExceeded;
 use Core\Notification\Contracts\NotificationView;
 use Core\Notification\Contracts\OutboundMessage;
 use Core\Notification\Domain\Exception\NotificationAlreadyExists;
+use Core\Notification\Domain\Model\ChannelSession;
 use Core\Notification\Domain\Model\Notification;
 use Core\Notification\Domain\Model\QuotaVerdict;
 use Core\Notification\Domain\Port\ChannelSessionRepository;
@@ -80,6 +81,17 @@ final readonly class NotificationSendCascade
     /**
      * @param array<string, mixed> $variables
      * @param array<string, mixed> $body
+     * @param ChannelSession|null $session a session the caller resolved
+     *                                     itself — the Core's own platform session (ADR-0118 §2). When
+     *                                     it is given, the session is **not** resolved again: a
+     *                                     project's session of the same name never takes the platform's
+     *                                     place. When it is null, the session named in `$variables` is
+     *                                     resolved as usual — the Project's own registration first, else
+     *                                     a global one (ADR-0114 §3).
+     * @param bool $metered whether the send spends a unit of the
+     *                      recipient's quota. The Core's own notices do not (ADR-0118 §5):
+     *                      the Core informs a customer of their own commercial state,
+     *                      which is not a service that customer's plan buys.
      */
     public function send(
         string $projectId,
@@ -89,6 +101,8 @@ final readonly class NotificationSendCascade
         array $body,
         string $contentType,
         string $idempotencyKey,
+        ?ChannelSession $session = null,
+        bool $metered = true,
     ): NotificationView {
         $existing = $this->notifications->findByIdempotencyKey($projectId, $idempotencyKey);
         if ($existing !== null) {
@@ -100,7 +114,9 @@ final readonly class NotificationSendCascade
         // anything is written: a session the client names that does not
         // is not registered for this Project is refused here with an
         // explicit error — no party, no notification row, no provider call.
-        $variables = $this->withResolvedSession($channel, $projectId, $variables);
+        $variables = $session === null
+            ? $this->withResolvedSession($channel, $projectId, $variables)
+            : $this->withGivenSession($session, $variables);
 
         // Correlation anchor only (ADR-0041 §5) — never a contact address.
         $this->partyFinder->findOrCreate(new FindOrCreatePartyCommand(
@@ -138,9 +154,11 @@ final readonly class NotificationSendCascade
         $customerRef = $this->customerRef($variables);
 
         try {
-            $this->unitOfWork->transactional(function () use ($queued, $projectId, $customerRef, $capability, $idempotencyKey): void {
+            $this->unitOfWork->transactional(function () use ($queued, $projectId, $customerRef, $capability, $idempotencyKey, $metered): void {
                 $this->notifications->create($queued);
-                $this->spendQuota($projectId, $customerRef, $capability, $idempotencyKey);
+                if ($metered) {
+                    $this->spendQuota($projectId, $customerRef, $capability, $idempotencyKey);
+                }
             });
         } catch (NotificationAlreadyExists) {
             $winner = $this->notifications->findByIdempotencyKey($projectId, $idempotencyKey);
@@ -197,10 +215,13 @@ final readonly class NotificationSendCascade
 
         $failed = $queued->withStatusChange(NotificationStatus::Failed, $lastError ?? 'Every configured provider failed.');
 
-        $this->unitOfWork->transactional(function () use ($failed, $projectId, $customerRef, $capability, $idempotencyKey): void {
+        $this->unitOfWork->transactional(function () use ($failed, $projectId, $customerRef, $capability, $idempotencyKey, $metered): void {
             $this->notifications->save($failed);
-            // Nobody was reached: the unit goes back (ADR-0074 §5).
-            $this->quota?->release($projectId, $customerRef, $capability, $idempotencyKey);
+            // Nobody was reached: the unit goes back (ADR-0074 §5). Nothing
+            // goes back when the send was not metered in the first place.
+            if ($metered) {
+                $this->quota?->release($projectId, $customerRef, $capability, $idempotencyKey);
+            }
             $this->outbox->append(new DomainEvent(
                 $this->identifier->generate(),
                 $failed->projectId,
@@ -261,6 +282,22 @@ final readonly class NotificationSendCascade
             ?? throw new ChannelSessionNotFound($session);
 
         $variables['session'] = $registered->providerName();
+
+        return $variables;
+    }
+
+    /**
+     * A session the caller resolved itself — the Core's own platform
+     * session (ADR-0118 §2). It is used as it was given: the name it has
+     * at the provider, and no lookup against the Project, so a Project's
+     * own session of the same name cannot answer for the platform.
+     *
+     * @param array<string, mixed> $variables
+     * @return array<string, mixed>
+     */
+    private function withGivenSession(ChannelSession $session, array $variables): array
+    {
+        $variables['session'] = $session->providerName();
 
         return $variables;
     }

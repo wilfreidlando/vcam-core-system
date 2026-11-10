@@ -290,11 +290,16 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   elle appartiendrait à un futur adaptateur qui l'exige (l'API Business
   officielle, par exemple — WAHA ne l'exige pas).
   `HandleNotificationStatusChangedUseCase` existe et est testé, appelé
-  par `WahaWebhookController` (`POST /webhooks/whatsapp-waha`). **Rien ne
-  déclenche une notification automatiquement** — les endpoints `send-*`
-  sont la seule porte d'entrée, même en réaction à un
-  `payment.status_changed` (même raisonnement qu'ADR-0037 : pas de
-  composition implicite entre modules).
+  par `WahaWebhookController` (`POST /webhooks/whatsapp-waha`). Pour les
+  messages d'un **projet**, les endpoints `send-*` sont la seule porte
+  d'entrée, même en réaction à un `payment.status_changed` (même
+  raisonnement qu'ADR-0037 : pas de composition implicite entre
+  modules). Les messages que le **Core** adresse à **ses propres
+  locataires** sont la seule exception : branchés sur l'outbox, **opt-in**
+  par projet et par couple (événement, canal), et jamais déclenchés par
+  une composition implicite entre modules
+  ([ADR-0118](docs/adr/0118-le-core-previent-ses-locataires-des-evenements-de-commerce.md),
+  amendé par [ADR-0120](docs/adr/0120-la-cle-dune-notification-core-identifie-la-ressource.md)).
   Adaptateur concret livré : WhatsApp via WAHA auto-hébergé
   ([ADR-0042](docs/adr/0042-whatsapp-waha-adapter-channel-session-minimal-surface.md)) —
   `WahaAdapter` implémente `NotificationChannelProvider` (send
@@ -350,11 +355,14 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   après épuisement, replay via `webhook:replay` (CLI) **et** depuis le Lot 6
   via `POST /v1/admin/webhook-deliveries/{id}/replay` (ADR-0044) — les deux
   convergent sur le même `Contracts\ReplayWebhookDelivery` +
-  `Contracts\QueueWebhookDelivery`. Ce qui reste hors périmètre :
-  `notification` ne consomme pas encore `OutboxEventPublished` (Lot 5+) —
-  `payment` le consomme depuis le lot 3 (la livraison du callback) et
+  `Contracts\QueueWebhookDelivery`. `payment` consomme
+  `OutboxEventPublished` depuis le lot 3 (la livraison du callback),
   `billing` depuis le lot 11b (`InvoicePaymentStatusListener` : l'imputation
-  d'un règlement de facture sur sa créance).
+  d'un règlement de facture sur sa créance), et `notification` depuis
+  l'ADR-0118 — mais **seulement** pour les messages que le Core adresse
+  à ses propres locataires, branchés sur l'outbox et **opt-in** par
+  projet et par couple (événement, canal)
+  ([ADR-0118](docs/adr/0118-le-core-previent-ses-locataires-des-evenements-de-commerce.md)).
 - Module `admin` : **trois tranches du Lot 6 livrées** — voir
   [ADR-0044](docs/adr/0044-conception-lot-6-core-admin-operateurs-rbac-audit-dlq-reconciliation.md),
   [ADR-0045](docs/adr/0045-lot-6-listing-generique-admin.md) et

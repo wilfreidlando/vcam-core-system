@@ -60,6 +60,9 @@ final class RecetteCriteriaTest extends TestCase
 
     private string $projectId = '';
 
+    /** L'URL du webhook : unique par test, pour qu'un reliquat ne collide jamais. */
+    private string $webhook = '';
+
     // ---------------------------------------------------------------- R-03
 
     #[Test]
@@ -426,6 +429,10 @@ final class RecetteCriteriaTest extends TestCase
     {
         parent::setUp();
 
+        // Une URL unique par test : deux tests qui partagent la meme URL
+        // ne peuvent pas se marcher dessus (le projet, lui, est neuf).
+        $this->webhook = self::WEBHOOK.'/'.uniqid();
+
         $this->clock = new class(new DateTimeImmutable('2026-11-01T08:00:00Z')) implements Clock
         {
             public function __construct(public DateTimeImmutable $moment) {}
@@ -440,7 +447,7 @@ final class RecetteCriteriaTest extends TestCase
 
         config(['payment.simulator.enabled' => true]);
         Http::preventStrayRequests();
-        Http::fake([self::WEBHOOK => Http::response('', 204)]);
+        Http::fake([$this->webhook => Http::response('', 204)]);
 
         [$this->token, $this->projectId] = $this->makeProject('Mon Auto-École');
 
@@ -453,7 +460,7 @@ final class RecetteCriteriaTest extends TestCase
         ));
         app(PublishPlanVersion::class)->publish(new PublishPlanVersionCommand(projectId: $this->projectId, planCode: 'pro', version: $version->version, actor: 'test', correlationId: null));
 
-        $this->postJson('/v1/webhook-endpoints', ['url' => self::WEBHOOK, 'events' => ['*']], $this->api())->assertStatus(201);
+        $this->postJson('/v1/webhook-endpoints', ['url' => $this->webhook, 'events' => ['*']], $this->api())->assertStatus(201);
         $this->putJson('/v1/portal/settings', [
             'display_name' => 'Mon Auto-École', 'allow_plan_change' => true, 'allow_self_cancel' => true,
             'allowed_return_urls' => ['https://mon-saas.example.cm/compte'],
@@ -602,7 +609,7 @@ final class RecetteCriteriaTest extends TestCase
     {
         $types = [];
         foreach (Http::recorded() as [$request]) {
-            if ($request->url() !== self::WEBHOOK) {
+            if ($request->url() !== $this->webhook) {
                 continue;
             }
             $body = json_decode($request->body(), true);

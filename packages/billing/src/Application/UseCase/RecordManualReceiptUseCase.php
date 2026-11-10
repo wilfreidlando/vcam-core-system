@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Billing\Application\UseCase;
 
 use Core\Billing\Application\Port\InvoiceLedger;
+use Core\Billing\Application\Service\SubscriptionSupplementActivator;
 use Core\Billing\Application\Support\InvoiceEvents;
 use Core\Billing\Application\Support\ManualReceiptViews;
 use Core\Billing\Contracts\ManualReceiptView;
@@ -54,6 +55,7 @@ final readonly class RecordManualReceiptUseCase implements RecordManualReceipt
         private EventOutbox $outbox,
         private Identifier $identifier,
         private Clock $clock,
+        private SubscriptionSupplementActivator $activator,
     ) {}
 
     public function record(RecordManualReceiptCommand $command): ManualReceiptView
@@ -140,6 +142,11 @@ final readonly class RecordManualReceiptUseCase implements RecordManualReceipt
 
             $this->publishRecorded($receipt, $invoice, $now);
             $this->publishPaid($invoice, $now);
+
+            // ADR-0117 §4 — the money arrived: the supplements the
+            // invoice carries grant their allowance from this instant, in
+            // this very transaction.
+            $this->activator->settle($invoice);
 
             return ManualReceiptViews::from($receipt);
         });

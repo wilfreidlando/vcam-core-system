@@ -122,6 +122,14 @@ final class Invoice
             throw InvalidInvoiceTransition::becauseNotAllowed($this->status->value, InvoiceStatus::Uncollectible->value);
         }
 
+        // ADR-0073 §3 — the write-off moves the **whole** receivable to
+        // `bad_debt`. A partly-paid invoice would be credited twice: once
+        // for what was received, once for the total. `void()` refuses the
+        // same situation; the write-off refuses it too.
+        if ($this->amountPaidMinor > 0) {
+            throw InvalidInvoiceTransition::becauseSomethingWasPaid($this->amountPaidMinor);
+        }
+
         $this->status = InvoiceStatus::Uncollectible;
         $this->lostAt = $at;
         $this->updatedAt = $at;

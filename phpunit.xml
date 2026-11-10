@@ -144,6 +144,10 @@
              suite must not inherit them from a developer's .env: the guard
              itself is covered hermetically by OutboundUrlGuardTest. -->
         <env name="OUTBOUND_ALLOW_PRIVATE_TARGETS" value="false" force="true"/>
+        <!-- Same hermeticity for plain http: the rule requires https, and a
+             developer's local .env relaxes it for development. The suite
+             must prove what production does. -->
+        <env name="OUTBOUND_ALLOW_INSECURE_HTTP" value="false" force="true"/>
         <!-- WAHA auth needs a non-empty key; tests must not depend on a
              developer .env to provide one. -->
         <env name="WAHA_API_KEY" value="test-waha-api-key"/>

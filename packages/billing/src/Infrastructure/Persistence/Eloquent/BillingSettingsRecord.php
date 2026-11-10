@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
  *
  * @property string $project_id
  * @property string|null $meter_mappings
+ * @property string|null $supplement_packs
  * @property bool $refund_failed_usage
  * @property bool $require_customer_ref
  * @property string $timezone
@@ -55,6 +56,7 @@ final class BillingSettingsRecord extends Model
         'retain_invoice_identity',
         'document_branding',
         'meter_mappings',
+        'supplement_packs',
         'refund_failed_usage',
         'require_customer_ref',
     ];

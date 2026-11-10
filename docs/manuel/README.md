@@ -99,6 +99,7 @@ de portée, d'identifiant, de cas limite — et ne sont pas rendus dans la conso
 | [08 — API pour l'intégrateur](reference/08-api-integrateur.md) | Le contrat d'appel, les refus, les limites |
 | [09 — Comprendre l'argent](reference/09-comprendre-l-argent.md) | Le grand livre, les portefeuilles, la chaîne de l'argent |
 | [10 — Ce que le Core ne fait pas](reference/10-ce-que-le-core-ne-fait-pas.md) | Les écarts assumés, ce qui n'existe pas encore |
+| [11 — Les suppléments de quota](reference/11-supplements-de-quota.md) | Acheter des unités en plus d'un quota, sans renouveler l'abonnement — pour la période payée |
 
 Pour l'API, il y a mieux que ce manuel : le [**guide d'intégration**](../integration/) et
 le schéma des routes (`openapi/v1.json`). Pour les décisions, les [**ADR**](../adr/).

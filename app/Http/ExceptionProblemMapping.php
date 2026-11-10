@@ -14,6 +14,7 @@ use Core\Billing\Domain\Exception\InvalidInvoiceTransition;
 use Core\Billing\Domain\Exception\InvalidPlan;
 use Core\Billing\Domain\Exception\InvalidPlanFeature;
 use Core\Billing\Domain\Exception\InvalidSubscriptionStart;
+use Core\Billing\Domain\Exception\InvalidSubscriptionSupplement;
 use Core\Billing\Domain\Exception\InvalidSubscriptionTransition;
 use Core\Billing\Domain\Exception\InvoiceNotFound;
 use Core\Billing\Domain\Exception\InvoiceNotPayable;
@@ -224,6 +225,10 @@ final class ExceptionProblemMapping
         // sent the version it last read and the stored one moved on.
         CustomerVersionConflict::class => ['type' => 'version-conflict', 'title' => 'The version has changed', 'status' => 412],
         InvalidPlan::class => ['type' => 'invalid-plan', 'title' => 'The plan is invalid', 'status' => 422],
+        // ADR-0117 §2 — the purchase of a supplement that the Core
+        // refuses: the contract grants no right, the meter is not one of
+        // its plan, or the meter has no limit to add to.
+        InvalidSubscriptionSupplement::class => ['type' => 'invalid-subscription-supplement', 'title' => 'The supplement cannot be bought', 'status' => 422],
         InvalidPlanFeature::class => ['type' => 'invalid-plan-feature', 'title' => 'The plan feature is invalid', 'status' => 422],
         InvalidBillingInterval::class => ['type' => 'invalid-billing-interval', 'title' => 'The billing interval is invalid', 'status' => 422],
         // ADR-0071 §4 — the periods are computed in the timezone of the

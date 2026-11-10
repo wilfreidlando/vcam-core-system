@@ -22,6 +22,17 @@ final class ObservabilityEndpointsTest extends TestCase
     #[Test]
     public function readiness_reports_each_dependency(): void
     {
+        // Other integration tests in the full suite deliberately commit
+        // real, uncleaned rows outside RefreshDatabase (the concurrency
+        // tests need their subprocesses to see the fixture) — their outbox
+        // writes are real, committed rows the relay would otherwise have
+        // published. An outbox row older than five minutes makes the
+        // readiness probe report the Core as degraded, which says nothing
+        // about the code under test. Neutralise the backlog first (not via
+        // the relay, which would trigger real fan-out side effects), the
+        // way the relay and webhook tests already do.
+        DB::table('event_outbox')->whereNull('published_at')->update(['published_at' => now()]);
+
         $response = $this->getJson('/ready');
 
         $response->assertOk()

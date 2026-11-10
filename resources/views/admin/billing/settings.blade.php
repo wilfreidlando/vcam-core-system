@@ -37,9 +37,44 @@
             <p id="require_customer_ref-hint" class="text-sm text-slate-600">Conseillé dès qu'une offre publiée porte une limite : sans cela, un oubli de référence contourne la limite.</p>
         </div>
 
+        <h2 class="text-base font-semibold text-slate-900 pt-2">Packs de rechargement</h2>
+        <p class="text-sm text-slate-600">
+            Ce que vos clients peuvent acheter <strong>en plus</strong> de leur limite d'usage, sans renouveler
+            leur abonnement. Un pack par ligne :
+            <code class="font-mono">code | compteur | quantité | prix | libellé</code>.
+        </p>
+        <x-admin.field name="supplement_packs" type="textarea" :rows="4" label="Catalogue de packs"
+                       :value="collect($settings->supplementPacks ?? [])->map(fn ($pack) => implode(' | ', [$pack->code, $pack->meter, $pack->quantity, $pack->unitPriceMinor, $pack->label]))->implode(PHP_EOL)"
+                       placeholder="pack50 | whatsapp_messages | 50 | 5000 | Pack de 50 messages WhatsApp" class="font-mono"
+                       hint="Le code est en minuscules ; le compteur doit être l'un de ceux déclarés ci-dessus. Le prix est en unités mineures de la devise du projet (pour XAF : des francs, sans décimales)." />
+
         <div class="flex items-center gap-3 pt-2">
             <button type="submit" class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">Enregistrer</button>
             <a href="{{ route('admin.projects.show', $projectId) }}" class="inline-block px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">Retour au projet</a>
+        </div>
+    </form>
+
+    <form method="POST" action="{{ route('admin.projects.system-notifications.save', $projectId) }}" class="space-y-6 rounded-lg border border-slate-200 bg-white p-6">
+        @csrf
+
+        <h2 class="text-base font-semibold text-slate-900">Notifications système</h2>
+        <p class="text-sm text-slate-600">
+            Le Core prévient <strong>vos clients</strong> — par WhatsApp, depuis la session de la plateforme,
+            et en son propre nom — quand un événement de commerce se produit. Sans déclaration ci-dessous,
+            rien n'est envoyé : un même événement n'est notifié qu'une fois par client et par période.
+        </p>
+        <div class="space-y-2">
+            @foreach ($noticeEvents as $notice)
+                @php($noticeId = 'notice-'.str_replace('.', '-', $notice['event']))
+                <div class="flex items-center gap-2">
+                    <input id="{{ $noticeId }}" type="checkbox" name="events[]" value="{{ $notice['event'] }}" @checked($notice['checked']) class="h-4 w-4 rounded border-slate-400">
+                    <label for="{{ $noticeId }}" class="text-sm text-slate-800">{{ $notice['label'] }}</label>
+                </div>
+            @endforeach
+        </div>
+
+        <div class="flex items-center gap-3 pt-2">
+            <button type="submit" class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">Enregistrer</button>
         </div>
     </form>
 </div>

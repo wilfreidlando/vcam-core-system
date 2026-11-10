@@ -22,9 +22,11 @@ use Core\Billing\Presentation\Http\Controllers\ListInvoicePaymentsController;
 use Core\Billing\Presentation\Http\Controllers\ListInvoicesController;
 use Core\Billing\Presentation\Http\Controllers\ListPlansController;
 use Core\Billing\Presentation\Http\Controllers\ListSubscriptionsController;
+use Core\Billing\Presentation\Http\Controllers\ListSubscriptionSupplementsController;
 use Core\Billing\Presentation\Http\Controllers\ListUsageController;
 use Core\Billing\Presentation\Http\Controllers\PayInvoiceController;
 use Core\Billing\Presentation\Http\Controllers\PublishPlanVersionController;
+use Core\Billing\Presentation\Http\Controllers\PurchaseSubscriptionSupplementController;
 use Core\Billing\Presentation\Http\Controllers\ReactivateCustomerController;
 use Core\Billing\Presentation\Http\Controllers\SuspendCustomerController;
 use Core\Billing\Presentation\Http\Controllers\UpsertCustomerController;
@@ -103,6 +105,19 @@ Route::middleware(['project.auth'])
             ->middleware('idempotency')
             ->whereUuid('subscriptionId')
             ->name('subscriptions.change-plan');
+
+        // suppléments — ADR-0117 §4
+        //
+        // La route d'achat porte le middleware `idempotency` (G7) : elle
+        // émet une facture et inscrit une créance au grand livre, donc un
+        // rejeu ne doit pas acheter deux fois. La lecture est sans effet.
+        Route::post('/subscriptions/{subscriptionId}/supplements', PurchaseSubscriptionSupplementController::class)
+            ->middleware('idempotency')
+            ->whereUuid('subscriptionId')
+            ->name('subscriptions.supplements.purchase');
+        Route::get('/subscriptions/{subscriptionId}/supplements', ListSubscriptionSupplementsController::class)
+            ->whereUuid('subscriptionId')
+            ->name('subscriptions.supplements.list');
 
         // factures — ADR-0073 §6
         //

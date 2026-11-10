@@ -35,6 +35,11 @@ final class WebhookEventTypes
         'subscription.resumed',
         'subscription.canceled',
         'subscription.expired',
+        // ADR-0117 §4 — the purchase of units added on top of the limit
+        // of a metered feature, and the moment the money arrives.
+        'subscription.supplement_purchased',
+        'subscription.supplement_activated',
+        'subscription.supplement_canceled',
         'invoice.issued',
         'invoice.paid',
         'invoice.payment_failed',

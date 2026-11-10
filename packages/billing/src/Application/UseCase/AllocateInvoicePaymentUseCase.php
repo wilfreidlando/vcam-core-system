@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Billing\Application\UseCase;
 
 use Core\Billing\Application\Port\InvoiceLedger;
+use Core\Billing\Application\Service\SubscriptionSupplementActivator;
 use Core\Billing\Application\Support\InvoiceEvents;
 use Core\Billing\Application\Support\InvoicePaymentViews;
 use Core\Billing\Contracts\ConfirmSubscriptionPeriodPayment;
@@ -14,6 +15,7 @@ use Core\Billing\Domain\Exception\InvoicePaymentNotFound;
 use Core\Billing\Domain\Model\Customer;
 use Core\Billing\Domain\Model\Invoice;
 use Core\Billing\Domain\Model\InvoicePayment;
+use Core\Billing\Domain\Model\InvoiceStatus;
 use Core\Billing\Domain\Model\PeriodState;
 use Core\Billing\Domain\Port\CustomerRepository;
 use Core\Billing\Domain\Port\InvoicePaymentRepository;
@@ -65,6 +67,7 @@ final readonly class AllocateInvoicePaymentUseCase
         private Clock $clock,
         private SubscriptionPeriodRepository $periods,
         private ConfirmSubscriptionPeriodPayment $confirmPeriod,
+        private SubscriptionSupplementActivator $activator,
     ) {}
 
     /**
@@ -118,6 +121,16 @@ final readonly class AllocateInvoicePaymentUseCase
                 return null;
             }
 
+            // ADR-0073 §3 — an invoice that was annulled or written off
+            // is not waiting for its money any more: its receivable has
+            // left the customer. The money that arrives cannot be
+            // imputed on it — it waits on the exceptions account, where an
+            // operator settles it (ADR-0073 §2), exactly like a payment
+            // that arrives on an already-settled invoice.
+            if ($invoice->status !== InvoiceStatus::Open) {
+                return $this->postOverpayment($attempt, $invoice, $attempt->amountMinor, $now);
+            }
+
             // What is still due on the invoice — it may have shrunk
             // since the attempt was started.
             $remaining = $invoice->remainingMinor();
@@ -156,6 +169,11 @@ final readonly class AllocateInvoicePaymentUseCase
 
             $this->publishPaid($invoice, $now);
             $this->settleThePeriodOf($invoice);
+
+            // ADR-0117 §4 — the money arrived: the supplements the
+            // invoice carries grant their allowance from this instant, in
+            // this very transaction.
+            $this->activator->settle($invoice);
 
             $settled = $this->payments->findById($attempt->id);
 

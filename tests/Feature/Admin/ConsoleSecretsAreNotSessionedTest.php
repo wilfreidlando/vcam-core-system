@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
+use App\Mail\OperatorInvitationMail;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Contracts\CreateProject;
@@ -12,6 +13,7 @@ use Core\Webhook\Contracts\RegisterWebhookEndpoint;
 use Core\Webhook\Contracts\RegisterWebhookEndpointCommand;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\SignsInToConsole;
@@ -118,6 +120,30 @@ final class ConsoleSecretsAreNotSessionedTest extends TestCase
         $this->assertNotInSessionStore($token);
 
         $this->get('/admin/operators')->assertOk()->assertDontSee($token);
+    }
+
+    #[Test]
+    public function an_operator_invitation_is_sent_by_email_with_the_token_shown_on_the_page(): void
+    {
+        Mail::fake();
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        $this->signInToConsole();
+
+        $email = uniqid('invited-', true).'@example.com';
+        $response = $this->post('/admin/operators', ['email' => $email, 'role' => 'support_operator'])
+            ->assertOk()
+            ->assertSee($email);
+
+        $token = $this->secretIn($response, "/Jeton d'activation.*?<code[^>]*>([^<]+)<\\/code>/s");
+
+        // The invited person receives the token — and it is the very one
+        // the page shows: an operator who copies it by hand and the
+        // invited person who reads the email get the same thing.
+        Mail::assertSent(OperatorInvitationMail::class, function (OperatorInvitationMail $mail) use ($email, $token): bool {
+            return $mail->hasTo($email)
+                && $mail->token === $token
+                && $mail->invitationUrl === route('admin.invitation.show');
+        });
     }
 
     private function project(): string

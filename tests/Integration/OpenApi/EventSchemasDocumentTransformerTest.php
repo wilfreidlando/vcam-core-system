@@ -99,6 +99,11 @@ it('publishes WebhookEventType schema with the closed enum of emitted types', fu
         'subscription.resumed',
         'subscription.canceled',
         'subscription.expired',
+        // ADR-0117 §4 — the purchase of a supplement, and the moment the
+        // money arrives.
+        'subscription.supplement_purchased',
+        'subscription.supplement_activated',
+        'subscription.supplement_canceled',
         'invoice.issued',
         'invoice.paid',
         'invoice.payment_failed',

@@ -143,7 +143,11 @@ final class EloquentAuditQueryTest extends TestCase
             occurredAt: new DateTimeImmutable('2026-09-15T10:00:00Z'),
         ));
 
-        $criteria = new AuditSearchCriteria(perPage: 50);
+        // The journal is append-only and shared by the whole suite: other
+        // tests write their own entries, and the log keeps them. This
+        // test is about the scoping rules, so it reads the entries of its
+        // own actor — the journal's total is nobody's business here.
+        $criteria = new AuditSearchCriteria(actor: 'operator:1', perPage: 50);
 
         $tenantA = $query->search($criteria, AccessScope::forOrganization($orgA, [$projectA]));
         $actions = array_map(static fn ($entry): string => $entry->action, $tenantA->items);

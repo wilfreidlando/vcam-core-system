@@ -28,6 +28,17 @@
             n'est choisi par le système). Il l'active sur
             <a class="font-mono underline" href="{{ route('admin.invitation.show') }}">{{ route('admin.invitation.show') }}</a>.
         </p>
+        @if (($created['email_sent'] ?? false) === true)
+            <p class="mt-2 text-sm">
+                L'invitation a également été envoyée à <strong>{{ $created['email'] }}</strong> — le jeton
+                ci-dessus reste affiché ici, au cas où le message n'arriverait pas.
+            </p>
+        @else
+            <p class="mt-2 text-sm text-amber-800">
+                L'invitation n'a <strong>pas</strong> pu partir par e-mail (aucun relais SMTP joignable,
+                ou adresse refusée) : transmettez le jeton ci-dessus vous-même.
+            </p>
+        @endif
     </x-admin.alert>
 @endif
 
