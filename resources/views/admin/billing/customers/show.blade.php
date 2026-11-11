@@ -22,6 +22,23 @@
         </div>
     </div>
 
+    {{-- ADR-0122 §5 — les valeurs que l'application a déclarées pour ce
+         client : elles se relisent comme l'identité, et seulement quand la
+         forme en vigueur les annonce. --}}
+    @if (! empty($declared))
+        <div class="rounded-lg border border-slate-200 bg-white p-5">
+            <h2 class="text-base font-semibold text-slate-900">Informations déclarées</h2>
+            <dl class="mt-3 grid gap-4 sm:grid-cols-2">
+                @foreach ($declared as $label => $value)
+                    <div>
+                        <dt class="text-sm text-slate-600">{{ $label }}</dt>
+                        <dd class="text-sm font-medium text-slate-900">{{ $value }}</dd>
+                    </div>
+                @endforeach
+            </dl>
+        </div>
+    @endif
+
     @if ($rights)
         <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-3">
             <div class="flex items-center justify-between">

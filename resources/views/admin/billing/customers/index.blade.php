@@ -24,10 +24,20 @@
             </button>
         </form>
 
-        <a href="{{ route('admin.projects.customers.new', $projectId) }}"
-           class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
-            Nouveau client
-        </a>
+        <div class="flex flex-wrap items-center gap-3">
+            <a href="{{ route('admin.projects.customers.schema', $projectId) }}"
+               class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Forme du client
+            </a>
+            <a href="{{ route('admin.projects.customers.import', $projectId) }}"
+               class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Importer des clients
+            </a>
+            <a href="{{ route('admin.projects.customers.new', $projectId) }}"
+               class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
+                Nouveau client
+            </a>
+        </div>
     </div>
 
     <x-admin.table caption="Clients du projet" :headers="['Référence', 'Nom', 'Contact', 'Statut', 'Version', '']" empty="Aucun client déclaré.">

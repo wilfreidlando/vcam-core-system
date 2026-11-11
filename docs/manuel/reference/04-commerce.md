@@ -59,16 +59,65 @@ serveur** : un champ par attribut, jamais une zone de saisie JSON.
 > (`customer.created`) — voir
 > [ADR-0110](../../adr/0110-le-core-cree-le-locataire-et-le-pousse.md).
 >
-> Les champs que le projet déclare selon **sa** forme — son code, sa
-> localisation, le nom de son responsable — ne sont pas encore en place : la
-> déclaration est en construction, l'API n'existe pas encore
-> ([ADR-0122](../../adr/0122-le-projet-declare-la-forme-de-son-locataire-le-core-la-collecte.md)).
-> Tant qu'elle ne l'est pas, le formulaire ci-dessus est le formulaire.
->
 > **Le contact n'est jamais affiché en clair.** Le courriel et le téléphone sont masqués
 > partout dans la console et dans le portail. À l'édition, le champ est vide : c'est
 > normal. Un champ vide **conserve** la valeur existante ; pour changer une valeur,
 > saisissez la nouvelle. Le grand livre ne contient jamais de donnée personnelle.
+
+### La forme que l'application a déclarée
+
+L'application cliente peut annoncer **la forme de ses clients** : la clé unique
+qu'elle utilise, le format que ses références doivent respecter, et les champs
+qu'elle attend du Core (ADR-0122).
+
+- **Proposer** — `PUT /v1/projects/{projectId}/tenant-schema`, portée
+  `tenant_schema:write` (dans le modèle **Application cliente**) :
+
+  ```json
+  {
+    "unique_key": "code",
+    "unique_key_pattern": "AE[0-9]{4,8}",
+    "fields": [
+      {"key": "localisation", "label": "Localisation", "type": "string",
+       "required": false, "max_length": 120, "source": "declared.localisation"}
+    ]
+  }
+  ```
+
+  La réponse est `201` ; la déclaration reste **en attente** tant que
+  l'opérateur ne l'a pas lue. Une source `core_identity.email` (ou `display_name`,
+  `phone`, `locale`) **remplace** le champ correspondant du Core : la console ne
+  demande jamais la même valeur deux fois.
+
+- **Lire** — `GET /v1/customers/{externalRef}` rend `declared_attributes` (avec
+  `customers:read`) : un objet par clé déclarée, `{}` quand il n'y en a pas.
+
+- **Décider** — dans la console, page **« Forme du client »** du projet
+  (`GET /admin/projects/{projectId}/customers/schema`) : la proposition est lue
+  comme une **liste** (libellé, type, obligatoire, origine, longueur maximale),
+  jamais comme du JSON. **« Accepter la déclaration »** la met en vigueur ;
+  **« Refuser la déclaration »** laisse la forme précédente.
+
+Une fois la forme acceptée, le formulaire **« Nouveau client »** rend **un champ
+par clé déclarée**, et le format de la référence est écrit sous le champ
+**« Référence chez le projet »**. Une référence qui ne respecte pas ce format est
+refusée **sur place**, sous le champ, avec la raison.
+
+### Les clients que l'application avait déjà
+
+Page **« Importer des clients »**
+(`GET /admin/projects/{projectId}/customers/import`) : l'opérateur dépose un
+fichier CSV dont l'en-tête est `external_ref, display_name, email, phone`.
+
+Le Core crée les clients et les pousse ; l'application, qui connaît déjà ses
+clients, les **relie** au lieu d'en créer un second. Un client déjà connu est
+mis à jour, jamais dupliqué. Le rapport dit ce qui a été créé, ce qui était déjà
+connu, et **pour chaque ligne refusée, sa raison** (une référence hors format,
+une ligne illisible).
+
+> Une application cliente propose elle-même ses clients : elle n'écrit **jamais**
+> un client chez le Core (ADR-0110). L'import est un geste d'opérateur, dans la
+> console.
 
 ### Modifier, suspendre, réactiver, effacer
 

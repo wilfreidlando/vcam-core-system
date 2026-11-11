@@ -83,6 +83,12 @@
                                             "type": "object",
                                             "additionalProperties": {}
                                         },
+                                        "declared_attributes": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            }
+                                        },
                                         "status": {
                                             "type": "string"
                                         },
@@ -397,6 +403,12 @@
                                             "type": "object",
                                             "additionalProperties": {}
                                         },
+                                        "declared_attributes": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            }
+                                        },
                                         "status": {
                                             "type": "string"
                                         },
@@ -494,6 +506,12 @@
                                         "metadata": {
                                             "type": "object",
                                             "additionalProperties": {}
+                                        },
+                                        "declared_attributes": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            }
                                         },
                                         "status": {
                                             "type": "string"
@@ -659,6 +677,12 @@
                                                         "type": "object",
                                                         "additionalProperties": {}
                                                     },
+                                                    "declared_attributes": {
+                                                        "type": "object",
+                                                        "additionalProperties": {
+                                                            "type": "string"
+                                                        }
+                                                    },
                                                     "status": {
                                                         "type": "string"
                                                     },
@@ -805,6 +829,12 @@
                                         "metadata": {
                                             "type": "object",
                                             "additionalProperties": {}
+                                        },
+                                        "declared_attributes": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            }
                                         },
                                         "status": {
                                             "type": "string"
@@ -1028,6 +1058,12 @@
                                         "metadata": {
                                             "type": "object",
                                             "additionalProperties": {}
+                                        },
+                                        "declared_attributes": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            }
                                         },
                                         "status": {
                                             "type": "string"
@@ -1261,6 +1297,12 @@
                                             "type": "object",
                                             "additionalProperties": {}
                                         },
+                                        "declared_attributes": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            }
+                                        },
                                         "status": {
                                             "type": "string"
                                         },
@@ -1481,6 +1523,291 @@
                 "x-required-scopes": [
                     "customers:read",
                     "customers:write"
+                ]
+            }
+        },
+        "/projects/{projectId}/tenant-schema": {
+            "put": {
+                "operationId": "projects.tenant-schema.propose",
+                "description": "Answers `201` with the proposed declaration: it waits for the\noperator to read it \u2014 only an accepted declaration is ever rendered\n(ADR-0122 \u00a72).\n\nRequires the `tenant_schema:write` scope. That scope describes a\n**form**, not a write on the commerce: the template of the \u00ab\nApplication cliente \u00bb carries it, and still carries no write scope\non the customers, the subscriptions or the invoices (ADR-0122 \u00a78).",
+                "summary": "Propose the tenant form of the calling Project",
+                "tags": [
+                    "Billing"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ProposeTenantSchemaRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The proposed declaration, waiting for the operator.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "project_id": {
+                                            "type": "string"
+                                        },
+                                        "version": {
+                                            "type": "integer"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "unique_key": {
+                                            "type": "string"
+                                        },
+                                        "unique_key_pattern": {
+                                            "type": "string"
+                                        },
+                                        "fields": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "key": {
+                                                        "type": "string"
+                                                    },
+                                                    "label": {
+                                                        "type": "string"
+                                                    },
+                                                    "type": {
+                                                        "type": "string"
+                                                    },
+                                                    "required": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "max_length": {
+                                                        "type": [
+                                                            "integer",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "source": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "key",
+                                                    "label",
+                                                    "type",
+                                                    "required",
+                                                    "max_length",
+                                                    "source"
+                                                ]
+                                            }
+                                        },
+                                        "accepted_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "created_at": {
+                                            "type": "string"
+                                        },
+                                        "updated_at": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "project_id",
+                                        "version",
+                                        "status",
+                                        "unique_key",
+                                        "unique_key_pattern",
+                                        "fields",
+                                        "accepted_at",
+                                        "created_at",
+                                        "updated_at"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The request payload is invalid",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "https://errors.core-system.internal/invalid-tenant-schema"
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "const": "The tenant schema is invalid"
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string"
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "description": "A URI identifying this specific error condition.",
+                                                    "examples": [
+                                                        "https://errors.core-system.internal/validation-failed"
+                                                    ]
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "description": "A short, human-readable summary of the error condition.",
+                                                    "examples": [
+                                                        "The request payload is invalid"
+                                                    ]
+                                                },
+                                                "status": {
+                                                    "type": "integer",
+                                                    "description": "The HTTP status code, repeated in the body for a caller that only inspects the payload.",
+                                                    "const": 422
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "description": "A human-readable explanation specific to this occurrence of the error.",
+                                                    "examples": [
+                                                        "One or more fields failed validation."
+                                                    ]
+                                                },
+                                                "correlation_id": {
+                                                    "type": "string",
+                                                    "description": "Quote this when contacting support about this specific failure."
+                                                },
+                                                "errors": {
+                                                    "type": "object",
+                                                    "description": "Per-field error messages, keyed by field name. The same shape as `Illuminate\\Validation\\Validator::errors()`.",
+                                                    "additionalProperties": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "title",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/project-not-found"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Project not found"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "tenant_schema:write"
                 ]
             }
         },
@@ -16780,6 +17107,128 @@
                     "paylink"
                 ],
                 "title": "PaymentFlow"
+            },
+            "ProposeTenantSchemaRequest": {
+                "type": "object",
+                "description": "`PUT /v1/projects/{projectId}/tenant-schema` \u2014 ADR-0122 \u00a72.\n\nL'application propose la **forme** de son locataire : une cl\u00e9 unique, le\nmotif que doit respecter la r\u00e9f\u00e9rence du Core, et la liste des cl\u00e9s\nd'attribut. Ce sont des noms, jamais des valeurs (ADR-0122 \u00a71).",
+                "properties": {
+                    "unique_key": {
+                        "type": "string",
+                        "description": "L'attribut que l'application d\u00e9signe : celui qui identifie un\nlocataire **chez elle**. C'est un nom technique, jamais une\nvaleur.",
+                        "pattern": "^[a-z][a-z0-9_]{0,63}$",
+                        "examples": [
+                            "code_etablissement"
+                        ],
+                        "maxLength": 64
+                    },
+                    "unique_key_pattern": {
+                        "type": "string",
+                        "description": "Le motif que doit respecter la r\u00e9f\u00e9rence du Core pour\ndevenir cette cl\u00e9. Le Core refuse un motif qui pourrait\nautoriser une r\u00e9f\u00e9rence hors de son alphabet \u2014 il ne valide\nque la forme ici (ADR-0122 \u00a76).",
+                        "examples": [
+                            "AE-[0-9]{4}"
+                        ],
+                        "maxLength": 256
+                    },
+                    "fields": {
+                        "type": "array",
+                        "description": "Les cl\u00e9s d'attribut d\u00e9clar\u00e9es : au plus 32 (ADR-0122 \u00a71).",
+                        "examples": [
+                            [
+                                {
+                                    "key": "localisation",
+                                    "label": "Localisation",
+                                    "type": "string",
+                                    "required": true,
+                                    "max_length": 120,
+                                    "source": "operator"
+                                }
+                            ]
+                        ],
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "key": {
+                                    "type": "string",
+                                    "description": "Le nom de l'attribut, chez l'application.",
+                                    "pattern": "^[a-z][a-z0-9_]{0,63}$",
+                                    "examples": [
+                                        "localisation"
+                                    ],
+                                    "maxLength": 64
+                                },
+                                "label": {
+                                    "type": "string",
+                                    "description": "Ce que l'op\u00e9rateur lit dans le formulaire.",
+                                    "examples": [
+                                        "Localisation"
+                                    ],
+                                    "maxLength": 120
+                                },
+                                "type": {
+                                    "type": "string",
+                                    "description": "Le type de la valeur \u2014 le Core n'en conna\u00eet que dix\n(ADR-0122 \u00a73).",
+                                    "enum": [
+                                        "string",
+                                        "text",
+                                        "integer",
+                                        "decimal",
+                                        "boolean",
+                                        "date",
+                                        "datetime",
+                                        "email",
+                                        "phone",
+                                        "url"
+                                    ],
+                                    "examples": [
+                                        "string"
+                                    ]
+                                },
+                                "required": {
+                                    "type": "boolean",
+                                    "description": "La valeur est-elle obligatoire ? Une cl\u00e9 obligatoire ne peut\npas \u00eatre enregistr\u00e9e vide (ADR-0122 \u00a71).",
+                                    "examples": [
+                                        true
+                                    ]
+                                },
+                                "max_length": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "description": "La longueur maximale de la valeur, en caract\u00e8res.",
+                                    "examples": [
+                                        120
+                                    ],
+                                    "minimum": 1,
+                                    "maximum": 4096
+                                },
+                                "source": {
+                                    "type": "string",
+                                    "description": "D'o\u00f9 vient la valeur. Les sources du Core (`core_identity.*`)\nsont r\u00e9serv\u00e9es : la d\u00e9claration ne peut pas les red\u00e9clarer\n(ADR-0122 \u00a75).",
+                                    "examples": [
+                                        "operator"
+                                    ],
+                                    "maxLength": 128
+                                }
+                            },
+                            "required": [
+                                "key",
+                                "label",
+                                "type",
+                                "required",
+                                "source"
+                            ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 32
+                    }
+                },
+                "required": [
+                    "unique_key",
+                    "unique_key_pattern",
+                    "fields"
+                ],
+                "title": "ProposeTenantSchemaRequest"
             },
             "PurchaseSubscriptionSupplementRequest": {
                 "type": "object",

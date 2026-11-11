@@ -6,6 +6,7 @@ namespace Core\Billing\Presentation\Http\Controllers;
 
 use Core\Billing\Contracts\GetCustomer;
 use Core\Billing\Contracts\GetCustomerCommand;
+use Core\Billing\Contracts\GetCustomerDeclaredAttributes;
 use Core\Billing\Presentation\Http\Controllers\Concerns\SerializesBillingViews;
 use Core\Billing\Presentation\Http\Responses\BillingResponses;
 use Core\Identity\Contracts\ProjectContext;
@@ -29,6 +30,7 @@ final class GetCustomerController
 
     public function __construct(
         private readonly GetCustomer $getCustomer,
+        private readonly GetCustomerDeclaredAttributes $declaredAttributes,
     ) {}
 
     /**
@@ -63,7 +65,16 @@ final class GetCustomerController
             );
         }
 
-        $response = new JsonResponse($this->customerView($view, true));
+        // ADR-0122 §4 — the declared values of the tenant travel with the
+        // customer: they are read back here, under the same `customers:read`
+        // scope that carries the email and the phone.
+        $declared = $this->declaredAttributes->forCustomer(
+            $project->projectId,
+            $view->id,
+            AccessScope::forProject($project->projectId),
+        );
+
+        $response = new JsonResponse($this->customerView($view, true, $declared));
         $response->headers->set('ETag', (string) $view->version);
 
         return $response;

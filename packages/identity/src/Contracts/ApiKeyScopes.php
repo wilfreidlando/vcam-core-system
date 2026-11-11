@@ -42,6 +42,9 @@ final class ApiKeyScopes
         'payouts:read',
         'payouts:write',
         'exports:write',
+        // ADR-0122 §8 — the declared form of the tenant. It describes a
+        // **form**, it writes no customer, no subscription and no invoice.
+        'tenant_schema:write',
     ];
 
     /**
@@ -99,6 +102,12 @@ final class ApiKeyScopes
                 // client réel ne peut pas écrire un seul message.
                 'notifications:write',
                 'notifications:read',
+                // ADR-0122 §8 — the application declares the **form** of
+                // its tenant: the key it designates, the pattern its
+                // references must respect, the attributes it expects the
+                // Core to collect. That is a form, not a write on the
+                // commerce: the guarantee of ADR-0107 §5 stays whole.
+                'tenant_schema:write',
             ],
             self::TEMPLATE_PAYOUTS => ['payouts:read', 'payouts:write'],
             default => [],

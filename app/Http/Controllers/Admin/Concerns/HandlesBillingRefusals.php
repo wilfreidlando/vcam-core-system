@@ -10,6 +10,7 @@ use Core\Billing\Domain\Exception\ManualReceiptNotFound;
 use Core\Billing\Domain\Exception\PlanNotFound;
 use Core\Billing\Domain\Exception\PlanVersionNotFound;
 use Core\Billing\Domain\Exception\SubscriptionNotFound;
+use Core\Billing\Domain\Exception\TenantSchemaNotFound;
 use Illuminate\Http\RedirectResponse;
 use RuntimeException;
 
@@ -36,6 +37,7 @@ trait HandlesBillingRefusals
             || $exception instanceof SubscriptionNotFound
             || $exception instanceof InvoiceNotFound
             || $exception instanceof ManualReceiptNotFound
+            || $exception instanceof TenantSchemaNotFound
             ? 'Ressource introuvable.'
             : $exception->getMessage();
 

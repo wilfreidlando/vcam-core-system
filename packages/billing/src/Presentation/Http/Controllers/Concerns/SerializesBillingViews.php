@@ -12,8 +12,11 @@ use Core\Billing\Contracts\PlanVersionView;
 use Core\Billing\Contracts\PlanView;
 use Core\Billing\Contracts\SubscriptionSupplementView;
 use Core\Billing\Contracts\SubscriptionView;
+use Core\Billing\Contracts\TenantSchemaFieldView;
+use Core\Billing\Contracts\TenantSchemaView;
 use Core\Billing\Contracts\UsageRecordRow;
 use DateTimeInterface;
+use stdClass;
 
 /**
  * The public API's shape of the billing read models.
@@ -50,11 +53,22 @@ trait SerializesBillingViews
      * gets the customer without its contact details, so the write plane
      * never hands out personal data it was not entitled to read.
      *
+     * ADR-0122 §4, §5 — the declared values of a tenant travel with the
+     * customer on the route that asks for them: they leave the Core only
+     * to a caller holding `customers:read`, the same rule as the email
+     * and the phone. `null` means the route does not render them at all.
+     *
+     * @param array<string, string>|null $declaredAttributes the declared
+     *                                                       values of the
+     *                                                       customer, `null`
+     *                                                       when the route
+     *                                                       does not
+     *                                                       render them
      * @return array<string, mixed>
      */
-    protected function customerView(CustomerView $view, bool $withPersonalData): array
+    protected function customerView(CustomerView $view, bool $withPersonalData, ?array $declaredAttributes = null): array
     {
-        return [
+        $customer = [
             'id' => $view->id,
             'project_id' => $view->projectId,
             'external_ref' => $view->externalRef,
@@ -67,6 +81,59 @@ trait SerializesBillingViews
             'created_at' => $view->createdAt,
             'updated_at' => $view->updatedAt,
             'erased_at' => $view->erasedAt,
+        ];
+
+        if ($withPersonalData && $declaredAttributes !== null) {
+            // An empty set of declared values is an **object**, never an
+            // empty list: the wire shape stays the same whatever the
+            // customer carries.
+            $customer['declared_attributes'] = $declaredAttributes === []
+                ? new stdClass
+                : $declaredAttributes;
+        }
+
+        return $customer;
+    }
+
+    /**
+     * A tenant schema declaration — ADR-0122 §2.
+     *
+     * The declaration carries a **form**, never values: the fields are
+     * names, and the pattern is the rule the Core's reference must
+     * respect.
+     *
+     * @return array<string, mixed>
+     */
+    protected function tenantSchemaView(TenantSchemaView $view): array
+    {
+        return [
+            'id' => $view->id,
+            'project_id' => $view->projectId,
+            'version' => $view->version,
+            'status' => $view->status,
+            'unique_key' => $view->uniqueKey,
+            'unique_key_pattern' => $view->uniqueKeyPattern,
+            'fields' => array_map($this->tenantSchemaFieldView(...), $view->fields),
+            'accepted_at' => $view->acceptedAt,
+            'created_at' => $view->createdAt,
+            'updated_at' => $view->updatedAt,
+        ];
+    }
+
+    /**
+     * One declared field — ADR-0122 §3.
+     *
+     * @return array<string, mixed>
+     */
+    protected function tenantSchemaFieldView(TenantSchemaFieldView $view): array
+    {
+        return [
+            'key' => $view->key,
+            'label' => $view->label,
+            'type' => $view->type,
+            'required' => $view->required,
+            'max_length' => $view->maxLength,
+            'source' => $view->source,
         ];
     }
 

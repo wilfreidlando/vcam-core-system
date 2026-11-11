@@ -25,6 +25,7 @@ use Core\Billing\Presentation\Http\Controllers\ListSubscriptionsController;
 use Core\Billing\Presentation\Http\Controllers\ListSubscriptionSupplementsController;
 use Core\Billing\Presentation\Http\Controllers\ListUsageController;
 use Core\Billing\Presentation\Http\Controllers\PayInvoiceController;
+use Core\Billing\Presentation\Http\Controllers\ProposeTenantSchemaController;
 use Core\Billing\Presentation\Http\Controllers\PublishPlanVersionController;
 use Core\Billing\Presentation\Http\Controllers\PurchaseSubscriptionSupplementController;
 use Core\Billing\Presentation\Http\Controllers\ReactivateCustomerController;
@@ -72,6 +73,18 @@ Route::middleware(['project.auth'])
         Route::post('/customers/{externalRef}/erase', EraseCustomerController::class)
             ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
             ->name('customers.erase');
+
+        // forme du locataire — ADR-0122 §2
+        //
+        // L'application cliente **propose** la forme de son locataire :
+        // la clé qu'elle désigne, le motif que doit respecter la
+        // référence du Core, et les clés d'attribut qu'elle attend. La
+        // proposition attend la lecture de l'opérateur : elle ne touche
+        // ni au client, ni au commerce (ADR-0122 §8) — donc pas de
+        // middleware `idempotency` (G7).
+        Route::put('/projects/{projectId}/tenant-schema', ProposeTenantSchemaController::class)
+            ->whereUuid('projectId')
+            ->name('projects.tenant-schema.propose');
 
         // usage et droits — ADR-0074 §4
         //

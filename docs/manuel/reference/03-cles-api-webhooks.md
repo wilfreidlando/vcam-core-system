@@ -20,7 +20,7 @@ opération de versement).
 
 | Notion | Ce que c'est | Combien |
 |---|---|---|
-| **Portée** (*scope*) | ce que la clé a le droit de faire | 23 portées nommées |
+| **Portée** (*scope*) | ce que la clé a le droit de faire | 25 portées nommées |
 | **Modèle** | un jeu de portées prêt à l'emploi | 5 modèles |
 
 Les cinq modèles proposés par l'écran :
@@ -30,16 +30,18 @@ Les cinq modèles proposés par l'écran :
 | **Serveur complet** | tout sauf `payouts:write` |
 | **Lecture seule** | toutes les portées `:read` |
 | **Portail uniquement** | `portal:write` + `customers:read` |
-| **Application cliente** | `customers:read` + `usage:read` + `usage:write` + `portal:write` + `subscriptions:read` + `invoices:read` + `notifications:write` + `notifications:read` |
+| **Application cliente** | `customers:read` + `usage:read` + `usage:write` + `portal:write` + `subscriptions:read` + `invoices:read` + `notifications:write` + `notifications:read` + `tenant_schema:write` |
 | **Versements** | `payouts:read` + `payouts:write` |
 
 Le modèle **Application cliente** est celui d'un logiciel qui se branche au Core
 (ADR-0107). Il lui permet de **lire ses droits**, de **compter son usage**, d'**ouvrir
-le portail** de son propriétaire et de **lire** son état commercial. Il ne lui donne
+le portail** de son propriétaire, de **lire** son état commercial et de **déclarer la
+forme de ses clients** (`tenant_schema:write` — ADR-0122 §8 : ce n'est pas une
+écriture sur le commerce, c'est une *forme*). Il ne lui donne
 **aucune** écriture sur le commerce : ni `customers:write`, ni `subscriptions:write`,
 ni `invoices:write`. Le commerce se fait dans le portail, par le propriétaire.
 
-**Personnalisée** affiche la liste des 23 portées en cases à cocher. Une clé qui n'a pas la
+**Personnalisée** affiche la liste des 25 portées en cases à cocher. Une clé qui n'a pas la
 portée demandée reçoit `403`.
 
 ### Créer une clé

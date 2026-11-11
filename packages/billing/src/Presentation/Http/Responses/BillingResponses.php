@@ -23,6 +23,10 @@ final class BillingResponses
      * A customer — ADR-0070 §2. The `email` and the `phone` leave the
      * Core only to a caller holding `customers:read` (ADR-0070
      * §Sécurité): they are optional in the schema for that reason.
+     *
+     * ADR-0122 §4 — the `declared_attributes` are the values the tenant
+     * declared; they leave the Core only to a caller holding
+     * `customers:read`, like the email and the phone.
      */
     public const CUSTOMER = 'array{'
         .'id: string, '
@@ -33,11 +37,42 @@ final class BillingResponses
         .'phone?: string|null, '
         .'locale: string, '
         .'metadata: array<string, mixed>, '
+        .'declared_attributes?: array<string, string>, '
         .'status: string, '
         .'version: int, '
         .'created_at: string, '
         .'updated_at: string, '
         .'erased_at: string|null'
+        .'}';
+
+    /**
+     * A declared field — ADR-0122 §3: a name, a label, a type, an
+     * obligation, a length and a source. Never a value.
+     */
+    public const TENANT_SCHEMA_FIELD = 'array{'
+        .'key: string, '
+        .'label: string, '
+        .'type: string, '
+        .'required: bool, '
+        .'max_length: int|null, '
+        .'source: string'
+        .'}';
+
+    /**
+     * A tenant schema declaration — ADR-0122 §2: the form the project
+     * proposed, waiting for the operator (or in force).
+     */
+    public const TENANT_SCHEMA = 'array{'
+        .'id: string, '
+        .'project_id: string, '
+        .'version: int, '
+        .'status: string, '
+        .'unique_key: string, '
+        .'unique_key_pattern: string, '
+        .'fields: list<'.self::TENANT_SCHEMA_FIELD.'>, '
+        .'accepted_at: string|null, '
+        .'created_at: string, '
+        .'updated_at: string'
         .'}';
 
     /**

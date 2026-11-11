@@ -53,6 +53,9 @@ enum ResourceNature: string
     /** A customer of a Project (ADR-0070), declared by the Project itself. */
     case Customer = 'customer';
 
+    /** The declared form of a Project's customers (ADR-0122) — a shape, never values. */
+    case TenantSchema = 'tenant-schema';
+
     /** A plan of a Project (ADR-0071) — its terms live in its versions. */
     case Plan = 'plan';
 

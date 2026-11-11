@@ -53,6 +53,12 @@ final class StepUpAndThrottleTest extends TestCase
         'admin.organizations.store',
         'admin.projects.store',
         'admin.projects.customers.store',
+        // ADR-0122 §2, §9 — the declaration the operator accepts or
+        // refuses, and the bulk import: sensitive gestures, capped like
+        // the others, and they do not move money.
+        'admin.projects.customers.schema.accept',
+        'admin.projects.customers.schema.reject',
+        'admin.projects.customers.import',
         'admin.ledger-adjustments.store',
         'admin.ledger-adjustments.reject',
         'admin.money-exceptions.reject',

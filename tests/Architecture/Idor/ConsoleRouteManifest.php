@@ -151,6 +151,19 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.customers.suspend.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.customers.reactivate.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.customers.erase.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            // ADR-0122 §2 — the declaration the application proposed: the
+            // operator reads it, accepts it or refuses it. The page shows
+            // a **form**, never values: what another organization's
+            // application proposed must not leak through it.
+            Entry::isolated('admin.projects.customers.schema', Nature::TenantSchema, Outcome::NotFound, control: true),
+            Entry::isolated('admin.projects.customers.schema.accept', Nature::TenantSchema, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.customers.schema.reject', Nature::TenantSchema, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            // ADR-0122 §9 — the bulk import of the customers an application
+            // already had.
+            // The import is **one** route, two gestures: the page that
+            // asks for the file, and the import itself. The suite plays
+            // the read — the write shares the route's project guard.
+            Entry::isolated('admin.projects.customers.import', Nature::Customer, Outcome::NotFound, control: true),
 
             // ADR-0075 §4, ADR-0071 §4, ADR-0074 — the settings and the usage of a project.
             Entry::isolated('admin.projects.portal', Nature::Project, Outcome::NotFound),
