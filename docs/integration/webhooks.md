@@ -148,6 +148,78 @@ facultatifs ne sont présents que s'ils sont connus.
 | `description` | Votre libellé de l'opération, s'il a été fourni. |
 
 
+### `customer.created`, `customer.updated`, `customer.suspended`, `customer.reactivated`, `customer.erased`
+
+Ces cinq événements concernent le **locataire** de l'application cliente : celui
+que le Core a créé, et qu'il pousse vers elle. Même enveloppe `{id, type, data}`,
+mêmes en-têtes, même signature HMAC qu'un paiement. Tous sont **abonnables par
+leur nom** — `customer.created` en particulier, c'est l'événement qu'une
+application cliente attend.
+
+La charge utile est **exactement** quatre clés — ni une de plus, ni une de moins :
+
+| Champ | Type | Description |
+| --- | --- | --- |
+| `customer_id` | string | Identifiant du client **chez le Core**. |
+| `external_ref` | string | **La référence que votre application connaît** — celle que vous employez dans tous vos appels. |
+| `status` | string | `active`, `suspended` ou `erased`. |
+| `version` | int | Le verrou optimiste de la ressource (§3.2). |
+
+```json
+{
+  "id": "01a190b8-53be-70d1-9c46-a5b715b4ad80",
+  "type": "customer.created",
+  "data": {
+    "customer_id": "01a190b8-2c4e-7a10-9b6f-8d1e2f3a4b5c",
+    "external_ref": "auto-ecole-42",
+    "status": "active",
+    "version": 1
+  }
+}
+```
+
+**Aucune donnée personnelle dans la charge utile.** Ni nom, ni e-mail, ni
+téléphone : c'est une règle du Core, pas une préférence
+([ADR-0070 §3](../adr/0070-clients-d-un-projet.md),
+[ADR-0083 §3](../adr/0083-donnees-personnelles-chiffrement-conservation-effacement.md)).
+La raison est simple — la charge utile est conservée **en clair** et diffusée à
+**tous** les points d'entrée abonnés au type, jokers `*` compris ; y mettre une
+identité la diffuserait à tout le monde, là où une lecture authentifiée ne la
+donne qu'à un seul appelant, et la trace.
+
+**L'identifiant du locataire est la référence que l'application connaît.**
+`external_ref` n'est pas un identifiant que vous devez deviner : c'est celle que
+vous employez déjà (`GET /v1/customers/{ref}`, `POST /v1/usage`,
+`POST /v1/portal/sessions`…), et l'opérateur du Core la saisit pour votre
+projet, dans la console
+([ADR-0110](../adr/0110-le-core-cree-le-locataire-et-le-pousse.md) décision 3).
+
+**Quand vous avez besoin de l'identité, vous la relisez.** L'événement vous dit
+*que* le locataire existe, pas *qui* il est. Pour savoir qui il est — nom
+affiché, e-mail, téléphone — vous relisez le client chez le Core :
+
+```bash
+curl -s "$BASE_URL/v1/customers/auto-ecole-42" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Accept: application/json"
+```
+
+Cet appel exige la portée `customers:read` — celle que porte le gabarit de
+portées « Application cliente ». C'est par là que passeront aussi les attributs
+que le projet déclare au Core : la déclaration de ces clés est **en
+construction** ([ADR-0122](../adr/0122-le-projet-declare-la-forme-de-son-locataire-le-core-la-collecte.md),
+l'API n'existe pas encore) — mais la relecture, elle, est déjà le chemin unique
+pour obtenir ce que le Core sait de votre locataire.
+
+#### 3.2 Le `version` des événements `customer.*`
+
+`version` est le **verrou optimiste** de la ressource : il augmente à chaque
+écriture du client. Rejouez un événement dont le `version` est antérieur au
+dernier que vous avez appliqué, et **ignorez-le** — le Core a fait ce qu'il
+voulait, votre copie est plus fraîche qu'il ne le croit. Un événement livré
+deux fois ne se traite qu'une fois : l'`id` de l'événement est votre clé de
+dédoublonnage.
+
 ### `webhook.test`
 
 Envoyé **uniquement** à la demande, par `POST /v1/webhook-endpoints/{id}/test`

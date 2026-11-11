@@ -50,6 +50,21 @@ l'avertissement : `« Cette déclaration n'écrit aucun mouvement au grand livre
 
 `« Déclarer le client »` → `« Client {ref} créé. »`
 
+Le formulaire ne comporte que ces **cinq champs**, et il est rendu **côté
+serveur** : un champ par attribut, jamais une zone de saisie JSON.
+
+> **Qui déclare le client.** L'opérateur de la console, pour le projet. Une
+> **application cliente** ne le déclare pas : son gabarit de portées ne porte pas
+> `customers:write`, et le Core lui **pousse** le client qu'il a créé
+> (`customer.created`) — voir
+> [ADR-0110](../../adr/0110-le-core-cree-le-locataire-et-le-pousse.md).
+>
+> Les champs que le projet déclare selon **sa** forme — son code, sa
+> localisation, le nom de son responsable — ne sont pas encore en place : la
+> déclaration est en construction, l'API n'existe pas encore
+> ([ADR-0122](../../adr/0122-le-projet-declare-la-forme-de-son-locataire-le-core-la-collecte.md)).
+> Tant qu'elle ne l'est pas, le formulaire ci-dessus est le formulaire.
+>
 > **Le contact n'est jamais affiché en clair.** Le courriel et le téléphone sont masqués
 > partout dans la console et dans le portail. À l'édition, le champ est vide : c'est
 > normal. Un champ vide **conserve** la valeur existante ; pour changer une valeur,

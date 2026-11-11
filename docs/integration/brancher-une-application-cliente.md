@@ -10,7 +10,7 @@ ses données métier.** Vous ne gérez ni offre, ni abonnement, ni facture, ni
 encaissement : **le propriétaire de votre logiciel fait tout cela lui-même, dans le
 portail que le Core héberge.**
 
-Concrètement, votre application fait **cinq** choses :
+Concrètement, votre application fait **six** choses :
 
 | # | Ce qu'elle fait | Comment |
 |---|---|---|
@@ -78,8 +78,9 @@ application connaît** — puis le Core **vous le pousse**.
 
 Votre application n'a donc **rien à écrire** : elle **reçoit** son locataire.
 
-L'événement arrive sur le point d'entrée que l'opérateur a enregistré pour votre
-application :
+L'événement arrive sur le point d'entrée que l'opérateur a enregistré **depuis la
+console** du Core, pour votre application — et le secret de signature vous est
+**remis hors du Core**, par le canal de votre choix (ADR-0110 décision 5) :
 
 ```json
 {
@@ -94,8 +95,10 @@ application :
 }
 ```
 
-`external_ref` est **la référence que le Core connaît** — celle que vous utilisez dans
-tous vos appels. C'est l'opérateur qui l'a saisie, pour qu'elle soit la vôtre.
+`external_ref` est **la référence que votre application connaît** — celle que vous
+utilisez dans tous vos appels. C'est l'opérateur du Core qui l'a saisie, pour votre
+projet, **pour qu'elle soit la vôtre** : vous n'avez rien à deviner (ADR-0110
+décision 3).
 
 La charge utile ne porte **aucune donnée personnelle** (ADR-0070 §3) : ni nom, ni
 e-mail, ni téléphone. Si vous devez associer le locataire à un compte local — par son
@@ -112,6 +115,12 @@ L'e-mail et le téléphone ne vous sont retournés que si votre clé porte
 
 > **Votre application n'écrit jamais un client.** Elle n'a pas `customers:write`, et
 > elle n'en a pas besoin : le Core le crée, et le Core vous le dit.
+>
+> Ce que vous écrivez, c'est **votre** locataire : à la réception de
+> `customer.created`, vous le **créez** s'il vous est inconnu, ou vous le **liez**
+> s'il existe déjà chez vous. C'est le patron de provisionnement du paquet
+> [`core-adapter`](https://github.com/wilfreidlando/core-adapter), dont le README
+> fait le tour.
 
 ## 3. Lire les droits du locataire
 
@@ -237,11 +246,12 @@ Deux champs facultatifs :
 Votre application doit savoir quand l'état de son locataire change : abonnement
 activé, suspendu, expiré, facture émise, quota atteint.
 
-**L'enregistrement se fait depuis le Core**, pas depuis votre application
-(l'administrateur du Core enregistre votre point d'entrée et vous remet le secret).
-Votre application se contente de **recevoir** et de **vérifier la signature** — la
-procédure complète, avec le code de vérification dans les trois langages, est dans
-**[webhooks.md](webhooks.md)**.
+**L'enregistrement se fait depuis la console du Core**, pas depuis votre
+application : l'administrateur du Core y saisit l'URL de votre point d'entrée et la
+liste des événements, puis **vous remet le secret hors du Core**, par le canal de
+votre choix. Votre application se contente de **recevoir** et de **vérifier la
+signature** — la procédure complète, avec le code de vérification dans les trois
+langages, est dans **[webhooks.md](webhooks.md)**.
 
 Les événements qui vous concernent :
 
@@ -259,14 +269,17 @@ Les événements qui vous concernent :
 | `invoice.issued`, `invoice.paid`, `invoice.payment_failed`, `invoice.voided` | l'état d'une facture |
 | `usage.threshold_reached`, `usage.limit_reached` | un quota est bientôt atteint / atteint |
 
-Chaque charge utile porte un `version` : c'est le **verrou optimiste** de la
-ressource. Rejouez un événement plus ancien que le dernier que vous avez traité, et
-ignorez-le. Un événement livré deux fois ne doit être traité qu'une fois (l'`id` de
-l'événement est votre clé de dédoublonnage).
+Chaque charge utile de cette liste porte un `version` : c'est le **verrou optimiste**
+de la ressource. Rejouez un événement plus ancien que le dernier que vous avez traité,
+et ignorez-le. Un événement livré deux fois ne doit être traité qu'une fois (l'`id` de
+l'événement est votre clé de dédoublonnage). Seuls les événements d'usage font
+exception : `usage.*` ne porte pas de `version`.
 
 Les événements `customer.*` et `subscription.*` ne portent **aucune donnée
 personnelle** : le locataire y est nommé par votre propre référence. Si vous avez
-besoin de son e-mail, vous le **demandez** (`GET /v1/customers/{ref}`).
+besoin de son e-mail, vous le **demandez** (`GET /v1/customers/{ref}`). La charge
+utile exacte des événements `customer.*` est décrite dans le catalogue des
+événements de **[webhooks.md](webhooks.md)**.
 
 ## 7. Ce que votre propriétaire fait dans le portail
 
@@ -312,8 +325,13 @@ s'occupe du reste.
 
 **Aller plus loin**
 
-- **[Kit Laravel](kit-laravel/INSTALL.md)** — le même parcours, en code prêt à
-  l'emploi (à installer en paquet Composer, ADR-0108).
+- **[Paquet `core-adapter`](https://github.com/wilfreidlando/core-adapter)** — le
+  même parcours, en code prêt à l'emploi : `composer require
+  wilfreidlando/core-adapter`, service provider auto-découvert
+  ([ADR-0108](../adr/0108-le-kit-client-devient-un-paquet-composer.md),
+  [ADR-0112](../adr/0112-le-paquet-client-s-appelle-core-adapter.md)). L'ancien
+  [kit Laravel](kit-laravel/INSTALL.md) est conservé pour mémoire, mais il est
+  remplacé.
 - **[Guide `curl`](guide-curl-integrateur.md)** — paiements, portefeuilles,
   notifications, exports.
 - **[Webhooks](webhooks.md)** — la vérification de signature, la rotation du secret,

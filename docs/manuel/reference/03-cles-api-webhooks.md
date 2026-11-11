@@ -30,7 +30,7 @@ Les cinq modèles proposés par l'écran :
 | **Serveur complet** | tout sauf `payouts:write` |
 | **Lecture seule** | toutes les portées `:read` |
 | **Portail uniquement** | `portal:write` + `customers:read` |
-| **Application cliente** | `customers:read` + `usage:read` + `usage:write` + `portal:write` + `subscriptions:read` + `invoices:read` |
+| **Application cliente** | `customers:read` + `usage:read` + `usage:write` + `portal:write` + `subscriptions:read` + `invoices:read` + `notifications:write` + `notifications:read` |
 | **Versements** | `payouts:read` + `payouts:write` |
 
 Le modèle **Application cliente** est celui d'un logiciel qui se branche au Core

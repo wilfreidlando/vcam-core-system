@@ -1,5 +1,34 @@
 # Brancher votre application au Core — 30 minutes
 
+> **⚠ Ce kit est remplacé par le paquet Composer `core-adapter`.** Le kit est
+> un copier-coller de fichiers ; il est devenu un paquet installé
+> ([ADR-0108](../../adr/0108-le-kit-client-devient-un-paquet-composer.md) §2,
+> [ADR-0112](../../adr/0112-le-paquet-client-s-appelle-core-adapter.md)). Le chemin
+> d'aujourd'hui est :
+>
+> ```bash
+> composer require wilfreidlando/core-adapter
+> ```
+>
+> Le service provider (`CoreAdapter\Laravel\CoreClientServiceProvider`) est
+> auto-découvert : rien à enregistrer à la main. Le **patron de provisionnement**
+> — comment l'application reçoit son locataire et fabrique le sien — est
+> expliqué dans le [README du paquet](https://github.com/wilfreidlando/core-adapter).
+>
+> **Surtout : `provision()` est refusé en `403`.** L'appel
+> `app(\App\Core\Billing\CoreBilling::class)->provision(...)` exige
+> `customers:write`, et le gabarit de portées « Application cliente » **ne la
+> porte pas** ([ADR-0107](../../adr/0107-le-core-est-le-maitre-de-la-relation-commerciale.md)
+> §5, [ADR-0110](../../adr/0110-le-core-cree-le-locataire-et-le-pousse.md)
+> décision 2). Ce n'est pas une restriction de bon sens : une application
+> cliente qui tient cette clé **ne peut pas** créer un client, quelle que soit
+> la ligne de code qu'elle exécute.
+>
+> Ce document est conservé pour mémoire — on ne décide pas ici de le
+> supprimer — mais il n'est plus une instruction de mise en œuvre : sa
+> première brique est impossible aujourd'hui. La lecture à jour est
+> **[Brancher une application cliente](../brancher-une-application-cliente.md)**.
+
 Le Core fait quatre métiers que votre application n'a pas à refaire. Vous prenez ce dont
 vous avez besoin, le reste reste éteint :
 
@@ -70,8 +99,15 @@ try {
 ### 2. Recevoir ce que le Core vous dit (5 min) — pour tous les profils
 
 Collez la route de `routes-snippet.php` et excluez-la du CSRF (`bootstrap/app.php` :
-`$middleware->validateCsrfTokens(except: ['webhooks/core'])`). Puis enregistrez l'endpoint
-une fois, avec les événements dont votre profil a besoin :
+`$middleware->validateCsrfTokens(except: ['webhooks/core'])`).
+
+> **L'enregistrement de ce point d'entrée est aujourd'hui un geste
+> d'opérateur** : il se fait dans la console du Core
+> (« Points d'entrée » du projet), et le secret vous est **remis hors du
+> Core** — par le canal de votre choix, jamais par la console
+> ([ADR-0110](../../adr/0110-le-core-cree-le-locataire-et-le-pousse.md)
+> décision 5). Le `curl` ci-dessous décrit ce que fait la console, et la façon
+> dont le kit le faisait.
 
 ```bash
 curl -s -X POST "$CORE_BASE_URL/v1/webhook-endpoints" \
@@ -164,13 +200,21 @@ docs/integration/kit-laravel/app/Core/Billing/*   →  app/Core/Billing/
 **Dire qui est le tenant** — dans `EnsureTenantSubscribed::tenantRef()`, une ligne
 (`$request->user()->tenant_id`). Même valeur partout.
 
-**Créer le tenant à l'inscription :**
+**Créer le tenant à l'inscription** — *ce que le kit faisait, et qui ne marche
+plus* :
 
 ```php
 app(\App\Core\Billing\CoreBilling::class)->provision((string) $tenant->id, [
     'name' => $tenant->name, 'email' => $tenant->email, 'phone' => $tenant->phone,
 ]);   // le tenant démarre sur votre plan par défaut, en essai gratuit
 ```
+
+`provision()` exige `customers:write`, et le gabarit « Application cliente » ne
+la porte pas : l'appel est **refusé en `403`**. À la place, le client se crée
+**dans la console du Core** (geste d'opérateur) ou **par la plateforme** (le
+projet serveur), et votre application **reçoit** l'événement `customer.created`
+— là, elle **fabrique son locataire**, ou elle **lie** celui qu'elle connaît
+déjà. C'est le patron de provisionnement du paquet `core-adapter`.
 
 **Réagir aux changements d'abonnement** — enregistrez le listener fourni, et éditez
 **`TenantAccess::apply()`**, le *seul* code métier du profil : il reçoit `active`, `warning`
@@ -213,7 +257,7 @@ portail, jamais votre application.
 | Profil A : démarrer un paiement | `payment_url` (paylink) ou `action_hint` (payin) ; en staging, `POST /v1/payments/{id}/simulate` → webhook `payment.status_changed` |
 | Profil A : lire un solde après paiement | `available_minor` égal au montant, sur le tiers nommé |
 | Profil B : envoyer deux fois la même `clientReference` | un seul message, un seul identifiant |
-| Profil C : créer un tenant | `GET /v1/customers/{id}/entitlements` → `active: true`, plan, quotas |
+| Profil C : recevoir son locataire | l'événement `customer.created` arrive, puis `GET /v1/customers/{id}/entitlements` → `active: true`, plan, quotas |
 | Profil C : payer la facture | webhook `invoice.paid` → `TenantAccess::apply(…, 'active')` |
 | Profil C : dépasser un quota | `QuotaExceeded` ; rien n'est compté |
 
