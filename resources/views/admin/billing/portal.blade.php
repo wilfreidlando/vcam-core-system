@@ -36,7 +36,8 @@
 
         <x-admin.field name="allowed_return_urls" type="textarea" :rows="3" label="Adresses de retour autorisées" optional class="font-mono"
                        :value="implode(PHP_EOL, $settings->allowedReturnUrls)"
-                       hint="Une par ligne : origine exacte, avec un préfixe de chemin facultatif. Toute autre adresse de retour est refusée." />
+                       placeholder="https://app.mon-saas.cm/compte"
+                       hint="Une URL par ligne : origine exacte, avec un préfixe de chemin facultatif. Toute autre adresse de retour est refusée." />
 
         <fieldset class="space-y-2">
             <legend class="text-sm font-medium text-slate-700">Ce qu'un client peut faire seul</legend>

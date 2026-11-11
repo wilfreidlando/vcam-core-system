@@ -74,9 +74,42 @@
                 </p>
             </div>
 
-            <x-admin.field name="features" label="Fonctionnalités (JSON)" type="textarea" :rows="4" optional
-                           placeholder='{"api_access": {"type": "boolean", "enabled": true}}' class="font-mono text-sm"
-                           hint="Les noms sont ceux du projet, validés par format — le Core n'en connaît aucun." />
+            {{-- Les fonctionnalités se déclarent bloc par bloc : jamais de JSON saisi.
+                 Un bloc sans nom est vide et ignoré ; seul le réglage du type choisi
+                 est lu (l'interrupteur, ou la limite et son compteur). --}}
+            <fieldset class="space-y-3">
+                <legend class="text-sm font-semibold text-slate-900">Fonctionnalités de la version</legend>
+                <p class="text-sm text-slate-600">
+                    Une fonctionnalité par bloc : un nom, un type, puis les réglages de ce type.
+                    « Activée » ne compte que pour un interrupteur ; « Compteur », « Limite », « Remise »,
+                    « Dépassement » et « Seuil d'alerte » ne comptent que pour une limite d'usage.
+                    Un bloc sans nom est ignoré, et les noms sont ceux du projet, vérifiés par format.
+                </p>
+
+                @for ($index = 0; $index < 3; $index++)
+                    <div class="space-y-3 rounded-md border border-slate-200 p-3">
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <x-admin.field :name="'features['.$index.'][name]'" label="Nom" maxlength="64" class="font-mono"
+                                           hint="Minuscules, chiffres, « . » et « _ » (64 caractères au plus)." />
+                            <x-admin.field :name="'features['.$index.'][type]'" label="Type" type="select" placeholder="Choisir le type"
+                                           :options="['boolean' => 'Interrupteur : activée ou non', 'limit' => 'Limite d\'usage d\'un compteur']" />
+                        </div>
+                        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            <x-admin.field :name="'features['.$index.'][enabled]'" label="Activée" type="select" placeholder="Choisir"
+                                           :options="['1' => 'Oui', '0' => 'Non']" />
+                            <x-admin.field :name="'features['.$index.'][meter]'" label="Compteur" maxlength="64" class="font-mono" />
+                            <x-admin.field :name="'features['.$index.'][limit]'" label="Limite" type="number" min="0"
+                                           hint="Le nombre autorisé ; vide = illimité." />
+                            <x-admin.field :name="'features['.$index.'][reset]'" label="Remise" type="select" :value="'period'"
+                                           :options="['period' => 'À chaque période', 'never' => 'Jamais']" />
+                            <x-admin.field :name="'features['.$index.'][overage]'" label="Dépassement" type="select" :value="'block'"
+                                           :options="['block' => 'Bloquer', 'allow' => 'Autoriser et signaler']" />
+                            <x-admin.field :name="'features['.$index.'][threshold_bps]'" label="Seuil d'alerte (points de base)" type="number" min="1" max="10000"
+                                           hint="8000 = 80 % ; vide = pas d'alerte." />
+                        </div>
+                    </div>
+                @endfor
+            </fieldset>
 
             <button type="submit"
                     class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">

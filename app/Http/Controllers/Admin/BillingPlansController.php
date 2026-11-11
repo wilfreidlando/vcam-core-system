@@ -160,7 +160,7 @@ final class BillingPlansController
         $this->permittedScope($operator, 'plans:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
 
-        /** @var array{price_minor: int|string, currency: string, interval_unit: string, interval_count: int|string, trial_days?: int|string|null, grace_days?: int|string|null, grace_access?: bool|null, features?: string|null} $data */
+        /** @var array{price_minor: int|string, currency: string, interval_unit: string, interval_count: int|string, trial_days?: int|string|null, grace_days?: int|string|null, grace_access?: bool|null, features?: array<int|string, mixed>|null} $data */
         $data = Validator::make($request->all(), [
             'price_minor' => ['required', 'integer', 'min:0'],
             'currency' => ['required', 'string', 'size:3'],
@@ -169,7 +169,10 @@ final class BillingPlansController
             'trial_days' => ['nullable', 'integer', 'min:0', 'max:365'],
             'grace_days' => ['nullable', 'integer', 'min:0', 'max:90'],
             'grace_access' => ['nullable', 'boolean'],
-            'features' => ['nullable', 'string'],
+            'features' => ['nullable', 'array', 'max:20'],
+        ], [
+            'features.array' => 'Les fonctionnalités se déclarent bloc par bloc.',
+            'features.max' => 'Au plus 20 fonctionnalités par version.',
         ])->validate();
 
         try {
@@ -277,27 +280,129 @@ final class BillingPlansController
     }
 
     /**
-     * The features are the project's own vocabulary; the console sends
-     * them as JSON and the domain validates their format (ADR-0071 §3).
+     * The features are the project's own vocabulary; the console declares
+     * them **block by block**, never as JSON (ADR-0071 §3).
      *
-     * @return array<string, mixed>
+     * One block per feature: a name, a type, then the settings of that
+     * type. A block without a name is empty and is ignored; a block with a
+     * name but an incomplete setting is refused with a sentence. The
+     * domain still checks the format of the names and of the definitions.
+     *
+     * @return array<string, array<string, mixed>>
      */
-    private function features(mixed $raw): array
+    private function features(mixed $rows): array
     {
-        if (! is_string($raw) || trim($raw) === '') {
+        if ($rows === null) {
             return [];
         }
 
-        $decoded = json_decode($raw, true);
-
-        if (! is_array($decoded)) {
+        if (! is_array($rows)) {
             throw ValidationException::withMessages([
-                'features' => 'Les fonctionnalités doivent être un objet JSON.',
+                'features' => 'Les fonctionnalités se déclarent bloc par bloc, pas en JSON.',
             ]);
         }
 
-        /** @var array<string, mixed> $decoded */
-        return $decoded;
+        $features = [];
+
+        foreach ($rows as $index => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $name = $this->text($row['name'] ?? null);
+
+            if ($name === '') {
+                continue; // Un bloc sans nom est un bloc vide : il est ignoré.
+            }
+
+            $type = $this->text($row['type'] ?? null);
+
+            if ($type === '') {
+                $this->refuse('features.'.$index.'.type', 'Choisissez le type de la fonctionnalité « '.$name.' ».');
+            }
+
+            if ($type === 'boolean') {
+                $enabled = $this->text($row['enabled'] ?? null);
+
+                if ($enabled === '') {
+                    $this->refuse('features.'.$index.'.enabled', 'Dites si la fonctionnalité « '.$name.' » est activée.');
+                }
+
+                if (! in_array($enabled, ['0', '1'], true)) {
+                    $this->refuse('features.'.$index.'.enabled', 'La fonctionnalité « '.$name.' » est activée ou non.');
+                }
+
+                $features[$name] = ['type' => 'boolean', 'enabled' => $enabled === '1'];
+
+                continue;
+            }
+
+            if ($type !== 'limit') {
+                $this->refuse('features.'.$index.'.type', 'Le type « '.$type.' » n\'existe pas : choisissez « Interrupteur » ou « Limite d\'usage ».');
+            }
+
+            $meter = $this->text($row['meter'] ?? null);
+
+            if ($meter === '') {
+                $this->refuse('features.'.$index.'.meter', 'Indiquez le compteur que compte la fonctionnalité « '.$name.' ».');
+            }
+
+            $limit = $this->text($row['limit'] ?? null);
+
+            if ($limit !== '' && preg_match('/^\d+$/', $limit) !== 1) {
+                $this->refuse('features.'.$index.'.limit', 'La limite de « '.$name.' » est un nombre entier, ou vide pour une limite sans plafond.');
+            }
+
+            $reset = $this->text($row['reset'] ?? null);
+
+            if ($reset === '') {
+                $reset = 'period';
+            } elseif (! in_array($reset, ['period', 'never'], true)) {
+                $this->refuse('features.'.$index.'.reset', 'La remise de « '.$name.' » est « à chaque période » ou « jamais ».');
+            }
+
+            $overage = $this->text($row['overage'] ?? null);
+
+            if ($overage === '') {
+                $overage = 'block';
+            } elseif (! in_array($overage, ['block', 'allow'], true)) {
+                $this->refuse('features.'.$index.'.overage', 'Le dépassement de « '.$name.' » est « bloquer » ou « autoriser et signaler ».');
+            }
+
+            $threshold = $this->text($row['threshold_bps'] ?? null);
+
+            if ($threshold !== '' && (preg_match('/^\d+$/', $threshold) !== 1 || (int) $threshold < 1 || (int) $threshold > 10000)) {
+                $this->refuse('features.'.$index.'.threshold_bps', 'Le seuil d\'alerte de « '.$name.' » est un nombre de points de base entre 1 et 10000, ou vide.');
+            }
+
+            $features[$name] = [
+                'type' => 'limit',
+                'meter' => $meter,
+                'limit' => $limit === '' ? null : (int) $limit,
+                'reset' => $reset,
+                'overage' => $overage,
+                'threshold_bps' => $threshold === '' ? null : (int) $threshold,
+            ];
+        }
+
+        return $features;
+    }
+
+    /**
+     * The value of a field of the form, as a trimmed string.
+     */
+    private function text(mixed $value): string
+    {
+        return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    /**
+     * The console's answer to an incomplete block: the message is shown
+     * next to the field that is missing.
+     */
+    private function refuse(string $key, string $message): never
+    {
+        throw ValidationException::withMessages([$key => $message]);
     }
 
     private function actor(OperatorContext $operator): string

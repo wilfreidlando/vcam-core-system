@@ -43,7 +43,10 @@ final class BillingPlansPageTest extends TestCase
             // Strings, as a browser sends them: the command behind is strictly typed.
             'plan_code' => 'pro', 'price_minor' => '25000', 'currency' => 'xaf', 'interval_unit' => 'month', 'interval_count' => '1',
             'trial_days' => '14', 'grace_days' => '7',
-            'features' => '{"students":{"type":"limit","meter":"students","limit":10,"reset":"never","overage":"block"}}',
+            // Les fonctionnalités se déclarent bloc par bloc, jamais en JSON.
+            'features' => [
+                ['name' => 'students', 'type' => 'limit', 'enabled' => '', 'meter' => 'students', 'limit' => '10', 'reset' => 'never', 'overage' => 'block', 'threshold_bps' => ''],
+            ],
         ])->assertRedirect("/admin/projects/{$projectId}/plans");
 
         self::assertEquals(25_000, DB::table('plan_versions')->where('project_id', $projectId)->value('price_minor'));

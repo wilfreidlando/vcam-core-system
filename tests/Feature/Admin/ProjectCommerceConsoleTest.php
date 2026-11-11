@@ -110,7 +110,9 @@ final class ProjectCommerceConsoleTest extends TestCase
             'invoice_prefix' => 'AUTO',
             'default_tax_rate_percent' => '19.25',
             'manual_receipt_threshold' => '100000',
-            'meter_mappings' => "notification.whatsapp = whatsapp_messages\n",
+            'meter_mappings' => [
+                ['capability' => 'notification.whatsapp', 'meter' => 'whatsapp_messages'],
+            ],
             'refund_failed_usage' => '1',
             'require_customer_ref' => '1',
         ])->assertRedirect("/admin/projects/{$projectId}/commerce-settings");
@@ -129,7 +131,7 @@ final class ProjectCommerceConsoleTest extends TestCase
             ['invoice_prefix' => 'a'],
             ['renewal_lead_days' => 999],
             ['timezone' => 'Mars/Olympus'],
-            ['meter_mappings' => 'Bad Capability = meter'],
+            ['meter_mappings' => [['capability' => 'Bad Capability', 'meter' => 'meter']]],
         ] as $bad) {
             $this->post("/admin/projects/{$projectId}/commerce-settings", $bad + [
                 'timezone' => 'Africa/Douala', 'default_currency' => 'XAF', 'renewal_lead_days' => 5,
