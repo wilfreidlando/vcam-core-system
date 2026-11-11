@@ -122,21 +122,44 @@ il ne déplace pas d'argent.
 
 | Champ | Contrainte |
 |---|---|
-| `« Plan (code) »` | obligatoire — le plan est nommé **dans le formulaire**, pas dans l'URL |
+| `« Offre (code) »` | obligatoire — l'offre est nommée **dans le formulaire**, pas dans l'URL |
 | `« Prix (unités mineures) »` | 0 par défaut |
 | `« Devise »` | `XAF` par défaut |
 | `« Unité »` + `« Nombre »` | jour / semaine / mois / an ; 1 à 365, 1 par défaut |
 | `« Essai (jours) »` | facultatif |
 | `« Grâce (jours) »` | 0 à 90 |
 | `« Maintenir l'accès pendant la grâce »` | décochée, les droits du client sont fermés dès l'impayé |
-| `« Fonctionnalités (JSON) »` | un **objet** JSON, pas un tableau |
 
 > **Les montants sont en unités mineures.** 50 000 XAF se saisit `50000`. 100 USD se saisit
 > `100` et représente 1,00 $. C'est une règle générale du Core : jamais de montant à
 > virgule.
 
-> Si `features` n'est pas un objet JSON, la saisie est refusée : `« Les fonctionnalités
-> doivent être un objet JSON. »`
+### Les fonctionnalités de la version
+
+Le cadre **« Fonctionnalités de la version »** se remplit **bloc par bloc** : l'écran
+propose **trois blocs**, un par fonctionnalité, et l'opérateur n'écrit **jamais** de JSON.
+Un bloc dont le `« Nom »` est vide est **ignoré** — les deux autres blocs restent disponibles.
+
+Chaque bloc demande d'abord deux choix, puis **les réglages du type choisi** :
+
+| Champ | Ce qu'il fait |
+|---|---|
+| `« Nom »` | le nom de la fonctionnalité, **celui du projet** : le Core n'en connaît aucun. Minuscules, chiffres, `« . »` et `« _ »`, 64 caractères au plus. |
+| `« Type »` | `« Interrupteur : activée ou non »` ou `« Limite d'usage d'un compteur »`. |
+
+| Type | Les champs qui comptent |
+|---|---|
+| `« Interrupteur »` | `« Activée »` — `« Oui »` ou `« Non »`. |
+| `« Limite d'usage »` | `« Compteur »` (obligatoire), `« Limite »` (le nombre autorisé ; vide = illimité), `« Remise »` (`« À chaque période »` ou `« Jamais »`), `« Dépassement »` (`« Bloquer »` ou `« Autoriser et signaler »`), `« Seuil d'alerte (points de base) »` (facultatif : 8000 = 80 % ; vide = pas d'alerte). |
+
+Les champs de l'autre type sont **ignorés** : un interrupteur n'a pas de compteur, une
+limite d'usage n'a pas d'« Activée ». Un bloc nommé mais incomplet est **refusé**, et le
+message dit ce qui manque : `« Choisissez le type de la fonctionnalité « … ». »`,
+`« Dites si la fonctionnalité « … » est activée. »`,
+`« Indiquez le compteur que compte la fonctionnalité « … ». »`.
+
+> **Trois emplacements, pas plus.** La console en propose trois par version ; une offre
+> qui en porte davantage se déclare par l'API (`POST /v1/plans/{code}/versions`).
 
 ### Publier une version
 
@@ -328,10 +351,20 @@ refusé. »`
 
 | Champ | Ce qu'il fait |
 |---|---|
-| `« Ce que la plateforme compte pour vous »` | les correspondances `capacité = compteur`, une par ligne |
-| `« Catalogue de packs »` | ce que les clients peuvent acheter **en plus** de leur quota — une ligne par pack : `code \| compteur \| quantité \| prix \| libellé` (voir [11 — Les suppléments de quota](11-supplements-de-quota.md)) |
+| `« Ce que la plateforme compte pour vous »` | les correspondances **capacité → compteur**, une par bloc : `« Capacité »` (ce que le client consomme) et `« Compteur »` (ce que la plateforme compte) |
+| `« Catalogue de packs »` | ce que les clients peuvent acheter **en plus** de leur quota — un pack par bloc : `« Code »`, `« Compteur »`, `« Quantité »`, `« Prix (unités mineures) »` et `« Libellé »` (voir [11 — Les suppléments de quota](11-supplements-de-quota.md)) |
 | `« Rendre l'unité quand un message n'a atteint personne »` | rembourse le quota d'un envoi échoué |
 | `« Exiger customer_ref sur tout appel mesuré »` | refuse une mesure sans client |
+
+Les deux se remplissent **bloc par bloc**, dans la section **« Limites d'usage »** de
+l'écran. Il y a **au moins trois blocs** de chaque sorte, et autant que ce qui est déjà
+enregistré. Trois règles :
+
+- une correspondance dont **une seule** des deux cases est remplie est **ignorée** ;
+- un pack dont **tous** les champs sont vides est **ignoré**, mais un pack à **un seul
+  champ vide** est **refusé** ;
+- le `« Compteur »` d'un pack doit être **un compteur déclaré** dans les
+  correspondances ci-dessus — sinon la saisie est refusée.
 
 Chaque enregistrement est journalisé (`billing.settings_changed`).
 

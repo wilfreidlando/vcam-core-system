@@ -50,7 +50,11 @@ Le bloc **« Ajouter une version »** porte le prix et les conditions :
 **« Offre (code) »**, **« Prix (unités mineures) »**, **« Devise »**,
 **« Unité »** (jour, semaine, mois ou an), **« Nombre »** (combien de fois),
 **« Essai (jours) »**, **« Grâce (jours) »** et la case
-**« Maintenir l’accès pendant la grâce »**. Le bouton
+**« Maintenir l’accès pendant la grâce »**. Le cadre **« Fonctionnalités de la
+version »** vient ensuite : **trois blocs**, un par fonctionnalité, chacun avec un
+**« Nom »** et un **« Type »** — *interrupteur* (avec **« Activée »**) ou *limite
+d’usage* (avec **« Compteur »**, **« Limite »**, **« Remise »**, **« Dépassement »**
+et **« Seuil d’alerte »**). Un bloc sans nom est ignoré. Le bouton
 **« Ajouter la version »** enregistre une version **« Brouillon »**.
 
 Sur la page **« Offres »**, le bouton **« Publier »** fige cette version.
@@ -142,6 +146,7 @@ vie, créez un nouvel abonnement.
 | **« Statut »** — **« Annulé »** ou **« Expiré »** | Le contrat est terminé. Il ne repartira pas. |
 | **« Déclarer un règlement »** (encadré de l’abonnement) | Vous déclarez qu’une période a été réglée. Cela ne fait entrer aucune somme : pour l’argent, voir [F08](F08-encaisser-un-reglement-recu-par-ailleurs.md). |
 | **« Archiver »** (sur la page des offres) | L’offre n’est plus proposée aux nouvelles souscriptions : **« L’offre n’est plus proposée aux nouvelles souscriptions. Les abonnements en cours gardent leurs conditions. »** |
+| **« Fonctionnalités de la version »** (sur la page des offres) | Les droits que l’offre porte : un interrupteur (activée ou non) ou une limite d’usage d’un compteur. |
 
 ## Si ça ne marche pas
 
@@ -151,6 +156,7 @@ vie, créez un nouvel abonnement.
 | **« Ressource introuvable. »** | L’abonnement n’existe pas dans ce projet. | Revenez à la page **« Abonnements »** et rouvrez-le par **« Ouvrir »**. |
 | L’abonnement ne peut pas être suspendu, repris ou annulé | Son état ne permet pas ce geste : un abonnement **« Annulé »** ou **« Expiré »** ne repart pas, et un changement d’offre est refusé si le client a déjà un abonnement vivant sur l’offre visée. | Vérifiez le **« Statut »** en haut de la page, et créez un nouvel abonnement si le client doit repartir. |
 | Le bouton **« Publier »** n’apparaît pas sur une version | La version n’est plus à l’état **« Brouillon »**. | Une version publiée est figée : ajoutez une nouvelle version si le tarif doit changer. |
+| Une fonctionnalité est refusée | Le bloc est incomplet : le **« Type »** n’est pas choisi, ou il manque le **« Compteur »** d’une limite d’usage. | Choisissez le type, puis remplissez les champs de ce type. Un bloc sans **« Nom »** est ignoré : il ne pose aucune question. |
 | L’abonnement est refusé à la création | L’offre est archivée, ou elle n’a aucune version publiée. | Vérifiez la page **« Offres »** : l’offre doit avoir une version **« Publiée »**. |
 
 ## Et ensuite

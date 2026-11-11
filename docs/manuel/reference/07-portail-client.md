@@ -271,7 +271,7 @@ minutes d'inactivité. »`, avec un bouton `« Se déconnecter »`.
 | `« Langue »` | `fr` par défaut |
 | `« Logo (URL https) »` | doit être hébergé sur une **origine autorisée** |
 | `« Aide (URL https ou mailto:) »` | le lien `« Besoin d'aide ? »` |
-| `« Adresses de retour autorisées »` | une par ligne. Le lien `« Retour à {nom} »` n'apparaît que si la liste n'est pas vide. |
+| `« Adresses de retour autorisées »` | **une URL par ligne**. Le lien `« Retour à {nom} »` n'apparaît que si la liste n'est pas vide. |
 | `« Souscrire, changer d'offre et renouveler »` | autorise les actions du chapitre 4 |
 | `« Résilier à la fin de la période (et reprendre le renouvellement) »` | idem |
 | `« Proposer la connexion par code »` | **désactivé par défaut** |

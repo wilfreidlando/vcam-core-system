@@ -47,10 +47,10 @@ portée demandée reçoit `403`.
 1. `« Nom »` (obligatoire, 80 caractères) — un nom qui dit à quoi elle sert :
    `« Serveur de facturation »`.
 2. Choisissez un **modèle**, ou `« Personnalisée »` et cochez les portées.
-3. `« Restriction réseau »` (facultatif) — un bloc CIDR par ligne, par exemple
-   `203.0.113.0/24`. Une fois renseignée, tout appel venant d'une autre adresse est
-   refusé (`403`). **C'est la protection la plus efficace si votre application tourne en
-   hébergement fixe.**
+3. `« Restriction réseau »` (facultatif) — **une adresse par ligne** : un bloc IPv4
+   (`203.0.113.0/24`) ou une adresse IPv6 (`2001:db8::/32`). Une fois renseignée, tout
+   appel venant d'une autre adresse est refusé (`403`). **C'est la protection la plus
+   efficace si votre application tourne en hébergement fixe.**
 4. `« Expiration (heure UTC) »` (facultatif). Une clé expirée est refusée comme une clé
    inconnue (`401`).
 5. `« Créer la clé »`.
