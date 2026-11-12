@@ -76,48 +76,26 @@ Points d'attention en le remplissant :
 | `MTN_MOMO_*` / `ORANGE_MONEY_*` | Laisser vide tant que ces adaptateurs ne sont pas construits (hors périmètre actuel — voir `CLAUDE.md`) ; MyCoolPay ne passe pas par ces variables, voir [§9](#9-enregistrer-une-application-provider-mycoolpay) |
 | `WAHA_BASE_URL` / `WAHA_API_KEY` | **Obligatoires pour les notifications WhatsApp** : l'adresse de votre instance WAHA (joignable depuis le conteneur, pas `localhost`) et sa clé d'API. Sans elles, tout envoi WhatsApp répond `201` avec `status: failed` (`requires a non-empty api_key credential`). |
 | `WAHA_WEBHOOK_SECRET` | Secret partagé de l'en-tête `X-Webhook-Secret` des webhooks entrants de WAHA. Il n'y a pas de session par défaut : chaque client envoie avec sa propre session (`variables.session`). |
-| `PII_ENCRYPTION_KEYS` | Clé de chiffrement des données personnelles (ADR-0083 §2), **distincte de `APP_KEY`** — voir [§2 bis](#2-bis-clés-de-confidentialité). Vide tant qu'aucune donnée personnelle n'est stockée ; dès qu'il y en a, une valeur manquante fait échouer l'écriture au lieu de stocker en clair. |
-| `PII_BLIND_INDEX_KEY` | Clé des index aveugles (recherche exacte sans données en clair). Distincte de la précédente : la perdre rend les index inutilisables, la divulguer les rend réversibles. |
 
 `.env` ne doit **jamais** être commité — il ne l'est pas
 (`.gitignore`/`.dockerignore` l'excluent déjà tous les deux).
 
-## 2 bis. Clés de confidentialité
+## 2 bis. Données personnelles
 
-Les données personnelles (clients, contacts) sont chiffrées au repos avec une
-clé **qui n'est pas `APP_KEY`** (ADR-0083 §2). Deux clés distinctes, jamais
-dans le dépôt ni dans la base : elles vivent dans l'environnement de
-déploiement, comme `APP_KEY`.
+**Le Core ne chiffre plus les données client** (ADR-0123). Il ne détient donc
+**aucune clé** pour elles : `PII_ENCRYPTION_KEYS` et `PII_BLIND_INDEX_KEY` ont
+disparu du déploiement, et la commande `privacy:generate-key` n'existe plus.
+Il n'y a **rien à poser** dans le `.env` pour les clients.
 
-```bash
-# clé de chiffrement (32 octets aléatoires)
-docker compose -f compose.prod.yaml exec app php artisan privacy:generate-key --key-version=1
-# → PII_ENCRYPTION_KEYS=v1:base64:…
+Ce qui reste protégé ne concerne pas le stockage : l'API ne rend l'e-mail et le
+téléphone qu'à un appelant portant `customers:read`, la console les masque par
+défaut (le démasquage est un acte audité), le journal d'audit et les journaux
+techniques ne portent aucune valeur personnelle, et l'effacement d'un client
+vide son identité.
 
-# clé des index aveugles
-docker compose -f compose.prod.yaml exec app php artisan privacy:generate-key --blind-index
-# → PII_BLIND_INDEX_KEY=base64:…
-```
-
-Les deux lignes vont dans `.env`, puis la stack redémarre. Sans elles,
-l'application démarre normalement (le Core ne stocke encore aucune donnée
-personnelle) mais **toute écriture de donnée personnelle échoue bruyamment** :
-jamais de valeur en clair en base.
-
-### Rotation
-
-1. Générer une nouvelle version et l'ajouter **en tête** de la liste, l'ancienne
-   conservée : `PII_ENCRYPTION_KEYS=v2:base64:…,v1:base64:…`. Les deux
-   versions déchiffrent pendant la transition ; seule la première chiffre.
-2. Faire re-chiffrer les lignes concernées par le module qui les détient
-   (le port `PersonalDataCipher` expose `needsReEncryption()` pour cela).
-3. Retirer l'ancienne version de la liste une fois la reprise terminée.
-4. La clé d'index aveugle se change de la même façon, mais **elle ne se
-   re-chiffre pas** : changer la clé d'index change tous les index, donc il
-   faut reconstruire les index (opération du module détenteur).
-
-> Ne jamais retirer une version de `PII_ENCRYPTION_KEYS` avant d'avoir
-> re-chiffré toutes ses lignes : elles deviennent illisibles, définitivement.
+> **Les sauvegardes restent chiffrées, mais par le disque** (ADR-0067, dépôt
+> `vcam-infra-deploy`) : une sauvegarde lue expose désormais les e-mails et les
+> téléphones **en clair**.
 
 ## 3. Construire les images
 

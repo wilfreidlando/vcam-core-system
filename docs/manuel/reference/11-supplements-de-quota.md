@@ -29,7 +29,7 @@ Le Core sait **faire** l'opération, la **console opérateur** la déclare et l'
 
 | Surface | Existe ? | Où |
 |---|---|---|
-| **Catalogue de packs du projet** | ✅ oui | console → *Réglages du commerce* → « Packs de quota » |
+| **Catalogue de packs du projet** | ✅ oui | console → *Réglages du commerce* → « Packs de rechargement » → « Catalogue de packs » |
 | **Achat par le client dans le portail** | ✅ oui | page *Utilisation* du portail → « Recharger mon quota » |
 | **Achat par l'opérateur (console)** | ✅ oui | page *Abonnement* → « Suppléments de quota » |
 | **Achat par l'API opérateur** | ✅ oui | `POST /v1/subscriptions/{id}/supplements` (`packages/billing/routes/api.php`) |
@@ -43,15 +43,19 @@ Un pack est une **déclaration du projet** : le compteur étendu, la quantité, 
 et le libellé que le client lit. Il vit dans les réglages du commerce, avec les
 correspondances capacité → compteur.
 
-La console l'écrit en une ligne par pack :
+La console l'écrit **bloc par bloc** — dans *Réglages du commerce* → « Packs de
+rechargement », le cadre **« Catalogue de packs »**. Chaque bloc porte cinq champs :
 
-```
-code | compteur | quantité | prix unitaire | libellé
-```
+| Champ | Ce qu'il contient |
+|---|---|
+| `« Code »` | le nom court du pack : minuscules, chiffres, `« _ »` et `« - »`, 64 caractères au plus. C'est lui que le client cite dans le portail. |
+| `« Compteur »` | le compteur étendu — il doit être **déclaré** dans les correspondances du même écran. |
+| `« Quantité »` | le nombre d'unités que le pack achète : 50 pour cinquante messages. |
+| `« Prix (unités mineures) »` | le prix **unitaire**, en unités mineures de la devise du projet. |
+| `« Libellé »` | ce que le client lit dans le portail. |
 
-```
-pack50 | whatsapp_messages | 50 | 5000 | Pack de 50 messages WhatsApp
-```
+Un bloc entièrement vide est **ignoré** ; un bloc dont un seul champ manque est
+**refusé**.
 
 Le **prix** est en unités mineures de la devise du projet (pour XAF, des francs : 5 000 = 5 000
 FCFA). Le **code** est en minuscules ; c'est lui que le client cite dans le portail, jamais un

@@ -95,7 +95,7 @@ final class BillingConsoleViewsTest extends TestCase
     }
 
     #[Test]
-    public function a_features_json_that_does_not_parse_is_reported_next_to_its_field(): void
+    public function a_feature_block_that_is_incomplete_is_reported_next_to_its_field(): void
     {
         $projectId = $this->project();
         $this->plan($projectId, 'basic', withVersion: false);
@@ -104,13 +104,17 @@ final class BillingConsoleViewsTest extends TestCase
 
         $this->from($page)->post("/admin/projects/{$projectId}/plans/versions", [
             'plan_code' => 'basic', 'price_minor' => '100', 'currency' => 'XAF', 'interval_unit' => 'month', 'interval_count' => '1',
-            'features' => '{api_access: true}',
+            'features' => [
+                ['name' => 'api_access', 'type' => '', 'enabled' => '', 'counter' => '', 'limit' => '', 'reset' => '', 'overage' => '', 'threshold_bps' => ''],
+            ],
         ])->assertRedirect($page);
 
         $html = $this->get($page)->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
         self::assertIsString($html);
-        self::assertStringContainsString('id="field-features-error"', $html);
-        self::assertStringContainsString('{api_access: true}', $html);
+        self::assertStringContainsString('id="field-features-0-type-error"', $html);
+        self::assertMatchesRegularExpression('/id="field-features-0-type"[^>]*aria-invalid="true"/s', $html);
+        // La saisie survit : le nom de la fonctionnalité reste dans son champ.
+        self::assertStringContainsString('value="api_access"', $html);
     }
 
     #[Test]

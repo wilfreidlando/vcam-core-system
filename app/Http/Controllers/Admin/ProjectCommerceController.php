@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ResolvesProjectCounters;
 use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
 use App\Notices\CoreNoticeCatalogue;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
-use Core\Billing\Contracts\BillingSettingsView;
+use Core\Billing\Contracts\ListPlans;
+use Core\Billing\Contracts\ListPlansCommand;
 use Core\Billing\Contracts\ListUsage;
 use Core\Billing\Contracts\ManageBillingSettings;
 use Core\Billing\Contracts\SaveBillingSettingsCommand;
@@ -40,6 +42,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class ProjectCommerceController
 {
+    use ResolvesProjectCounters;
     use ResolvesScopedProject;
 
     public function __construct(
@@ -47,6 +50,7 @@ final class ProjectCommerceController
         private readonly ManagePortalSettings $portal,
         private readonly ManageBillingSettings $billing,
         private readonly ManageSystemNotificationSettings $systemNotifications,
+        private readonly ListPlans $listPlans,
         private readonly ListUsage $usage,
         private readonly AuditLogger $audit,
         private readonly Clock $clock,
@@ -118,11 +122,32 @@ final class ProjectCommerceController
         $scope = $this->permittedScope($operator, 'plans:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
 
+        $settings = $this->billing->get($projectId, $scope);
+
+        // Les compteurs que le projet compte : ceux qu'il déclare dans « Limites
+        // d'usage », et ceux que ses offres et ses packs portent déjà. On les
+        // choisit dans les listes ; on ne les saisit pas deux fois.
+        $used = [];
+
+        if ($settings !== null) {
+            foreach ($settings->supplementPacks as $pack) {
+                $used[] = $pack->meter;
+            }
+        }
+
+        $offers = $this->listPlans->list(new ListPlansCommand($projectId, null, null, 100), $scope)->items;
+
         return response()->view('admin.billing.settings', [
             'title' => 'Réglages du commerce',
             'projectId' => $projectId,
-            'settings' => $this->billing->get($projectId, $scope),
+            'settings' => $settings,
             'noticeEvents' => $this->noticeEvents($projectId, $scope),
+            'counters' => $this->counters(
+                // `??` on a null object is quiet: a project that never
+                // touched its settings has no counter to offer.
+                $settings->meterMappings ?? [],
+                array_merge($used, $this->countersOfOffers($offers)),
+            ),
         ]);
     }
 
@@ -181,7 +206,23 @@ final class ProjectCommerceController
         $scope = $this->permittedScope($operator, 'plans:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
 
-        /** @var array{timezone: string, default_currency: string, renewal_lead_days: int|string|string, incomplete_expiry_hours: int|string|string, invoice_prefix: string, default_tax_rate_percent: numeric-string|int|float|null, manual_receipt_threshold?: int|string|string|null, meter_mappings?: string|null, supplement_packs?: string|null} $data */
+        // « Ajouter une ligne » : le formulaire revient avec un bloc de plus.
+        // Rien n'est enregistré : l'opérateur n'a pas encore validé.
+        $added = $request->string('add_row')->toString();
+
+        if ($added === 'meter_mappings' || $added === 'supplement_packs') {
+            // Les deux listes retiennent leur taille : l'opérateur peut
+            // ajouter une ligne dans l'une sans perdre celles de l'autre.
+            $mappings = count((array) $request->input('meter_mappings', []));
+            $packs = count((array) $request->input('supplement_packs', []));
+
+            return back()->withInput([
+                'meter_mappings_rows' => $added === 'meter_mappings' ? $mappings + 1 : $mappings,
+                'supplement_packs_rows' => $added === 'supplement_packs' ? $packs + 1 : $packs,
+            ]);
+        }
+
+        /** @var array{timezone: string, default_currency: string, renewal_lead_days: int|string|string, incomplete_expiry_hours: int|string|string, invoice_prefix: string, default_tax_rate_percent: numeric-string|int|float|null, manual_receipt_threshold?: int|string|string|null, meter_mappings?: array<int|string, mixed>|null, supplement_packs?: array<int|string, mixed>|null} $data */
         $data = Validator::make($request->all(), [
             'timezone' => ['required', 'string', 'max:64'],
             'default_currency' => ['required', 'string', 'size:3'],
@@ -190,13 +231,21 @@ final class ProjectCommerceController
             'invoice_prefix' => ['required', 'string', 'regex:/^[A-Z0-9]{2,12}$/'],
             'default_tax_rate_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'manual_receipt_threshold' => ['nullable', 'integer', 'min:0'],
-            'meter_mappings' => ['nullable', 'string', 'max:4000'],
-            'supplement_packs' => ['nullable', 'string', 'max:8000'],
+            'meter_mappings' => ['nullable', 'array', 'max:50'],
+            'supplement_packs' => ['nullable', 'array', 'max:20'],
             'refund_failed_usage' => ['nullable', 'boolean'],
             'require_customer_ref' => ['nullable', 'boolean'],
+        ], [
+            'meter_mappings.array' => 'Les correspondances se déclarent bloc par bloc.',
+            'meter_mappings.max' => 'Au plus 50 correspondances.',
+            'supplement_packs.array' => 'Les packs se déclarent bloc par bloc.',
+            'supplement_packs.max' => 'Au plus 20 packs.',
         ])->validate();
 
         $before = $this->billing->get($projectId, $scope);
+
+        // Les correspondances lues dans le formulaire : les packs s'y réfèrent.
+        $meterMappings = $this->mappings($data['meter_mappings'] ?? null);
 
         try {
             $saved = $this->billing->save(new SaveBillingSettingsCommand(
@@ -209,11 +258,11 @@ final class ProjectCommerceController
                 // A percentage typed by a human becomes basis points (G5: no float stored).
                 defaultTaxRateBps: (int) round(((float) ($data['default_tax_rate_percent'] ?? 0)) * 100),
                 manualReceiptApprovalThresholdMinor: (int) ($data['manual_receipt_threshold'] ?? 0),
-                meterMappings: $this->mappings($data['meter_mappings'] ?? null),
+                meterMappings: $meterMappings,
                 refundFailedUsage: $request->boolean('refund_failed_usage'),
                 requireCustomerRef: $request->boolean('require_customer_ref'),
                 actor: $this->actor($operator),
-                supplementPacks: $this->packs($data['supplement_packs'] ?? null, $before),
+                supplementPacks: $this->packs($data['supplement_packs'] ?? null, array_values($meterMappings)),
             ), $scope);
         } catch (InvalidBillingSettings $e) {
             return back()->withInput()->withErrors(['resource' => $e->getMessage()]);
@@ -329,16 +378,25 @@ final class ProjectCommerceController
     }
 
     /**
-     * « notification.whatsapp = whatsapp_messages », one per line.
+     * Les correspondances, lues bloc par bloc : une capacité et le
+     * compteur qu'elle consomme.
+     *
+     * Un bloc incomplet — une seule des deux cases remplie — est ignoré,
+     * comme l'était une ligne incomplète avant (ADR-0074 §5).
      *
      * @return array<string, string>
      */
-    private function mappings(?string $text): array
+    private function mappings(mixed $rows): array
     {
         $out = [];
 
-        foreach ($this->lines($text) as $line) {
-            [$capability, $meter] = array_pad(array_map('trim', explode('=', $line, 2)), 2, '');
+        foreach ((array) $rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $capability = $this->text($row['capability'] ?? null);
+            $meter = $this->text($row['meter'] ?? null);
 
             if ($capability !== '' && $meter !== '') {
                 $out[$capability] = $meter;
@@ -349,31 +407,40 @@ final class ProjectCommerceController
     }
 
     /**
-     * ADR-0119 §1 — le catalogue de packs, lu depuis la zone de texte.
+     * ADR-0119 §1 — le catalogue de packs, lu bloc par bloc.
      *
-     * Une ligne par pack : `code | compteur | quantité | prix | libellé`.
+     * Un bloc par pack : code, compteur, quantité, prix, libellé. Un
+     * bloc entièrement vide est ignoré ; un bloc incomplet est refusé
+     * par les mêmes règles qu'avant.
+     *
      * Le prix est en unités mineures de la devise du projet (G5 : jamais
      * de float) ; pour XAF, l'unité mineure est le franc.
      *
      * Le compteur d'un pack doit être un compteur que le projet a
      * déclaré : un pack qui ne vise rien n'a pas de sens.
      *
-     * @param BillingSettingsView|null $reglages the settings before the save
+     * @param list<string> $compteurs les compteurs déclarés par le projet
      * @return list<array{code: string, meter: string, quantity: int, unit_price_minor: int, label: string}>
      */
-    private function packs(?string $text, ?BillingSettingsView $reglages): array
+    private function packs(mixed $rows, array $compteurs): array
     {
         $packs = [];
-        $compteurs = $reglages === null ? [] : array_values($reglages->meterMappings);
 
-        foreach ($this->lines($text) as $line) {
-            $champs = array_map('trim', explode('|', $line));
-
-            if (count($champs) !== 5) {
-                throw new InvalidBillingSettings('Un pack doit avoir cinq champs : code | compteur | quantité | prix | libellé.');
+        foreach ((array) $rows as $row) {
+            if (! is_array($row)) {
+                continue;
             }
 
-            [$code, $meter, $quantity, $prix, $label] = $champs;
+            $code = $this->text($row['code'] ?? null);
+            $meter = $this->text($row['meter'] ?? null);
+            $quantity = $this->text($row['quantity'] ?? null);
+            $prix = $this->text($row['unit_price_minor'] ?? null);
+            $label = $this->text($row['label'] ?? null);
+
+            // Un bloc entièrement vide est un bloc vide : il est ignoré.
+            if ($code === '' && $meter === '' && $quantity === '' && $prix === '' && $label === '') {
+                continue;
+            }
 
             if (preg_match('/^[a-z0-9_-]{1,64}$/', $code) !== 1) {
                 throw new InvalidBillingSettings('Le code d\'un pack est en minuscules, chiffres, « _ » et « - » (64 caractères au plus).');
@@ -409,5 +476,13 @@ final class ProjectCommerceController
         }
 
         return $packs;
+    }
+
+    /**
+     * La valeur d'un champ du formulaire, comme texte coupé.
+     */
+    private function text(mixed $value): string
+    {
+        return is_scalar($value) ? trim((string) $value) : '';
     }
 }

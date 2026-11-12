@@ -11,8 +11,8 @@ use Illuminate\Database\Eloquent\Model;
  * ADR-0073 §1 — the invoice, as it lies on the disk.
  *
  * The personal values of the customer are **never** stored in clear:
- * `customer_snapshot` holds the ciphertexts of ADR-0083 §2, versioned by
- * the cipher, and the project's own reference beside them.
+ * `customer_snapshot` holds the customer as it was at the issuance — in
+ * clear (ADR-0123) — and the project's own reference beside them.
  *
  * @property string $id
  * @property string $project_id

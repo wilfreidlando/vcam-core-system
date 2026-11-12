@@ -333,7 +333,7 @@ final class ConsoleIdorTest extends TestCase
             // the isolation — the gesture has to reach the use case.
             'admin.projects.customers.update.web' => ['external_ref' => 'idor-client', 'display_name' => 'Renommé par IDOR'],
             'admin.projects.customers.erase.web' => ['reason' => 'Effacement IDOR'],
-            'admin.projects.plans.versions.store' => [
+            'admin.projects.plans.versions.store', 'admin.projects.plans.versions.update' => [
                 'price_minor' => 5000, 'currency' => 'XAF', 'interval_unit' => 'month', 'interval_count' => 1,
             ],
             'admin.projects.subscriptions.pause.web' => ['reason' => 'Pause IDOR'],

@@ -51,8 +51,12 @@ final class SupplementConsoleTest extends TestCase
             ->assertSee('Packs de rechargement');
 
         $this->post("/admin/projects/{$projectId}/commerce-settings", $this->settings([
-            'meter_mappings' => 'notification.whatsapp = whatsapp_messages',
-            'supplement_packs' => 'pack50 | whatsapp_messages | 50 | 5000 | Pack de 50 messages WhatsApp',
+            'meter_mappings' => [
+                ['capability' => 'notification.whatsapp', 'meter' => 'whatsapp_messages'],
+            ],
+            'supplement_packs' => [
+                ['code' => 'pack50', 'meter' => 'whatsapp_messages', 'quantity' => '50', 'unit_price_minor' => '5000', 'label' => 'Pack de 50 messages WhatsApp'],
+            ],
         ]))->assertRedirect("/admin/projects/{$projectId}/commerce-settings");
 
         // The catalogue is written, and the console shows it back.
@@ -67,7 +71,7 @@ final class SupplementConsoleTest extends TestCase
         self::assertEquals(50, $first['quantity'] ?? null);
 
         $this->get("/admin/projects/{$projectId}/commerce-settings")
-            ->assertSee('pack50 | whatsapp_messages | 50 | 5000 | Pack de 50 messages WhatsApp');
+            ->assertSee('pack50')->assertSee('whatsapp_messages')->assertSee('Pack de 50 messages WhatsApp');
     }
 
     #[Test]
@@ -76,20 +80,28 @@ final class SupplementConsoleTest extends TestCase
         $projectId = $this->project();
         $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
 
-        // Five fields are needed.
+        // Every field of a pack is needed.
         $this->post("/admin/projects/{$projectId}/commerce-settings", $this->settings([
-            'supplement_packs' => 'pack50 | whatsapp_messages | 50',
+            'supplement_packs' => [
+                ['code' => 'pack50', 'meter' => 'whatsapp_messages', 'quantity' => '50', 'unit_price_minor' => '5000', 'label' => ''],
+            ],
         ]))->assertSessionHasErrors('resource');
 
         // The quantity is a whole number, at least one.
         $this->post("/admin/projects/{$projectId}/commerce-settings", $this->settings([
-            'supplement_packs' => 'pack50 | whatsapp_messages | 0 | 5000 | Pack',
+            'supplement_packs' => [
+                ['code' => 'pack50', 'meter' => 'whatsapp_messages', 'quantity' => '0', 'unit_price_minor' => '5000', 'label' => 'Pack'],
+            ],
         ]))->assertSessionHasErrors('resource');
 
         // The meter must be one the project declared.
         $this->post("/admin/projects/{$projectId}/commerce-settings", $this->settings([
-            'meter_mappings' => 'notification.whatsapp = whatsapp_messages',
-            'supplement_packs' => 'pack50 | sms | 50 | 5000 | Pack',
+            'meter_mappings' => [
+                ['capability' => 'notification.whatsapp', 'meter' => 'whatsapp_messages'],
+            ],
+            'supplement_packs' => [
+                ['code' => 'pack50', 'meter' => 'sms', 'quantity' => '50', 'unit_price_minor' => '5000', 'label' => 'Pack'],
+            ],
         ]))->assertSessionHasErrors('resource');
 
         $saved = DB::table('billing_settings')->where('project_id', $projectId)->value('supplement_packs');
@@ -104,8 +116,12 @@ final class SupplementConsoleTest extends TestCase
         $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
 
         $this->post("/admin/projects/{$projectId}/commerce-settings", $this->settings([
-            'meter_mappings' => 'notification.whatsapp = whatsapp_messages',
-            'supplement_packs' => 'pack50 | whatsapp_messages | 50 | 5000 | Pack de 50 messages WhatsApp',
+            'meter_mappings' => [
+                ['capability' => 'notification.whatsapp', 'meter' => 'whatsapp_messages'],
+            ],
+            'supplement_packs' => [
+                ['code' => 'pack50', 'meter' => 'whatsapp_messages', 'quantity' => '50', 'unit_price_minor' => '5000', 'label' => 'Pack de 50 messages WhatsApp'],
+            ],
         ]))->assertRedirect("/admin/projects/{$projectId}/commerce-settings");
 
         $this->get("/admin/projects/{$projectId}/subscriptions/{$subscriptionId}")
@@ -141,8 +157,12 @@ final class SupplementConsoleTest extends TestCase
         $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
 
         $this->post("/admin/projects/{$projectId}/commerce-settings", $this->settings([
-            'meter_mappings' => 'notification.whatsapp = whatsapp_messages',
-            'supplement_packs' => 'pack50 | whatsapp_messages | 50 | 5000 | Pack de 50 messages WhatsApp',
+            'meter_mappings' => [
+                ['capability' => 'notification.whatsapp', 'meter' => 'whatsapp_messages'],
+            ],
+            'supplement_packs' => [
+                ['code' => 'pack50', 'meter' => 'whatsapp_messages', 'quantity' => '50', 'unit_price_minor' => '5000', 'label' => 'Pack de 50 messages WhatsApp'],
+            ],
         ]));
 
         $nonce = '22222222-2222-4222-8222-222222222222';
@@ -183,8 +203,8 @@ final class SupplementConsoleTest extends TestCase
     /**
      * The settings of the project, as the form posts them.
      *
-     * @param array<string, string> $plus
-     * @return array<string, string>
+     * @param array<string, mixed> $plus
+     * @return array<string, mixed>
      */
     private function settings(array $plus = []): array
     {
@@ -196,8 +216,8 @@ final class SupplementConsoleTest extends TestCase
             'invoice_prefix' => 'FACT',
             'default_tax_rate_percent' => '0',
             'manual_receipt_threshold' => '0',
-            'meter_mappings' => '',
-            'supplement_packs' => '',
+            'meter_mappings' => [],
+            'supplement_packs' => [],
             'refund_failed_usage' => '1',
         ], $plus);
     }

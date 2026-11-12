@@ -11,7 +11,7 @@ namespace Core\Billing\Contracts;
  * `$status` is the canonical `CustomerStatus` enum's `->value` ('active',
  * 'suspended', 'erased'), never the enum itself (G3c).
  *
- * `email` and `phone` are the decrypted values: they leave the Core only
+ * `email` and `phone` are the values as they are stored: they leave the Core only
  * to a caller holding `customers:read` (ADR-0070 §Sécurité).
  */
 final readonly class CustomerView

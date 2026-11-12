@@ -293,6 +293,29 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
             Route::post('{projectId}/exports/{exportId}/download', [App\Http\Controllers\Admin\ProjectExportsController::class, 'download'])->name('projects.exports.download')->middleware(['throttle:console-sensitive']);
 
             Route::prefix('{projectId}/customers')->group(function (): void {
+                // ADR-0122 §2 — the declaration the application proposed,
+                // read by the operator, who accepts it or refuses it. The
+                // pages are declared BEFORE the `{externalRef}` routes:
+                // « schema » and « import » are valid references (the
+                // Core's alphabet, ADR-0070 §1), and the catch-all would
+                // swallow them.
+                Route::get('schema', [App\Http\Controllers\Admin\BillingTenantSchemaController::class, 'show'])
+                    ->name('projects.customers.schema');
+                Route::post('schema/{schemaId}/accept', [App\Http\Controllers\Admin\BillingTenantSchemaController::class, 'accept'])
+                    ->whereUuid('schemaId')
+                    ->name('projects.customers.schema.accept')->middleware(['throttle:console-sensitive']);
+                Route::post('schema/{schemaId}/reject', [App\Http\Controllers\Admin\BillingTenantSchemaController::class, 'reject'])
+                    ->whereUuid('schemaId')
+                    ->name('projects.customers.schema.reject')->middleware(['throttle:console-sensitive']);
+
+                // ADR-0122 §9 — the bulk import of the customers an
+                // application already had. One route, two gestures: the
+                // page that asks for the file (GET), and the import
+                // itself (POST). The upload is a write: it is capped like
+                // the other sensitive gestures of the console.
+                Route::match(['get', 'post'], 'import', [App\Http\Controllers\Admin\BillingCustomerImportController::class, 'handle'])
+                    ->name('projects.customers.import')->middleware(['throttle:console-sensitive']);
+
                 // The reference is format-checked in the route (the
                 // column carries the same CHECK constraint): a
                 // reference that does not match it is a route that does
@@ -339,6 +362,16 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
                     ->name('projects.plans.versions.add');
                 Route::post('{code}/versions', [App\Http\Controllers\Admin\BillingPlansController::class, 'storeVersion'])
                     ->name('projects.plans.versions.store');
+                // ADR-0071 §2 — a version is given to an offer from the
+                // offer's own page, and a draft is corrected where it is.
+                Route::get('{code}/versions/new', [App\Http\Controllers\Admin\BillingPlansController::class, 'newVersion'])
+                    ->name('projects.plans.versions.new');
+                Route::get('{code}/versions/{version}/edit', [App\Http\Controllers\Admin\BillingPlansController::class, 'editVersion'])
+                    ->whereNumber('version')
+                    ->name('projects.plans.versions.edit');
+                Route::post('{code}/versions/{version}', [App\Http\Controllers\Admin\BillingPlansController::class, 'updateVersion'])
+                    ->whereNumber('version')
+                    ->name('projects.plans.versions.update');
                 Route::post('{code}/versions/{version}/publish', [App\Http\Controllers\Admin\BillingPlansController::class, 'publish'])
                     ->whereNumber('version')
                     ->name('projects.plans.versions.publish.web');

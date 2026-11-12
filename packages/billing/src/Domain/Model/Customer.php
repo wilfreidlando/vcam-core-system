@@ -14,9 +14,9 @@ use DateTimeImmutable;
  * correlation key — opaque to the Core, format-checked so it can never be
  * injected into a URL, a log or a cache key.
  *
- * The email and the phone are held **in clear** here and encrypted at the
- * repository boundary (ADR-0083): the domain checks their format, the
- * infrastructure never lets a clear value reach the disk.
+ * The email and the phone are held **in clear** here, and they are
+ * **stored** in clear (ADR-0123): the domain checks their format, and
+ * the Core keeps no key of its own for them.
  */
 final class Customer
 {

@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Core\Support\Privacy;
 
 /**
- * ADR-0083 §2 — how a personal value is normalised before its blind index is
- * computed, so that `Ali@Example.CM ` and `ali@example.cm` index the same.
+ * ADR-0070 §4 — how a personal value is normalised before it is stored and
+ * before it is looked up, so that `Ali@Example.CM ` and `ali@example.cm`
+ * are the same address (ADR-0123).
  */
 enum PersonalDataKind: string
 {

@@ -45,7 +45,7 @@ Détail : `table-correspondance-fusion.md`. En résumé (ADR-0089) :
 | `v_cam-services-center` | Core |
 |---|---|
 | `applications` (+ clé/secret/scopes/IP) | `projects` + clés à portée |
-| `clients` | `customers` (identité minimale chiffrée) |
+| `clients` | `customers` (identité minimale conservée en clair — ADR-0123) |
 | `abonnements`, `plan_notifications` | `plans` + `plan_versions` |
 | `client_abonnement`, `client_plan`, `parametres` | `subscriptions` + `subscription_periods` + `usage_counters` |
 | `paiements` (blob), encaissement direct, callback non signé | **retirés** → `payment` + factures + grand livre |

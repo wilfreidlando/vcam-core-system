@@ -10,7 +10,8 @@ ses données métier.** Vous ne gérez ni offre, ni abonnement, ni facture, ni
 encaissement : **le propriétaire de votre logiciel fait tout cela lui-même, dans le
 portail que le Core héberge.**
 
-Concrètement, votre application fait **cinq** choses :
+Concrètement, votre application fait **six** choses — et, si elle a des clients
+qui portent des champs à elle, une **septième** :
 
 | # | Ce qu'elle fait | Comment |
 |---|---|---|
@@ -20,6 +21,7 @@ Concrètement, votre application fait **cinq** choses :
 | 4 | **Compter** son usage | `POST /v1/usage` |
 | 5 | **Ouvrir** le portail de son propriétaire | `POST /v1/portal/sessions` |
 | 6 | **Recevoir** son état (abonnement, quotas, factures) | webhooks signés |
+| 7 | **Proposer** la forme de ses clients *(facultatif)* | `PUT /v1/projects/{id}/tenant-schema` |
 
 Des **lectures**, un **comptage**, une **ouverture de portail**, et la **réception**
 d'événements. **Aucun** droit d'écrire sur le commerce : votre clé ne portera pas
@@ -46,13 +48,17 @@ export TENANT="auto-ecole-42"                              # VOTRE référence d
 
 ```
 customers:read · usage:read · usage:write · portal:write · subscriptions:read · invoices:read
-notifications:write · notifications:read
+notifications:write · notifications:read · tenant_schema:write
 ```
 
-Les deux dernières portées sont celles des **messages** : votre application prévient
-ses propres clients, et le Core n'est que la passerelle WhatsApp. Les messages
-ne sont pas du commerce — vous n'écrivez toujours aucun client, aucune offre,
-aucun abonnement, aucune facture.
+Les deux portées `notifications:*` sont celles des **messages** : votre application
+prévient ses propres clients, et le Core n'est que la passerelle WhatsApp. Les
+messages ne sont pas du commerce — vous n'écrivez toujours aucun client, aucune
+offre, aucun abonnement, aucune facture.
+
+`tenant_schema:write` est la portée de la **déclaration** : elle vous permet de
+proposer la forme de vos locataires (section 2 bis). Ce n'est pas une écriture sur
+le commerce — c'est une *forme*, une liste de noms, jamais des valeurs.
 
 Vérifiez-la — la réponse dit ce qu'elle est autorisée à faire :
 
@@ -63,7 +69,7 @@ curl -s "$BASE_URL/v1/whoami" \
 ```
 
 ```json
-{"project_id":"01a101a1-7a96-712d-b63a-e3bbc27ae721","organization_id":"01a101a1-7a88-7241-b0aa-99f174f09b01","scopes":["customers:read","usage:read","usage:write","portal:write","subscriptions:read","invoices:read","notifications:write","notifications:read"]}
+{"project_id":"01a101a1-7a96-712d-b63a-e3bbc27ae721","organization_id":"01a101a1-7a88-7241-b0aa-99f174f09b01","scopes":["customers:read","usage:read","usage:write","portal:write","subscriptions:read","invoices:read","notifications:write","notifications:read","tenant_schema:write"]}
 ```
 
 Si votre clé porte `*` ou le modèle « Serveur complet », demandez une clé
@@ -78,8 +84,9 @@ application connaît** — puis le Core **vous le pousse**.
 
 Votre application n'a donc **rien à écrire** : elle **reçoit** son locataire.
 
-L'événement arrive sur le point d'entrée que l'opérateur a enregistré pour votre
-application :
+L'événement arrive sur le point d'entrée que l'opérateur a enregistré **depuis la
+console** du Core, pour votre application — et le secret de signature vous est
+**remis hors du Core**, par le canal de votre choix (ADR-0110 décision 5) :
 
 ```json
 {
@@ -94,8 +101,10 @@ application :
 }
 ```
 
-`external_ref` est **la référence que le Core connaît** — celle que vous utilisez dans
-tous vos appels. C'est l'opérateur qui l'a saisie, pour qu'elle soit la vôtre.
+`external_ref` est **la référence que votre application connaît** — celle que vous
+utilisez dans tous vos appels. C'est l'opérateur du Core qui l'a saisie, pour votre
+projet, **pour qu'elle soit la vôtre** : vous n'avez rien à deviner (ADR-0110
+décision 3).
 
 La charge utile ne porte **aucune donnée personnelle** (ADR-0070 §3) : ni nom, ni
 e-mail, ni téléphone. Si vous devez associer le locataire à un compte local — par son
@@ -112,6 +121,89 @@ L'e-mail et le téléphone ne vous sont retournés que si votre clé porte
 
 > **Votre application n'écrit jamais un client.** Elle n'a pas `customers:write`, et
 > elle n'en a pas besoin : le Core le crée, et le Core vous le dit.
+>
+> Ce que vous écrivez, c'est **votre** locataire : à la réception de
+> `customer.created`, vous le **créez** s'il vous est inconnu, ou vous le **liez**
+> s'il existe déjà chez vous. C'est le patron de provisionnement du paquet
+> [`core-adapter`](https://github.com/wilfreidlando/core-adapter), dont le README
+> fait le tour.
+
+## 2 bis. Déclarer la forme de vos locataires
+
+Le Core sait désormais quelle **forme** portent vos clients : la clé unique que
+vous utilisez, le format que vos références doivent respecter, et les champs que
+vous attendez de lui — votre localisation, votre responsable, votre année de
+création. Vous ne les **inventez** pas au moment de la saisie : vous les
+**annoncez**, une fois, et la console du Core les affiche tels quels.
+
+C'est une *forme*, pas une donnée : ni le nom du client, ni son e-mail, ni son
+téléphone. Une déclaration ne contient que des **noms** de champs.
+
+```bash
+curl -s -X PUT "$BASE_URL/v1/projects/$PROJECT_ID/tenant-schema" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "unique_key": "code",
+    "unique_key_pattern": "AE[0-9]{4,8}",
+    "fields": [
+      {"key": "localisation", "label": "Localisation", "type": "string",
+       "required": false, "max_length": 120, "source": "declared.localisation"},
+      {"key": "annee", "label": "Année de création", "type": "integer",
+       "required": true, "source": "declared.annee"}
+    ]
+  }'
+```
+
+`$PROJECT_ID` est le `project_id` que `GET /v1/whoami` vous a donné.
+
+| Champ | Ce que c'est |
+|---|---|
+| `unique_key` | le nom de la clé que vous désignez — un mot, pas une valeur |
+| `unique_key_pattern` | le format de vos références ; il ne décrit que des références du Core (`^[A-Za-z0-9._:-]{1,128}$`) |
+| `fields[].key` | le nom de la clé, côté application |
+| `fields[].label` | le libellé que l'opérateur lira |
+| `fields[].type` | `string`, `text`, `integer`, `decimal`, `boolean`, `date`, `datetime`, `email`, `phone`, `url` |
+| `fields[].required` | `true` : l'opérateur devra le remplir |
+| `fields[].max_length` | la longueur maximale |
+| `fields[].source` | `declared.<clé>`, ou `core_identity.email` / `.display_name` / `.phone` / `.locale` — une source qui reprend un champ du Core **remplace** ce champ : l'opérateur ne saisit jamais la même valeur deux fois |
+
+**La proposition n'est pas une décision.** Elle reste **en attente** jusqu'à ce
+que l'opérateur du Core l'ait lue dans la console (*« Forme du client »*) et
+l'ait **acceptée**. Tant qu'il ne l'a pas fait, le formulaire du Core ne montre
+que l'identité du Core.
+
+Les valeurs, ensuite, se **lisent** — comme le reste :
+
+```bash
+curl -s "$BASE_URL/v1/customers/$TENANT" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Accept: application/json"
+```
+
+```json
+{
+  "external_ref": "AE0001",
+  "display_name": "Auto-école Soleil",
+  "declared_attributes": {"localisation": "Douala", "annee": "2019"}
+}
+```
+
+> **Les valeurs déclarées sont conservées en clair**, comme le nom du client
+> ([ADR-0123](../adr/0123-le-core-ne-chiffre-plus-les-donnees-client.md)).
+> N'y mettez donc pas de donnée personnelle : ni pièce d'identité, ni adresse,
+> ni numéro de téléphone.
+
+### Vos Clients que le Core ne connaît pas encore
+
+Si votre application avait déjà ses clients **avant** le branchement, ils ne
+sont pas chez le Core. Vous les exportez (le paquet `core-adapter` expose
+`core:export-tenants`), l'opérateur dépose le fichier dans la console du Core
+(*« Importer des clients »*), et le Core les crée et les pousse.
+
+Votre application, qui les connaît déjà, les **relie** : **aucun doublique**
+n'est possible, la référence est unique.
 
 ## 3. Lire les droits du locataire
 
@@ -237,11 +329,12 @@ Deux champs facultatifs :
 Votre application doit savoir quand l'état de son locataire change : abonnement
 activé, suspendu, expiré, facture émise, quota atteint.
 
-**L'enregistrement se fait depuis le Core**, pas depuis votre application
-(l'administrateur du Core enregistre votre point d'entrée et vous remet le secret).
-Votre application se contente de **recevoir** et de **vérifier la signature** — la
-procédure complète, avec le code de vérification dans les trois langages, est dans
-**[webhooks.md](webhooks.md)**.
+**L'enregistrement se fait depuis la console du Core**, pas depuis votre
+application : l'administrateur du Core y saisit l'URL de votre point d'entrée et la
+liste des événements, puis **vous remet le secret hors du Core**, par le canal de
+votre choix. Votre application se contente de **recevoir** et de **vérifier la
+signature** — la procédure complète, avec le code de vérification dans les trois
+langages, est dans **[webhooks.md](webhooks.md)**.
 
 Les événements qui vous concernent :
 
@@ -259,14 +352,17 @@ Les événements qui vous concernent :
 | `invoice.issued`, `invoice.paid`, `invoice.payment_failed`, `invoice.voided` | l'état d'une facture |
 | `usage.threshold_reached`, `usage.limit_reached` | un quota est bientôt atteint / atteint |
 
-Chaque charge utile porte un `version` : c'est le **verrou optimiste** de la
-ressource. Rejouez un événement plus ancien que le dernier que vous avez traité, et
-ignorez-le. Un événement livré deux fois ne doit être traité qu'une fois (l'`id` de
-l'événement est votre clé de dédoublonnage).
+Chaque charge utile de cette liste porte un `version` : c'est le **verrou optimiste**
+de la ressource. Rejouez un événement plus ancien que le dernier que vous avez traité,
+et ignorez-le. Un événement livré deux fois ne doit être traité qu'une fois (l'`id` de
+l'événement est votre clé de dédoublonnage). Seuls les événements d'usage font
+exception : `usage.*` ne porte pas de `version`.
 
 Les événements `customer.*` et `subscription.*` ne portent **aucune donnée
 personnelle** : le locataire y est nommé par votre propre référence. Si vous avez
-besoin de son e-mail, vous le **demandez** (`GET /v1/customers/{ref}`).
+besoin de son e-mail, vous le **demandez** (`GET /v1/customers/{ref}`). La charge
+utile exacte des événements `customer.*` est décrite dans le catalogue des
+événements de **[webhooks.md](webhooks.md)**.
 
 ## 7. Ce que votre propriétaire fait dans le portail
 
@@ -302,6 +398,7 @@ Les offres, c'est **vous** qui les publiez dans le Core (opérateur), une fois :
 | lire son état commercial | `GET /v1/subscriptions`, `GET /v1/invoices` | `subscriptions:read`, `invoices:read` |
 | **prévenir** ses clients | `POST /v1/notifications/text` | `notifications:write` |
 | suivre l'envoi d'un message | `GET /v1/notifications/{id}` | `notifications:read` |
+| **proposer** la forme de ses clients | `PUT /v1/projects/{id}/tenant-schema` | `tenant_schema:write` |
 | recevoir ses événements | webhook signé | — |
 
 Et ce que vous **ne** ferez pas : **créer un client**, créer une offre, créer un
@@ -312,8 +409,13 @@ s'occupe du reste.
 
 **Aller plus loin**
 
-- **[Kit Laravel](kit-laravel/INSTALL.md)** — le même parcours, en code prêt à
-  l'emploi (à installer en paquet Composer, ADR-0108).
+- **[Paquet `core-adapter`](https://github.com/wilfreidlando/core-adapter)** — le
+  même parcours, en code prêt à l'emploi : `composer require
+  wilfreidlando/core-adapter`, service provider auto-découvert
+  ([ADR-0108](../adr/0108-le-kit-client-devient-un-paquet-composer.md),
+  [ADR-0112](../adr/0112-le-paquet-client-s-appelle-core-adapter.md)). L'ancien
+  [kit Laravel](kit-laravel/INSTALL.md) est conservé pour mémoire, mais il est
+  remplacé.
 - **[Guide `curl`](guide-curl-integrateur.md)** — paiements, portefeuilles,
   notifications, exports.
 - **[Webhooks](webhooks.md)** — la vérification de signature, la rotation du secret,

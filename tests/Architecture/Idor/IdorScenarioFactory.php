@@ -15,6 +15,8 @@ use Core\Billing\Contracts\CreateSubscriptionCommand;
 use Core\Billing\Contracts\InvoiceLineInput;
 use Core\Billing\Contracts\IssueInvoice;
 use Core\Billing\Contracts\IssueInvoiceCommand;
+use Core\Billing\Contracts\ProposeTenantSchema;
+use Core\Billing\Contracts\ProposeTenantSchemaCommand;
 use Core\Billing\Contracts\PublishPlanVersion;
 use Core\Billing\Contracts\PublishPlanVersionCommand;
 use Core\Billing\Contracts\RecordManualReceipt;
@@ -329,6 +331,35 @@ final class IdorScenarioFactory
                 ));
 
                 return new ResourceRequest(['projectId' => $projectId, 'externalRef' => $externalRef], markers: [$externalRef]);
+
+            case ResourceNature::TenantSchema:
+                // The declaration the application proposed: a **form**,
+                // never values. The scenario holds one so that the page
+                // has something to leak if the scope were ignored.
+                $schemaId = (string) Str::uuid();
+
+                if (app()->bound(ProposeTenantSchema::class)) {
+                    $schemaId = app(ProposeTenantSchema::class)->propose(new ProposeTenantSchemaCommand(
+                        projectId: $owner->project->id,
+                        uniqueKey: 'code',
+                        uniqueKeyPattern: 'AE[0-9]{4,8}',
+                        fields: [[
+                            'key' => 'localisation',
+                            'label' => 'Localisation '.$owner->secret,
+                            'type' => 'text',
+                            'required' => false,
+                            'max_length' => 120,
+                            'source' => 'declared.localisation',
+                        ]],
+                        actor: 'test:idor',
+                        correlationId: null,
+                    ))->id;
+                }
+
+                return new ResourceRequest(
+                    ['projectId' => $projectId, 'schemaId' => $schemaId],
+                    markers: [$schemaId],
+                );
 
             case ResourceNature::Plan:
                 $code = 'idor-plan-'.Str::lower(Str::random(8));

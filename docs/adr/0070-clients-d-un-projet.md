@@ -1,6 +1,6 @@
 # ADR-0070 — Les clients d'un projet : identité minimale, déclarée par le projet, chiffrée au repos
 
-- **Statut** : Accepté
+- **Statut** : Accepté — amendé par ADR-0123 (§1)
 - **Date** : 2026-10-24
 - **Décideurs** : comité d'architecture (ratifié le 2026-10-27)
 - **Dérives concernées** : D1 périmètre · D3 données/PII · D5 contrat

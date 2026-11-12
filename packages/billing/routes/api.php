@@ -25,10 +25,12 @@ use Core\Billing\Presentation\Http\Controllers\ListSubscriptionsController;
 use Core\Billing\Presentation\Http\Controllers\ListSubscriptionSupplementsController;
 use Core\Billing\Presentation\Http\Controllers\ListUsageController;
 use Core\Billing\Presentation\Http\Controllers\PayInvoiceController;
+use Core\Billing\Presentation\Http\Controllers\ProposeTenantSchemaController;
 use Core\Billing\Presentation\Http\Controllers\PublishPlanVersionController;
 use Core\Billing\Presentation\Http\Controllers\PurchaseSubscriptionSupplementController;
 use Core\Billing\Presentation\Http\Controllers\ReactivateCustomerController;
 use Core\Billing\Presentation\Http\Controllers\SuspendCustomerController;
+use Core\Billing\Presentation\Http\Controllers\UpdatePlanVersionController;
 use Core\Billing\Presentation\Http\Controllers\UpsertCustomerController;
 use Core\Billing\Presentation\Http\Controllers\VoidInvoiceController;
 use Illuminate\Support\Facades\Route;
@@ -73,6 +75,18 @@ Route::middleware(['project.auth'])
             ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
             ->name('customers.erase');
 
+        // forme du locataire — ADR-0122 §2
+        //
+        // L'application cliente **propose** la forme de son locataire :
+        // la clé qu'elle désigne, le motif que doit respecter la
+        // référence du Core, et les clés d'attribut qu'elle attend. La
+        // proposition attend la lecture de l'opérateur : elle ne touche
+        // ni au client, ni au commerce (ADR-0122 §8) — donc pas de
+        // middleware `idempotency` (G7).
+        Route::put('/projects/{projectId}/tenant-schema', ProposeTenantSchemaController::class)
+            ->whereUuid('projectId')
+            ->name('projects.tenant-schema.propose');
+
         // usage et droits — ADR-0074 §4
         //
         // Not a money route (G7): the idempotency of a metered call is its
@@ -88,6 +102,10 @@ Route::middleware(['project.auth'])
         Route::get('/plans', ListPlansController::class)->name('plans.list');
         Route::post('/plans', CreatePlanController::class)->name('plans.create');
         Route::post('/plans/{code}/versions', CreatePlanVersionController::class)->name('plans.versions.create');
+        // ADR-0071 §2 — a draft is corrected, never abandoned: the
+        // catalogue holds one draft per offer. A published version stays
+        // frozen (409).
+        Route::put('/plans/{code}/versions/{version}', UpdatePlanVersionController::class)->name('plans.versions.update');
         Route::post('/plans/{code}/versions/{version}/publish', PublishPlanVersionController::class)->name('plans.versions.publish');
         Route::post('/plans/{code}/archive', ArchivePlanController::class)->name('plans.archive');
 

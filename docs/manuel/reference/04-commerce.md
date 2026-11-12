@@ -50,10 +50,78 @@ l'avertissement : `« Cette déclaration n'écrit aucun mouvement au grand livre
 
 `« Déclarer le client »` → `« Client {ref} créé. »`
 
+Le formulaire ne comporte que ces **cinq champs**, et il est rendu **côté
+serveur** : un champ par attribut, jamais une zone de saisie JSON.
+
+> **Qui déclare le client.** L'opérateur de la console, pour le projet. Une
+> **application cliente** ne le déclare pas : son gabarit de portées ne porte pas
+> `customers:write`, et le Core lui **pousse** le client qu'il a créé
+> (`customer.created`) — voir
+> [ADR-0110](../../adr/0110-le-core-cree-le-locataire-et-le-pousse.md).
+>
 > **Le contact n'est jamais affiché en clair.** Le courriel et le téléphone sont masqués
 > partout dans la console et dans le portail. À l'édition, le champ est vide : c'est
 > normal. Un champ vide **conserve** la valeur existante ; pour changer une valeur,
 > saisissez la nouvelle. Le grand livre ne contient jamais de donnée personnelle.
+>
+> Le Core conserve le contact **en clair**
+> ([ADR-0123](../../adr/0123-le-core-ne-chiffre-plus-les-donnees-client.md)) : ce qui
+> le protège à l'écran, c'est le masquage — pas un chiffrement.
+
+### La forme que l'application a déclarée
+
+L'application cliente peut annoncer **la forme de ses clients** : la clé unique
+qu'elle utilise, le format que ses références doivent respecter, et les champs
+qu'elle attend du Core (ADR-0122).
+
+- **Proposer** — `PUT /v1/projects/{projectId}/tenant-schema`, portée
+  `tenant_schema:write` (dans le modèle **Application cliente**) :
+
+  ```json
+  {
+    "unique_key": "code",
+    "unique_key_pattern": "AE[0-9]{4,8}",
+    "fields": [
+      {"key": "localisation", "label": "Localisation", "type": "string",
+       "required": false, "max_length": 120, "source": "declared.localisation"}
+    ]
+  }
+  ```
+
+  La réponse est `201` ; la déclaration reste **en attente** tant que
+  l'opérateur ne l'a pas lue. Une source `core_identity.email` (ou `display_name`,
+  `phone`, `locale`) **remplace** le champ correspondant du Core : la console ne
+  demande jamais la même valeur deux fois.
+
+- **Lire** — `GET /v1/customers/{externalRef}` rend `declared_attributes` (avec
+  `customers:read`) : un objet par clé déclarée, `{}` quand il n'y en a pas.
+
+- **Décider** — dans la console, page **« Forme du client »** du projet
+  (`GET /admin/projects/{projectId}/customers/schema`) : la proposition est lue
+  comme une **liste** (libellé, type, obligatoire, origine, longueur maximale),
+  jamais comme du JSON. **« Accepter la déclaration »** la met en vigueur ;
+  **« Refuser la déclaration »** laisse la forme précédente.
+
+Une fois la forme acceptée, le formulaire **« Nouveau client »** rend **un champ
+par clé déclarée**, et le format de la référence est écrit sous le champ
+**« Référence chez le projet »**. Une référence qui ne respecte pas ce format est
+refusée **sur place**, sous le champ, avec la raison.
+
+### Les clients que l'application avait déjà
+
+Page **« Importer des clients »**
+(`GET /admin/projects/{projectId}/customers/import`) : l'opérateur dépose un
+fichier CSV dont l'en-tête est `external_ref, display_name, email, phone`.
+
+Le Core crée les clients et les pousse ; l'application, qui connaît déjà ses
+clients, les **relie** au lieu d'en créer un second. Un client déjà connu est
+mis à jour, jamais dupliqué. Le rapport dit ce qui a été créé, ce qui était déjà
+connu, et **pour chaque ligne refusée, sa raison** (une référence hors format,
+une ligne illisible).
+
+> Une application cliente propose elle-même ses clients : elle n'écrit **jamais**
+> un client chez le Core (ADR-0110). L'import est un geste d'opérateur, dans la
+> console.
 
 ### Modifier, suspendre, réactiver, effacer
 
@@ -107,21 +175,44 @@ il ne déplace pas d'argent.
 
 | Champ | Contrainte |
 |---|---|
-| `« Plan (code) »` | obligatoire — le plan est nommé **dans le formulaire**, pas dans l'URL |
+| `« Offre (code) »` | obligatoire — l'offre est nommée **dans le formulaire**, pas dans l'URL |
 | `« Prix (unités mineures) »` | 0 par défaut |
 | `« Devise »` | `XAF` par défaut |
 | `« Unité »` + `« Nombre »` | jour / semaine / mois / an ; 1 à 365, 1 par défaut |
 | `« Essai (jours) »` | facultatif |
 | `« Grâce (jours) »` | 0 à 90 |
 | `« Maintenir l'accès pendant la grâce »` | décochée, les droits du client sont fermés dès l'impayé |
-| `« Fonctionnalités (JSON) »` | un **objet** JSON, pas un tableau |
 
 > **Les montants sont en unités mineures.** 50 000 XAF se saisit `50000`. 100 USD se saisit
 > `100` et représente 1,00 $. C'est une règle générale du Core : jamais de montant à
 > virgule.
 
-> Si `features` n'est pas un objet JSON, la saisie est refusée : `« Les fonctionnalités
-> doivent être un objet JSON. »`
+### Les fonctionnalités de la version
+
+Le cadre **« Fonctionnalités de la version »** se remplit **bloc par bloc** : l'écran
+propose **trois blocs**, un par fonctionnalité, et l'opérateur n'écrit **jamais** de JSON.
+Un bloc dont le `« Nom »` est vide est **ignoré** — les deux autres blocs restent disponibles.
+
+Chaque bloc demande d'abord deux choix, puis **les réglages du type choisi** :
+
+| Champ | Ce qu'il fait |
+|---|---|
+| `« Nom »` | le nom de la fonctionnalité, **celui du projet** : le Core n'en connaît aucun. Minuscules, chiffres, `« . »` et `« _ »`, 64 caractères au plus. |
+| `« Type »` | `« Interrupteur : activée ou non »` ou `« Limite d'usage d'un compteur »`. |
+
+| Type | Les champs qui comptent |
+|---|---|
+| `« Interrupteur »` | `« Activée »` — `« Oui »` ou `« Non »`. |
+| `« Limite d'usage »` | `« Compteur »` (obligatoire), `« Limite »` (le nombre autorisé ; vide = illimité), `« Remise »` (`« À chaque période »` ou `« Jamais »`), `« Dépassement »` (`« Bloquer »` ou `« Autoriser et signaler »`), `« Seuil d'alerte (points de base) »` (facultatif : 8000 = 80 % ; vide = pas d'alerte). |
+
+Les champs de l'autre type sont **ignorés** : un interrupteur n'a pas de compteur, une
+limite d'usage n'a pas d'« Activée ». Un bloc nommé mais incomplet est **refusé**, et le
+message dit ce qui manque : `« Choisissez le type de la fonctionnalité « … ». »`,
+`« Dites si la fonctionnalité « … » est activée. »`,
+`« Indiquez le compteur que compte la fonctionnalité « … ». »`.
+
+> **Trois emplacements, pas plus.** La console en propose trois par version ; une offre
+> qui en porte davantage se déclare par l'API (`POST /v1/plans/{code}/versions`).
 
 ### Publier une version
 
@@ -132,6 +223,31 @@ change. La publication est une action irréversible (une confirmation le dit).
 désormais figée. »`
 
 Les statuts d'une version : `Brouillon`, `Publiée`, `Retirée`.
+
+### Corriger une version brouillon
+
+Une offre ne garde **qu'une seule version en préparation** à la fois. Un brouillon écrit
+de travers se **corrige**, il ne se jette pas : sans cela, l'opérateur serait bloqué — il
+ne pourrait ni le publier, ni en ouvrir un autre.
+
+| Où | Comment |
+|---|---|
+| Console | le bouton **« Modifier »** de la version, sur la page **« Offres »** |
+| API | `PUT /v1/plans/{code}/versions/{n}`, portée `plans:write` |
+
+Le formulaire est **pré-rempli** : le prix, la période, l'essai, la grâce et les
+fonctionnalités s'y trouvent déjà. Une correction **remplace** les fonctionnalités : ce
+qui n'est plus écrit disparaît.
+
+Deux refus, tous deux dits en français :
+
+| La situation | Ce qui est dit |
+|---|---|
+| La version est **publiée** | `« Une version publiée est figée : publiez une nouvelle version pour changer ses conditions. »` |
+| L'offre a **déjà** une version en préparation | `« Cette offre a déjà une version en préparation (version N) : corrigez-la plutôt que d'en ajouter une autre. »` |
+
+Par l'API, le même refus vaut `409` (`plan-version-not-editable` pour une version
+publiée, `plan-version-conflict` pour une offre déjà occupée).
 
 ### Archiver une offre
 
@@ -313,10 +429,26 @@ refusé. »`
 
 | Champ | Ce qu'il fait |
 |---|---|
-| `« Ce que la plateforme compte pour vous »` | les correspondances `capacité = compteur`, une par ligne |
-| `« Catalogue de packs »` | ce que les clients peuvent acheter **en plus** de leur quota — une ligne par pack : `code \| compteur \| quantité \| prix \| libellé` (voir [11 — Les suppléments de quota](11-supplements-de-quota.md)) |
+| `« Ce que la plateforme compte pour vous »` | les correspondances **capacité → compteur**, une par bloc : `« Capacité »` (ce que le client consomme) et `« Compteur »` (ce que la plateforme compte) |
+| `« Catalogue de packs »` | ce que les clients peuvent acheter **en plus** de leur quota — un pack par bloc : `« Code »`, `« Compteur »`, `« Quantité »`, `« Prix (unités mineures) »` et `« Libellé »` (voir [11 — Les suppléments de quota](11-supplements-de-quota.md)) |
 | `« Rendre l'unité quand un message n'a atteint personne »` | rembourse le quota d'un envoi échoué |
 | `« Exiger customer_ref sur tout appel mesuré »` | refuse une mesure sans client |
+
+Une **version brouillon** d'une offre se corrige depuis la page **« Offres »**
+(bouton **« Modifier »**) : le prix, la période et les fonctionnalités. Une
+version **publiée** est figée — pour changer ses conditions, on publie une
+nouvelle version (voir [F06 — Vendre une offre et la faire vivre](../parcours/vendre/F06-vendre-une-offre-et-la-faire-vivre.md)).
+
+Les deux se remplissent **bloc par bloc**, dans la section **« Limites d'usage »** de
+l'écran. Il y a **au moins trois blocs** de chaque sorte, et autant que ce qui est déjà
+enregistré ; les boutons **« + Ajouter une correspondance »** et **« + Ajouter un pack »**
+en ajoutent autant que le projet en a besoin. Trois règles :
+
+- une correspondance dont **une seule** des deux cases est remplie est **ignorée** ;
+- un pack dont **tous** les champs sont vides est **ignoré**, mais un pack à **un seul
+  champ vide** est **refusé** ;
+- le `« Compteur »` d'un pack se **choisit** dans la liste des compteurs du projet : il
+  ne se saisit pas, donc il ne peut pas se tromper.
 
 Chaque enregistrement est journalisé (`billing.settings_changed`).
 

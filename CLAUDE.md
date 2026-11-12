@@ -149,12 +149,14 @@ porteuse d'un identifiant a un test **IDOR généré** « organisation A sur une
 ressource de B → 404, jamais 403 » (garde-fou **G15**) ; clés d'API multiples
 et nommées à portée (10 au plus par projet), rotation guidée, restriction CIDR
 et expiration facultatives, révocation motivée, et rotation du secret de webhook
-à double signature (ADR-0082) ; service de chiffrement et index aveugle des
-données personnelles dans `core/support` (`privacy:generate-key`, ADR-0083)
+à double signature (ADR-0082) ; normalisation et masquage des
+données personnelles dans `core/support` (le Core **ne chiffre plus** les
+données client — ADR-0123 ; l'exposition reste minimale — ADR-0083)
 ([ADR-0069](docs/adr/0069-organisations-projets-et-acces-console-scopes.md),
 [ADR-0081](docs/adr/0081-modele-de-menace-et-exigences-de-securite.md),
 [ADR-0082](docs/adr/0082-cles-d-api-portees-rotation-et-secrets-de-webhook.md),
-[ADR-0083](docs/adr/0083-donnees-personnelles-chiffrement-conservation-effacement.md))
+[ADR-0083](docs/adr/0083-donnees-personnelles-chiffrement-conservation-effacement.md),
+[ADR-0123](docs/adr/0123-le-core-ne-chiffre-plus-les-donnees-client.md))
 → **Lot 9 — Grand livre complet — livré** : toute somme confirmée est
 écrite au grand livre (plan de comptes par projet), compte de règlement
 **par prestataire** (`clearing:<prestataire>`, avec reclassement motivé
@@ -171,8 +173,8 @@ rapprochements (`reconciliation_runs`)
 [ADR-0078](docs/adr/0078-rapprochement-et-controles-d-invariants.md)).
 → **Lot 10 — Commerce I (clients, catalogue, abonnements) — livré** : le
 module `billing` entre en production. **Clients** d'un projet (identité
-minimale **chiffrée** + index aveugle, effacement qui détruit l'identité et
-garde la ligne — ADR-0070, ADR-0083) ; **catalogue** de plans et de
+minimale **conservée en clair** — ADR-0123 —, effacement qui détruit l'identité
+et garde la ligne — ADR-0070, ADR-0083) ; **catalogue** de plans et de
 versions (une version publiée est **figée** par un trigger de base, ADR-0071) ;
 **abonnements** et leurs périodes (machine d'états, exclusion des périodes
 qui se chevauchent, verrou optimiste, ADR-0072) ; ordonnanceur
@@ -471,7 +473,7 @@ Un refus est aussi précieux qu'une acceptation — trace-le en ADR.
   `HandlePaymentStatusChangedUseCase`, qui dérive toujours son `partyId`
   du même `projectId`.
 - Module `billing` : **Lot 10 livré** — les **clients** d'un projet
-  (identité minimale chiffrée + index aveugle, effacement qui détruit
+  (identité minimale conservée **en clair** — ADR-0123 —, effacement qui détruit
   l'identité et garde la ligne — ADR-0070, ADR-0083), le **catalogue** de
   plans et de versions (une version publiée est figée par un trigger de
   base — ADR-0071), les **abonnements** et leurs périodes (machine d'états,

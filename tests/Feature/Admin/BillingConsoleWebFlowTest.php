@@ -69,11 +69,12 @@ final class BillingConsoleWebFlowTest extends TestCase
         $created->assertRedirect(route('admin.projects.customers.index', $projectId));
         $created->assertSessionHas('status');
 
-        // ...and its contact never reaches the disk in clear.
+        // ...and its contact reaches the disk in clear (ADR-0123): the
+        // Core keeps no key of its own for the data of the clients.
         $row = DB::table('customers')->where('external_ref', 'acme')->first();
         self::assertNotNull($row);
-        self::assertIsString($row->email_ciphertext);
-        self::assertStringStartsWith('pii:v1:', $row->email_ciphertext);
+        self::assertSame('contact@acme.test', $row->email);
+        self::assertSame('+237690000000', $row->phone);
 
         // ADR-0083 §3 / ADR-0093 §6 — the console never shows a
         // personal value in clear: the page carries the **masked**

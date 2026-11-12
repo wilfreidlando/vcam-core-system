@@ -47,7 +47,7 @@ réglage.
 
 ### 3. Autoriser les adresses de retour
 
-Dans **« Adresses de retour autorisées »**, une par ligne : l’origine exacte,
+Dans **« Adresses de retour autorisées »**, **une URL par ligne** : l’origine exacte,
 avec un préfixe de chemin facultatif. Ce sont les seules adresses vers
 lesquelles un client peut être renvoyé après un paiement ; toute autre adresse
 de retour est refusée.
@@ -127,7 +127,7 @@ réglé : même nom, même couleur, mêmes droits.
 | L’adresse d’aide est refusée | Soit elle n’est ni en https ni une adresse de courriel, soit son site n’est pas encore autorisé. | Mettez une adresse de courriel, ou faites autoriser le site par votre application. |
 | La connexion par code reste inactive alors que vous l’avez cochée | Il manque la session qui doit envoyer le code. | Renseignez **« Session WhatsApp d'envoi »** avec le nom d’une session existante du projet. |
 | Une adresse de retour est refusée | Elle n’est pas en https, ou elle porte autre chose que l’origine et un chemin. | Gardez l’origine seule, éventuellement suivie d’un chemin. |
-| Le client est renvoyé ailleurs après son paiement | Son adresse de retour n’est pas dans la liste. | Ajoutez-la dans **« Adresses de retour autorisées »**, une par ligne. |
+| Le client est renvoyé ailleurs après son paiement | Son adresse de retour n’est pas dans la liste. | Ajoutez-la dans **« Adresses de retour autorisées »**, une URL par ligne. |
 
 ## Et ensuite
 

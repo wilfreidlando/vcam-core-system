@@ -474,7 +474,8 @@ Le détail du portail est dans le chapitre 07.
 | Le nom de vos clés, leur portée, leur expiration, leur restriction CIDR | Que la clé existe ; il la crée dans la console et vous la transmet |
 | Le contenu de vos endpoints webhook et leurs catégories | Rien : vous êtes autonome sur `/v1/webhook-endpoints` |
 | Vos clients, vos offres, vos abonnements, vos factures | Rien |
-| Le nom de votre compteur d'usage et la façon dont vous mesurez | Les quotas attachés aux offres, et la correspondance `capacité = compteur` dans les réglages du commerce |
+| Le nom de votre compteur d'usage et la façon dont vous mesurez | Les quotas attachés aux offres, et la correspondance entre une capacité et un compteur dans les réglages du commerce |
+| La **forme** de vos clients : la clé unique que vous désignez, le format de vos références, les champs que vous attendez du Core | **L'acceptation** de cette forme : l'opérateur la lit dans la console (`« Forme du client »`) et la met en vigueur — ou la refuse. Une proposition n'est jamais une décision |
 | La session WhatsApp que vous nommez dans `variables.session` | **La session elle-même** : elle est créée dans la console, `« Sessions WhatsApp »`. Il vous en donne le nom. |
 
 > **La session WhatsApp est le point de friction le plus courant.** Elle est créée par

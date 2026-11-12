@@ -1,6 +1,6 @@
 # ADR-0094 — Lot 11 : la facture et l'encaissement
 
-- **Statut** : Accepté
+- **Statut** : Accepté — amendé par ADR-0123 (§2)
 - **Date** : 2026-10-27
 - **Décideurs** : comité d'architecture (ratifié le 2026-10-27), sur proposition de
   l'implémentation (reconnaissance du lot 11)

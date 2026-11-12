@@ -26,7 +26,7 @@ final class Invoice
 {
     /**
      * @param array<string, mixed> $customerSnapshot the customer as it was at the issuance — the personal
-     *                                               values are ciphertexts, never clear
+     *                                               values are kept in clear (ADR-0123)
      */
     public function __construct(
         public readonly string $id,

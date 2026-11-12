@@ -18,8 +18,6 @@ use Core\Events\Contracts\DomainEvent;
 use Core\Events\Contracts\EventOutbox;
 use Core\Support\Clock;
 use Core\Support\Identifier;
-use Core\Support\Privacy\BlindIndex;
-use Core\Support\Privacy\PersonalDataKind;
 use Core\Support\UnitOfWork;
 
 /**
@@ -33,12 +31,13 @@ use Core\Support\UnitOfWork;
  * - the **version** (`If-Match`): the caller sends the version it last
  *   read and the write is refused when the stored one has moved on
  *   (`412 version-conflict`);
- * - the **email**: it is unique per project, carried by the blind index
- *   (ADR-0083 §2) — the check never decrypts a row.
+ * - the **email**: it is unique per project — the check compares the
+ *   normalised address (ADR-0070 §4).
  *
- * The personal values are held in clear here and encrypted at the
- * repository boundary (ADR-0083): the domain checks their shape, the
- * adapter never lets a clear value reach the disk.
+ * The personal values are held in clear here, and they are **stored** in
+ * clear (ADR-0123): the Core keeps no key of its own for them. What it
+ * still guards is their exposure (ADR-0083 §3) and their erasure
+ * (ADR-0083 §6).
  */
 final readonly class UpsertCustomerUseCase implements UpsertCustomer
 {
@@ -48,7 +47,6 @@ final readonly class UpsertCustomerUseCase implements UpsertCustomer
         private EventOutbox $outbox,
         private Identifier $identifier,
         private Clock $clock,
-        private BlindIndex $blindIndex,
     ) {}
 
     public function upsert(UpsertCustomerCommand $command): CustomerView
@@ -141,8 +139,8 @@ final readonly class UpsertCustomerUseCase implements UpsertCustomer
 
     /**
      * ADR-0070 §1 — the email is unique per project. The comparison is
-     * made on the blind index, so no row is ever decrypted to check it
-     * (ADR-0083 §2).
+     * made on the normalised address (ADR-0070 §4), which is what the row
+     * carries (ADR-0123).
      */
     private function assertEmailIsFree(string $projectId, ?string $email, ?string $customerId): void
     {
@@ -150,10 +148,7 @@ final readonly class UpsertCustomerUseCase implements UpsertCustomer
             return;
         }
 
-        $owner = $this->customers->findByEmail(
-            $projectId,
-            $this->blindIndex->of($email, PersonalDataKind::Email),
-        );
+        $owner = $this->customers->findByEmail($projectId, $email);
 
         if ($owner !== null && $owner->id !== $customerId) {
             throw CustomerEmailAlreadyTaken::inProject($projectId);
@@ -178,7 +173,7 @@ final readonly class UpsertCustomerUseCase implements UpsertCustomer
 
     /**
      * ADR-0070 §4 — the email is normalised (lowercase, spaces removed)
-     * before it is stored and before its blind index is computed, so that
+     * before it is stored and before it is looked up, so that
      * `Ali@Example.CM ` and `ali@example.cm` are the same address.
      */
     private static function normalizeEmail(?string $email): ?string

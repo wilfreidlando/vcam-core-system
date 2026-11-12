@@ -144,9 +144,9 @@
                 </div>
             </fieldset>
 
-            <x-admin.field name="allowed_cidrs" type="textarea" label="Restriction réseau" optional :rows="2" class="font-mono"
-                           placeholder="203.0.113.0/24&#10;2001:db8::/32"
-                           hint="Un bloc par ligne. Une fois renseignée, tout appel depuis une autre adresse est refusé (403)." />
+            <x-admin.field name="allowed_cidrs" type="textarea" label="Restriction réseau" optional :rows="3" class="font-mono"
+                           placeholder="203.0.113.0/24"
+                           hint="Une adresse par ligne : un bloc IPv4 (203.0.113.0/24) ou une adresse IPv6 (2001:db8::/32). Une fois renseignée, tout appel depuis une autre adresse est refusé (403)." />
             <x-admin.field name="expires_at" type="datetime-local" label="Expiration (heure UTC)" optional />
 
             <button type="submit" class="rounded-md bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-base font-medium text-white shadow-sm">Créer la clé</button>

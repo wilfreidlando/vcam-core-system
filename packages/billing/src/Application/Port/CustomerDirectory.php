@@ -43,12 +43,12 @@ interface CustomerDirectory extends CustomerRepository
     ): array;
 
     /**
-     * ADR-0083 §2 — the live customers of a project whose phone carries this
-     * blind index (the phone is not unique: several rows can match). At most
-     * `$limit` rows; an erased customer never matches (its identity is gone).
+     * The live customers of a project whose phone is this one (the phone is
+     * not unique: several rows can match). At most `$limit` rows; an
+     * erased customer never matches (its identity is gone).
      *
-     * @param string $phoneBlindIndex 64 lowercase hex characters
+     * @param string $phone the normalised number (ADR-0070 §4)
      * @return list<Customer>
      */
-    public function findByPhoneIndex(string $projectId, string $phoneBlindIndex, int $limit): array;
+    public function findByPhone(string $projectId, string $phone, int $limit): array;
 }

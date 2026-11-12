@@ -12,8 +12,8 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * Fitness function 4b — the customer is a **declared, minimal, encrypted**
- * copy (ADR-0070, ADR-0083).
+ * Fitness function 4b — the customer is a **declared, minimal** copy of
+ * the identity the project gave (ADR-0070, ADR-0083, ADR-0123).
  *
  * `parties` may hold no personal data at all (G4): a party is a reference.
  * A `customer` is something else — the Core does hold an identity for the
@@ -24,11 +24,13 @@ use Tests\TestCase;
  *     listed below. A new column is a decision — it needs an ADR, not a
  *     migration. The temptation to add "just one more" is the whole
  *     point of the list.
- *  2. **The personal values are encrypted.** The email and the phone are
- *     stored as ciphertext plus a blind index — never in clear. A plain
- *     `email` column, or a ciphertext column that is not text, fails the
- *     build: it is the difference between a database dump being useless
- *     and a database dump being a breach.
+ *  2. **The personal values are stored in clear.** ADR-0123: the Core
+ *     encrypts nothing of the client's data any more — the address and
+ *     the number are plain `text` columns, and no key of its own guards
+ *     them. What the Core still guards is their **exposure** (the console
+ *     masks them, ADR-0083 §3) and their **erasure** (ADR-0083 §6). The
+ *     tripwire below makes sure the encryption does not come back
+ *     silently.
  *
  * The two assertions below are what make ADR-0070 §Conséquences real
  * instead of aspirational.
@@ -47,10 +49,8 @@ final class CustomersColumnsTest extends TestCase
         'project_id',
         'external_ref',
         'display_name',
-        'email_ciphertext',
-        'email_bidx',
-        'phone_ciphertext',
-        'phone_bidx',
+        'email',
+        'phone',
         'locale',
         'metadata',
         'status',
@@ -61,29 +61,21 @@ final class CustomersColumnsTest extends TestCase
     ];
 
     /**
-     * The columns that carry a personal value, and how they must be
-     * stored: the value encrypted, the search by an index that reveals
-     * nothing.
+     * The two columns that hold a personal value, and how they must be
+     * stored: **in clear**, as plain text (ADR-0123).
+     *
+     * ADR-0070 §1 declares them `text` — the address and the number are
+     * short and variable. The type check is a tripwire against the
+     * encrypted columns coming back beside them; the proof that the
+     * values are really stored in clear is the integration test
+     * (`packages/billing/tests/Integration/BillingFlowTest.php`), which
+     * reads the row back.
      *
      * @var array<string, string>
      */
-    /**
-     * The four columns that hold a personal value (ADR-0070 §1) and the
-     * type each one must have.
-     *
-     * ADR-0070 §1 declares them `text` — the ciphertext is long and
-     * variable, the blind index is a 64-character digest stored in a
-     * `text` column like every other indexed text of the Core. The type
-     * check is a tripwire against a **clear** column appearing beside
-     * them; the proof that the values are really encrypted is the
-     * integration test (`packages/billing/tests/Integration/
-     * BillingFlowTest.php`), which reads the row back.
-     */
     private const PERSONAL_COLUMNS = [
-        'email_ciphertext' => 'text',
-        'email_bidx' => 'text',
-        'phone_ciphertext' => 'text',
-        'phone_bidx' => 'text',
+        'email' => 'text',
+        'phone' => 'text',
     ];
 
     #[Test]
@@ -111,7 +103,7 @@ final class CustomersColumnsTest extends TestCase
     }
 
     #[Test]
-    public function the_personal_values_of_a_customer_are_encrypted_at_rest(): void
+    public function the_personal_values_of_a_customer_are_stored_in_clear_and_no_ciphertext_column_remains(): void
     {
         if (! Schema::hasTable('customers')) {
             self::markTestSkipped('The customers table does not exist yet (Lot 10).');
@@ -132,11 +124,13 @@ final class CustomersColumnsTest extends TestCase
             }
         }
 
-        // A clear column would defeat the encryption entirely: it would
-        // hold the same value, readable, next to the ciphertext.
+        // ADR-0123 — the tripwire: the encryption must not come back
+        // silently. A `*_ciphertext` or a `*_bidx` column would mean the
+        // Core encrypts the client's data again — and that a key of its
+        // own would have to be protected all over again.
         foreach (array_keys($columns) as $column) {
-            if (preg_match('/^(email|phone|name|full_name)$/', $column) === 1) {
-                $problems[] = sprintf('`%s` holds a personal value in clear', $column);
+            if (preg_match('/_(ciphertext|bidx)$/', $column) === 1) {
+                $problems[] = sprintf('`%s` is an encrypted column: the Core encrypts nothing of the client any more (ADR-0123)', $column);
             }
         }
 
@@ -144,8 +138,9 @@ final class CustomersColumnsTest extends TestCase
             [],
             $problems,
             sprintf(
-                "The customer's personal values must be encrypted (ADR-0083):\n- %s\n".
-                'An email or a phone number stored in clear is a breach waiting for the first dump.',
+                "The customer's personal values are stored in clear (ADR-0123):\n- %s\n".
+                "The Core keeps no key of its own for them: an encrypted column beside them is a decision\n".
+                'to take again, with an ADR.',
                 implode("\n- ", $problems),
             ),
         );

@@ -41,7 +41,7 @@ sont **livrés** : leurs lignes sont passées de **◐** à **●**. Les lots 12
 
 | Capacité | État | Où |
 |---|---|---|
-| Clients d'un projet (identité minimale chiffrée) | ● (lot 10) | ADR-0070 |
+| Clients d'un projet (identité minimale conservée en clair) | ● (lot 10) | ADR-0070, ADR-0123 |
 | Plans et versions immuables, fonctionnalités nommées par le projet | ● (lot 10) | ADR-0071 |
 | Abonnements : essai, périodes, renouvellement, impayé, grâce, pause, annulation | ● (lot 10) | ADR-0072 |
 | Changement de plan à l'échéance ou immédiat (sans prorata) | ● (lot 10) | ADR-0072 §5 |
@@ -88,6 +88,6 @@ sont **livrés** : leurs lignes sont passées de **◐** à **●**. Les lots 12
 | Liste de contrôle d'onboarding d'un projet | ◐ lot 14 | ADR-0080 §4 |
 | Modèle de menace, exigences S-01 à S-20 | ● (modèle écrit, lot 8) ; les contrôles sont vérifiés à chaque lot | ADR-0081 |
 | Garde-fous G13, G14, G15, G16 | ● — les quatre sont actifs et vérifiés par `make guard-test` | ADR-0081, ADR-0069 |
-| Chiffrement des données personnelles, effacement, conservation | ● (chiffrement et index aveugle, lot 8) ; ● (lot 10) (effacement, conservation) | ADR-0083 |
+| Exposition minimale des données personnelles, effacement, conservation | ● (lot 8 : masquage en console, API limitée à `customers:read`) ; ● (lot 10) (effacement, conservation) — **le chiffrement est retiré** | ADR-0083, ADR-0123 |
 | Cloisonnement des données internes des applications | ✗ | ADR-0084 |
 | Fournisseur d'identité des utilisateurs finaux | ✗ (condition de réexamen écrite) | ADR-0084 |

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\Billing\Domain\Port;
 
+use Core\Billing\Domain\Exception\PlanVersionConflict;
 use Core\Billing\Domain\Exception\PlanVersionNotEditable;
 use Core\Billing\Domain\Model\PlanVersion;
 
@@ -42,7 +43,8 @@ interface PlanVersionRepository
     /**
      * Persists a version, created or updated.
      *
-     * @throws PlanVersionNotEditable the version is published (ADR-0071 §2) or its rank is already taken
+     * @throws PlanVersionNotEditable the version is published (ADR-0071 §2)
+     * @throws PlanVersionConflict the offer already holds a draft, or the rank is already taken
      */
     public function save(PlanVersion $version): void;
 }

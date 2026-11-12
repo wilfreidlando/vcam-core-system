@@ -3,6 +3,14 @@
 @section('title', 'Réglages du commerce')
 
 @section('content')
+@php
+    // Les listes ne sont pas plafonnées : l'opérateur en ajoute autant qu'il
+    // veut, un bloc à la fois. Un bloc vide est ignoré à l'enregistrement.
+    $mappingRows = max(3, count($settings?->meterMappings ?? []), (int) old('meter_mappings_rows', 0));
+    $packRows = max(3, count($settings?->supplementPacks ?? []), (int) old('supplement_packs_rows', 0));
+    // Les compteurs se choisissent : on ne les saisit pas deux fois.
+    $counterOptions = array_combine($counters, $counters);
+@endphp
 <div class="max-w-3xl space-y-6">
     <form method="POST" action="{{ route('admin.projects.commerce-settings.save', $projectId) }}" class="space-y-6 rounded-lg border border-slate-200 bg-white p-6">
         @csrf
@@ -21,10 +29,31 @@
         </div>
 
         <h2 class="text-base font-semibold text-slate-900 pt-2">Limites d'usage</h2>
-        <x-admin.field name="meter_mappings" type="textarea" :rows="3" label="Ce que la plateforme compte pour vous"
-                       :value="collect($settings->meterMappings)->map(fn ($meter, $capability) => $capability.' = '.$meter)->implode(PHP_EOL)"
-                       placeholder="notification.whatsapp = whatsapp_messages" class="font-mono"
-                       hint="Une correspondance « capacité = compteur » par ligne. Sans correspondance, la capacité n'est jamais comptée." />
+        {{-- Les correspondances se déclarent bloc par bloc : jamais de texte à parser.
+             Un bloc incomplet (une seule des deux cases) est ignoré. --}}
+        <fieldset class="space-y-3">
+            <legend class="text-sm font-semibold text-slate-900">Ce que la plateforme compte pour vous</legend>
+            <p class="text-sm text-slate-600">
+                Une correspondance par bloc : ce que vos clients consomment, et le compteur que la
+                plateforme compte. Sans correspondance, une capacité n'est jamais comptée.
+            </p>
+
+            @for ($index = 0; $index < $mappingRows; $index++)
+                <div class="grid gap-3 rounded-md border border-slate-200 p-3 sm:grid-cols-2">
+                    <x-admin.field :name="'meter_mappings['.$index.'][capability]'" label="Capacité" maxlength="64" class="font-mono"
+                                   :value="array_keys($settings->meterMappings)[$index] ?? ''"
+                                   hint="Ce que le client consomme, par exemple notification.whatsapp." />
+                    <x-admin.field :name="'meter_mappings['.$index.'][meter]'" label="Compteur" maxlength="64" class="font-mono"
+                                   :value="array_values($settings->meterMappings)[$index] ?? ''"
+                                   hint="Ce que la plateforme compte, par exemple whatsapp_messages." />
+                </div>
+            @endfor
+
+            <button type="submit" name="add_row" value="meter_mappings" formnovalidate
+                    class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                + Ajouter une correspondance
+            </button>
+        </fieldset>
         <div class="space-y-2">
             <div class="flex items-center gap-2">
                 <input id="refund_failed_usage" type="checkbox" name="refund_failed_usage" value="1" @checked(old('refund_failed_usage', $settings->refundFailedUsage)) class="h-4 w-4 rounded border border-slate-400">
@@ -40,13 +69,37 @@
         <h2 class="text-base font-semibold text-slate-900 pt-2">Packs de rechargement</h2>
         <p class="text-sm text-slate-600">
             Ce que vos clients peuvent acheter <strong>en plus</strong> de leur limite d'usage, sans renouveler
-            leur abonnement. Un pack par ligne :
-            <code class="font-mono">code | compteur | quantité | prix | libellé</code>.
+            leur abonnement. Un pack par bloc : un code, le compteur concerné, une quantité, un prix et un libellé.
         </p>
-        <x-admin.field name="supplement_packs" type="textarea" :rows="4" label="Catalogue de packs"
-                       :value="collect($settings->supplementPacks ?? [])->map(fn ($pack) => implode(' | ', [$pack->code, $pack->meter, $pack->quantity, $pack->unitPriceMinor, $pack->label]))->implode(PHP_EOL)"
-                       placeholder="pack50 | whatsapp_messages | 50 | 5000 | Pack de 50 messages WhatsApp" class="font-mono"
-                       hint="Le code est en minuscules ; le compteur doit être l'un de ceux déclarés ci-dessus. Le prix est en unités mineures de la devise du projet (pour XAF : des francs, sans décimales)." />
+        {{-- Un bloc de cinq champs par pack ; un bloc entièrement vide est ignoré. --}}
+        <fieldset class="space-y-3">
+            <legend class="text-sm font-semibold text-slate-900">Catalogue de packs</legend>
+
+            @for ($index = 0; $index < $packRows; $index++)
+                <div class="grid gap-3 rounded-md border border-slate-200 p-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <x-admin.field :name="'supplement_packs['.$index.'][code]'" label="Code" maxlength="64" class="font-mono"
+                                   :value="$settings->supplementPacks[$index]->code ?? ''"
+                                   hint="Minuscules, chiffres, « _ » et « - » (64 caractères au plus)." />
+                    <x-admin.field :name="'supplement_packs['.$index.'][meter]'" label="Compteur" type="select" placeholder="Choisir un compteur"
+                                   :options="$counterOptions"
+                                   :value="$settings->supplementPacks[$index]->meter ?? ''"
+                                   hint="Un compteur déclaré plus haut, dans « Limites d'usage »." />
+                    <x-admin.field :name="'supplement_packs['.$index.'][quantity]'" label="Quantité" type="number" min="1"
+                                   :value="$settings->supplementPacks[$index]->quantity ?? ''" />
+                    <x-admin.field :name="'supplement_packs['.$index.'][unit_price_minor]'" label="Prix (unités mineures)" type="number" min="0"
+                                   :value="$settings->supplementPacks[$index]->unitPriceMinor ?? ''"
+                                   hint="En unités mineures de la devise du projet (pour XAF : des francs, sans décimales)." />
+                    <x-admin.field :name="'supplement_packs['.$index.'][label]'" label="Libellé" maxlength="120"
+                                   :value="$settings->supplementPacks[$index]->label ?? ''"
+                                   wrapper-class="sm:col-span-2 lg:col-span-3" />
+                </div>
+            @endfor
+
+            <button type="submit" name="add_row" value="supplement_packs" formnovalidate
+                    class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                + Ajouter un pack
+            </button>
+        </fieldset>
 
         <div class="flex items-center gap-3 pt-2">
             <button type="submit" class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">Enregistrer</button>

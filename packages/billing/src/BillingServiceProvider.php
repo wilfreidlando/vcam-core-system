@@ -13,6 +13,7 @@ use Core\Billing\Application\Port\PlanVersionDirectory;
 use Core\Billing\Application\Port\SubscriptionDirectory;
 use Core\Billing\Application\Port\SubscriptionNoticeLog;
 use Core\Billing\Application\Port\UsageReader;
+use Core\Billing\Application\UseCase\AcceptTenantSchemaUseCase;
 use Core\Billing\Application\UseCase\AllocateInvoicePaymentUseCase;
 use Core\Billing\Application\UseCase\ApproveManualReceiptUseCase;
 use Core\Billing\Application\UseCase\ArchivePlanUseCase;
@@ -28,10 +29,12 @@ use Core\Billing\Application\UseCase\CreateSubscriptionUseCase;
 use Core\Billing\Application\UseCase\EraseCustomerUseCase;
 use Core\Billing\Application\UseCase\FailInvoicePaymentUseCase;
 use Core\Billing\Application\UseCase\FindCustomerByContactUseCase;
+use Core\Billing\Application\UseCase\GetCustomerDeclaredAttributesUseCase;
 use Core\Billing\Application\UseCase\GetCustomerUseCase;
 use Core\Billing\Application\UseCase\GetEntitlementsUseCase;
 use Core\Billing\Application\UseCase\GetInvoiceUseCase;
 use Core\Billing\Application\UseCase\GetSubscriptionUseCase;
+use Core\Billing\Application\UseCase\GetTenantSchemaUseCase;
 use Core\Billing\Application\UseCase\GrantComplimentaryPeriodUseCase;
 use Core\Billing\Application\UseCase\IssueInvoiceUseCase;
 use Core\Billing\Application\UseCase\KeepSubscriptionRenewingUseCase;
@@ -52,15 +55,20 @@ use Core\Billing\Application\UseCase\MetricsHistoryUseCase;
 use Core\Billing\Application\UseCase\PauseSubscriptionUseCase;
 use Core\Billing\Application\UseCase\PayInvoiceUseCase;
 use Core\Billing\Application\UseCase\ProjectMetricsUseCase;
+use Core\Billing\Application\UseCase\ProposeTenantSchemaUseCase;
 use Core\Billing\Application\UseCase\PublishPlanVersionUseCase;
 use Core\Billing\Application\UseCase\PurchaseSubscriptionSupplementPackUseCase;
 use Core\Billing\Application\UseCase\PurchaseSubscriptionSupplementUseCase;
 use Core\Billing\Application\UseCase\ReactivateCustomerUseCase;
 use Core\Billing\Application\UseCase\RecordManualReceiptUseCase;
+use Core\Billing\Application\UseCase\RejectTenantSchemaUseCase;
 use Core\Billing\Application\UseCase\ResumeSubscriptionUseCase;
+use Core\Billing\Application\UseCase\SetCustomerDeclaredAttributesUseCase;
 use Core\Billing\Application\UseCase\SuspendCustomerUseCase;
+use Core\Billing\Application\UseCase\UpdatePlanVersionUseCase;
 use Core\Billing\Application\UseCase\UpsertCustomerUseCase;
 use Core\Billing\Application\UseCase\VoidInvoiceUseCase;
+use Core\Billing\Contracts\AcceptTenantSchema;
 use Core\Billing\Contracts\ApproveManualReceipt;
 use Core\Billing\Contracts\ArchivePlan;
 use Core\Billing\Contracts\BillingExportRecords;
@@ -76,9 +84,11 @@ use Core\Billing\Contracts\CreateSubscription;
 use Core\Billing\Contracts\EraseCustomer;
 use Core\Billing\Contracts\FindCustomerByContact;
 use Core\Billing\Contracts\GetCustomer;
+use Core\Billing\Contracts\GetCustomerDeclaredAttributes;
 use Core\Billing\Contracts\GetEntitlements;
 use Core\Billing\Contracts\GetInvoice;
 use Core\Billing\Contracts\GetSubscription;
+use Core\Billing\Contracts\GetTenantSchema;
 use Core\Billing\Contracts\GrantComplimentaryPeriod;
 use Core\Billing\Contracts\IssueInvoice;
 use Core\Billing\Contracts\KeepSubscriptionRenewing;
@@ -99,16 +109,21 @@ use Core\Billing\Contracts\MetricsHistory;
 use Core\Billing\Contracts\PauseSubscription;
 use Core\Billing\Contracts\PayInvoice;
 use Core\Billing\Contracts\ProjectMetrics;
+use Core\Billing\Contracts\ProposeTenantSchema;
 use Core\Billing\Contracts\PublishPlanVersion;
 use Core\Billing\Contracts\PurchaseSubscriptionSupplement;
 use Core\Billing\Contracts\PurchaseSubscriptionSupplementPack;
 use Core\Billing\Contracts\ReactivateCustomer;
 use Core\Billing\Contracts\RecordManualReceipt;
+use Core\Billing\Contracts\RejectTenantSchema;
 use Core\Billing\Contracts\ResumeSubscription;
+use Core\Billing\Contracts\SetCustomerDeclaredAttributes;
 use Core\Billing\Contracts\SuspendCustomer;
+use Core\Billing\Contracts\UpdatePlanVersion;
 use Core\Billing\Contracts\UpsertCustomer;
 use Core\Billing\Contracts\VoidInvoice;
 use Core\Billing\Domain\Port\BillingSettingsRepository;
+use Core\Billing\Domain\Port\CustomerDeclaredAttributeRepository;
 use Core\Billing\Domain\Port\CustomerRepository;
 use Core\Billing\Domain\Port\CustomerSettlementRepository;
 use Core\Billing\Domain\Port\InvoiceLineRepository;
@@ -121,12 +136,14 @@ use Core\Billing\Domain\Port\PlanVersionRepository;
 use Core\Billing\Domain\Port\SubscriptionPeriodRepository;
 use Core\Billing\Domain\Port\SubscriptionRepository;
 use Core\Billing\Domain\Port\SubscriptionSupplementRepository;
+use Core\Billing\Domain\Port\TenantSchemaRepository;
 use Core\Billing\Domain\Port\UsageStore;
 use Core\Billing\Infrastructure\Ledger\InvoiceLedgerWriter;
 use Core\Billing\Infrastructure\Persistence\DatabaseMetricsReader;
 use Core\Billing\Infrastructure\Persistence\DatabaseMetricsSnapshotStore;
 use Core\Billing\Infrastructure\Persistence\DatabaseSubscriptionNoticeLog;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentBillingSettingsRepository;
+use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentCustomerDeclaredAttributeRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentCustomerRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentCustomerSettlementRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentInvoiceLineRepository;
@@ -139,6 +156,7 @@ use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentPlanVersionReposito
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentSubscriptionPeriodRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentSubscriptionRepository;
 use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentSubscriptionSupplementRepository;
+use Core\Billing\Infrastructure\Persistence\Eloquent\EloquentTenantSchemaRepository;
 use Core\Billing\Infrastructure\Persistence\Usage\DatabaseUsageReader;
 use Core\Billing\Infrastructure\Persistence\Usage\PostgresUsageStore;
 use Core\Billing\Presentation\Console\Commands\AdvanceSubscriptionsCommand;
@@ -167,6 +185,9 @@ final class BillingServiceProvider extends ServiceProvider
     {
         // Domain ports → Infrastructure adapters.
         $this->app->bind(CustomerRepository::class, EloquentCustomerRepository::class);
+        // ADR-0122 §2, §5 — the declared forms and the values they carry.
+        $this->app->bind(TenantSchemaRepository::class, EloquentTenantSchemaRepository::class);
+        $this->app->bind(CustomerDeclaredAttributeRepository::class, EloquentCustomerDeclaredAttributeRepository::class);
         $this->app->bind(CustomerSettlementRepository::class, EloquentCustomerSettlementRepository::class);
         $this->app->bind(PlanRepository::class, EloquentPlanRepository::class);
         $this->app->bind(PlanVersionRepository::class, EloquentPlanVersionRepository::class);
@@ -201,6 +222,16 @@ final class BillingServiceProvider extends ServiceProvider
         // Published contracts → use cases.
         $this->app->bind(UpsertCustomer::class, UpsertCustomerUseCase::class);
         $this->app->bind(GetCustomer::class, GetCustomerUseCase::class);
+        // ADR-0122 §2 — the declared form of the tenant: the application
+        // proposes it, the operator accepts or refuses it, the console
+        // reads the one in force.
+        $this->app->bind(ProposeTenantSchema::class, ProposeTenantSchemaUseCase::class);
+        $this->app->bind(GetTenantSchema::class, GetTenantSchemaUseCase::class);
+        $this->app->bind(AcceptTenantSchema::class, AcceptTenantSchemaUseCase::class);
+        $this->app->bind(RejectTenantSchema::class, RejectTenantSchemaUseCase::class);
+        // ADR-0122 §5 — the values the tenant declared.
+        $this->app->bind(GetCustomerDeclaredAttributes::class, GetCustomerDeclaredAttributesUseCase::class);
+        $this->app->bind(SetCustomerDeclaredAttributes::class, SetCustomerDeclaredAttributesUseCase::class);
         $this->app->bind(FindCustomerByContact::class, FindCustomerByContactUseCase::class);
         $this->app->bind(ListCustomers::class, ListCustomersUseCase::class);
         // ADR-0073 §2, §4 — what the customer paid, online and offline,
@@ -212,6 +243,7 @@ final class BillingServiceProvider extends ServiceProvider
         $this->app->bind(CreatePlan::class, CreatePlanUseCase::class);
         $this->app->bind(ListPlans::class, ListPlansUseCase::class);
         $this->app->bind(CreatePlanVersion::class, CreatePlanVersionUseCase::class);
+        $this->app->bind(UpdatePlanVersion::class, UpdatePlanVersionUseCase::class);
         $this->app->bind(PublishPlanVersion::class, PublishPlanVersionUseCase::class);
         $this->app->bind(ArchivePlan::class, ArchivePlanUseCase::class);
         $this->app->bind(CreateSubscription::class, CreateSubscriptionUseCase::class);

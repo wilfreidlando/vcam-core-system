@@ -10,10 +10,9 @@ use Core\Billing\Domain\Model\Customer;
 /**
  * ADR-0070 §1 — the persistence port of the customers of a project.
  *
- * Pure PHP (G3b): the personal-data boundary of ADR-0083 is an
- * implementation detail of the adapter, never of the domain. The domain
- * holds the clear value; the adapter encrypts it and never hands a
- * ciphertext back.
+ * Pure PHP (G3b): the domain holds the client's data **as it is** — the
+ * Core stores it in clear (ADR-0123) — and the rules that decide what
+ * leaves it (ADR-0083 §3) belong to the adapter, never to the domain.
  */
 interface CustomerRepository
 {
@@ -30,15 +29,14 @@ interface CustomerRepository
     public function findById(string $id): ?Customer;
 
     /**
-     * ADR-0083 §2 — the customer whose email carries this blind index.
+     * The customer of a project whose email is this one.
      *
-     * The lookup never decrypts a row: the blind index is the searchable
-     * form of the address, and it is the form the uniqueness of the
-     * address is carried by.
-     *
-     * @param string $emailBlindIndex 64 lowercase hex characters
+     * The address is normalised before it is stored and before it is
+     * looked up (ADR-0070 §4) : `Ali@Example.cm` and `ali@example.cm`
+     * are the same address, and the uniqueness of an address per project
+     * is carried by it (ADR-0123).
      */
-    public function findByEmail(string $projectId, string $emailBlindIndex): ?Customer;
+    public function findByEmail(string $projectId, string $email): ?Customer;
 
     /**
      * Persists a customer, created or updated.

@@ -12,8 +12,10 @@ use Core\Billing\Contracts\CreateSubscription;
 use Core\Billing\Contracts\CreateSubscriptionCommand;
 use Core\Billing\Contracts\GetCustomer;
 use Core\Billing\Contracts\GetCustomerCommand;
+use Core\Billing\Contracts\GetCustomerDeclaredAttributes;
 use Core\Billing\Contracts\GetEntitlements;
 use Core\Billing\Contracts\GetEntitlementsCommand;
+use Core\Billing\Contracts\GetTenantSchema;
 use Core\Billing\Contracts\ListCustomerSettlements;
 use Core\Billing\Contracts\ListCustomerSettlementsCommand;
 use Core\Billing\Contracts\ListInvoices;
@@ -52,6 +54,8 @@ final class CustomerOverviewController
     public function __construct(
         private readonly GetProject $getProject,
         private readonly GetCustomer $customers,
+        private readonly GetTenantSchema $tenantSchemas,
+        private readonly GetCustomerDeclaredAttributes $declaredAttributes,
         private readonly ListSubscriptions $subscriptions,
         private readonly ListInvoices $invoices,
         private readonly ListCustomerSettlements $settlements,
@@ -80,10 +84,28 @@ final class CustomerOverviewController
         // that may not read the invoices sees the sheet without it.
         $canSeeSettlements = $operator->scopeFor('invoices:read')->allowsProject($projectId);
 
+        // ADR-0122 §5 — the declared values are read like the identity:
+        // under `customers:read`, and only for a client of this project.
+        $schema = $this->tenantSchemas->accepted($projectId, $scope);
+        $declared = [];
+
+        if ($schema !== null) {
+            $values = $this->declaredAttributes->forCustomer($projectId, $customer->id, $scope);
+
+            foreach ($schema->fields as $field) {
+                if (! array_key_exists($field->key, $values)) {
+                    continue;
+                }
+
+                $declared[$field->label] = $values[$field->key];
+            }
+        }
+
         return response()->view('admin.billing.customers.show', [
             'title' => $customer->displayName,
             'projectId' => $projectId,
             'customer' => $customer,
+            'declared' => $declared,
             'subscriptions' => $operator->scopeFor('subscriptions:read')->allowsProject($projectId)
                 ? $this->subscriptions->list(new ListSubscriptionsCommand($projectId, $externalRef, null, null, 50), $scope)->items
                 : [],

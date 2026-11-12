@@ -46,9 +46,10 @@ depend on `core/audit`: the operator's acts are audited by the console controlle
 ## What this lot delivers
 
 - **Customers** (ADR-0070) — a minimal identity per project, declared by the
-  project through `external_ref`. The email and the phone are **encrypted at
-  rest** (ciphertext + blind index), never stored in clear. The column list is
-  a white-list: a new column needs an ADR (guardrail **G4b**).
+  project through `external_ref`. The email and the phone are **stored in
+  clear** (ADR-0123): the Core keeps no key of its own for them — the email is
+  normalised before it is stored and stays unique per project. The column list
+  is a white-list: a new column needs an ADR (guardrail **G4b**).
 - **The catalogue** (ADR-0071) — a plan is stable, its **versions** carry the
   terms (price, currency, interval, trial, grace, features). A published
   version is immutable — in the database, by a trigger, not only in the code.
@@ -75,8 +76,8 @@ refuses the change, not a convention.
 - the issuance **books the receivable** in the ledger — Débit
   `customer_receivable:<client>` / Crédit `revenue` — and the cancellation
   **counter-passes** it; a write-off moves it to `bad_debt`;
-- the customer frozen on it is **encrypted at rest**: the printed document
-  decrypts the name at the moment of printing, and nothing else ever does.
+- the customer frozen on it is **stored in clear**, like the customer itself:
+  the printed document shows the name it carries, and nothing else does.
 
 ### What this lot does NOT deliver yet (ADR-0094)
 
@@ -207,6 +208,7 @@ arithmetic is explicit in `Domain/Model/BillingInterval.php`.
 | `GET /v1/plans` | `plans:read` | The catalogue |
 | `POST /v1/plans` | `plans:write` | Creates a draft plan |
 | `POST /v1/plans/{code}/versions` | `plans:write` | Adds a draft version |
+| `PUT /v1/plans/{code}/versions/{n}` | `plans:write` | Corrects a **draft** version — the catalogue holds one draft per offer (ADR-0071 §2) |
 | `POST /v1/plans/{code}/versions/{n}/publish` | `plans:write` | Publishes it — from then on it is frozen |
 | `POST /v1/plans/{code}/archive` | `plans:write` | No new subscription on it |
 | `POST /v1/subscriptions` | `subscriptions:write` + `Idempotency-Key` | Creates the contract, its first period |
