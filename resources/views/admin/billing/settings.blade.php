@@ -3,6 +3,14 @@
 @section('title', 'Réglages du commerce')
 
 @section('content')
+@php
+    // Les listes ne sont pas plafonnées : l'opérateur en ajoute autant qu'il
+    // veut, un bloc à la fois. Un bloc vide est ignoré à l'enregistrement.
+    $mappingRows = max(3, count($settings?->meterMappings ?? []), (int) old('meter_mappings_rows', 0));
+    $packRows = max(3, count($settings?->supplementPacks ?? []), (int) old('supplement_packs_rows', 0));
+    // Les compteurs se choisissent : on ne les saisit pas deux fois.
+    $counterOptions = array_combine($counters, $counters);
+@endphp
 <div class="max-w-3xl space-y-6">
     <form method="POST" action="{{ route('admin.projects.commerce-settings.save', $projectId) }}" class="space-y-6 rounded-lg border border-slate-200 bg-white p-6">
         @csrf
@@ -30,7 +38,7 @@
                 plateforme compte. Sans correspondance, une capacité n'est jamais comptée.
             </p>
 
-            @for ($index = 0; $index < max(3, count($settings->meterMappings)); $index++)
+            @for ($index = 0; $index < $mappingRows; $index++)
                 <div class="grid gap-3 rounded-md border border-slate-200 p-3 sm:grid-cols-2">
                     <x-admin.field :name="'meter_mappings['.$index.'][capability]'" label="Capacité" maxlength="64" class="font-mono"
                                    :value="array_keys($settings->meterMappings)[$index] ?? ''"
@@ -40,6 +48,11 @@
                                    hint="Ce que la plateforme compte, par exemple whatsapp_messages." />
                 </div>
             @endfor
+
+            <button type="submit" name="add_row" value="meter_mappings" formnovalidate
+                    class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                + Ajouter une correspondance
+            </button>
         </fieldset>
         <div class="space-y-2">
             <div class="flex items-center gap-2">
@@ -62,14 +75,15 @@
         <fieldset class="space-y-3">
             <legend class="text-sm font-semibold text-slate-900">Catalogue de packs</legend>
 
-            @for ($index = 0; $index < max(3, count($settings->supplementPacks)); $index++)
+            @for ($index = 0; $index < $packRows; $index++)
                 <div class="grid gap-3 rounded-md border border-slate-200 p-3 sm:grid-cols-2 lg:grid-cols-3">
                     <x-admin.field :name="'supplement_packs['.$index.'][code]'" label="Code" maxlength="64" class="font-mono"
                                    :value="$settings->supplementPacks[$index]->code ?? ''"
                                    hint="Minuscules, chiffres, « _ » et « - » (64 caractères au plus)." />
-                    <x-admin.field :name="'supplement_packs['.$index.'][meter]'" label="Compteur" maxlength="64" class="font-mono"
+                    <x-admin.field :name="'supplement_packs['.$index.'][meter]'" label="Compteur" type="select" placeholder="Choisir un compteur"
+                                   :options="$counterOptions"
                                    :value="$settings->supplementPacks[$index]->meter ?? ''"
-                                   hint="L'un des compteurs déclarés plus haut." />
+                                   hint="Un compteur déclaré plus haut, dans « Limites d'usage »." />
                     <x-admin.field :name="'supplement_packs['.$index.'][quantity]'" label="Quantité" type="number" min="1"
                                    :value="$settings->supplementPacks[$index]->quantity ?? ''" />
                     <x-admin.field :name="'supplement_packs['.$index.'][unit_price_minor]'" label="Prix (unités mineures)" type="number" min="0"
@@ -80,6 +94,11 @@
                                    wrapper-class="sm:col-span-2 lg:col-span-3" />
                 </div>
             @endfor
+
+            <button type="submit" name="add_row" value="supplement_packs" formnovalidate
+                    class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                + Ajouter un pack
+            </button>
         </fieldset>
 
         <div class="flex items-center gap-3 pt-2">

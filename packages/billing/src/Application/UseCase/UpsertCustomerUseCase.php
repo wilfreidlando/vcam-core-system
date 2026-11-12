@@ -18,7 +18,6 @@ use Core\Events\Contracts\DomainEvent;
 use Core\Events\Contracts\EventOutbox;
 use Core\Support\Clock;
 use Core\Support\Identifier;
-use Core\Support\Privacy\PersonalDataKind;
 use Core\Support\UnitOfWork;
 
 /**

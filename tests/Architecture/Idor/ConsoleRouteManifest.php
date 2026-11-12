@@ -198,6 +198,13 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.plans.store', Nature::Plan, Outcome::NotFound),
             Entry::isolated('admin.projects.plans.versions.add', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.plans.versions.store', Nature::Plan, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            // ADR-0071 §2 / ADR-0124 — a version is given to an offer
+            // from the offer's own page, and a draft is corrected where
+            // it is. The offer is named by its code, under the project:
+            // an unknown code is the console's "introuvable" redirect.
+            Entry::isolated('admin.projects.plans.versions.new', Nature::Plan, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.plans.versions.edit', Nature::Plan, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            Entry::isolated('admin.projects.plans.versions.update', Nature::Plan, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.plans.versions.publish.web', Nature::Plan, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.plans.archive.web', Nature::Plan, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
 

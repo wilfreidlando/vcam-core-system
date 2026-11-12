@@ -15,6 +15,20 @@
     </p>
 </header>
 
+<section class="card">
+    <h2 class="card__title">Comment lire ces offres</h2>
+    <p class="muted">
+        Chaque offre indique son prix et <strong>ce qu'elle compte</strong>. Une limite d'usage est un compteur
+        suivi par la plateforme — « 500 messages par mois », par exemple. Ce qui n'est pas listé n'est pas
+        compté : la consommation est alors illimitée, et rien n'est facturé au-delà du prix de l'offre.
+    </p>
+    <p class="muted">
+        Votre consommation se suit dans <a href="/portal/usage">Utilisation</a>. C'est là que vous voyez vos
+        quotas, et que vous achetez un <strong>pack de rechargement</strong> pour aller au-delà de votre
+        limite : un rechargement est une facture à part, votre abonnement n'est pas renouvelé.
+    </p>
+</section>
+
 @if (count($plans->options) === 0)
     <section class="card"><p class="muted">Aucune offre n'est proposée pour le moment.</p></section>
 @else

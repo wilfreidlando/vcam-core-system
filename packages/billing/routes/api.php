@@ -30,6 +30,7 @@ use Core\Billing\Presentation\Http\Controllers\PublishPlanVersionController;
 use Core\Billing\Presentation\Http\Controllers\PurchaseSubscriptionSupplementController;
 use Core\Billing\Presentation\Http\Controllers\ReactivateCustomerController;
 use Core\Billing\Presentation\Http\Controllers\SuspendCustomerController;
+use Core\Billing\Presentation\Http\Controllers\UpdatePlanVersionController;
 use Core\Billing\Presentation\Http\Controllers\UpsertCustomerController;
 use Core\Billing\Presentation\Http\Controllers\VoidInvoiceController;
 use Illuminate\Support\Facades\Route;
@@ -101,6 +102,10 @@ Route::middleware(['project.auth'])
         Route::get('/plans', ListPlansController::class)->name('plans.list');
         Route::post('/plans', CreatePlanController::class)->name('plans.create');
         Route::post('/plans/{code}/versions', CreatePlanVersionController::class)->name('plans.versions.create');
+        // ADR-0071 §2 — a draft is corrected, never abandoned: the
+        // catalogue holds one draft per offer. A published version stays
+        // frozen (409).
+        Route::put('/plans/{code}/versions/{version}', UpdatePlanVersionController::class)->name('plans.versions.update');
         Route::post('/plans/{code}/versions/{version}/publish', PublishPlanVersionController::class)->name('plans.versions.publish');
         Route::post('/plans/{code}/archive', ArchivePlanController::class)->name('plans.archive');
 

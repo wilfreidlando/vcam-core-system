@@ -23,6 +23,7 @@ use Core\Billing\Domain\Exception\ManualReceiptApprovalRefused;
 use Core\Billing\Domain\Exception\ManualReceiptNotFound;
 use Core\Billing\Domain\Exception\PlanCodeAlreadyTaken;
 use Core\Billing\Domain\Exception\PlanNotFound;
+use Core\Billing\Domain\Exception\PlanVersionConflict;
 use Core\Billing\Domain\Exception\PlanVersionNotEditable;
 use Core\Billing\Domain\Exception\PlanVersionNotFound;
 use Core\Billing\Domain\Exception\SubscriptionNotFound;
@@ -220,6 +221,10 @@ final class ExceptionProblemMapping
         InvoiceNotFound::class => ['type' => 'invoice-not-found', 'title' => 'Invoice not found', 'status' => 404],
         InvalidInvoiceTransition::class => ['type' => 'invalid-state-transition', 'title' => 'The state transition is not allowed', 'status' => 409],
         PlanVersionNotEditable::class => ['type' => 'plan-version-not-editable', 'title' => 'The plan version is not editable', 'status' => 409],
+        // ADR-0071 §2 — the offer already holds a draft (it is corrected,
+        // not replaced), or the rank is already taken. A conflict of the
+        // catalogue, not an immutability.
+        PlanVersionConflict::class => ['type' => 'plan-version-conflict', 'title' => 'The plan version conflicts with the catalogue', 'status' => 409],
         PlanVersionNotFound::class => ['type' => 'plan-version-not-found', 'title' => 'Plan version not found', 'status' => 404],
         // ADR-0070 §2 — the optimistic lock of a customer: the caller
         // sent the version it last read and the stored one moved on.

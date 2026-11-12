@@ -9,6 +9,7 @@ use Core\Billing\Contracts\CreatePlanVersionCommand;
 use Core\Billing\Domain\Exception\InvalidBillingInterval;
 use Core\Billing\Domain\Exception\InvalidPlanFeature;
 use Core\Billing\Domain\Exception\PlanNotFound;
+use Core\Billing\Domain\Exception\PlanVersionConflict;
 use Core\Billing\Domain\Exception\UnsupportedCurrency;
 use Core\Billing\Presentation\Http\Controllers\Concerns\SerializesBillingViews;
 use Core\Billing\Presentation\Http\Requests\CreatePlanVersionRequest;
@@ -49,6 +50,7 @@ final class CreatePlanVersionController
      * Requires the `plans:write` scope.
      *
      * @throws PlanNotFound the plan doesn't exist, or belongs to another project (404)
+     * @throws PlanVersionConflict the offer already holds a draft, or the rank is taken (409)
      * @throws InvalidBillingInterval the interval count is below one (422)
      * @throws InvalidPlanFeature a feature key or definition is not one the Core accepts (422)
      * @throws UnsupportedCurrency the currency is not one the ledger supports (422)

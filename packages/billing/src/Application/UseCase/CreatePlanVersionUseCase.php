@@ -91,8 +91,9 @@ final readonly class CreatePlanVersionUseCase implements CreatePlanVersion
                 createdAt: $now,
             );
 
-            // Throws `PlanVersionNotEditable` when the rank is already
-            // taken; the database refuses a second draft for the same plan.
+            // Throws `PlanVersionConflict` when the offer already holds a
+            // draft (it is corrected, not replaced) or when the rank is
+            // already taken.
             $this->versions->save($version);
 
             return PlanViews::version($version);

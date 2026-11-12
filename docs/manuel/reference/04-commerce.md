@@ -224,6 +224,31 @@ désormais figée. »`
 
 Les statuts d'une version : `Brouillon`, `Publiée`, `Retirée`.
 
+### Corriger une version brouillon
+
+Une offre ne garde **qu'une seule version en préparation** à la fois. Un brouillon écrit
+de travers se **corrige**, il ne se jette pas : sans cela, l'opérateur serait bloqué — il
+ne pourrait ni le publier, ni en ouvrir un autre.
+
+| Où | Comment |
+|---|---|
+| Console | le bouton **« Modifier »** de la version, sur la page **« Offres »** |
+| API | `PUT /v1/plans/{code}/versions/{n}`, portée `plans:write` |
+
+Le formulaire est **pré-rempli** : le prix, la période, l'essai, la grâce et les
+fonctionnalités s'y trouvent déjà. Une correction **remplace** les fonctionnalités : ce
+qui n'est plus écrit disparaît.
+
+Deux refus, tous deux dits en français :
+
+| La situation | Ce qui est dit |
+|---|---|
+| La version est **publiée** | `« Une version publiée est figée : publiez une nouvelle version pour changer ses conditions. »` |
+| L'offre a **déjà** une version en préparation | `« Cette offre a déjà une version en préparation (version N) : corrigez-la plutôt que d'en ajouter une autre. »` |
+
+Par l'API, le même refus vaut `409` (`plan-version-not-editable` pour une version
+publiée, `plan-version-conflict` pour une offre déjà occupée).
+
 ### Archiver une offre
 
 `« Archiver »` → `« Plan {code} archivé — il n'accepte plus de nouvel abonnement. »` Les
@@ -409,15 +434,21 @@ refusé. »`
 | `« Rendre l'unité quand un message n'a atteint personne »` | rembourse le quota d'un envoi échoué |
 | `« Exiger customer_ref sur tout appel mesuré »` | refuse une mesure sans client |
 
+Une **version brouillon** d'une offre se corrige depuis la page **« Offres »**
+(bouton **« Modifier »**) : le prix, la période et les fonctionnalités. Une
+version **publiée** est figée — pour changer ses conditions, on publie une
+nouvelle version (voir [F06 — Vendre une offre et la faire vivre](../parcours/vendre/F06-vendre-une-offre-et-la-faire-vivre.md)).
+
 Les deux se remplissent **bloc par bloc**, dans la section **« Limites d'usage »** de
 l'écran. Il y a **au moins trois blocs** de chaque sorte, et autant que ce qui est déjà
-enregistré. Trois règles :
+enregistré ; les boutons **« + Ajouter une correspondance »** et **« + Ajouter un pack »**
+en ajoutent autant que le projet en a besoin. Trois règles :
 
 - une correspondance dont **une seule** des deux cases est remplie est **ignorée** ;
 - un pack dont **tous** les champs sont vides est **ignoré**, mais un pack à **un seul
   champ vide** est **refusé** ;
-- le `« Compteur »` d'un pack doit être **un compteur déclaré** dans les
-  correspondances ci-dessus — sinon la saisie est refusée.
+- le `« Compteur »` d'un pack se **choisit** dans la liste des compteurs du projet : il
+  ne se saisit pas, donc il ne peut pas se tromper.
 
 Chaque enregistrement est journalisé (`billing.settings_changed`).
 

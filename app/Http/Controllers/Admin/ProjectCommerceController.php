@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\ResolvesProjectCounters;
 use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
 use App\Notices\CoreNoticeCatalogue;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
+use Core\Billing\Contracts\ListPlans;
+use Core\Billing\Contracts\ListPlansCommand;
 use Core\Billing\Contracts\ListUsage;
 use Core\Billing\Contracts\ManageBillingSettings;
 use Core\Billing\Contracts\SaveBillingSettingsCommand;
@@ -39,6 +42,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class ProjectCommerceController
 {
+    use ResolvesProjectCounters;
     use ResolvesScopedProject;
 
     public function __construct(
@@ -46,6 +50,7 @@ final class ProjectCommerceController
         private readonly ManagePortalSettings $portal,
         private readonly ManageBillingSettings $billing,
         private readonly ManageSystemNotificationSettings $systemNotifications,
+        private readonly ListPlans $listPlans,
         private readonly ListUsage $usage,
         private readonly AuditLogger $audit,
         private readonly Clock $clock,
@@ -117,11 +122,32 @@ final class ProjectCommerceController
         $scope = $this->permittedScope($operator, 'plans:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
 
+        $settings = $this->billing->get($projectId, $scope);
+
+        // Les compteurs que le projet compte : ceux qu'il déclare dans « Limites
+        // d'usage », et ceux que ses offres et ses packs portent déjà. On les
+        // choisit dans les listes ; on ne les saisit pas deux fois.
+        $used = [];
+
+        if ($settings !== null) {
+            foreach ($settings->supplementPacks as $pack) {
+                $used[] = $pack->meter;
+            }
+        }
+
+        $offers = $this->listPlans->list(new ListPlansCommand($projectId, null, null, 100), $scope)->items;
+
         return response()->view('admin.billing.settings', [
             'title' => 'Réglages du commerce',
             'projectId' => $projectId,
-            'settings' => $this->billing->get($projectId, $scope),
+            'settings' => $settings,
             'noticeEvents' => $this->noticeEvents($projectId, $scope),
+            'counters' => $this->counters(
+                // `??` on a null object is quiet: a project that never
+                // touched its settings has no counter to offer.
+                $settings->meterMappings ?? [],
+                array_merge($used, $this->countersOfOffers($offers)),
+            ),
         ]);
     }
 
@@ -179,6 +205,22 @@ final class ProjectCommerceController
     {
         $scope = $this->permittedScope($operator, 'plans:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
+
+        // « Ajouter une ligne » : le formulaire revient avec un bloc de plus.
+        // Rien n'est enregistré : l'opérateur n'a pas encore validé.
+        $added = $request->string('add_row')->toString();
+
+        if ($added === 'meter_mappings' || $added === 'supplement_packs') {
+            // Les deux listes retiennent leur taille : l'opérateur peut
+            // ajouter une ligne dans l'une sans perdre celles de l'autre.
+            $mappings = count((array) $request->input('meter_mappings', []));
+            $packs = count((array) $request->input('supplement_packs', []));
+
+            return back()->withInput([
+                'meter_mappings_rows' => $added === 'meter_mappings' ? $mappings + 1 : $mappings,
+                'supplement_packs_rows' => $added === 'supplement_packs' ? $packs + 1 : $packs,
+            ]);
+        }
 
         /** @var array{timezone: string, default_currency: string, renewal_lead_days: int|string|string, incomplete_expiry_hours: int|string|string, invoice_prefix: string, default_tax_rate_percent: numeric-string|int|float|null, manual_receipt_threshold?: int|string|string|null, meter_mappings?: array<int|string, mixed>|null, supplement_packs?: array<int|string, mixed>|null} $data */
         $data = Validator::make($request->all(), [

@@ -362,6 +362,16 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
                     ->name('projects.plans.versions.add');
                 Route::post('{code}/versions', [App\Http\Controllers\Admin\BillingPlansController::class, 'storeVersion'])
                     ->name('projects.plans.versions.store');
+                // ADR-0071 §2 — a version is given to an offer from the
+                // offer's own page, and a draft is corrected where it is.
+                Route::get('{code}/versions/new', [App\Http\Controllers\Admin\BillingPlansController::class, 'newVersion'])
+                    ->name('projects.plans.versions.new');
+                Route::get('{code}/versions/{version}/edit', [App\Http\Controllers\Admin\BillingPlansController::class, 'editVersion'])
+                    ->whereNumber('version')
+                    ->name('projects.plans.versions.edit');
+                Route::post('{code}/versions/{version}', [App\Http\Controllers\Admin\BillingPlansController::class, 'updateVersion'])
+                    ->whereNumber('version')
+                    ->name('projects.plans.versions.update');
                 Route::post('{code}/versions/{version}/publish', [App\Http\Controllers\Admin\BillingPlansController::class, 'publish'])
                     ->whereNumber('version')
                     ->name('projects.plans.versions.publish.web');

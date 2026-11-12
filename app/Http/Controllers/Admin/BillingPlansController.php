@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Concerns\HandlesBillingRefusals;
+use App\Http\Controllers\Admin\Concerns\ResolvesProjectCounters;
 use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
+use App\Http\View\OfferCounting;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
 use Core\Billing\Contracts\ArchivePlan;
@@ -16,18 +18,25 @@ use Core\Billing\Contracts\CreatePlanVersion;
 use Core\Billing\Contracts\CreatePlanVersionCommand;
 use Core\Billing\Contracts\ListPlans;
 use Core\Billing\Contracts\ListPlansCommand;
+use Core\Billing\Contracts\ManageBillingSettings;
+use Core\Billing\Contracts\PlanVersionView;
+use Core\Billing\Contracts\PlanView;
 use Core\Billing\Contracts\PublishPlanVersion;
 use Core\Billing\Contracts\PublishPlanVersionCommand;
+use Core\Billing\Contracts\UpdatePlanVersion;
+use Core\Billing\Contracts\UpdatePlanVersionCommand;
 use Core\Billing\Domain\Exception\InvalidBillingInterval;
 use Core\Billing\Domain\Exception\InvalidPlan;
 use Core\Billing\Domain\Exception\InvalidPlanFeature;
 use Core\Billing\Domain\Exception\PlanCodeAlreadyTaken;
 use Core\Billing\Domain\Exception\PlanNotFound;
+use Core\Billing\Domain\Exception\PlanVersionConflict;
 use Core\Billing\Domain\Exception\PlanVersionNotEditable;
 use Core\Billing\Domain\Exception\PlanVersionNotFound;
 use Core\Billing\Domain\Exception\UnsupportedCurrency;
 use Core\Identity\Contracts\GetProject;
 use Core\Identity\Contracts\OperatorContext;
+use Core\Support\Access\AccessScope;
 use Core\Support\Clock;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,13 +57,16 @@ use Symfony\Component\HttpFoundation\Response;
 final class BillingPlansController
 {
     use HandlesBillingRefusals;
+    use ResolvesProjectCounters;
     use ResolvesScopedProject;
 
     public function __construct(
         private readonly GetProject $getProject,
         private readonly ListPlans $listPlans,
+        private readonly ManageBillingSettings $billing,
         private readonly CreatePlan $createPlan,
         private readonly CreatePlanVersion $createPlanVersion,
+        private readonly UpdatePlanVersion $updatePlanVersion,
         private readonly PublishPlanVersion $publishPlanVersion,
         private readonly ArchivePlan $archivePlan,
         private readonly AuditLogger $audit,
@@ -78,18 +90,25 @@ final class BillingPlansController
             'projectId' => $projectId,
             'plans' => $page->items,
             'nextCursor' => $page->nextCursor,
+            // Ce que chaque offre compte : lu ici, dit en français.
+            'counting' => OfferCounting::byPlan($page->items),
         ]);
     }
 
     public function create(OperatorContext $operator, string $projectId): Response
     {
-        $this->permittedScope($operator, 'plans:write');
+        $scope = $this->permittedScope($operator, 'plans:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
 
         return response()->view('admin.billing.plans.form', [
             'title' => 'Nouveau plan',
             'projectId' => $projectId,
             'plan' => null,
+            'version' => null,
+            'counting' => [],
+            // Les compteurs que le projet compte : on les choisit dans la
+            // liste, on ne les saisit pas — une clé mal écrite ne compte rien.
+            'counters' => $this->countersFor($projectId, $scope),
         ]);
     }
 
@@ -147,6 +166,14 @@ final class BillingPlansController
         $this->permittedScope($operator, 'plans:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
 
+        // « Ajouter une fonctionnalité » : le formulaire revient avec un bloc
+        // de plus. Rien n'est enregistré : l'opérateur n'a pas encore validé.
+        if ($request->string('add_row')->toString() === 'features') {
+            $rows = count((array) $request->input('features', [])) + 1;
+
+            return back()->withInput(['features_rows' => $rows]);
+        }
+
         /** @var array{plan_code: string} $named */
         $named = Validator::make($request->all(), [
             'plan_code' => ['required', 'string', 'max:64', 'regex:/^[a-z0-9][a-z0-9_-]*$/'],
@@ -159,6 +186,14 @@ final class BillingPlansController
     {
         $this->permittedScope($operator, 'plans:write');
         $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
+
+        // « Ajouter une fonctionnalité » : le formulaire revient avec un bloc
+        // de plus. Rien n'est enregistré : l'opérateur n'a pas encore validé.
+        if ($request->string('add_row')->toString() === 'features') {
+            $rows = count((array) $request->input('features', [])) + 1;
+
+            return back()->withInput(['features_rows' => $rows]);
+        }
 
         /** @var array{price_minor: int|string, currency: string, interval_unit: string, interval_count: int|string, trial_days?: int|string|null, grace_days?: int|string|null, grace_access?: bool|null, features?: array<int|string, mixed>|null} $data */
         $data = Validator::make($request->all(), [
@@ -191,7 +226,7 @@ final class BillingPlansController
                 actor: $this->actor($operator),
                 correlationId: null,
             ));
-        } catch (PlanNotFound|PlanVersionNotEditable|InvalidBillingInterval|InvalidPlanFeature|UnsupportedCurrency|InvalidPlan $exception) {
+        } catch (PlanNotFound|PlanVersionConflict|PlanVersionNotEditable|InvalidBillingInterval|InvalidPlanFeature|UnsupportedCurrency|InvalidPlan $exception) {
             return $this->refused($exception);
         }
 
@@ -210,6 +245,143 @@ final class BillingPlansController
         return redirect()
             ->route('admin.projects.plans.index', $projectId)
             ->with('status', sprintf('Version %d créée — publiez-la pour qu\'elle soit facturable.', $version->version));
+    }
+
+    /**
+     * ADR-0071 §2 — the version form, opened on an offer that exists.
+     *
+     * The offer's own page leads here: the operator never has to know a
+     * code by heart to give it a new version.
+     */
+    public function newVersion(OperatorContext $operator, string $projectId, string $code): Response
+    {
+        $scope = $this->permittedScope($operator, 'plans:write');
+        $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
+
+        try {
+            $plan = $this->plan($projectId, $code, $scope);
+        } catch (PlanNotFound $exception) {
+            // Une offre qui n'existe pas ne se répond pas par une page JSON :
+            // l'opérateur revient à la liste des offres, qui est l'endroit
+            // où il peut choisir.
+            return redirect()
+                ->route('admin.projects.plans.index', $projectId)
+                ->withErrors(['resource' => $this->refusalMessage($exception)]);
+        }
+
+        return response()->view('admin.billing.plans.form', [
+            'title' => 'Ajouter une version',
+            'projectId' => $projectId,
+            'plan' => $plan,
+            'version' => null,
+            'counting' => [],
+            'counters' => $this->countersFor($projectId, $scope),
+        ]);
+    }
+
+    /**
+     * ADR-0071 §2 — the correction of a draft version.
+     *
+     * A published version is frozen: correcting it means publishing a new
+     * one, never editing the old one (ADR-0071 §2). A draft is the
+     * operator's working paper, and the catalogue holds only one draft per
+     * offer — so correcting it is the only way out of a draft written
+     * wrong.
+     */
+    public function editVersion(OperatorContext $operator, string $projectId, string $code, int $version): Response
+    {
+        $scope = $this->permittedScope($operator, 'plans:write');
+        $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
+
+        try {
+            $draft = $this->draftVersion($projectId, $code, $version, $scope);
+        } catch (PlanNotFound|PlanVersionNotFound $exception) {
+            // L'offre ou la version n'existe pas : la console répond par
+            // la liste des offres, jamais par une page JSON.
+            return redirect()
+                ->route('admin.projects.plans.index', $projectId)
+                ->withErrors(['resource' => $this->refusalMessage($exception)]);
+        }
+
+        if ($draft->status !== 'draft') {
+            return redirect()
+                ->route('admin.projects.plans.index', $projectId)
+                ->withErrors(['resource' => 'Une version publiée est figée : publiez une nouvelle version pour changer ses conditions.']);
+        }
+
+        return response()->view('admin.billing.plans.form', [
+            'title' => 'Corriger la version '.$version,
+            'projectId' => $projectId,
+            'plan' => $this->plan($projectId, $code, $scope),
+            'version' => $draft,
+            'counting' => OfferCounting::rowsOfVersion($draft),
+            'counters' => $this->countersFor($projectId, $scope),
+        ]);
+    }
+
+    /**
+     * ADR-0071 §2 — the draft version, corrected.
+     */
+    public function updateVersion(Request $request, OperatorContext $operator, string $projectId, string $code, int $version): RedirectResponse
+    {
+        $scope = $this->permittedScope($operator, 'plans:write');
+        $this->resolveScopedProject($this->getProject, $operator, $projectId, 'plans:write');
+
+        /** @var array{price_minor: int|string, currency: string, interval_unit: string, interval_count: int|string, trial_days?: int|string|null, grace_days?: int|string|null, grace_access?: bool|null, features?: array<int|string, mixed>|null} $data */
+        $data = Validator::make($request->all(), [
+            'price_minor' => ['required', 'integer', 'min:0'],
+            'currency' => ['required', 'string', 'size:3'],
+            'interval_unit' => ['required', 'string', 'in:day,week,month,year'],
+            'interval_count' => ['required', 'integer', 'min:1', 'max:365'],
+            'trial_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'grace_days' => ['nullable', 'integer', 'min:0', 'max:90'],
+            'grace_access' => ['nullable', 'boolean'],
+            'features' => ['nullable', 'array', 'max:20'],
+        ], [
+            'features.array' => 'Les fonctionnalités se déclarent bloc par bloc.',
+            'features.max' => 'Au plus 20 fonctionnalités par version.',
+        ])->validate();
+
+        try {
+            // Les termes d'avant : le journal doit pouvoir dire « le prix
+            // était 5 000 avant la correction ».
+            $draft = $this->draftVersion($projectId, $code, $version, $scope);
+
+            $updated = $this->updatePlanVersion->update(new UpdatePlanVersionCommand(
+                projectId: $projectId,
+                planCode: $code,
+                version: $version,
+                // A browser form sends strings: the command is strictly typed.
+                priceMinor: (int) $data['price_minor'],
+                currency: strtoupper($data['currency']),
+                intervalUnit: $data['interval_unit'],
+                intervalCount: (int) $data['interval_count'],
+                trialDays: (int) ($data['trial_days'] ?? 0),
+                graceDays: (int) ($data['grace_days'] ?? 0),
+                graceAccess: $request->has('grace_access') ? $request->boolean('grace_access') : true,
+                features: $this->features($data['features'] ?? null),
+                actor: $this->actor($operator),
+                correlationId: null,
+            ));
+        } catch (PlanNotFound|PlanVersionNotFound|PlanVersionConflict|PlanVersionNotEditable|InvalidBillingInterval|InvalidPlanFeature|UnsupportedCurrency|InvalidPlan $exception) {
+            return $this->refused($exception);
+        }
+
+        $this->audit->record(new AuditEntry(
+            actor: $this->actor($operator),
+            action: 'billing.plan_version.updated',
+            resource: 'plan_version:'.$updated->id,
+            before: $this->terms($draft),
+            after: $this->terms($updated),
+            context: ['project_id' => $projectId, 'plan_code' => $code],
+            correlationId: null,
+            occurredAt: $this->clock->now(),
+            projectId: $projectId,
+        ));
+
+        return redirect()
+            ->route('admin.projects.plans.index', $projectId)
+            ->with('status', sprintf('Version %d corrigée.', $updated->version));
     }
 
     public function publish(Request $request, OperatorContext $operator, string $projectId, string $code, int $version): RedirectResponse
@@ -341,10 +513,10 @@ final class BillingPlansController
                 $this->refuse('features.'.$index.'.type', 'Le type « '.$type.' » n\'existe pas : choisissez « Interrupteur » ou « Limite d\'usage ».');
             }
 
-            $meter = $this->text($row['meter'] ?? null);
+            $meter = $this->text($row['counter'] ?? null);
 
             if ($meter === '') {
-                $this->refuse('features.'.$index.'.meter', 'Indiquez le compteur que compte la fonctionnalité « '.$name.' ».');
+                $this->refuse('features.'.$index.'.counter', 'Indiquez le compteur que compte la fonctionnalité « '.$name.' ».');
             }
 
             $limit = $this->text($row['limit'] ?? null);
@@ -403,6 +575,71 @@ final class BillingPlansController
     private function refuse(string $key, string $message): never
     {
         throw ValidationException::withMessages([$key => $message]);
+    }
+
+    /**
+     * The counters the project counts: the ones it declares in « Limites
+     * d'usage », and the ones its offers already carry.
+     *
+     * @return list<string>
+     */
+    private function countersFor(string $projectId, AccessScope $scope): array
+    {
+        $settings = $this->billing->get($projectId, $scope);
+        $offers = $this->listPlans->list(new ListPlansCommand($projectId, null, null, 100), $scope)->items;
+
+        return $this->counters(
+            // `??` on a null object is quiet: the project that never
+            // touched its settings has no counter to offer.
+            $settings->meterMappings ?? [],
+            $this->countersOfOffers($offers),
+        );
+    }
+
+    private function plan(string $projectId, string $code, AccessScope $scope): PlanView
+    {
+        $offers = $this->listPlans->list(new ListPlansCommand($projectId, null, null, 100), $scope)->items;
+
+        foreach ($offers as $plan) {
+            if ($plan->code === $code) {
+                return $plan;
+            }
+        }
+
+        throw PlanNotFound::becauseCode($code);
+    }
+
+    private function draftVersion(string $projectId, string $code, int $number, AccessScope $scope): PlanVersionView
+    {
+        $plan = $this->plan($projectId, $code, $scope);
+
+        foreach ($plan->versions as $version) {
+            if ($version->version === $number) {
+                return $version;
+            }
+        }
+
+        throw PlanVersionNotFound::becauseVersion($code, $number);
+    }
+
+    /**
+     * The terms of a version, as the audit trail records them: the price
+     * it was, and the price it becomes.
+     *
+     * @return array<string, mixed>
+     */
+    private function terms(PlanVersionView $version): array
+    {
+        return [
+            'price_minor' => $version->priceMinor,
+            'currency' => $version->currency,
+            'interval_unit' => $version->intervalUnit,
+            'interval_count' => $version->intervalCount,
+            'trial_days' => $version->trialDays,
+            'grace_days' => $version->graceDays,
+            'grace_access' => $version->graceAccess,
+            'features' => $version->features,
+        ];
     }
 
     private function actor(OperatorContext $operator): string

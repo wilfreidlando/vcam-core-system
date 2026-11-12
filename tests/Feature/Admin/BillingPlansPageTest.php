@@ -45,7 +45,7 @@ final class BillingPlansPageTest extends TestCase
             'trial_days' => '14', 'grace_days' => '7',
             // Les fonctionnalités se déclarent bloc par bloc, jamais en JSON.
             'features' => [
-                ['name' => 'students', 'type' => 'limit', 'enabled' => '', 'meter' => 'students', 'limit' => '10', 'reset' => 'never', 'overage' => 'block', 'threshold_bps' => ''],
+                ['name' => 'students', 'type' => 'limit', 'enabled' => '', 'counter' => 'students', 'limit' => '10', 'reset' => 'never', 'overage' => 'block', 'threshold_bps' => ''],
             ],
         ])->assertRedirect("/admin/projects/{$projectId}/plans");
 

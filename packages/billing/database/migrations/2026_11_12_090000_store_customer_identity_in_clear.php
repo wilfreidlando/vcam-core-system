@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Encryption\Encrypter;
+use Illuminate\Support\Env;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -92,26 +93,30 @@ return new class extends Migration
      */
     private function carryOverCustomers(): void
     {
-        $rows = DB::table('customers')
+        $rows = [];
+
+        foreach (DB::table('customers')
             ->select(['id', 'email_ciphertext', 'phone_ciphertext'])
             ->whereNotNull('email_ciphertext')
             ->orWhereNotNull('phone_ciphertext')
-            ->get();
+            ->get() as $record) {
+            $rows[] = (array) $record;
+        }
 
-        if ($rows->isEmpty()) {
+        if ($rows === []) {
             // Personne n'a jamais été chiffré : la migration passe sans clé.
             return;
         }
 
         foreach ($rows as $row) {
-            $email = $row->email_ciphertext;
-            $phone = $row->phone_ciphertext;
+            $email = $row['email_ciphertext'] ?? null;
+            $phone = $row['phone_ciphertext'] ?? null;
 
             DB::table('customers')
-                ->where('id', $row->id)
+                ->where('id', $row['id'])
                 ->update([
-                    'email' => $email === null ? null : $this->decrypt((string) $email),
-                    'phone' => $phone === null ? null : $this->decrypt((string) $phone),
+                    'email' => is_string($email) ? $this->decrypt($email) : null,
+                    'phone' => is_string($phone) ? $this->decrypt($phone) : null,
                 ]);
         }
     }
@@ -121,10 +126,14 @@ return new class extends Migration
      */
     private function carryOverSnapshots(): void
     {
-        $rows = DB::table('invoices')
+        $rows = [];
+
+        foreach (DB::table('invoices')
             ->select(['id', 'customer_snapshot'])
             ->whereNotNull('customer_snapshot')
-            ->get();
+            ->get() as $row) {
+            $rows[] = (array) $row;
+        }
 
         if (! $this->snapshotsAreEncrypted($rows)) {
             return;
@@ -134,9 +143,9 @@ return new class extends Migration
 
         try {
             foreach ($rows as $row) {
-                $snapshot = json_decode((string) $row->customer_snapshot, true);
+                $snapshot = $this->snapshotOf($row);
 
-                if (! is_array($snapshot)) {
+                if ($snapshot === null) {
                     continue;
                 }
 
@@ -155,9 +164,9 @@ return new class extends Migration
 
                 if ($changed) {
                     DB::table('invoices')
-                        ->where('id', $row->id)
+                        ->where('id', $row['id'])
                         ->update([
-                            'customer_snapshot' => (string) json_encode(
+                            'customer_snapshot' => json_encode(
                                 $snapshot === [] ? new stdClass : $snapshot,
                                 JSON_THROW_ON_ERROR,
                             ),
@@ -170,14 +179,33 @@ return new class extends Migration
     }
 
     /**
-     * @param  iterable<int, object>  $rows
+     * L'instantané d'une facture, décodé — `null` quand il n'y en a pas.
+     *
+     * @param array<mixed, mixed> $row
+     * @return array<mixed, mixed>|null
+     */
+    private function snapshotOf(array $row): ?array
+    {
+        $raw = $row['customer_snapshot'] ?? null;
+
+        if (! is_string($raw)) {
+            return null;
+        }
+
+        $snapshot = json_decode($raw, true);
+
+        return is_array($snapshot) ? $snapshot : null;
+    }
+
+    /**
+     * @param iterable<int, array<mixed, mixed>> $rows
      */
     private function snapshotsAreEncrypted(iterable $rows): bool
     {
         foreach ($rows as $row) {
-            $snapshot = json_decode((string) $row->customer_snapshot, true);
+            $snapshot = $this->snapshotOf($row);
 
-            if (! is_array($snapshot)) {
+            if ($snapshot === null) {
                 continue;
             }
 
@@ -236,7 +264,12 @@ return new class extends Migration
             return $this->keys;
         }
 
-        $configured = (string) env('PII_ENCRYPTION_KEYS', '');
+        // `Env::get()` et non le raccourci `env()` : la lecture de
+        // l'environnement hors des fichiers de configuration est
+        // discouraged — ici, elle est la seule possible : la clé n'existe
+        // que le temps de cette migration.
+        $configured = Env::get('PII_ENCRYPTION_KEYS', '');
+        $configured = is_string($configured) ? $configured : '';
         $keys = [];
 
         foreach (array_filter(array_map('trim', explode(',', $configured)), static fn (string $entry): bool => $entry !== '') as $entry) {

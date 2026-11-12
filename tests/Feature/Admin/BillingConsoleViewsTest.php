@@ -105,7 +105,7 @@ final class BillingConsoleViewsTest extends TestCase
         $this->from($page)->post("/admin/projects/{$projectId}/plans/versions", [
             'plan_code' => 'basic', 'price_minor' => '100', 'currency' => 'XAF', 'interval_unit' => 'month', 'interval_count' => '1',
             'features' => [
-                ['name' => 'api_access', 'type' => '', 'enabled' => '', 'meter' => '', 'limit' => '', 'reset' => '', 'overage' => '', 'threshold_bps' => ''],
+                ['name' => 'api_access', 'type' => '', 'enabled' => '', 'counter' => '', 'limit' => '', 'reset' => '', 'overage' => '', 'threshold_bps' => ''],
             ],
         ])->assertRedirect($page);
 

@@ -34,7 +34,11 @@ temps: 10 minutes
 ### 1. Vérifier l’offre
 
 Depuis la fiche du projet, le lien **« Offres de ce projet »**. La page
-**« Offres »** liste vos offres ; sous chacune, le tableau de ses versions.
+**« Offres »** liste vos offres ; sous chacune, le tableau de ses versions, puis
+**« Ce que cette offre compte »** : ce qui est compté, sur quel compteur, jusqu'à
+quelle limite, ce qui se passe au-delà, et à partir de quand le compteur repart. Une
+offre qui ne compte rien le dit : **« Cette offre ne compte rien »** — certains projets
+ne mesurent rien du tout.
 
 → **Ce qui se passe** : chaque version porte un état — **« Brouillon »**,
 **« Publiée »** ou **« Retirée »**. Seule une version **« Publiée »** peut être
@@ -54,8 +58,16 @@ Le bloc **« Ajouter une version »** porte le prix et les conditions :
 version »** vient ensuite : **trois blocs**, un par fonctionnalité, chacun avec un
 **« Nom »** et un **« Type »** — *interrupteur* (avec **« Activée »**) ou *limite
 d’usage* (avec **« Compteur »**, **« Limite »**, **« Remise »**, **« Dépassement »**
-et **« Seuil d’alerte »**). Un bloc sans nom est ignoré. Le bouton
-**« Ajouter la version »** enregistre une version **« Brouillon »**.
+et **« Seuil d’alerte »**). Le **« Compteur »** se **choisit** dans la liste des
+compteurs du projet : il ne se saisit pas, donc il ne peut pas se tromper. Le bouton
+**« + Ajouter une fonctionnalité »** ajoute un bloc. Un bloc sans nom est ignoré. Le
+bouton **« Ajouter la version »** enregistre une version **« Brouillon »**.
+
+Sur la page **« Offres »**, chaque offre porte son bouton **« + Ajouter une
+version »** : le formulaire s'ouvre sur cette offre, son code n'est plus à
+saisir. Tant que la version est un **brouillon**, le bouton **« Modifier »** la
+corrige — le prix, la période, les fonctionnalités : un brouillon écrit de
+travers se corrige, il ne se jette pas.
 
 Sur la page **« Offres »**, le bouton **« Publier »** fige cette version.
 

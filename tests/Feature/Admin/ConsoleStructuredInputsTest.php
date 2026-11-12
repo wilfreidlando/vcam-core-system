@@ -42,7 +42,7 @@ final class ConsoleStructuredInputsTest extends TestCase
         self::assertIsString($html);
         self::assertStringContainsString('name="features[0][name]"', $html);
         self::assertStringContainsString('name="features[0][type]"', $html);
-        self::assertStringContainsString('name="features[0][meter]"', $html);
+        self::assertStringContainsString('name="features[0][counter]"', $html);
         self::assertStringContainsString('name="features[0][limit]"', $html);
         self::assertStringContainsString('name="features[0][reset]"', $html);
         self::assertStringContainsString('name="features[0][overage]"', $html);
@@ -57,8 +57,8 @@ final class ConsoleStructuredInputsTest extends TestCase
             'plan_code' => 'pro', 'price_minor' => '25000', 'currency' => 'XAF', 'interval_unit' => 'month', 'interval_count' => '1',
             'trial_days' => '0', 'grace_days' => '0',
             'features' => [
-                ['name' => 'api_access', 'type' => 'boolean', 'enabled' => '1', 'meter' => '', 'limit' => '', 'reset' => '', 'overage' => '', 'threshold_bps' => ''],
-                ['name' => 'students', 'type' => 'limit', 'enabled' => '', 'meter' => 'students', 'limit' => '10', 'reset' => 'never', 'overage' => 'block', 'threshold_bps' => ''],
+                ['name' => 'api_access', 'type' => 'boolean', 'enabled' => '1', 'counter' => '', 'limit' => '', 'reset' => '', 'overage' => '', 'threshold_bps' => ''],
+                ['name' => 'students', 'type' => 'limit', 'enabled' => '', 'counter' => 'students', 'limit' => '10', 'reset' => 'never', 'overage' => 'block', 'threshold_bps' => ''],
             ],
         ])->assertRedirect("/admin/projects/{$projectId}/plans");
 
@@ -73,7 +73,7 @@ final class ConsoleStructuredInputsTest extends TestCase
         $this->post("/admin/projects/{$projectId}/plans/versions", [
             'plan_code' => 'pro', 'price_minor' => '25000', 'currency' => 'XAF', 'interval_unit' => 'month', 'interval_count' => '1',
             'features' => [
-                ['name' => 'students', 'type' => '', 'enabled' => '', 'meter' => '', 'limit' => '', 'reset' => '', 'overage' => '', 'threshold_bps' => ''],
+                ['name' => 'students', 'type' => '', 'enabled' => '', 'counter' => '', 'limit' => '', 'reset' => '', 'overage' => '', 'threshold_bps' => ''],
             ],
         ])->assertSessionHasErrors('features.0.type');
 

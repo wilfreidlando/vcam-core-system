@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Billing\Infrastructure\Persistence\Eloquent;
 
 use Core\Billing\Application\Port\PlanVersionDirectory;
+use Core\Billing\Domain\Exception\PlanVersionConflict;
 use Core\Billing\Domain\Exception\PlanVersionNotEditable;
 use Core\Billing\Domain\Model\BillingInterval;
 use Core\Billing\Domain\Model\BillingIntervalUnit;
@@ -103,12 +104,22 @@ final class EloquentPlanVersionRepository implements PlanVersionDirectory
                     );
                 }
             });
-        } catch (UniqueConstraintViolationException) {
-            // `plan_versions_plan_version_unique` (the rank is taken) or
-            // `plan_versions_one_draft` (the plan already has a draft).
-            // Both mean the same thing to the caller: the terms must
-            // change on ANOTHER version.
-            throw PlanVersionNotEditable::becausePublished($version->version);
+        } catch (UniqueConstraintViolationException $exception) {
+            // Two rules of the catalogue can refuse the write, and the
+            // index that refused it says which one:
+            //
+            // - `plan_versions_one_draft` — the offer already holds a
+            //   draft: it is **corrected**, not replaced;
+            // - `plan_versions_plan_version_unique` — the rank is taken.
+            //
+            // Neither is a "published and immutable" version: saying so
+            // would send the operator to publish a version that was
+            // never published.
+            if ($exception->index === 'plan_versions_one_draft') {
+                throw PlanVersionConflict::becauseDraftExists($this->draftVersionNumber($version->planId));
+            }
+
+            throw PlanVersionConflict::becauseRankTaken($version->version);
         } catch (QueryException $exception) {
             // The `plan_version_immutable` trigger raises a
             // `check_violation` (SQLSTATE 23514) — the same rule, stated
@@ -147,6 +158,24 @@ final class EloquentPlanVersionRepository implements PlanVersionDirectory
         }
 
         return $versions;
+    }
+
+    /**
+     * The rank of the draft the offer already holds — the version the
+     * operator is invited to correct instead of opening another one.
+     */
+    private function draftVersionNumber(string $planId): int
+    {
+        // `toBase()` — `max()` is forwarded by Eloquent's builder to the
+        // query builder rather than declared on it (the same workaround
+        // as `nextVersionNumber()`).
+        $number = PlanVersionRecord::query()
+            ->where('plan_id', $planId)
+            ->where('status', PlanVersionStatus::Draft->value)
+            ->toBase()
+            ->max('version');
+
+        return is_numeric($number) ? (int) $number : 0;
     }
 
     /**
