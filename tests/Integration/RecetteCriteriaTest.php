@@ -332,30 +332,58 @@ final class RecetteCriteriaTest extends TestCase
         $this->postJson('/v1/customers/AE0001/erase', [], $this->api())->assertOk();
         $this->relay();
 
-        // The identity is gone: nothing readable, nothing blind-indexed.
+        // The identity is gone: the row keeps its place and its history,
+        // and it holds nothing of the person any more (ADR-0083 §6).
         $row = DB::table('customers')->where('external_ref', 'AE0001')->first();
         self::assertNotNull($row);
         self::assertSame('erased', $row->status);
-        foreach (['email_ciphertext', 'email_bidx', 'phone_ciphertext', 'phone_bidx'] as $column) {
-            self::assertNull($row->{$column}, "customers.{$column} must be empty after the erasure");
+        self::assertNull($row->email, 'customers.email must be empty after the erasure');
+        self::assertNull($row->phone, 'customers.phone must be empty after the erasure');
+
+        // ADR-0094 §7 / ADR-0123 — what is left of the person lives in the
+        // frozen snapshot of an ISSUED invoice, and nowhere else: it is a
+        // document, and the Core encrypts nothing of the client any more,
+        // so it survives there in clear.
+        foreach ($this->tablesHolding(['Kamga Soleil', 'kamga.soleil@client.example', '677001122']) as $hit) {
+            self::assertStringStartsWith('invoices ~ ', $hit, sprintf(
+                'The identity of an erased customer survives only in the frozen snapshot of an issued invoice: %s',
+                $hit,
+            ));
         }
 
-        // Not one column of one table still holds the person's name, address or number.
-        self::assertSame([], $this->tablesHolding(['Kamga Soleil', 'kamga.soleil@client.example', '677001122']));
+        // The snapshot itself: the values in clear, and no key of the old
+        // encrypted format any more.
+        $snapshots = DB::table('invoices')->pluck('customer_snapshot');
 
-        // ADR-0094 §7: an ISSUED invoice is a document, its frozen snapshot survives the
-        // erasure — but only as ciphertext, never as a readable value (checked above by the
-        // sweep, and here by the cipher prefix).
-        foreach (DB::table('invoices')->pluck('customer_snapshot') as $snapshot) {
+        self::assertGreaterThan(0, $snapshots->count());
+
+        $frozen = [];
+
+        foreach ($snapshots as $snapshot) {
             $decoded = json_decode($this->str($snapshot), true);
             self::assertIsArray($decoded);
-            foreach ($decoded as $key => $value) {
-                if (is_string($key) && str_ends_with($key, '_ciphertext')) {
-                    self::assertIsString($value);
-                    self::assertStringStartsWith('pii:v1:', $value);
+
+            foreach (array_keys($decoded) as $key) {
+                self::assertStringEndsNotWith('_ciphertext', (string) $key, sprintf(
+                    '`%s` is a key of the encrypted format: the snapshot holds the values in clear (ADR-0123).',
+                    (string) $key,
+                ));
+            }
+
+            foreach ($decoded as $value) {
+                if (is_string($value)) {
+                    self::assertStringStartsNotWith('pii:', $value, 'a value of the snapshot is still a ciphertext (ADR-0123)');
                 }
             }
+
+            if (($decoded['email'] ?? null) === 'kamga.soleil@client.example') {
+                $frozen[] = $decoded;
+            }
         }
+
+        // The identity of the customer survives in that frozen document —
+        // in clear, and only there.
+        self::assertNotSame([], $frozen, 'the issued invoice keeps the frozen identity of the customer (ADR-0094 §7)');
 
         // The contract is over, the portal is closed.
         self::assertContains($this->contractStatus(), ['canceled', 'expired']);

@@ -33,8 +33,8 @@ use Tests\TestCase;
  * The rules these tests pin are the ones the code could otherwise break
  * quietly:
  *
- *  - the contact frozen on an invoice is **encrypted at rest**
- *    (ADR-0083 §2, ADR-0094 §2);
+ *  - the contact frozen on an invoice is **stored in clear**
+ *    (ADR-0123, ADR-0094 §2);
  *  - an issued invoice is **frozen** — by the database, by the trigger
  *    (ADR-0073 §1);
  *  - the issuance **books the receivable** in the ledger, and the
@@ -53,7 +53,7 @@ final class InvoiceFlowTest extends TestCase
     private DateTimeImmutable $now;
 
     #[Test]
-    public function a_manual_invoice_is_created_draft_and_its_contact_is_encrypted_at_rest(): void
+    public function a_manual_invoice_is_created_draft_and_its_contact_is_stored_in_clear(): void
     {
         $this->declareCustomer();
 
@@ -70,7 +70,8 @@ final class InvoiceFlowTest extends TestCase
 
         self::assertNotNull($row);
 
-        // The clear name never reaches the disk.
+        // ADR-0123 — the frozen contact is in clear: the Core encrypts
+        // nothing of the client any more.
         $raw = $row->customer_snapshot;
         self::assertIsString($raw);
 
@@ -78,11 +79,17 @@ final class InvoiceFlowTest extends TestCase
 
         self::assertIsArray($snapshot);
         self::assertSame('acme', $snapshot['external_ref']);
+        self::assertSame('ACME', $snapshot['display_name']);
+        self::assertSame('contact@acme.test', $snapshot['email']);
+        self::assertSame('+237690000000', $snapshot['phone']);
 
-        $ciphertext = $snapshot['display_name_ciphertext'];
-        self::assertIsString($ciphertext);
-        self::assertStringStartsWith('pii:v1:', $ciphertext);
-        self::assertStringNotContainsString('ACME', $ciphertext);
+        // No key of the old encrypted format survives in the snapshot.
+        foreach (array_keys($snapshot) as $key) {
+            self::assertStringEndsNotWith('_ciphertext', (string) $key, sprintf(
+                '`%s` is a key of the encrypted format: the snapshot holds the values in clear (ADR-0123).',
+                (string) $key,
+            ));
+        }
     }
 
     #[Test]

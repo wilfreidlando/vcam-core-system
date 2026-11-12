@@ -150,7 +150,7 @@ changer seul — il faut que le client les décide.
 
 ## 9. Ce que le Core ne fera jamais
 
-Trois règles structurelles, qui ne sont pas des choix d'implémentation mais des principes :
+Quatre règles structurelles, qui ne sont pas des choix d'implémentation mais des principes :
 
 1. **L'argent ne bouge pas d'un projet à l'autre.** Une écriture qui croise deux projets
    est refusée **par la base de données**, pas par le code. Un bug ne peut pas la contourner.
@@ -159,6 +159,11 @@ Trois règles structurelles, qui ne sont pas des choix d'implémentation mais de
 3. **Aucune autorisation implicite.** Une ressource hors de votre périmètre n'est jamais
    confirmée ni refusée : elle est **introuvable**. C'est vrai de la console comme de
    l'API.
+4. **Les données client ne sont pas chiffrées.** Le nom, le courriel, le téléphone et les
+   valeurs déclarées sont conservés **en clair**, comme dans l'application qui les déclare
+   ([ADR-0123](../../adr/0123-le-core-ne-chiffre-plus-les-donnees-client.md)). Ce qui reste
+   garanti, c'est leur **exposition** : l'API ne les rend qu'à un appelant autorisé, la
+   console les masque, le journal d'audit n'en porte aucune, et l'effacement les détruit.
 
 ---
 
@@ -184,4 +189,5 @@ Trois règles structurelles, qui ne sont pas des choix d'implémentation mais de
 | Les invariants effectivement implémentés | `packages/payment/src/Application/UseCase/CheckPaymentInvariantsUseCase.php` |
 | Les types de compte proposés | `app/Http/Controllers/Admin/LedgerAdjustmentsController.php` |
 | Les seuils de double validation | `config/payment.php`, `config/ledger.php` |
+| Le chiffrement des données client | `docs/adr/0123-le-core-ne-chiffre-plus-les-donnees-client.md` |
 | L'état de chaque module | `docs/architecture/vue-ensemble.md` §4 |

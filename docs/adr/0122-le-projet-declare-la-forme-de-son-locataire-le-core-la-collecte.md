@@ -57,7 +57,22 @@ Elles ne sont ni recherchées, ni indexées, ni chiffrées : ce sont des valeurs
 
 - elles ne sont **jamais** dans les journaux, ni dans l'audit ;
 - elles ne sont rendues qu'à un appelant portant `customers:read` — la même règle que l'e-mail et le téléphone ;
-- la page d'acceptation **rappelle** que les clés déclarées ne doivent pas porter de donnée personnelle, et le Core refuse une clé qui duplique une source du Core (`core_identity.email`, par exemple).
+- la page d'acceptation **rappelle** que les clés déclarées ne doivent pas porter de donnée personnelle.
+
+**Et une clé peut demander l'identité du Core.** L'application qui a besoin du
+nom, de l'e-mail ou du téléphone de son locataire le **demande** : sa source
+porte `core_identity.display_name`, `core_identity.email`,
+`core_identity.phone` ou `core_identity.locale`. La clé déclarée **remplace**
+alors le champ du Core dans le formulaire — l'opérateur ne saisit la valeur
+qu'une fois — et la valeur est écrite dans l'identité du client, **en clair**
+comme le nom du client (ADR-0123) : elle n'est pas recopiée dans les attributs
+déclarés. Une source qui nommerait un champ du Core
+**inconnu** (`core_identity.quelque_chose`) est refusée : elle ne dit pas quelle
+valeur l'application veut.
+
+C'est la réponse à la question que l'application pose : *« quelles données me
+faut-il, et où les trouve-je ? »*. Le Core ne devine pas — il sert ce qu'on lui
+demande, et seulement ce qu'il connaît.
 
 **Décision 6 — la clé unique est validée à la saisie, pas dans la file.**
 

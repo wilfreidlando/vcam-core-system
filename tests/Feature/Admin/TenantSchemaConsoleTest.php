@@ -144,6 +144,38 @@ final class TenantSchemaConsoleTest extends TestCase
     }
 
     #[Test]
+    public function a_key_that_asks_for_a_core_field_is_written_in_the_identity_and_not_in_the_declared_attributes(): void
+    {
+        $projectId = $this->project();
+        $this->bindSchema($this->acceptedSchema($projectId, withContact: true));
+        $declared = $this->bindDeclaredAttributes();
+        $this->signInToConsole();
+
+        $this->post(route('admin.projects.customers.store', $projectId), [
+            'external_ref' => 'AE0001',
+            'display_name' => 'Auto-école Soleil',
+            'attributes' => ['courriel' => 'contact@exemple.test', 'annee' => '2019'],
+        ])->assertRedirect(route('admin.projects.customers.index', $projectId));
+
+        // The value the application asked for goes into the Core's
+        // identity — which the Core keeps in clear (ADR-0123) — and NOT
+        // into the declared attributes, which are the application's own
+        // values. The year, which the application declared for itself, is
+        // a declared value.
+        self::assertSame(['annee' => '2019'], $declared->last);
+        self::assertArrayNotHasKey('courriel', $declared->last);
+
+        $stored = DB::table('customer_declared_attributes')->pluck('value')->all();
+        self::assertNotContains('contact@exemple.test', $stored);
+
+        $customer = DB::table('customers')->where('external_ref', 'AE0001')->first();
+        self::assertNotNull($customer);
+        // The identity holds the address itself: the Core encrypts
+        // nothing of the client any more (ADR-0123).
+        self::assertSame('contact@exemple.test', $customer->email);
+    }
+
+    #[Test]
     public function the_acceptance_page_lists_the_proposal_and_accepting_puts_the_form_in_force(): void
     {
         $projectId = $this->project();

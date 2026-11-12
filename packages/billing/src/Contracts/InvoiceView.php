@@ -21,7 +21,7 @@ final readonly class InvoiceView
 {
     /**
      * @param list<InvoiceLineView> $lines
-     * @param array<string, mixed> $customerSnapshot the customer as it was at the issuance — the personal values are ciphertexts
+     * @param array<string, mixed> $customerSnapshot the customer as it was at the issuance — the personal values are kept in clear
      */
     public function __construct(
         public string $id,

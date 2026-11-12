@@ -190,7 +190,8 @@ curl -s "$BASE_URL/v1/customers/$TENANT" \
 }
 ```
 
-> **Les valeurs déclarées sont conservées en clair**, comme le nom du client.
+> **Les valeurs déclarées sont conservées en clair**, comme le nom du client
+> ([ADR-0123](../adr/0123-le-core-ne-chiffre-plus-les-donnees-client.md)).
 > N'y mettez donc pas de donnée personnelle : ni pièce d'identité, ni adresse,
 > ni numéro de téléphone.
 

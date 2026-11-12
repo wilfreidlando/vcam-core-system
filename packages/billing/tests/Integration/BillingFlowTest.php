@@ -43,8 +43,8 @@ use Tests\TestCase;
  * The rules these tests pin are the ones the code could otherwise break
  * quietly:
  *
- *  - the customer's contact is **encrypted at rest** and the uniqueness of
- *    an address is **per project** (ADR-0070 §1, ADR-0083);
+ *  - the customer's contact is **stored in clear** (ADR-0123) and the
+ *    uniqueness of an address is **per project** (ADR-0070 §1, ADR-0083);
  *  - a published plan version is **frozen** — in the database, by the
  *    trigger (ADR-0071 §2);
  *  - the payment declaration of Lot 10 **moves no money** — it writes the
@@ -57,7 +57,7 @@ final class BillingFlowTest extends TestCase
     private const PROJECT = '11111111-1111-4111-8111-111111111111';
 
     #[Test]
-    public function a_customer_is_declared_once_and_its_contact_is_encrypted_at_rest(): void
+    public function a_customer_is_declared_once_and_its_contact_is_stored_in_clear(): void
     {
         $customers = app(UpsertCustomer::class);
 
@@ -77,16 +77,13 @@ final class BillingFlowTest extends TestCase
         self::assertSame('acme', $created->externalRef);
         self::assertSame(1, $created->version);
 
-        // The clear address never reaches the disk.
+        // ADR-0123 — the address reaches the disk as it is: normalised
+        // (ADR-0070 §4), readable, and never a ciphertext.
         $row = DB::table('customers')->where('external_ref', 'acme')->first();
 
         self::assertNotNull($row);
-        self::assertIsString($row->email_ciphertext);
-        self::assertIsString($row->email_bidx);
-        self::assertNotSame('Contact@Acme.test', $row->email_ciphertext);
-        self::assertStringStartsWith('pii:v1:', $row->email_ciphertext);
-        self::assertNotSame('contact@acme.test', $row->email_bidx);
-        self::assertSame(64, strlen($row->email_bidx));
+        self::assertSame('contact@acme.test', $row->email);
+        self::assertSame('+237690000000', $row->phone);
 
         // The upsert is idempotent by reference: the same call updates.
         $updated = $customers->upsert(new UpsertCustomerCommand(
@@ -179,8 +176,8 @@ final class BillingFlowTest extends TestCase
         $row = DB::table('customers')->where('id', $created->id)->first();
 
         self::assertNotNull($row);
-        self::assertNull($row->email_ciphertext);
-        self::assertNull($row->phone_ciphertext);
+        self::assertNull($row->email);
+        self::assertNull($row->phone);
         self::assertNotNull($row->erased_at);
     }
 

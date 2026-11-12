@@ -4,21 +4,23 @@ declare(strict_types=1);
 
 namespace Tests\Integration;
 
-use Core\Support\Privacy\BlindIndex;
-use Core\Support\Privacy\MissingPersonalDataKey;
-use Core\Support\Privacy\PersonalDataCipher;
-use Core\Support\Privacy\PersonalDataKind;
-use Illuminate\Database\Schema\Blueprint;
+use Core\Billing\Contracts\CustomerView;
+use Core\Billing\Contracts\UpsertCustomer;
+use Core\Billing\Contracts\UpsertCustomerCommand;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * ADR-0083 §2 — what the platform promises about personal data at rest:
- * the column holds ciphertext, never a readable value; the exact-match
- * lookup goes through a blind index; both keys come from the environment.
+ * ADR-0123 — what the platform promises about the personal data of the
+ * clients: it is stored **in clear**, and the Core keeps no key of its
+ * own for it.
+ *
+ * The client's identity is written through the real repository — the
+ * use case, the domain, the Eloquent adapter — so what is proved here is
+ * the value that reaches the disk, not a probe table built to measure an
+ * encryption that no longer exists.
  *
  * This test lives in the application shell, not in `packages/support`:
  * the shared kernel holds no persistence (G3d), so it may not touch the
@@ -28,51 +30,90 @@ final class PersonalDataAtRestTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const PROJECT = '55555555-5555-4555-8555-555555555555';
+
     #[Test]
-    public function a_personal_column_holds_ciphertext_and_never_a_readable_value(): void
+    public function the_identity_of_a_customer_is_stored_in_clear(): void
     {
-        // The bindings read the configuration when they are resolved, so
-        // setting it here is enough (no application reload).
-        config(['privacy.encryption_keys' => 'v1:base64:'.base64_encode(str_repeat('p', 32))]);
-        config(['privacy.blind_index_key' => 'base64:'.base64_encode(str_repeat('i', 32))]);
+        $customer = $this->declareCustomer();
 
-        Schema::create('people_probe', function (Blueprint $table): void {
-            $table->id();
-            $table->text('email_ciphertext');
-            $table->char('email_bidx', 64);
-        });
+        // The row holds the values as they were declared, normalised
+        // (ADR-0070 §4): the address is readable, and it is the very
+        // address the project declared.
+        $row = DB::table('customers')->where('id', $customer->id)->first();
 
-        $cipher = app(PersonalDataCipher::class);
-        $index = app(BlindIndex::class);
+        self::assertNotNull($row);
+        self::assertSame('alice@domaine.cm', $row->email);
+        self::assertSame('+237690001112', $row->phone);
 
-        DB::table('people_probe')->insert([
-            'email_ciphertext' => $cipher->encrypt('alice@domaine.cm'),
-            'email_bidx' => $index->of('alice@domaine.cm', PersonalDataKind::Email),
-        ]);
+        // And it is the row itself that carries it: a dump of the table
+        // shows the address — that is the whole point of ADR-0123.
+        $readable = DB::table('customers')
+            ->where('id', $customer->id)
+            ->whereRaw('"customers"::text LIKE ?', ['%alice@domaine.cm%'])
+            ->exists();
 
-        $stored = DB::table('people_probe')->value('email_ciphertext');
-        self::assertIsString($stored);
-
-        self::assertStringNotContainsString('alice@domaine.cm', $stored);
-        self::assertStringStartsWith('pii:v1:', $stored);
-        self::assertSame('alice@domaine.cm', $cipher->decrypt($stored));
-
-        // The blind index finds the row without the database ever holding
-        // the value itself.
-        $found = DB::table('people_probe')
-            ->where('email_bidx', $index->of('ALICE@domaine.cm', PersonalDataKind::Email))
-            ->first();
-        self::assertNotNull($found);
+        self::assertTrue($readable, 'the row of the customer holds the address in clear (ADR-0123)');
     }
 
     #[Test]
-    public function a_deployment_without_keys_fails_loudly_instead_of_storing_anything(): void
+    public function no_column_of_the_customers_table_carries_a_ciphertext_or_a_blind_index(): void
     {
-        config(['privacy.encryption_keys' => '']);
-        config(['privacy.blind_index_key' => '']);
+        // The tripwire: the encryption must not come back silently
+        // (ADR-0123). A `*_ciphertext` or a `*_bidx` column would mean
+        // the Core encrypts the client's data again — and that a key of
+        // its own would have to be protected all over again.
+        /** @var list<object{column_name: string}> $columns */
+        $columns = DB::select(<<<'SQL'
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'customers'
+        SQL);
 
-        $this->expectException(MissingPersonalDataKey::class);
+        $encrypted = [];
 
-        app(PersonalDataCipher::class)->encrypt('alice@domaine.cm');
+        foreach ($columns as $column) {
+            if (preg_match('/_(ciphertext|bidx)$/', $column->column_name) === 1) {
+                $encrypted[] = $column->column_name;
+            }
+        }
+
+        self::assertSame([], $encrypted, sprintf(
+            'The Core encrypts nothing of the client any more (ADR-0123): the column(s) %s must not exist.',
+            implode(', ', $encrypted),
+        ));
+    }
+
+    #[Test]
+    public function the_core_stores_the_identity_without_any_key_of_its_own(): void
+    {
+        // There is nothing to configure, nothing to rotate, nothing to
+        // lose: the key ring of ADR-0083 §2 is gone with the encryption
+        // it protected.
+        self::assertFalse(config()->has('privacy.encryption_keys'));
+        self::assertFalse(config()->has('privacy.blind_index_key'));
+
+        $customer = $this->declareCustomer();
+
+        $row = DB::table('customers')->where('id', $customer->id)->first();
+
+        self::assertNotNull($row);
+        self::assertSame('alice@domaine.cm', $row->email);
+    }
+
+    private function declareCustomer(): CustomerView
+    {
+        return app(UpsertCustomer::class)->upsert(new UpsertCustomerCommand(
+            projectId: self::PROJECT,
+            externalRef: 'alice',
+            displayName: 'Alice Domaine',
+            email: 'Alice@Domaine.cm',
+            phone: '+237 6 90 00 11 12',
+            locale: 'fr',
+            metadata: [],
+            expectedVersion: null,
+            actor: 'test:personal-data',
+            correlationId: null,
+        ));
     }
 }

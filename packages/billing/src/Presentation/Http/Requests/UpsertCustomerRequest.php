@@ -40,7 +40,7 @@ final class UpsertCustomerRequest extends FormRequest
             'display_name' => ['required', 'string', 'max:200', 'not_regex:/[\x00-\x1F\x7F]/'],
             /**
              * The contact address of the customer. It is **personal
-             * data**: it is encrypted at rest and never used as a
+             * data**: it is stored in clear by the Core (ADR-0123) and never used as a
              * search key (ADR-0083 §2). The same address cannot be
              * declared twice for the same project.
              *

@@ -5,8 +5,7 @@
 @section('content')
 @php
     // Une clé déclarée dont l'origine est un champ du Core **remplace**
-    // ce champ : le Core ne demande jamais deux fois la même valeur
-    // (ADR-0122 §5).
+    // ce champ : le Core ne demande jamais deux fois la même valeur.
     $replaced = [];
     foreach ($fields as $field) {
         if ($field['identity'] !== null) {
@@ -45,7 +44,7 @@
                  does not offer one in this lot. --}}
             @unless (isset($replaced['email']))
                 <x-admin.field name="email" label="Contact (courriel)" type="email" maxlength="255" optional autocomplete="off"
-                               :hint="'Chiffré au repos, jamais affiché en clair en console.'.($customer !== null && $customer->email !== null ? ' Valeur actuelle : '.\Core\Support\Privacy\PersonalDataMask::email($customer->email).' — laissez le champ vide pour la conserver.' : '')" />
+                               :hint="'Enregistré en clair par le Core, jamais affiché en clair en console.'.($customer !== null && $customer->email !== null ? ' Valeur actuelle : '.\Core\Support\Privacy\PersonalDataMask::email($customer->email).' — laissez le champ vide pour la conserver.' : '')" />
             @endunless
 
             @unless (isset($replaced['phone']))

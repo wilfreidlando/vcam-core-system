@@ -66,10 +66,10 @@ final class InvalidTenantSchema extends RuntimeException
         );
     }
 
-    public static function becauseReservedSource(string $source): self
+    public static function becauseUnknownCoreSource(string $source): self
     {
         return new self(
-            "The source \"{$source}\" is reserved: it duplicates a source of the Core, like core_identity.email (ADR-0122 §5).",
+            "The source \"{$source}\" names a field of the Core that the Core does not know: a source of the Core is one of core_identity.display_name, core_identity.email, core_identity.phone, core_identity.locale (ADR-0122 §5).",
         );
     }
 

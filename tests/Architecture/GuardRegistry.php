@@ -79,13 +79,13 @@ final class GuardRegistry
             'status' => self::ACTIVE,
         ],
         'G4b' => [
-            'rule' => 'The customers table holds no column outside its white-list, and its personal values are encrypted at rest',
+            'rule' => 'The customers table holds no column outside its white-list, and its personal values are stored in clear (ADR-0123)',
             'tool' => 'Pest + PostgreSQL',
             'enforced_by' => 'tests/Schema/CustomersColumnsTest.php',
             'status' => self::ACTIVE,
         ],
         'G4c' => [
-            'rule' => 'The invoice tables hold no column outside their white-list, and the customer frozen on an invoice is encrypted at rest',
+            'rule' => 'The invoice tables hold no column outside their white-list, and the customer frozen on an invoice is stored in clear (ADR-0123)',
             'tool' => 'Pest + PostgreSQL',
             'enforced_by' => 'tests/Schema/InvoicesColumnsTest.php',
             'status' => self::ACTIVE,

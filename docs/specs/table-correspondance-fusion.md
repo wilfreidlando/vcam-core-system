@@ -31,8 +31,8 @@ pas à transférer.
 | `application_id` | `customers.project_id` | |
 | `unique_key` | `customers.external_ref` | clé de corrélation ; dans l'application de référence, le code `AE####` |
 | `name` | `customers.display_name` | |
-| `email` (unique global) | `customers.email_ciphertext` + `email_bidx` | chiffré ; **unique par projet** |
-| `telephone` (unique global) | `customers.phone_ciphertext` + `phone_bidx` | E.164, chiffré |
+| `email` (unique global) | `customers.email` | normalisé ; **unique par projet** (ADR-0123 : conservé en clair) |
+| `telephone` (unique global) | `customers.phone` | E.164 (ADR-0123 : conservé en clair) |
 | `description`, `logo` | — | retirés (affichage de l'application) |
 
 ## 3. `abonnements`, `plan_notifications` → `plans` + `plan_versions`

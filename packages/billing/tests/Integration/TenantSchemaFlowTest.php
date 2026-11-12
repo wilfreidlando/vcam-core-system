@@ -151,11 +151,11 @@ final class TenantSchemaFlowTest extends TestCase
     }
 
     #[Test]
-    public function a_declaration_may_not_redeclare_a_source_of_the_core(): void
+    public function a_declaration_may_ask_the_core_for_one_of_its_identity_fields(): void
     {
-        $this->expectException(InvalidTenantSchema::class);
-
-        app(ProposeTenantSchema::class)->propose(new ProposeTenantSchemaCommand(
+        // ADR-0122 §5 — l'application demande la donnée : la clé déclarée
+        // remplace le champ du Core dans le formulaire.
+        $proposed = app(ProposeTenantSchema::class)->propose(new ProposeTenantSchemaCommand(
             projectId: self::PROJECT,
             uniqueKey: 'code_etablissement',
             uniqueKeyPattern: 'AE-[0-9]{4}',
@@ -166,6 +166,30 @@ final class TenantSchemaFlowTest extends TestCase
                 'required' => false,
                 'max_length' => 254,
                 'source' => 'core_identity.email',
+            ]],
+            actor: 'project:'.self::PROJECT,
+            correlationId: null,
+        ));
+
+        self::assertSame('core_identity.email', $proposed->fields[0]->source);
+    }
+
+    #[Test]
+    public function a_declaration_may_not_name_an_unknown_field_of_the_core(): void
+    {
+        $this->expectException(InvalidTenantSchema::class);
+
+        app(ProposeTenantSchema::class)->propose(new ProposeTenantSchemaCommand(
+            projectId: self::PROJECT,
+            uniqueKey: 'code_etablissement',
+            uniqueKeyPattern: 'AE-[0-9]{4}',
+            fields: [[
+                'key' => 'quelque_chose',
+                'label' => 'Quelque chose',
+                'type' => 'string',
+                'required' => false,
+                'max_length' => null,
+                'source' => 'core_identity.whatever',
             ]],
             actor: 'project:'.self::PROJECT,
             correlationId: null,

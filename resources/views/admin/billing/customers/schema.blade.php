@@ -58,6 +58,13 @@
                     le nom du client. Elles ne doivent donc <strong>pas</strong> porter de donnée
                     personnelle : ni pièce d'identité, ni adresse, ni numéro de téléphone.
                 </p>
+                <p class="mt-2">
+                    Un champ dont l'origine est <strong>le nom du client</strong>, <strong>le contact du
+                    client</strong>, <strong>le téléphone du client</strong> ou <strong>la langue du
+                    client</strong> remplace le champ du Core dans le formulaire : la valeur est alors
+                    écrite dans l'identité du client, en clair comme le nom du client, et l'opérateur
+                    ne la saisit qu'une fois.
+                </p>
             </div>
         </div>
 

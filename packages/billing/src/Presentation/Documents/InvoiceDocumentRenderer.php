@@ -7,8 +7,6 @@ namespace Core\Billing\Presentation\Documents;
 use Core\Billing\Contracts\InvoiceLineView;
 use Core\Billing\Contracts\InvoiceView;
 use Core\Support\Money\Money;
-use Core\Support\Privacy\PersonalDataCipher;
-use Core\Support\Privacy\UndecryptablePersonalData;
 
 /**
  * ADR-0073 §5 — the printable invoice.
@@ -29,10 +27,6 @@ use Core\Support\Privacy\UndecryptablePersonalData;
  */
 final readonly class InvoiceDocumentRenderer
 {
-    public function __construct(
-        private PersonalDataCipher $cipher,
-    ) {}
-
     /**
      * @param array<string, mixed> $branding the free marks of the project
      *                                       (ADR-0094 §4)
@@ -135,24 +129,18 @@ final readonly class InvoiceDocumentRenderer
     }
 
     /**
-     * The name frozen on the invoice, decrypted for the printing — and
-     * only for it (ADR-0083 §2, ADR-0094 §2).
+     * The name frozen on the invoice, read for the printing — and only
+     * for it (ADR-0094 §2, ADR-0123).
      */
     private function customerName(InvoiceView $invoice): string
     {
-        $ciphertext = $invoice->customerSnapshot['display_name_ciphertext'] ?? null;
+        $name = $invoice->customerSnapshot['display_name'] ?? null;
 
-        if (! is_string($ciphertext) || $ciphertext === '') {
+        if (! is_string($name) || $name === '') {
             return $invoice->customerRef ?? '';
         }
 
-        try {
-            return $this->cipher->decrypt($ciphertext);
-        } catch (UndecryptablePersonalData) {
-            // A key that has rotated away leaves the document without a
-            // name — never a 500 on a page a customer is waiting for.
-            return $invoice->customerRef ?? '';
-        }
+        return $name;
     }
 
     /**

@@ -60,7 +60,7 @@ final class TenantSchemaHttpTest extends TestCase
     }
 
     #[Test]
-    public function a_declaration_that_redeclares_a_source_of_the_core_is_refused(): void
+    public function a_declaration_may_ask_the_core_for_one_of_its_identity_fields(): void
     {
         [$token, $projectId] = $this->project(['tenant_schema:write']);
 
@@ -74,12 +74,34 @@ final class TenantSchemaHttpTest extends TestCase
             'source' => 'core_identity.email',
         ]];
 
+        // ADR-0122 §5 — l'application DEMANDE la donnée : le champ du Core
+        // est alors remplacé par la clé déclarée dans le formulaire, et
+        // l'opérateur ne saisit la valeur qu'une fois.
+        $this->putJson('/v1/projects/'.$projectId.'/tenant-schema', $declaration, $this->auth($token))
+            ->assertCreated()
+            ->assertJsonPath('status', 'pending')
+            ->assertJsonPath('fields.0.source', 'core_identity.email');
+    }
+
+    #[Test]
+    public function a_declaration_that_names_an_unknown_field_of_the_core_is_refused(): void
+    {
+        [$token, $projectId] = $this->project(['tenant_schema:write']);
+
+        $declaration = $this->declaration();
+        $declaration['fields'] = [[
+            'key' => 'quelque_chose',
+            'label' => 'Quelque chose',
+            'type' => 'string',
+            'required' => false,
+            'source' => 'core_identity.whatever',
+        ]];
+
+        // The source says "the Core's identity" but does not say which
+        // field: the Core cannot serve it, so the declaration is refused.
         $this->putJson('/v1/projects/'.$projectId.'/tenant-schema', $declaration, $this->auth($token))
             ->assertStatus(422)
-            // The reserved source is refused at the edge: the request
-            // never reaches the domain (the domain refuses it too — see
-            // `TenantSchemaFlowTest`).
-            ->assertJsonPath('type', fn (string $type): bool => str_ends_with($type, 'validation-failed'));
+            ->assertJsonPath('type', fn (string $type): bool => str_ends_with($type, 'invalid-tenant-schema'));
     }
 
     #[Test]

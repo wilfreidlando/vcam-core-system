@@ -145,8 +145,8 @@ final class PayloadRedactorTest extends TestCase
     public function personal_data_is_redacted(): void
     {
         // ADR-0093 §6 / ADR-0081 S-17 — a name, an address and a phone
-        // number are personal data: they are encrypted at rest, and they
-        // must never be written in clear in a log.
+        // number are personal data: the Core keeps them in clear
+        // (ADR-0123), and they must never be written in clear in a log.
         $redactor = new PayloadRedactor(new SensitiveKeySet);
 
         /** @var array<string, mixed> $redacted */

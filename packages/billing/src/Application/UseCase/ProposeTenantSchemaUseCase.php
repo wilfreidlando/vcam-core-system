@@ -76,7 +76,7 @@ final readonly class ProposeTenantSchemaUseCase implements ProposeTenantSchema
      * Les champs déclarés, en objets du domaine : le domaine garde ses
      * règles, la commande ne porte que des noms (ADR-0122 §1).
      *
-     * @param list<array{key: string, label: string, type: string, required: bool, max_length: int|null, source: string}> $fields
+     * @param list<array{key: string, label: string, type: string, required: bool, max_length?: int|null, source: string}> $fields
      * @return list<TenantSchemaField>
      */
     private function fields(array $fields): array
@@ -90,7 +90,9 @@ final readonly class ProposeTenantSchemaUseCase implements ProposeTenantSchema
                 type: TenantSchemaFieldType::tryFrom($field['type'])
                     ?? throw InvalidTenantSchema::becauseUnknownType($field['type']),
                 required: $field['required'],
-                maxLength: $field['max_length'],
+                // La longueur maximale est facultative : une clé qui ne la
+                // porte pas est une clé sans borne, pas une clé invalide.
+                maxLength: $field['max_length'] ?? null,
                 source: $field['source'],
             );
         }

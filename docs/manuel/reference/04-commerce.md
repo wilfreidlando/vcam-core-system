@@ -63,6 +63,10 @@ serveur** : un champ par attribut, jamais une zone de saisie JSON.
 > partout dans la console et dans le portail. À l'édition, le champ est vide : c'est
 > normal. Un champ vide **conserve** la valeur existante ; pour changer une valeur,
 > saisissez la nouvelle. Le grand livre ne contient jamais de donnée personnelle.
+>
+> Le Core conserve le contact **en clair**
+> ([ADR-0123](../../adr/0123-le-core-ne-chiffre-plus-les-donnees-client.md)) : ce qui
+> le protège à l'écran, c'est le masquage — pas un chiffrement.
 
 ### La forme que l'application a déclarée
 

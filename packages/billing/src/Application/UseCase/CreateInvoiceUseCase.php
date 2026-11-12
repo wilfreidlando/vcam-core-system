@@ -25,7 +25,6 @@ use Core\Events\Contracts\DomainEvent;
 use Core\Events\Contracts\EventOutbox;
 use Core\Support\Clock;
 use Core\Support\Identifier;
-use Core\Support\Privacy\PersonalDataCipher;
 use Core\Support\UnitOfWork;
 use DateTimeImmutable;
 
@@ -52,7 +51,6 @@ final readonly class CreateInvoiceUseCase implements CreateInvoice
         private EventOutbox $outbox,
         private Identifier $identifier,
         private Clock $clock,
-        private PersonalDataCipher $cipher,
     ) {}
 
     public function create(CreateInvoiceCommand $command): InvoiceView
@@ -157,9 +155,9 @@ final readonly class CreateInvoiceUseCase implements CreateInvoice
     }
 
     /**
-     * ADR-0083 §2 / ADR-0094 §2 — the customer frozen on the invoice:
-     * the personal values are **ciphertexts**, the reference is the
-     * project's own opaque key.
+     * ADR-0094 §2 / ADR-0123 — the customer frozen on the invoice: the
+     * personal values are kept **in clear**, like the Core keeps them
+     * everywhere else; the reference is the project's own opaque key.
      *
      * @return array<string, mixed>
      */
@@ -167,15 +165,11 @@ final readonly class CreateInvoiceUseCase implements CreateInvoice
     {
         return [
             'external_ref' => $customer->externalRef,
-            'display_name_ciphertext' => $customer->displayName === ''
+            'display_name' => $customer->displayName === ''
                 ? null
-                : $this->cipher->encrypt($customer->displayName),
-            'email_ciphertext' => $customer->email === null
-                ? null
-                : $this->cipher->encrypt($customer->email),
-            'phone_ciphertext' => $customer->phone === null
-                ? null
-                : $this->cipher->encrypt($customer->phone),
+                : $customer->displayName,
+            'email' => $customer->email,
+            'phone' => $customer->phone,
             'locale' => $customer->locale,
         ];
     }

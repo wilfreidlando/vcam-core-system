@@ -18,7 +18,8 @@ temps: 5 minutes
   deux cas : vérifiez donc la référence avant de valider.
 - **Le contact n’est jamais affiché en clair.** Vous le saisissez une fois ; la
   console ne le montre plus que masqué, et le champ repart vide. Un champ laissé
-  vide conserve ce qui était enregistré ; un champ rempli le remplace.
+  vide conserve ce qui était enregistré ; un champ rempli le remplace. Le Core
+  conserve le contact en clair : le masquage protège l’écran, pas le stockage.
 - **Un client suspendu perd ses droits, mais reste dû.** Ses factures et ses
   abonnements continuent d’exister : c’est l’accès au service qui est coupé.
 - **Effacer un client est définitif.** L’effacement détruit son nom, son contact

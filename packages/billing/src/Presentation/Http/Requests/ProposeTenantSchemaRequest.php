@@ -90,13 +90,22 @@ final class ProposeTenantSchemaRequest extends FormRequest
              */
             'fields.*.max_length' => ['nullable', 'integer', 'min:1', 'max:4096'],
             /**
-             * D'où vient la valeur. Les sources du Core (`core_identity.*`)
-             * sont réservées : la déclaration ne peut pas les redéclarer
-             * (ADR-0122 §5).
+             * D'où vient la valeur. Deux familles :
              *
-             * @example "operator"
+             * - `declared.<clé>` : la valeur est celle que l'opérateur saisit
+             *   pour cette clé ;
+             * - `core_identity.<champ>` : la valeur est celle de l'identité du
+             *   Core — l'application **demande** cette donnée. Le champ est
+             *   alors remplacé dans le formulaire par la clé déclarée :
+             *   l'opérateur ne saisit jamais la même valeur deux fois
+             *   (ADR-0122 §5).
+             *
+             * Le domaine refuse une source du Core qui nommerait un champ
+             * inconnu.
+             *
+             * @example "declared.localisation"
              */
-            'fields.*.source' => ['required', 'string', 'max:128', 'not_regex:/^core_identity(\.|$)/'],
+            'fields.*.source' => ['required', 'string', 'max:128'],
         ];
     }
 }

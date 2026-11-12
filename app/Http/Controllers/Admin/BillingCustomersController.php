@@ -613,7 +613,7 @@ final class BillingCustomersController
             $this->setDeclaredAttributes->set(new SetCustomerDeclaredAttributesCommand(
                 projectId: $projectId,
                 customerId: $customerId,
-                values: $declared,
+                values: $this->declaredOnly($declared, $schema),
                 actor: $this->actor($operator),
                 correlationId: null,
             ), $scope);
@@ -624,6 +624,38 @@ final class BillingCustomersController
         }
 
         return null;
+    }
+
+    /**
+     * Les valeurs **déclarées** — hors celles qui alimentent l'identité du
+     * Core.
+     *
+     * Une clé dont la source nomme un champ du Core (`core_identity.email`,
+     * par exemple) a été écrite dans l'identité du client — **chiffrée**,
+     * comme l'e-mail du Core. La recopier dans les attributs déclarés la
+     * ferait vivre **en clair** dans une table qui ne l'est pas
+     * (ADR-0083 §3).
+     *
+     * @param array<string, string> $declared
+     * @return array<string, string>
+     */
+    private function declaredOnly(array $declared, TenantSchemaView $schema): array
+    {
+        $values = [];
+
+        foreach ($declared as $key => $value) {
+            foreach ($schema->fields as $field) {
+                if ($field->key !== $key) {
+                    continue;
+                }
+
+                if (TenantSchemaLabels::identityField($field->source) === null) {
+                    $values[$key] = $value;
+                }
+            }
+        }
+
+        return $values;
     }
 
     /**

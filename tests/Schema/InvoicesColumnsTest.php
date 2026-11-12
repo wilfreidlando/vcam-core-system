@@ -13,7 +13,7 @@ use Tests\TestCase;
 
 /**
  * G4c — the invoice tables hold no column outside their white-list, and
- * the personal values they carry are encrypted at rest.
+ * the customer frozen on an invoice is stored in clear.
  *
  * The white-list is the same discipline as the customers' (ADR-0070 §1,
  * G4b): every column here widens the Core's data and compliance
@@ -143,18 +143,22 @@ final class InvoicesColumnsTest extends TestCase
     }
 
     #[Test]
-    public function no_column_of_an_invoice_holds_a_personal_value_in_clear(): void
+    public function no_column_of_an_invoice_holds_a_personal_value(): void
     {
         if (! Schema::hasTable('invoices')) {
             self::markTestSkipped('The invoices table does not exist yet (Lot 11).');
         }
 
+        // ADR-0123 — the identity of the customer is stored in clear, but
+        // it travels in the **frozen snapshot** of the invoice: a column
+        // of its own would widen the data surface of every invoice table
+        // for nothing.
         $problems = [];
 
         foreach (['invoices', 'invoice_lines', 'invoice_payments', 'manual_receipts'] as $table) {
             foreach (array_keys($this->columns($table)) as $column) {
                 if (preg_match('/^(email|phone|name|display_name|full_name|first_name|last_name)$/', $column) === 1) {
-                    $problems[] = sprintf('`%s.%s` holds a personal value in clear', $table, $column);
+                    $problems[] = sprintf('`%s.%s` holds a personal value of its own', $table, $column);
                 }
             }
         }
@@ -163,14 +167,14 @@ final class InvoicesColumnsTest extends TestCase
     }
 
     #[Test]
-    public function the_customer_frozen_on_an_invoice_is_encrypted(): void
+    public function the_customer_frozen_on_an_invoice_is_stored_in_clear(): void
     {
         if (! Schema::hasTable('invoices')) {
             self::markTestSkipped('The invoices table does not exist yet (Lot 11).');
         }
 
-        // ADR-0083 §2 / ADR-0094 §2 — the personal values of the
-        // snapshot are ciphertexts, versioned by the cipher.
+        // ADR-0094 §2 / ADR-0123 — the frozen customer holds its values
+        // in clear: the Core encrypts nothing of the client any more.
         $row = DB::table('invoices')->first();
 
         if ($row === null) {
@@ -184,16 +188,24 @@ final class InvoicesColumnsTest extends TestCase
 
         self::assertIsArray($snapshot);
 
-        foreach (['display_name_ciphertext', 'email_ciphertext', 'phone_ciphertext'] as $key) {
-            if (! isset($snapshot[$key])) {
+        foreach (['display_name', 'email', 'phone'] as $key) {
+            if (! array_key_exists($key, $snapshot) || $snapshot[$key] === null) {
                 continue;
             }
 
-            $ciphertext = $snapshot[$key];
-            self::assertIsString($ciphertext);
-            self::assertStringStartsWith('pii:v1:', $ciphertext, sprintf(
-                '`%s` must hold a versioned ciphertext, never a clear value (ADR-0083 §2).',
+            $value = $snapshot[$key];
+            self::assertIsString($value);
+            self::assertStringStartsNotWith('pii:', $value, sprintf(
+                '`%s` must hold the value in clear, never a ciphertext (ADR-0123).',
                 $key,
+            ));
+        }
+
+        // No key of the old encrypted format survives in the snapshot.
+        foreach (array_keys($snapshot) as $key) {
+            self::assertStringEndsNotWith('_ciphertext', (string) $key, sprintf(
+                '`%s` is a key of the encrypted format: the snapshot holds the values in clear (ADR-0123).',
+                (string) $key,
             ));
         }
     }

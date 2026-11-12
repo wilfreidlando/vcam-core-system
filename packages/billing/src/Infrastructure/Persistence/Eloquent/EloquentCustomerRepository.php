@@ -10,8 +10,6 @@ use Core\Billing\Domain\Exception\CustomerVersionConflict;
 use Core\Billing\Domain\Model\Customer;
 use Core\Billing\Domain\Model\CustomerStatus;
 use Core\Billing\Infrastructure\Persistence\Cursor;
-use Core\Support\Privacy\BlindIndex;
-use Core\Support\Privacy\PersonalDataCipher;
 use Core\Support\Privacy\PersonalDataKind;
 use DateTimeImmutable;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -20,19 +18,18 @@ use Illuminate\Support\Facades\DB;
 use stdClass;
 
 /**
- * ADR-0070 §1 / ADR-0083 §2 — the customers of a project.
+ * ADR-0070 §1 / ADR-0123 — the customers of a project.
  *
- * **The PII boundary is here.** The domain holds the email and the phone
- * in clear (it checks their format); this adapter is the only place
- * where they are encrypted, and the only place where they are read back:
- * the domain never sees a ciphertext, and the disk never sees a clear
- * value.
+ * The client's identity is stored **in clear** (ADR-0123): the address and
+ * the number are written as they are, like the display name. The Core
+ * keeps no key of its own for them — what it still guards is their
+ * *exposure* (ADR-0083 §3) and their *erasure* (ADR-0083 §6), both
+ * outside this adapter.
  *
- * The value is **normalised before it is encrypted and before its blind
- * index is computed** (`PersonalDataKind::normalize()`): `Ali@Example.cm`
- * and `ali@example.cm` are the same address, so they are the same
- * ciphertext and the same index — and the uniqueness of an address
- * holds whichever spelling the project used.
+ * The value is **normalised before it is stored and before it is looked up**
+ * (`PersonalDataKind::normalize()`): `Ali@Example.cm` and `ali@example.cm`
+ * are the same address, so they are the same customer — and the uniqueness
+ * of an address holds whichever spelling the project used.
  */
 final class EloquentCustomerRepository implements CustomerDirectory
 {
@@ -40,11 +37,6 @@ final class EloquentCustomerRepository implements CustomerDirectory
      * ADR-0088 §2 — a listing never returns more than a hundred rows.
      */
     private const MAX_LIMIT = 100;
-
-    public function __construct(
-        private readonly PersonalDataCipher $cipher,
-        private readonly BlindIndex $blindIndex,
-    ) {}
 
     public function findByExternalRef(string $projectId, string $externalRef): ?Customer
     {
@@ -63,25 +55,26 @@ final class EloquentCustomerRepository implements CustomerDirectory
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findByEmail(string $projectId, string $emailBlindIndex): ?Customer
+    public function findByEmail(string $projectId, string $email): ?Customer
     {
-        // The blind index is the searchable form of the address: the row
-        // is never decrypted to be found (ADR-0083 §2).
+        // The address is normalised before it is written, and it is
+        // normalised here too: the lookup finds the customer whichever
+        // spelling the caller used (ADR-0070 §4).
         $record = CustomerRecord::query()
             ->where('project_id', $projectId)
-            ->where('email_bidx', $emailBlindIndex)
+            ->where('email', PersonalDataKind::Email->normalize($email))
             ->first();
 
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findByPhoneIndex(string $projectId, string $phoneBlindIndex, int $limit): array
+    public function findByPhone(string $projectId, string $phone, int $limit): array
     {
         // Built on `toBase()` and re-hydrated, like the listing below (Larastan
         // false positive on the calls Eloquent's builder forwards).
         $rows = CustomerRecord::query()->toBase()
             ->where('project_id', $projectId)
-            ->where('phone_bidx', $phoneBlindIndex)
+            ->where('phone', PersonalDataKind::Phone->normalize($phone))
             ->whereNull('erased_at')
             ->orderBy('created_at')
             ->limit(max(1, min(self::MAX_LIMIT, $limit)))
@@ -140,8 +133,9 @@ final class EloquentCustomerRepository implements CustomerDirectory
             });
         } catch (UniqueConstraintViolationException) {
             // The only unique index a customer can break besides the
-            // reference one is the email one: the blind index carries the
-            // uniqueness of the address per project (ADR-0083 §2).
+            // reference one is the email one: the normalised address
+            // carries the uniqueness of the address per project
+            // (ADR-0070 §1).
             throw CustomerEmailAlreadyTaken::inProject($customer->projectId);
         }
     }
@@ -154,9 +148,8 @@ final class EloquentCustomerRepository implements CustomerDirectory
      * is written while it is read.
      *
      * The search matches the two fields the project knows a customer by —
-     * its reference and its display name. The email is not among them: it
-     * is encrypted and has no literal form to be matched against
-     * (ADR-0083 §2).
+     * its reference and its display name. The email is not among them: the
+     * search is on what the project calls its customer, not on its contact.
      *
      * @return array{items: list<Customer>, nextCursor: ?string}
      */
@@ -231,10 +224,8 @@ final class EloquentCustomerRepository implements CustomerDirectory
             'project_id' => $customer->projectId,
             'external_ref' => $customer->externalRef,
             'display_name' => $customer->displayName,
-            'email_ciphertext' => $email === null ? null : $this->cipher->encrypt($email),
-            'email_bidx' => $email === null ? null : $this->blindIndex->of($email, PersonalDataKind::Email),
-            'phone_ciphertext' => $phone === null ? null : $this->cipher->encrypt($phone),
-            'phone_bidx' => $phone === null ? null : $this->blindIndex->of($phone, PersonalDataKind::Phone),
+            'email' => $email,
+            'phone' => $phone,
             'locale' => $customer->locale,
             'metadata' => $this->metadata($customer->metadata),
             'status' => $customer->status->value,
@@ -281,8 +272,8 @@ final class EloquentCustomerRepository implements CustomerDirectory
             projectId: $record->project_id,
             externalRef: $record->external_ref,
             displayName: $record->display_name,
-            email: $record->email_ciphertext === null ? null : $this->cipher->decrypt($record->email_ciphertext),
-            phone: $record->phone_ciphertext === null ? null : $this->cipher->decrypt($record->phone_ciphertext),
+            email: $record->email,
+            phone: $record->phone,
             locale: $record->locale,
             metadata: $this->metadataOf($record->metadata),
             status: CustomerStatus::from($record->status),
