@@ -205,11 +205,15 @@ curl -s "$BASE_URL/v1/customers/auto-ecole-42" \
 ```
 
 Cet appel exige la portée `customers:read` — celle que porte le gabarit de
-portées « Application cliente ». C'est par là que passeront aussi les attributs
-que le projet déclare au Core : la déclaration de ces clés est **en
-construction** ([ADR-0122](../adr/0122-le-projet-declare-la-forme-de-son-locataire-le-core-la-collecte.md),
-l'API n'existe pas encore) — mais la relecture, elle, est déjà le chemin unique
-pour obtenir ce que le Core sait de votre locataire.
+portées « Application cliente ». C'est par là que passent aussi les attributs
+que le projet déclare au Core : la réponse rend `declared_attributes`, un objet
+par clé déclarée — `{}` quand le projet n'a rien déclaré. La déclaration, elle,
+se **propose** (`PUT /v1/projects/{id}/tenant-schema`, portée
+`tenant_schema:write`) et l'opérateur la lit dans la console avant qu'elle
+entre en vigueur
+([ADR-0122](../adr/0122-le-projet-declare-la-forme-de-son-locataire-le-core-la-collecte.md)).
+La relecture, elle, reste le chemin unique pour obtenir ce que le Core sait de
+votre locataire.
 
 #### 3.2 Le `version` des événements `customer.*`
 
