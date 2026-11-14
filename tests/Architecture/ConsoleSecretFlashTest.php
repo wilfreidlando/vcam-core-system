@@ -32,7 +32,16 @@ final class ConsoleSecretFlashTest extends TestCase
     private const SESSION_CALL = '/(?:session\(\)->(?:flash|now|reflash)\s*\(|Session::(?:flash|now)\s*\(|->with\s*\(|->withInput\s*\(|\bsession\s*\((?=\s*[\'"]))/';
 
     /** Ce qui désigne un secret : le nom de la clé de session ou la valeur qu'on y met. */
-    private const SECRET_MARKER = '/plaintext|secret|token|api[-_]?key|password|mot_?de_?passe/i';
+    /**
+     * The words that make a session key or a flashed value a **secret**.
+     *
+     * ADR-0125 §3 — the one-time link that opens the customer's space is
+     * a secret like the others: it is worth one use, and it must never
+     * outlive the response that carries it (ADR-0081 S-07). Its name was
+     * not in the list, so a link flashed into the session would have
+     * passed the guard unnoticed.
+     */
+    private const SECRET_MARKER = '/plaintext|secret|token|api[-_]?key|password|mot_?de_?passe|portal[_-]?link|lien[_-]?portail|lien[_-]?espace/i';
 
     /**
      * Aucune exception : le garde-fou est absolu. Une dette connue avait

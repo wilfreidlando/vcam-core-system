@@ -42,14 +42,20 @@ this one outside `Contracts/`.
 
 ## Reading the ledger (ADR-0076 §4)
 
-Two read models, both in `Contracts/`, both scoped by the project:
+Three read models, all in `Contracts/`, all scoped by the project:
 
 - `TrialBalance` — the balance of every account of a project, at a point in time.
+- `ListAccounts` — **every** account of a project, including the ones that never
+  moved: a left join on the entries, where the balance is a left join too. The
+  balance only shows what moved; the list of accounts shows what exists.
 - `AccountStatement` — the statement of **one** account over a period: the balance it
   held strictly before the period (opening), the movements it carried (period
   `[from, to)`, the end excluded), and the balance it closes on. The balance carried by a
   line is the balance of the **account**, not of the page: a page reads on its own. The
   pagination is a `(created_at, id)` cursor.
+
+`AccountStatement` takes the `AccessScope` as a **required** parameter
+(ADR-0069 §2): outside the scope, the page is empty — never another tenant's ledger.
 
 Both are read-only. The ledger writes, it never rewrites: a balance that disagrees with
 the entries is a defect to fix with a correction, not a number to patch.

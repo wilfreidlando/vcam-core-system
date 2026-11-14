@@ -74,6 +74,9 @@ la page **« Accéder à votre espace client »**, il saisit son
 6 chiffres arrive par WhatsApp ; sur la page **« Saisissez votre code »**, il le
 saisit dans **« Code à 6 chiffres »** et valide avec **« Se connecter »**.
 
+Une fois le réglage enregistré, la fiche du client montre ce que le client va
+utiliser : l'adresse à lui donner, et la session qui envoie le code.
+
 ### 6. Restreindre les moyens de paiement (facultatif)
 
 Dans le cadre **« Restreindre les moyens de paiement »**, cochez les canaux
@@ -115,6 +118,7 @@ réglé : même nom, même couleur, mêmes droits.
 | **« Ce qu'un client peut faire seul »** | Les deux gestes que le client peut faire sans vous appeler : changer d’offre et renouveler, ou résilier à la fin de sa période. |
 | **« Proposer la connexion par code »** | Le client peut entrer seul dans son espace avec un code à 6 chiffres reçu par WhatsApp. |
 | **« Session WhatsApp d'envoi »** | La session qui envoie ce code. Sa valeur est le nom d’une session du projet : elle doit exister. |
+| **« Connexion par code »**, sur la fiche du client | Ce que le client va utiliser : l’adresse à lui donner, et la session qui envoie le code — celle du projet, ou une session de la plateforme que tous les projets peuvent utiliser. |
 | **« Restreindre les moyens de paiement »** | Les canaux proposés au client. Rien de coché : tous ceux que la plateforme sait traiter. |
 
 ## Si ça ne marche pas

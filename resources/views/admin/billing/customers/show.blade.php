@@ -9,6 +9,13 @@
         ? number_format($minor, 0, ',', ' ').' '.$currency
         : number_format($minor / 100, 2, ',', ' ').' '.$currency;
     $date = fn (?string $iso): string => $iso ? \Illuminate\Support\Carbon::parse($iso)->format('d/m/Y') : '—';
+    // Le lien que la console vient d'ouvrir : il voyage avec la requête,
+    // jamais avec la session — un secret ne survit pas à la réponse qui
+    // le porte (ADR-0081 S-07). La connexion par code, elle, n'est pas un
+    // secret : le contrôleur la prépare pour toute la fiche, pour que
+    // l'opérateur la lise avant de donner quoi que ce soit (ADR-0125 §4).
+    $portalLink = request()->attributes->get('portal_link');
+    $portalDirectLogin = $portalDirectLogin ?? request()->attributes->get('portal_direct_login');
 @endphp
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-5">
@@ -20,6 +27,43 @@
             <span @class(['rounded-md px-2 py-0.5 text-xs font-medium', 'bg-emerald-100 text-emerald-800' => $customer->status === 'active', 'bg-amber-100 text-amber-800' => $customer->status === 'suspended', 'bg-slate-100 text-slate-700' => ! in_array($customer->status, ['active', 'suspended'], true)])>{{ \App\Http\View\CustomerLabels::status($customer->status) }}</span>
             <a href="{{ route('admin.projects.customers.edit', [$projectId, $customer->externalRef]) }}" class="inline-block px-2.5 py-1.5 text-sm font-medium text-indigo-700 hover:text-indigo-900">Modifier</a>
         </div>
+    </div>
+
+    {{-- ADR-0125 — l'espace du client : le lien que l'opérateur copie, et
+         la connexion par code quand le projet l'a activée (ADR-0100).
+         Le lien est un secret : il n'apparaît que dans la réponse qui
+         l'ouvre, jamais dans une session (ADR-0081 S-07). --}}
+    <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
+        <h2 class="text-base font-semibold text-slate-900">Espace du client</h2>
+
+        @if ($portalLink ?? null)
+            <p class="text-sm text-slate-700">
+                Ce lien ouvre l'espace du client. Il est à usage unique et expire le {{ $portalLink['expires_label'] }}.
+            </p>
+
+            <x-admin.field name="portal_link" label="Lien à copier" type="text" :value="$portalLink['url']" readonly class="font-mono text-sm" />
+
+            <p class="text-sm text-slate-600">Adresse en clair : <span class="font-mono break-all">{{ $portalLink['url'] }}</span></p>
+        @else
+            <p class="text-sm text-slate-700">
+                Ouvrez l'espace du client pour obtenir un lien à donner à votre client : le lien sera à usage unique.
+            </p>
+
+            @if (app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('customers:read')->allowsProject($projectId))
+                <form method="POST" action="{{ route('admin.projects.customers.portal-session', [$projectId, $customer->externalRef]) }}">
+                    @csrf
+                    <button type="submit" class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">Ouvrir l'espace du client</button>
+                </form>
+            @endif
+        @endif
+
+        @if ($portalDirectLogin ?? null)
+            <div class="border-t border-slate-100 pt-4">
+                <h3 class="text-sm font-semibold text-slate-900">Connexion par code</h3>
+                <p class="mt-2 text-sm text-slate-700">Votre client peut entrer à cette adresse : <span class="font-mono break-all">{{ $portalDirectLogin['url'] }}</span></p>
+                <p class="mt-1 text-sm text-slate-700">Session WhatsApp d'envoi : <span class="font-mono">{{ $portalDirectLogin['session'] }}</span> — {{ $portalDirectLogin['owner_label'] }}</p>
+            </div>
+        @endif
     </div>
 
     {{-- ADR-0122 §5 — les valeurs que l'application a déclarées pour ce

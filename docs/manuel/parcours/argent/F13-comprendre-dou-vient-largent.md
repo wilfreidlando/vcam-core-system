@@ -49,6 +49,46 @@ compte et ce qui en est sorti. S'il est positif, l'argent y est entré plus qu'i
 est sorti : c'est un compte qui retient de l'argent — une créance client, un compte
 d'attente. S'il est négatif, c'est l'inverse — le compte a servi plus qu'il n'a reçu.
 
+### 2 bis. Voyez tous les comptes du projet
+
+La balance ne liste que les comptes **qui ont bougé**. Sous la balance, la section
+**« Les comptes du projet »** montre **tous** les comptes du projet — y compris
+ceux qui n'ont encore rien reçu et rien dû.
+
+Le tableau **« Comptes du projet »** a une ligne par compte, avec les colonnes
+**« Compte »**, **« Référence expliquée »**, **« Devise »**, **« Débit »**,
+**« Crédit »** et **« Solde »**.
+
+Chaque ligne dit **de quel argent** il s'agit, sous le nom du compte :
+
+- **« l'argent du projet »** — les comptes du projet : **« Recettes »**,
+  **« Encaissements »**, **« Encaissements — prestataire »** (l'argent retenu chez
+  le service d'encaissement), **« Sorties de trésorerie »**, **« Exceptions de
+  paiement »**, **« Reçus hors ligne »**, **« Créances irrécouvrables »** ;
+- **« l'argent du client »** — **« Portefeuille client »** : c'est l'argent d'un
+  client, celui d'un compte qui a été crédité parce qu'un paiement l'a demandé ;
+- **« l'argent dû par le client »** — **« Créances clients »**.
+
+La colonne **« Référence expliquée »** dit **de qui** c'est : le client, pour un
+portefeuille ou une créance ; le nom que vous avez donné au service d'encaissement,
+pour un compte de prestataire.
+
+→ **Ce qui se passe** : un compte dont la référence ne se résout plus est dit tel
+quel — **« Portefeuille inconnu »**, **« Client inconnu »**. Vous ne voyez jamais un
+identifiant brut.
+
+**Vous ne créez jamais un compte.** Les comptes sont créés **par le Core**, au moment
+où de l'argent bouge ; il n'y a donc pas d'écran pour en créer un. C'est pour cela
+que cette page est en lecture seule.
+
+### 2 ter. Ouvrez les mouvements d'un compte
+
+Sur la page de comptabilité, le lien **« Ouvrir les comptes et leurs mouvements »**
+mène à la page **« Comptes du projet »**. Là, cliquez sur le nom d'un compte.
+
+→ **Ce qui se passe** : la page s'ouvre sur les mouvements de ce compte — d'où vient
+son solde, ligne par ligne.
+
 ### 3. Vérifiez que la devise s'équilibre
 
 En tête de chaque devise, une pastille annonce **« Équilibrée · somme nulle »**, ou
@@ -100,6 +140,22 @@ l'historique est donc toujours un encaissement.
 | **« Tiers »** (dans la liste des portefeuilles) | À qui appartient le portefeuille. |
 | **« Disponible »** / **« Bloqué »** | La somme que le porteur peut utiliser, et celle qui est retenue pour l'instant. |
 | **« Sens »** (**crédit** / **débit**) | L'argent entre sur le portefeuille, ou il en sort. |
+| **« Comptes du projet »** | Tous les comptes du projet, y compris ceux qui n'ont pas encore bougé. |
+| **« Ouvrir les comptes et leurs mouvements »** | Le lien qui mène à la page dédiée, où l'on ouvre les mouvements d'un compte. |
+| **« Référence expliquée »** | De qui est l'argent : le client, pour un portefeuille ou une créance ; le service d'encaissement, pour un compte de prestataire. |
+| **« l'argent du projet »** | Ce compte porte l'argent du projet. |
+| **« l'argent du client »** | Ce compte porte l'argent d'un client — un portefeuille crédité sur demande d'un paiement. |
+| **« l'argent dû par le client »** | Ce compte porte ce qu'un client doit au projet. |
+| **« Portefeuille inconnu »** · **« Client inconnu »** | La référence ne se résout plus : le portefeuille ou le client a disparu. |
+| **« Compte technique »** | Un compte d'une nature que la console ne connaît pas encore : il n'est pas caché, pour qu'on le voie. |
+| **« Les mouvements du compte »** | Les écritures qui ont fait le solde du compte, de la plus ancienne à la plus récente. |
+| **« Solde du compte : »** | Le solde tel qu'il est après les mouvements affichés. |
+| **« Ce compte n'a encore jamais bougé. »** | Le compte existe, mais rien n'y est jamais entré ni sorti : il ouvre et ferme sur zéro. |
+| **« Ce compte existe en plusieurs devises »** | Le même compte existe dans plusieurs devises : chacune a son propre solde. |
+| **« Sens »** (**débit** / **crédit**) | Le sens de l'écriture sur ce compte. |
+| **« Solde après l'écriture »** | Le solde du compte une fois cette écriture passée. |
+| **« Mouvements plus récents »** · **« Mouvements plus anciens »** | La pagination du relevé. |
+| **« Retour à la comptabilité »** | Le lien qui ramène à la page de comptabilité du projet. |
 
 ## Si ça ne marche pas
 
@@ -109,6 +165,7 @@ l'historique est donc toujours un encaissement.
 | **« Aucune transaction. »** | Le projet a des comptes, mais aucune opération à afficher — ou le filtre **« Type de transaction »** ne correspond à rien. | Videz le champ **« Type de transaction »** et cliquez sur **« Filtrer »**. |
 | **« Déséquilibre de … »** | La somme des soldes de la devise n’est pas nulle : une écriture a été commencée sans être terminée. | Ouvrez **« Exceptions d'argent »** dans la barre latérale et traitez l’exception ouverte. |
 | **« Aucun portefeuille pour ce projet pour le moment. »** | Aucun paiement n’a encore versé sur un portefeuille de ce projet. | C’est normal tant que les paiements ne demandent pas de verse sur un portefeuille. |
+| **« Aucun compte pour ce projet. »** | Le projet n’a encore aucun compte : rien n’a encore bougé dans sa comptabilité. | C’est normal au démarrage. Dès qu’un paiement ou une facture bouge de l’argent, les comptes apparaissent. |
 | **« Aucune écriture pour ce portefeuille pour le moment. »** | Le portefeuille est vide : rien n’y est encore entré. | Vérifiez la colonne **« Portefeuille à créditer »** de la fiche du paiement concerné. |
 | Vous ne voyez pas un portefeuille que vous cherchez | Les portefeuilles sont toujours rattachés à un projet : ils ne se voient que depuis la fiche d’un projet. | Revenez à **« Projets »**, ouvrez le bon projet, puis **« Portefeuilles de ce projet »**. |
 

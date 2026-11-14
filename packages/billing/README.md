@@ -241,6 +241,7 @@ subscriptions, invoices).
 | `/admin/projects/{id}/plans` (+ `/create`, `/{code}/versions`) | `plans:read` · `plans:write` | The catalogue: a plan, a draft version, its publication, the archive |
 | `/admin/projects/{id}/subscriptions` (+ `/{id}`) | `subscriptions:read` · `subscriptions:write` | The contracts, their periods, and the operator's gestures (pause, resume, cancel, plan change, free period, payment declaration) |
 | `/admin/projects/{id}/invoices` (+ `/create`, `/{id}`) | `invoices:read` · `invoices:write` | The invoices, and the operator's gestures (issue, cancel, write-off). No personal value is ever shown in clear |
+| `/admin/projects/{id}/invoices/{invoiceId}/document` | `invoices:read` | The **same** printable invoice as the API and the portal — the published contract `GetInvoiceDocument` renders it, so the three cannot diverge (ADR-0125 §1) |
 | `/admin/projects/{id}/receipts` (+ `/invoices/{id}/receipts`) | `invoices:read` · `invoices:write` | The offline collection: the receipts waiting for a validation, the recording of a new one, and its validation |
 
 A resource that does not exist — or that belongs to another organization — is

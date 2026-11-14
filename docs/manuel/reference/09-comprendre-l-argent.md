@@ -137,6 +137,48 @@ la date, le type, la référence et **le détail débit/crédit de chaque ligne*
 C'est l'écran qui répond à « d'où vient ce montant ? » : prenez la transaction, lisez ses
 lignes, et vous savez de quel compte vers quel compte l'argent est passé.
 
+### Les comptes du projet : qui les crée, comment on les voit
+
+La balance ne liste que les comptes **qui ont bougé**. Un compte créé mais jamais
+écrit n'y apparaît pas — et c'est normal : il n'a rien reçu, il ne doit rien. Pour
+voir **tous** les comptes du projet, la console a une page dédiée :
+
+`GET /admin/projects/{projectId}/ledger/accounts` (`admin.projects.ledger.accounts`)
+— permission `wallets:read`.
+
+**Qui crée un compte ?** Le Core, et **jamais l'opérateur**. La nature d'un compte est
+l'affaire du module qui l'utilise (ADR-0033 §4 : la nature est ouverte, ce n'est pas un
+vocabulaire que l'on choisit dans une liste). Le mécanisme est une **résolution-création** :
+quand un module a besoin d'un compte pour une opération donnée, il demande le compte de
+cette opération — s'il n'existe pas encore, il est créé au passage, dans la même
+transaction. Le module qui écrit l'écriture **crée donc le compte** ; personne ne le
+prépare à l'avance, et personne ne le supprime.
+
+Il n'y a pas d'écran de création de compte, et c'est délibéré : un opérateur qui
+choisirait des natures créerait des comptes que rien n'utiliserait. Un compte se crée
+**parce que de l'argent a bougé**, jamais par une décision de saisie.
+
+**L'argent du projet, l'argent d'un client.** C'est la distinction que la page des
+comptes rend visible, parce qu'elle n'est pas évidente quand on lit un nom brut :
+
+| Nature | De quel argent s'agit-il |
+|---|---|
+| `clearing:<prestataire>` | **l'argent du projet** — ce que le Core doit au prestataire d'encaissement |
+| `revenue` · `collections` · `manual_receipts` · `bad_debt` · `payment_exceptions` | **l'argent du projet** — les recettes et les encaissements qui ne sont pas encore imputés |
+| `withdrawal` | **l'argent du projet** — une sortie enregistrée |
+| `wallet:<id>` | **l'argent d'un client** — le compte jumeau d'un portefeuille, nommé par l'identifiant du portefeuille |
+| `customer_receivable` | **l'argent d'un client** — une créance sur lui, nommée par son identifiant |
+
+Un compte `wallet` est **toujours** le portefeuille d'un client ; l'argent du projet
+n'y est jamais. Quand un paiement demande de créditer un portefeuille précis, c'est
+**ce** portefeuille qui apparaît comme compte du client — et l'argent du projet reste
+chez le prestataire (`clearing:<prestataire>`) et dans les sorties (`withdrawal`).
+
+C'est pour cela que la page ne se contente pas d'afficher la nature brute : elle
+**résout** la référence pour nommer la personne concernée (le client, le prestataire)
+et dit de quel argent il s'agit. Une référence qui ne se résout plus est dite telle
+quelle — jamais un identifiant brut à l'écran.
+
 ---
 
 ## 3. Les portefeuilles : deux vues du même argent

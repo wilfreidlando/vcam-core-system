@@ -19,6 +19,12 @@ look. Everything else goes through `billing/Contracts`.
 Entry: `POST /v1/portal/sessions` (server of the project) returns a one-time
 link; the browser exchanges it for a cookie (`GET /portal/enter/{token}`).
 
+The gesture itself is a **published contract**, `OpenPortalSession`: the
+server of a project and the operator's console both ask it for a session and
+get the same one-time link back (ADR-0125 §3). There is no second way to open
+a space — and the link is a secret: it is rendered in the response that
+creates it, never written into the session store (ADR-0081 S-07).
+
 ## The three flows
 
 `flow` says what the session may do — it is persisted (`portal_sessions.flow`)

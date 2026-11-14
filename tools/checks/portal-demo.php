@@ -24,10 +24,10 @@ use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Contracts\CreateProject;
 use Core\Identity\Contracts\CreateProjectCommand;
-use Core\Portal\Application\Dto\OpenPortalSessionCommand;
 use Core\Portal\Application\Dto\PortalSettingsData;
 use Core\Portal\Application\UseCase\OpenPortalSessionUseCase;
 use Core\Portal\Application\UseCase\PortalSettingsService;
+use Core\Portal\Contracts\OpenPortalSessionCommand;
 use Core\Support\Access\AccessScope;
 
 // Idempotent : le script est relancé souvent pendant une recette, et il

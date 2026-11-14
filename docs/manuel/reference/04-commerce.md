@@ -123,6 +123,24 @@ une ligne illisible).
 > un client chez le Core (ADR-0110). L'import est un geste d'opérateur, dans la
 > console.
 
+#### Le modèle du fichier
+
+`GET /admin/projects/{projectId}/customers/import/template` — une **lecture**
+(`customers:read`), servie en `text/csv` : le fichier porte l'en-tête attendu
+et une ligne d'exemple, et il s'importe tel quel.
+
+L'en-tête et le contenu du modèle sortent de la **même source** que le lecteur
+(`App\Http\View\CustomerImportTemplate`) : les deux ne peuvent pas diverger. Un
+fichier dont l'en-tête n'est pas exactement le bon est **refusé**, jamais
+interprété.
+
+| Colonne du fichier | Ce que l'opérateur voit | Ce qu'elle porte |
+|---|---|---|
+| `external_ref` | **« Référence »** | La référence du client chez le projet : celle que votre application appelle déjà ce client. |
+| `display_name` | **« Nom »** | Le nom du client, tel qu'il s'affichera dans la console. |
+| `email` | **« E-mail »** | L'adresse électronique du client : elle doit être valide, et libre dans le projet. |
+| `phone` | **« Téléphone »** | Le numéro de téléphone du client : il peut rester vide. |
+
 ### Modifier, suspendre, réactiver, effacer
 
 | Action | Bouton | Effet |
@@ -339,6 +357,29 @@ Trois lignes sont proposées ; les lignes vides sont ignorées.
 - `« Lignes de la facture »` : `Désignation`, `Qté`, `Prix unitaire`, `Montant`, `Taxe` ;
 - `« Encaissements de la facture »` : `Origine` (`« Paiement en ligne »` ou `« Hors ligne —
   Virement | Espèces | Chèque | Autre »`), `Montant`, `Référence`, `Date`, `État`.
+
+### La facture imprimable
+
+Le **même** document, rendu par **trois portes** — il ne peut pas y en avoir
+trois versions :
+
+| Porte | Route | Qui l'ouvre |
+|---|---|---|
+| API | `GET /v1/invoices/{invoiceId}/document` | le serveur de l'application |
+| Console | `GET /admin/projects/{projectId}/invoices/{invoiceId}/document` | l'opérateur, qui imprime depuis son navigateur |
+| Portail | `GET /portal/invoices/{invoiceId}/document` | le client, dans son espace |
+
+Les trois consomment le **contrat publié** `Core\Billing\Contracts\GetInvoiceDocument`
+(cas d'usage `GetInvoiceDocumentUseCase`). Le rendu, lui, est un **adaptateur** :
+`Core\Billing\Infrastructure\Documents\HtmlInvoiceDocumentRenderer`, derrière le port
+`Core\Billing\Application\Port\InvoiceDocumentRenderer` — la règle de couches interdit
+à la Présentation d'atteindre l'Infrastructure (ADR-0125 §2).
+
+Ce qui est imprimé vient des **lignes figées** de la facture : ce qui a été émis,
+jamais ce que le catalogue dit aujourd'hui. L'en-tête du projet (nom, couleur, logo)
+vient des réglages du projet.
+
+Le PDF reste hors périmètre (ADR-0094 §14 : il demande une bibliothèque).
 
 ### Les trois gestes qui exigent un second code
 

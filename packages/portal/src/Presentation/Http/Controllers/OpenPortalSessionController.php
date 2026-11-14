@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Core\Portal\Presentation\Http\Controllers;
 
 use Core\Identity\Contracts\ProjectContext;
-use Core\Portal\Application\Dto\OpenPortalSessionCommand;
-use Core\Portal\Application\UseCase\OpenPortalSessionUseCase;
+use Core\Portal\Contracts\OpenPortalSession;
+use Core\Portal\Contracts\OpenPortalSessionCommand;
 use Core\Portal\Presentation\Http\Requests\OpenPortalSessionRequest;
 use Core\Portal\Presentation\Http\Responses\PortalResponses;
 use Core\Support\Http\ProblemDetails;
@@ -20,7 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class OpenPortalSessionController
 {
-    public function __construct(private readonly OpenPortalSessionUseCase $open) {}
+    public function __construct(private readonly OpenPortalSession $open) {}
 
     /**
      * Send a customer to the hosted portal.

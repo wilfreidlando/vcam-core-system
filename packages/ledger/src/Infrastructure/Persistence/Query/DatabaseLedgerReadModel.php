@@ -9,11 +9,13 @@ use Core\Ledger\Contracts\AccountStatement;
 use Core\Ledger\Contracts\AccountStatementCommand;
 use Core\Ledger\Contracts\AccountStatementLine;
 use Core\Ledger\Contracts\AccountStatementPage;
+use Core\Ledger\Contracts\AccountView;
 use Core\Ledger\Contracts\Direction;
 use Core\Ledger\Contracts\FindPostedLedgerKeys;
 use Core\Ledger\Contracts\LedgerTransactionLine;
 use Core\Ledger\Contracts\LedgerTransactionPage;
 use Core\Ledger\Contracts\LedgerTransactionView;
+use Core\Ledger\Contracts\ListAccounts;
 use Core\Ledger\Contracts\ListLedgerTransactions;
 use Core\Ledger\Contracts\ListLedgerTransactionsCommand;
 use Core\Ledger\Contracts\TrialBalance;
@@ -30,7 +32,7 @@ use InvalidArgumentException;
  * tables, exposed only through `Contracts/`. Read-only by construction —
  * the ledger tables refuse any change anyway (triggers).
  */
-final class DatabaseLedgerReadModel implements AccountStatement, FindPostedLedgerKeys, ListLedgerTransactions, TrialBalance
+final class DatabaseLedgerReadModel implements AccountStatement, FindPostedLedgerKeys, ListAccounts, ListLedgerTransactions, TrialBalance
 {
     private const MAX_LIMIT = 200;
 
@@ -57,6 +59,57 @@ final class DatabaseLedgerReadModel implements AccountStatement, FindPostedLedge
     }
 
     /**
+     * ADR-0125 §6 — the accounts of the project, **all of them**.
+     *
+     * The trial balance (`forProject`) joins `ledger_entries` from the
+     * inside: an account that never moved is not in it. Here the join is
+     * an outer one, so the chart of accounts is complete — an account
+     * that exists but has never been used is an account of the project,
+     * and the operator has to see it (ADR-0125 §6: « la balance ne liste
+     * que les comptes qui ont bougé »).
+     *
+     * Read-only: nothing is created, nothing is written. The accounts
+     * themselves are created on demand by the modules that need them
+     * (ADR-0033 §4).
+     */
+    public function accountsOf(string $projectId, AccessScope $scope): array
+    {
+        // ADR-0069 §2 / G16 — a project outside the scope reads nothing.
+        if (! $scope->allowsProject($projectId)) {
+            return [];
+        }
+
+        $rows = DB::table('ledger_accounts')
+            ->leftJoin('ledger_entries', 'ledger_entries.account_id', '=', 'ledger_accounts.id')
+            ->where('ledger_accounts.project_id', $projectId)
+            ->groupBy('ledger_accounts.kind', 'ledger_accounts.reference', 'ledger_accounts.currency')
+            ->orderBy('ledger_accounts.kind')
+            ->orderBy('ledger_accounts.reference')
+            ->orderBy('ledger_accounts.currency')
+            ->get([
+                'ledger_accounts.kind',
+                'ledger_accounts.reference',
+                'ledger_accounts.currency',
+                DB::raw("COALESCE(SUM(CASE WHEN ledger_entries.direction = 'debit' THEN ledger_entries.amount_minor ELSE 0 END), 0) AS debit_minor"),
+                DB::raw("COALESCE(SUM(CASE WHEN ledger_entries.direction = 'credit' THEN ledger_entries.amount_minor ELSE 0 END), 0) AS credit_minor"),
+            ])
+            ->all();
+
+        $accounts = [];
+        foreach ($rows as $row) {
+            $accounts[] = new AccountView(
+                kind: self::str($row, 'kind'),
+                reference: self::str($row, 'reference'),
+                currency: self::str($row, 'currency'),
+                debitMinor: self::int($row, 'debit_minor'),
+                creditMinor: self::int($row, 'credit_minor'),
+            );
+        }
+
+        return $accounts;
+    }
+
+    /**
      * ADR-0076 §4 — the statement of ONE account over `[from, to)`.
      *
      * Chronological (oldest first), keyset-paginated on
@@ -64,9 +117,23 @@ final class DatabaseLedgerReadModel implements AccountStatement, FindPostedLedge
      * uses, read the other way round: the cursor of a statement is the
      * last line read, so a page neither skips nor repeats an entry.
      */
-    public function statement(AccountStatementCommand $command): AccountStatementPage
+    public function statement(AccountStatementCommand $command, AccessScope $scope): AccountStatementPage
     {
         $limit = max(1, min(self::MAX_LIMIT, $command->limit));
+
+        // ADR-0069 §2, guard G16 — the scope is required. A project
+        // outside it yields an empty statement: never another tenant's
+        // ledger, not even a page that looks empty but carries a real
+        // balance.
+        if (! $scope->allowsProject($command->projectId)) {
+            return new AccountStatementPage(
+                lines: [],
+                nextCursor: null,
+                openingBalanceMinor: 0,
+                closingBalanceMinor: 0,
+                currency: $command->currency,
+            );
+        }
 
         $accountId = $this->accountId($command);
 

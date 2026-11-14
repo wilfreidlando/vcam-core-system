@@ -16,9 +16,10 @@ use Core\Billing\Contracts\ListSubscriptions;
 use Core\Billing\Contracts\ListSubscriptionsCommand;
 use Core\Billing\Contracts\UpsertCustomer;
 use Core\Billing\Contracts\UpsertCustomerCommand;
-use Core\Portal\Application\Dto\OpenedPortalSession;
-use Core\Portal\Application\Dto\OpenPortalSessionCommand;
 use Core\Portal\Application\Support\PortalLinks;
+use Core\Portal\Contracts\OpenedPortalSession;
+use Core\Portal\Contracts\OpenPortalSession;
+use Core\Portal\Contracts\OpenPortalSessionCommand;
 use Core\Portal\Domain\Exception\InvalidPortalFlow;
 use Core\Portal\Domain\Exception\PortalCustomerNotFound;
 use Core\Portal\Domain\Exception\ReturnUrlNotAllowed;
@@ -49,7 +50,7 @@ use Core\Support\UnitOfWork;
  * anything is written (no open redirect), and the call is audited with the
  * address of the calling server.
  */
-final readonly class OpenPortalSessionUseCase
+final readonly class OpenPortalSessionUseCase implements OpenPortalSession
 {
     private const TERMINAL = ['canceled', 'expired'];
 

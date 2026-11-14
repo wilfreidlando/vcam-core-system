@@ -85,6 +85,9 @@ final class PortalRouteManifest
             // would confirm the invoice exists somewhere.
             Entry::isolated('portal.invoice', Nature::Invoice, Outcome::NotFound, control: true),
             Entry::isolated('portal.invoice.pay', Nature::Invoice, Outcome::NotFound, control: true),
+            // ADR-0125 §1 — the printable invoice: the document of the
+            // customer of the session, or the page « Introuvable ».
+            Entry::isolated('portal.invoices.document', Nature::Invoice, Outcome::NotFound, control: true),
 
             // ── The subscriptions (ADR-0072) ────────────────────────────────
             // A mutation answers the portal's refusal — the very same page

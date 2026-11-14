@@ -171,9 +171,14 @@ Si votre application avait déjà ses clients avant le branchement, ils ne sont
 pas chez le Core. Sur la page **« Clients »** du projet, cliquez sur
 **« Importer des clients »**.
 
-Votre application exporte ses clients dans un fichier CSV dont l’en-tête est
-`external_ref, display_name, email, phone` ; déposez ce fichier dans
-**« Fichier à importer »**, puis cliquez sur **« Importer les clients »**.
+Votre application exporte ses clients dans un fichier CSV. Le fichier doit
+porter quatre colonnes, dans cet ordre : **« Référence »**, **« Nom »**,
+**« E-mail »** et **« Téléphone »**. La page **« Import de clients »** vous
+donne le fichier tout fait : le bloc **« Le modèle du fichier »** explique
+chaque colonne, et **« Télécharger le modèle »** vous donne un fichier qui
+porte l’en-tête et une ligne d’exemple — il s’importe tel quel. Ouvrez-le,
+complétez-le, déposez-le dans **« Fichier à importer »**, puis cliquez sur
+**« Importer les clients »**.
 
 → **Ce qui se passe** : le Core crée les clients et les pousse vers votre
 application, qui les **relie** — elle en connaît déjà, elle n’en crée pas de
@@ -202,6 +207,8 @@ est unique chez le Core.
 | **« L'application a proposé une forme pour ses clients »** | Une proposition attend votre décision. Elle ne change rien tant que vous ne l’avez pas acceptée. |
 | **« Rapport de l'import »** | Ce que l’import a fait : les clients créés, ceux qui étaient déjà connus, et les lignes refusées avec leur motif. |
 | **« Clients déjà connus »** | Ces clients existaient déjà chez le Core : ils ont été mis à jour, jamais dupliqués. |
+| **« Le modèle du fichier »** | Le fichier à déposer doit porter quatre colonnes, dans l’ordre. Le bloc les explique une par une. |
+| **« Télécharger le modèle »** | Un fichier prêt à remplir : il porte l’en-tête et une ligne d’exemple. Il s’importe tel quel. |
 
 ## Si ça ne marche pas
 

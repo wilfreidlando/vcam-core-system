@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\Billing;
 
 use Core\Billing\Application\Port\CustomerDirectory;
+use Core\Billing\Application\Port\InvoiceDocumentRenderer;
 use Core\Billing\Application\Port\InvoiceLedger;
 use Core\Billing\Application\Port\MetricsReader;
 use Core\Billing\Application\Port\MetricsSnapshotStore;
@@ -32,6 +33,7 @@ use Core\Billing\Application\UseCase\FindCustomerByContactUseCase;
 use Core\Billing\Application\UseCase\GetCustomerDeclaredAttributesUseCase;
 use Core\Billing\Application\UseCase\GetCustomerUseCase;
 use Core\Billing\Application\UseCase\GetEntitlementsUseCase;
+use Core\Billing\Application\UseCase\GetInvoiceDocumentUseCase;
 use Core\Billing\Application\UseCase\GetInvoiceUseCase;
 use Core\Billing\Application\UseCase\GetSubscriptionUseCase;
 use Core\Billing\Application\UseCase\GetTenantSchemaUseCase;
@@ -87,6 +89,7 @@ use Core\Billing\Contracts\GetCustomer;
 use Core\Billing\Contracts\GetCustomerDeclaredAttributes;
 use Core\Billing\Contracts\GetEntitlements;
 use Core\Billing\Contracts\GetInvoice;
+use Core\Billing\Contracts\GetInvoiceDocument;
 use Core\Billing\Contracts\GetSubscription;
 use Core\Billing\Contracts\GetTenantSchema;
 use Core\Billing\Contracts\GrantComplimentaryPeriod;
@@ -138,6 +141,7 @@ use Core\Billing\Domain\Port\SubscriptionRepository;
 use Core\Billing\Domain\Port\SubscriptionSupplementRepository;
 use Core\Billing\Domain\Port\TenantSchemaRepository;
 use Core\Billing\Domain\Port\UsageStore;
+use Core\Billing\Infrastructure\Documents\HtmlInvoiceDocumentRenderer;
 use Core\Billing\Infrastructure\Ledger\InvoiceLedgerWriter;
 use Core\Billing\Infrastructure\Persistence\DatabaseMetricsReader;
 use Core\Billing\Infrastructure\Persistence\DatabaseMetricsSnapshotStore;
@@ -209,6 +213,11 @@ final class BillingServiceProvider extends ServiceProvider
         // The Application port of the ledger — `billing` says what
         // happened, the adapter says how it is booked (ADR-0073 §3).
         $this->app->bind(InvoiceLedger::class, InvoiceLedgerWriter::class);
+
+        // ADR-0125 §2 — the printable invoice is rendered by an adapter,
+        // behind the port: the Application asks for a document, it never
+        // builds HTML.
+        $this->app->bind(InvoiceDocumentRenderer::class, HtmlInvoiceDocumentRenderer::class);
 
         // The Application ports — the listing half of the repositories
         // (ADR-0088's cursor) — are served by the same adapters: the
@@ -285,6 +294,9 @@ final class BillingServiceProvider extends ServiceProvider
         $this->app->bind(VoidInvoice::class, VoidInvoiceUseCase::class);
         $this->app->bind(MarkInvoiceUncollectible::class, MarkInvoiceUncollectibleUseCase::class);
         $this->app->bind(GetInvoice::class, GetInvoiceUseCase::class);
+        // ADR-0125 §1 — the same document for the API, the console and the
+        // portal: they all read it through this contract.
+        $this->app->bind(GetInvoiceDocument::class, GetInvoiceDocumentUseCase::class);
         $this->app->bind(ListInvoices::class, ListInvoicesUseCase::class);
 
         // The collection of an invoice — the online attempt and the

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Core\Portal\Application\Dto;
+namespace Core\Portal\Contracts;
 
 /**
  * ADR-0075 §1 — the one call a project makes to send a customer to its portal.
@@ -11,6 +11,11 @@ namespace Core\Portal\Application\Dto;
  * can ride along: `$customer` declares (or refreshes) the customer, and
  * `$planCode` subscribes it when it has no live contract yet. A project
  * that already manages both through the API simply omits them.
+ *
+ * The command lives in the module's **published surface**: the console
+ * opens a customer's space exactly like an application's server does,
+ * through the same contract (ADR-0125). The fields are the ones the API
+ * has always taken — the caller's side does not change.
  */
 final readonly class OpenPortalSessionCommand
 {

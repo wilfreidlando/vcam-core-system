@@ -7,7 +7,12 @@
     <div class="flex items-center justify-between">
         <a href="{{ route('admin.projects.invoices.index', $projectId) }}"
            class="inline-block px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">← Toutes les factures</a>
-        <span class="text-sm text-slate-500">Client : <span class="font-mono">{{ $invoice->customerRef }}</span></span>
+        <div class="flex items-center gap-4">
+            <a href="{{ route('admin.projects.invoices.document', [$projectId, $invoice->id]) }}"
+               target="_blank" rel="noopener"
+               class="inline-block px-2.5 py-1.5 text-sm font-medium text-indigo-700 hover:text-indigo-900">Facture imprimable</a>
+            <span class="text-sm text-slate-500">Client : <span class="font-mono">{{ $invoice->customerRef }}</span></span>
+        </div>
     </div>
 
     {{-- Les erreurs de validation et de refus sont rendues une seule fois, par le layout (role="alert"). --}}

@@ -9,6 +9,7 @@ use Core\Ledger\Contracts\AccountStatement;
 use Core\Ledger\Contracts\AccountStatementCommand;
 use Core\Ledger\Contracts\AccountStatementPage;
 use Core\Ledger\Contracts\ResolveOrCreateAccountCommand;
+use Core\Support\Access\AccessScope;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -61,6 +62,27 @@ final class AccountStatementTest extends TestCase
         self::assertSame([], $page->lines);
         self::assertSame(0, $page->openingBalanceMinor);
         self::assertSame(0, $page->closingBalanceMinor);
+    }
+
+    #[Test]
+    public function a_project_outside_the_scope_yields_an_empty_statement(): void
+    {
+        $this->postEntry('debit', 900, $this->at('-1 hour'));
+
+        $denied = app(AccountStatement::class)->statement(new AccountStatementCommand(
+            projectId: self::PROJECT_ID,
+            kind: 'clearing',
+            reference: '',
+            currency: 'XAF',
+            from: $this->at('-1 day'),
+            to: $this->at('+1 day'),
+        ), AccessScope::none());
+
+        // ADR-0069 §2, guard G16 — the scope is required: outside it,
+        // the page is empty, never another tenant's ledger.
+        self::assertSame([], $denied->lines);
+        self::assertSame(0, $denied->openingBalanceMinor);
+        self::assertSame(0, $denied->closingBalanceMinor);
     }
 
     #[Test]
@@ -199,7 +221,7 @@ final class AccountStatementTest extends TestCase
             to: $to,
             cursor: $cursor,
             limit: $limit,
-        ));
+        ), AccessScope::forProject(self::PROJECT_ID));
     }
 
     /**
