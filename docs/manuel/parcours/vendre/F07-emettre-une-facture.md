@@ -76,6 +76,18 @@ qui a été facturé : **« Désignation »**, **« Qté »**, **« Prix unitair
 brouillon, elle n’existe pas pour le client et rien n’est inscrit dans les
 comptes.
 
+### 3 bis. Imprimer la facture
+
+En haut de la page de la facture, le lien **« Facture imprimable »** ouvre le
+document de la facture dans un nouvel onglet.
+
+→ **Ce qui se passe** : la page s’ouvre avec l’en-tête de votre projet — son nom,
+sa couleur, son logo — et le **même** document que celui que votre client
+voit dans son espace. Ce qui est imprimé est ce qui a été émis : les lignes
+figées au moment de l’émission, pas le catalogue d’aujourd’hui. La page
+s’imprime depuis le navigateur ; le client récupère le même document par
+**« Télécharger la facture »**, depuis son espace.
+
 ### 4. Émettre la facture
 
 En bas de la page, la carte **« Émettre la facture »** et son bouton
@@ -108,6 +120,8 @@ ouverte, pas payée.
 | **« Total »** | Ce que le client doit : le sous-total, plus la taxe. |
 | **« Déjà réglé »** | Ce qui a déjà été encaissé sur cette facture. Tant que ce montant n’atteint pas le total, la facture reste **« Ouverte »**. |
 | **« Encaissements de la facture »** | L’historique de ce qui a été réglé : d’un côté les paiements en ligne, de l’autre les reçus hors ligne. |
+| **« Facture imprimable »** | Ouvre la facture comme document : avec l’en-tête de votre projet, prête à imprimer. |
+| **« Télécharger la facture »** | Ce que le client trouve dans son espace pour récupérer le même document. |
 | **« Annuler la facture »** | On contrepasse l’écriture d’émission : la créance revient dans les comptes. L’annulation est refusée si quelque chose a déjà été réglé, et elle exige un motif. |
 | **« Passer en irrécouvrable »** | On déclare la créance perdue. C’est un acte comptable, jamais un effet du temps : il faut le faire, et il est journalisé. |
 

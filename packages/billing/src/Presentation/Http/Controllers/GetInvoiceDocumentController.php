@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Core\Billing\Presentation\Http\Controllers;
 
-use Core\Billing\Contracts\GetInvoice;
-use Core\Billing\Contracts\GetInvoiceCommand;
-use Core\Billing\Domain\Port\BillingSettingsRepository;
-use Core\Billing\Presentation\Documents\InvoiceDocumentRenderer;
+use Core\Billing\Contracts\GetInvoiceDocument;
+use Core\Billing\Contracts\GetInvoiceDocumentCommand;
 use Core\Identity\Contracts\ProjectContext;
 use Core\Support\Access\AccessScope;
 use Core\Support\Http\ProblemDetails;
@@ -21,13 +19,14 @@ use Symfony\Component\HttpFoundation\Response;
  * comes later, with the library that will produce it (ADR-0094 §14) —
  * the Core does not depend on a renderer for a document it already
  * renders.
+ *
+ * ADR-0125 §2 — the controller consumes the **contract**, never the
+ * adapter: the console and the portal read the very same document.
  */
 final class GetInvoiceDocumentController
 {
     public function __construct(
-        private readonly GetInvoice $getInvoice,
-        private readonly BillingSettingsRepository $settings,
-        private readonly InvoiceDocumentRenderer $renderer,
+        private readonly GetInvoiceDocument $documents,
     ) {}
 
     /**
@@ -43,14 +42,14 @@ final class GetInvoiceDocumentController
             return ProblemDetails::forbidden('The invoices:read scope is required.');
         }
 
-        $view = $this->getInvoice->get(
-            new GetInvoiceCommand($project->projectId, $invoiceId),
+        $document = $this->documents->document(
+            new GetInvoiceDocumentCommand($project->projectId, $invoiceId),
             // ADR-0069 §2 — the public API plane's scope is the calling
             // project itself: an invoice of another project is not found.
             AccessScope::forProject($project->projectId),
         );
 
-        if ($view === null) {
+        if ($document === null) {
             return ProblemDetails::make(
                 'invoice-not-found',
                 'Invoice not found',
@@ -59,10 +58,8 @@ final class GetInvoiceDocumentController
             );
         }
 
-        $settings = $this->settings->find($project->projectId);
-
         return new Response(
-            $this->renderer->render($view, $settings->documentBranding),
+            $document,
             200,
             ['Content-Type' => 'text/html; charset=UTF-8'],
         );

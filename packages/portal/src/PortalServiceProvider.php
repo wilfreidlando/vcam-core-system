@@ -6,7 +6,9 @@ namespace Core\Portal;
 
 use Core\Portal\Application\Support\PortalLinks;
 use Core\Portal\Application\UseCase\ManagePortalSettingsUseCase;
+use Core\Portal\Application\UseCase\OpenPortalSessionUseCase;
 use Core\Portal\Contracts\ManagePortalSettings;
+use Core\Portal\Contracts\OpenPortalSession;
 use Core\Portal\Domain\Port\LoginThrottle;
 use Core\Portal\Domain\Port\PortalLoginCodeRepository;
 use Core\Portal\Domain\Port\PortalSessionRepository;
@@ -40,6 +42,9 @@ final class PortalServiceProvider extends ServiceProvider
             projectHourlyCap: config()->integer('portal.direct_login.project_hourly_cap', 200),
         ));
         $this->app->bind(ManagePortalSettings::class, ManagePortalSettingsUseCase::class);
+        // ADR-0075 §1, ADR-0125 — opening a customer's space is one
+        // gesture, two doors: the API and the console.
+        $this->app->bind(OpenPortalSession::class, OpenPortalSessionUseCase::class);
 
         $this->app->singleton(SecretHasher::class, static fn (): SecretHasher => new HmacSecretHasher(config()->string('app.key')));
         $this->app->singleton(PortalLinks::class, static fn (): PortalLinks => new PortalLinks(config()->string('portal.base_url', config()->string('app.url'))));

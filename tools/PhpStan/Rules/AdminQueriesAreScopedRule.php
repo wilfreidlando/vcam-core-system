@@ -75,6 +75,11 @@ final class AdminQueriesAreScopedRule implements Rule
         'Query',
         'Stats',
         'Summary',
+        // ADR-0125 §7 — the statement of an account (`AccountStatement`)
+        // is a read port like any other: the console opened it, and the
+        // rule had to learn its name, or the port would have been called
+        // from the console without a scope, unnoticed.
+        'Statement',
     ];
 
     private const SCOPE_CLASS = 'Core\\Support\\Access\\AccessScope';

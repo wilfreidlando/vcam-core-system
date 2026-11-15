@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Core\Portal\Presentation\Http\Controllers\DirectLoginController;
+use Core\Portal\Presentation\Http\Controllers\PortalInvoiceDocumentController;
 use Core\Portal\Presentation\Http\Controllers\PortalPagesController;
 use Core\Portal\Presentation\Http\Middleware\AuthenticatePortal;
 use Core\Portal\Presentation\Http\Middleware\PortalSecurityHeaders;
@@ -55,6 +56,10 @@ Route::middleware([PortalSecurityHeaders::class])
             Route::get('/profile', [PortalPagesController::class, 'profile'])->name('portal.profile');
             Route::get('/invoices', [PortalPagesController::class, 'invoices'])->name('portal.invoices');
             Route::get('/invoices/{invoiceId}', [PortalPagesController::class, 'invoice'])->whereUuid('invoiceId')->name('portal.invoice');
+            // ADR-0125 §1 — the printable invoice of the customer, with the
+            // header of the project: the very document the API and the
+            // console show.
+            Route::get('/invoices/{invoiceId}/document', [PortalInvoiceDocumentController::class, 'document'])->whereUuid('invoiceId')->name('portal.invoices.document');
             Route::post('/invoices/{invoiceId}/pay', [PortalPagesController::class, 'pay'])->whereUuid('invoiceId')->name('portal.invoice.pay');
             Route::get('/usage', [PortalPagesController::class, 'usage'])->name('portal.usage');
             // ADR-0119 §3 — l'achat d'un pack. Le code du pack voyage

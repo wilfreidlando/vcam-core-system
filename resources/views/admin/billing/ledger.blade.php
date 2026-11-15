@@ -30,16 +30,16 @@
                         <span class="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-medium text-rose-800">Déséquilibre de {{ $fmt($block['net'], $currency) }} {{ $currency }}</span>
                     @endif
                 </div>
-                <x-admin.table :caption="'Balance des comptes en '.$currency" :headers="['Compte', 'Référence', 'Débit', 'Crédit', 'Solde net (débit)']" empty="Aucun compte.">
-                    @if (count($block['accounts']) > 0)
+                <x-admin.table :caption="'Balance des comptes en '.$currency" :headers="['Compte', 'Référence expliquée', 'Débit', 'Crédit', 'Solde net (débit)']" empty="Aucun compte.">
+                    @if (count($block['rows']) > 0)
                         <tbody class="divide-y divide-slate-100 bg-white">
-                            @foreach ($block['accounts'] as $account)
+                            @foreach ($block['rows'] as $row)
                                 <tr>
-                                    <td class="px-4 py-2 font-mono text-xs">{{ $account->kind }}</td>
-                                    <td class="px-4 py-2 font-mono text-xs text-slate-500" title="{{ $account->reference }}">{{ \Illuminate\Support\Str::limit($account->reference, 24) ?: '—' }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $fmt($account->debitMinor, $currency) }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums">{{ $fmt($account->creditMinor, $currency) }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums font-medium">{{ $fmt($account->netDebitMinor(), $currency) }}</td>
+                                    <td class="px-4 py-2 text-sm font-medium text-slate-900">{{ $row['nature'] }}</td>
+                                    <td class="px-4 py-2 text-sm text-slate-500">{{ $row['explanation'] }}</td>
+                                    <td class="px-4 py-2 text-right tabular-nums">{{ $fmt($row['debitMinor'], $currency) }}</td>
+                                    <td class="px-4 py-2 text-right tabular-nums">{{ $fmt($row['creditMinor'], $currency) }}</td>
+                                    <td class="px-4 py-2 text-right tabular-nums font-medium">{{ $fmt($row['netMinor'], $currency) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -49,6 +49,21 @@
         @empty
             <p class="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">Aucune écriture pour ce projet.</p>
         @endforelse
+    </section>
+
+    <section aria-labelledby="accounts">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 id="accounts" class="text-sm font-semibold uppercase tracking-wide text-slate-500">{{ \App\Http\View\LedgerAccountLabels::ACCOUNTS_HEADING }}</h2>
+            <a href="{{ route('admin.projects.ledger.accounts', ['projectId' => $projectId]) }}"
+               class="text-sm font-medium text-indigo-700 hover:text-indigo-900 whitespace-nowrap">{{ \App\Http\View\LedgerAccountLabels::OPEN_MOVEMENTS }}</a>
+        </div>
+        <p class="mb-3 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
+            Tous les comptes du projet, y compris ceux qui n'ont encore jamais bougé : la balance, elle, ne liste que
+            ceux qui ont bougé. Un compte de portefeuille garde l'argent d'un client ; les autres comptes gardent
+            l'argent du projet.
+        </p>
+
+        @include('admin.billing.partials.ledger-accounts', ['rows' => $accountRows, 'projectId' => $projectId, 'selected' => null])
     </section>
 
     <section aria-labelledby="transactions">
@@ -77,7 +92,7 @@
                                         <li class="flex items-center gap-2 text-xs">
                                             <span @class(['w-12 shrink-0 rounded px-1.5 py-0.5 text-center font-medium', 'bg-rose-50 text-rose-700' => $line->direction === 'debit', 'bg-emerald-50 text-emerald-700' => $line->direction !== 'debit'])>{{ $line->direction === 'debit' ? 'débit' : 'crédit' }}</span>
                                             <span class="font-mono">{{ $line->accountKind }}</span>
-                                            <span class="text-slate-500" title="{{ $line->accountReference }}">{{ \Illuminate\Support\Str::limit($line->accountReference, 14) }}</span>
+                                            <span class="text-slate-500">{{ $explanations[$line->accountKind.'|'.$line->accountReference] ?? '—' }}</span>
                                             <span class="ml-auto tabular-nums font-medium">{{ $fmt($line->amountMinor, $line->currency) }} {{ $line->currency }}</span>
                                         </li>
                                     @endforeach

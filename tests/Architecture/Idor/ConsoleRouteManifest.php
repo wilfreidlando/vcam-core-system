@@ -146,6 +146,11 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.customers.store', Nature::Customer, Outcome::NotFound),
             Entry::isolated('admin.projects.customers.show', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFound),
             Entry::isolated('admin.projects.customers.subscribe.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
+            // ADR-0125 §3 — the console opens the customer's own space. It
+            // is a **gesture** (it opens a session, it is audited): under
+            // another project, the customer's reference is not found and
+            // the operator keeps their place.
+            Entry::isolated('admin.projects.customers.portal-session', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect, control: true),
             Entry::isolated('admin.projects.customers.edit', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFound),
             Entry::isolated('admin.projects.customers.update.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.customers.suspend.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
@@ -164,6 +169,10 @@ final class ConsoleRouteManifest
             // asks for the file, and the import itself. The suite plays
             // the read — the write shares the route's project guard.
             Entry::isolated('admin.projects.customers.import', Nature::Customer, Outcome::NotFound, control: true),
+            // ADR-0125 §5 — the **model** of the import: the same file, empty
+            // of data. It belongs to the project like the import itself (a
+            // read: it answers 404, never a redirect).
+            Entry::isolated('admin.projects.customers.import.template', Nature::Customer, Outcome::NotFound, control: true),
 
             // ADR-0075 §4, ADR-0071 §4, ADR-0074 — the settings and the usage of a project.
             Entry::isolated('admin.projects.portal', Nature::Project, Outcome::NotFound),
@@ -179,6 +188,9 @@ final class ConsoleRouteManifest
             // gets "not found", never a figure.
             Entry::isolated('admin.projects.receivables.index', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.ledger', Nature::Project, Outcome::NotFound),
+            // ADR-0125 §6 — the accounts of the project: a page of the
+            // project, like the balance it completes.
+            Entry::isolated('admin.projects.ledger.accounts', Nature::Project, Outcome::NotFound, control: true),
             Entry::isolated('admin.projects.usage', Nature::Project, Outcome::NotFound),
 
             // ADR-0088 §3 — the export of a project's data.
@@ -225,6 +237,9 @@ final class ConsoleRouteManifest
             Entry::isolated('admin.projects.invoices.new', Nature::Invoice, Outcome::NotFound),
             Entry::isolated('admin.projects.invoices.store', Nature::Invoice, Outcome::NotFound),
             Entry::isolated('admin.projects.invoices.show', Nature::Invoice, Outcome::NotFound, ownParent: Outcome::NotFound),
+            // ADR-0125 §1 — the printable document of the invoice: the same
+            // read as the invoice itself.
+            Entry::isolated('admin.projects.invoices.document', Nature::Invoice, Outcome::NotFound, ownParent: Outcome::NotFound),
             Entry::isolated('admin.projects.invoices.issue.web', Nature::Invoice, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.invoices.void.web', Nature::Invoice, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.invoices.uncollectible.web', Nature::Invoice, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),

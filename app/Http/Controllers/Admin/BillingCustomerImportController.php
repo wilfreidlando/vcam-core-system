@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Concerns\HandlesBillingRefusals;
 use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
+use App\Http\View\CustomerImportTemplate;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
 use Core\Billing\Contracts\GetCustomer;
@@ -50,13 +51,6 @@ final class BillingCustomerImportController
 {
     use HandlesBillingRefusals;
     use ResolvesScopedProject;
-
-    /**
-     * Les colonnes du fichier exporté par l'application.
-     *
-     * @var list<string>
-     */
-    private const COLUMNS = ['external_ref', 'display_name', 'email', 'phone'];
 
     public function __construct(
         private readonly GetProject $getProject,
@@ -133,6 +127,10 @@ final class BillingCustomerImportController
      * file whose first line is not that header, or which carries another
      * column, is **refused** — never interpreted (ADR-0122 §9).
      *
+     * The header itself is not written here: it comes from
+     * `CustomerImportTemplate`, the one source the downloadable model
+     * reads too — the model and the reader can never disagree.
+     *
      * @return list<array{line: int, values: array<string, string>, malformed: bool}>
      *
      * @throws RuntimeException the file is not an export the Core knows
@@ -159,14 +157,14 @@ final class BillingCustomerImportController
             }
 
             $sorted = $columns;
-            $expected = self::COLUMNS;
+            $expected = CustomerImportTemplate::columnNames();
             sort($sorted);
             sort($expected);
 
             if ($sorted !== $expected) {
                 throw new RuntimeException(sprintf(
                     'L\'en-tête du fichier doit porter exactement les colonnes %s ; il porte %s.',
-                    implode(', ', self::COLUMNS),
+                    implode(', ', CustomerImportTemplate::columnNames()),
                     implode(', ', $columns),
                 ));
             }

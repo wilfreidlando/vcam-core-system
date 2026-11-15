@@ -17,6 +17,7 @@ use Core\Ledger\Contracts\IsSupportedCurrency;
 use Core\Ledger\Contracts\LedgerAdjustments;
 use Core\Ledger\Contracts\LedgerPoster;
 use Core\Ledger\Contracts\ListAccountEntries;
+use Core\Ledger\Contracts\ListAccounts;
 use Core\Ledger\Contracts\ListLedgerAdjustments;
 use Core\Ledger\Contracts\ListLedgerTransactions;
 use Core\Ledger\Contracts\TrialBalance;
@@ -61,6 +62,9 @@ final class LedgerServiceProvider extends ServiceProvider
         $this->app->bind(TrialBalance::class, DatabaseLedgerReadModel::class);
         $this->app->bind(FindPostedLedgerKeys::class, DatabaseLedgerReadModel::class);
         $this->app->bind(AccountStatement::class, DatabaseLedgerReadModel::class);
+        // ADR-0125 §6 — the accounts of the project, all of them, including
+        // the ones that never moved.
+        $this->app->bind(ListAccounts::class, DatabaseLedgerReadModel::class);
 
         // ADR-0076 §6 — the operating corrections: proposed in the
         // console, validated by a second pair of eyes, then booked as a

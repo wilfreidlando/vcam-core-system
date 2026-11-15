@@ -1,0 +1,72 @@
+/*
+ * The printable invoice (ADR-0073 §5, ADR-0125 §1).
+ *
+ * The document is rendered by the Core and served by three doors: the
+ * API, the console and the portal. The portal's content security policy
+ * is strict (`style-src 'self'`), and it forbids an inline `<style>` —
+ * so the formatting of the document lives in this **same-origin**
+ * stylesheet, which the policy accepts. One sheet for the three doors:
+ * the document looks the same everywhere.
+ */
+
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #0f172a;
+    margin: 2.5rem;
+}
+
+h1 {
+    font-size: 1.4rem;
+    margin: 0 0 .25rem;
+}
+
+.meta {
+    color: #475569;
+    font-size: .9rem;
+    margin-bottom: 1.5rem;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+}
+
+th, td {
+    border-bottom: 1px solid #e2e8f0;
+    padding: .5rem .4rem;
+    text-align: left;
+    font-size: .92rem;
+}
+
+th.num, td.num {
+    text-align: right;
+}
+
+tfoot td {
+    font-weight: 600;
+    border-bottom: none;
+}
+
+.paid {
+    color: #15803d;
+    font-size: .9rem;
+}
+
+.void {
+    color: #b91c1c;
+    font-weight: 600;
+}
+
+.mentions {
+    margin-top: 2rem;
+    color: #475569;
+    font-size: .85rem;
+    white-space: pre-line;
+}
+
+@media print {
+    body {
+        margin: 1rem;
+    }
+}

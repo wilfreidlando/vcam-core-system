@@ -2,14 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Core\Billing\Presentation\Documents;
+namespace Core\Billing\Infrastructure\Documents;
 
+use Core\Billing\Application\Port\InvoiceDocumentRenderer;
 use Core\Billing\Contracts\InvoiceLineView;
 use Core\Billing\Contracts\InvoiceView;
 use Core\Support\Money\Money;
 
 /**
  * ADR-0073 §5 — the printable invoice.
+ *
+ * ADR-0125 §2 — the rendering is an **adapter**: it lives in the
+ * Infrastructure, behind the port
+ * `Core\Billing\Application\Port\InvoiceDocumentRenderer`. The
+ * Presentation never reaches it; it consumes the contract
+ * `Core\Billing\Contracts\GetInvoiceDocument` — and so do the console
+ * and the portal: the three documents cannot diverge.
  *
  * The document is rendered from the **frozen lines**: what is printed is
  * what was issued, never what the catalogue says today (ADR-0073
@@ -25,7 +33,7 @@ use Core\Support\Money\Money;
  * Everything the caller can write is escaped: a line's description is
  * free text, and a printable document is a page a browser will render.
  */
-final readonly class InvoiceDocumentRenderer
+final readonly class HtmlInvoiceDocumentRenderer implements InvoiceDocumentRenderer
 {
     /**
      * @param array<string, mixed> $branding the free marks of the project
@@ -66,19 +74,7 @@ final readonly class InvoiceDocumentRenderer
         <head>
         <meta charset="utf-8">
         <title>Facture {$this->escape($invoice->number ?? 'brouillon')}</title>
-        <style>
-        body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #0f172a; margin: 2.5rem; }
-        h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
-        .meta { color: #475569; font-size: .9rem; margin-bottom: 1.5rem; }
-        table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-        th, td { border-bottom: 1px solid #e2e8f0; padding: .5rem .4rem; text-align: left; font-size: .92rem; }
-        th.num, td.num { text-align: right; }
-        tfoot td { font-weight: 600; border-bottom: none; }
-        .paid { color: #15803d; font-size: .9rem; }
-        .void { color: #b91c1c; font-weight: 600; }
-        .mentions { margin-top: 2rem; color: #475569; font-size: .85rem; white-space: pre-line; }
-        @media print { body { margin: 1rem; } }
-        </style>
+        <link rel="stylesheet" href="/assets/invoice-document.css">
         </head>
         <body>
         <h1>{$company}</h1>

@@ -9,6 +9,10 @@
 <p class="crumb"><a href="/portal/invoices">← Factures</a></p>
 <h1>{{ $invoice->number ?? 'Facture' }} <span class="badge badge--{{ $tone }}">{{ $label }}</span></h1>
 
+{{-- ADR-0125 §1 — la facture imprimable du client : le même document que
+     celui de l'API et de la console, avec l'en-tête du projet. --}}
+<p><a class="button button--ghost" href="/portal/invoices/{{ $invoice->id }}/document">Télécharger la facture</a></p>
+
 @if ($error)
     <div class="alert" id="pay-error" role="alert" tabindex="-1">{{ $error }}</div>
 @endif

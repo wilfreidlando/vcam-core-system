@@ -72,6 +72,38 @@ révélerait.
 > **Un numéro partagé par deux clients du projet est ambigu :** aucun code n'est envoyé.
 > Un client effacé non plus.
 
+### Depuis la console — le lien que l'opérateur copie
+
+Le geste d'ouvrir un espace n'appartient pas à l'application seule : l'opérateur
+de la console doit pouvoir donner un accès à un client, même quand le projet
+n'a pas d'application cliente.
+
+`POST /admin/projects/{projectId}/customers/{externalRef}/portal-session`
+(`admin.projects.customers.portal-session`) — un geste d'opérateur, sur la
+fiche du client. La console passe par le **contrat publié** du module
+(`Core\Portal\Contracts\OpenPortalSession`), exactement comme le serveur d'une
+application : il n'y a pas un second chemin d'ouverture.
+
+La réponse **rend la fiche du client avec le lien** :
+
+| Ce que la console rend | Pourquoi |
+|---|---|
+| le champ **« Lien à copier »**, en lecture seule | la console n'a pas de JavaScript (ADR-0104) : un champ se copie partout, un bouton « copier » ne ferait rien |
+| l'adresse en clair sous le champ | elle doit pouvoir être recopiée même quand le champ est tronqué à l'écran |
+| la date d'expiration | le lien **expire au bout de 10 minutes** |
+| le rappel qu'il est à usage unique | un seul client peut l'utiliser |
+
+**Le lien est un secret** (ADR-0083 §4) : il vit dans **cette** réponse et
+n'est jamais mis dans le store de session, où il survivrait à la réponse qui le
+porte (ADR-0081 S-07). Le journal d'audit garde **l'acte** —
+`portal.session.opened`, avec le projet et le client — **jamais le lien**.
+
+Quand le projet a activé la connexion par code, la même fiche montre
+l'adresse `/portal/{projectId}/login` et **la session d'envoi du code**, en
+disant si c'est celle du projet ou une session de la plateforme que tous les
+projets peuvent utiliser (ADR-0057). L'opérateur n'a pas à savoir que
+« globale » existe : l'écran lui dit ce qui va se passer.
+
 ---
 
 ## 2. Le tableau de bord

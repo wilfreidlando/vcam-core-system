@@ -285,6 +285,10 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
             // aucune écriture d'argent depuis cet écran.
             Route::get('{projectId}/receivables', [App\Http\Controllers\Admin\BillingReceivablesController::class, 'index'])->name('projects.receivables.index');
             Route::get('{projectId}/ledger', [App\Http\Controllers\Admin\ProjectLedgerController::class, 'show'])->name('projects.ledger');
+            // Les comptes du projet : ce que la comptabilité compte, un par
+            // compte — les comptes système du projet et les portefeuilles
+            // de ses clients, distingués (ADR-0076).
+            Route::get('{projectId}/ledger/accounts', [App\Http\Controllers\Admin\ProjectLedgerAccountsController::class, 'index'])->name('projects.ledger.accounts');
 
             // ADR-0088 §3 / ADR-0101 — « Export des données » of a project: ask for it,
             // list the past ones, download one through a signed link made at the click.
@@ -315,6 +319,10 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
                 // the other sensitive gestures of the console.
                 Route::match(['get', 'post'], 'import', [App\Http\Controllers\Admin\BillingCustomerImportController::class, 'handle'])
                     ->name('projects.customers.import')->middleware(['throttle:console-sensitive']);
+                // Le modèle du fichier : l'en-tête exact que le lecteur
+                // attend, téléchargeable tel quel (ADR-0122 §9).
+                Route::get('import/template', [App\Http\Controllers\Admin\BillingCustomerImportTemplateController::class, 'show'])
+                    ->name('projects.customers.import.template');
 
                 // The reference is format-checked in the route (the
                 // column carries the same CHECK constraint): a
@@ -332,6 +340,11 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
                 Route::post('{externalRef}/subscribe', [App\Http\Controllers\Admin\CustomerOverviewController::class, 'subscribe'])
                     ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
                     ->name('projects.customers.subscribe.web');
+                // ADR-0075 — l'espace du client : la console ouvre une
+                // session et rend le lien à copier (ADR-0125).
+                Route::post('{externalRef}/portal-session', [App\Http\Controllers\Admin\BillingCustomerPortalController::class, 'open'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.portal-session')->middleware(['throttle:console-sensitive']);
                 Route::get('{externalRef}/edit', [App\Http\Controllers\Admin\BillingCustomersController::class, 'edit'])
                     ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
                     ->name('projects.customers.edit');
@@ -424,6 +437,10 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
                 Route::get('{invoiceId}', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'show'])
                     ->whereUuid('invoiceId')
                     ->name('projects.invoices.show');
+                // ADR-0073 §5 — la facture imprimable, avec son en-tête :
+                // l'opérateur l'imprime depuis son navigateur.
+                Route::get('{invoiceId}/document', [App\Http\Controllers\Admin\BillingInvoiceDocumentController::class, 'show'])
+                    ->name('projects.invoices.document');
                 Route::post('{invoiceId}/issue', [App\Http\Controllers\Admin\BillingInvoicesController::class, 'issue'])
                     ->whereUuid('invoiceId')
                     ->name('projects.invoices.issue.web')->middleware(['operator.step_up', 'throttle:console-sensitive']);

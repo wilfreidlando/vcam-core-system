@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Concerns\HandlesBillingRefusals;
 use App\Http\Controllers\Admin\Concerns\ResolvesScopedProject;
+use App\Http\View\PortalDirectLogin;
 use Core\Audit\Contracts\AuditEntry;
 use Core\Audit\Contracts\AuditLogger;
 use Core\Billing\Contracts\CreateSubscription;
@@ -64,6 +65,7 @@ final class CustomerOverviewController
         private readonly CreateSubscription $createSubscription,
         private readonly AuditLogger $audit,
         private readonly Clock $clock,
+        private readonly PortalDirectLogin $directLogin,
     ) {}
 
     public function show(OperatorContext $operator, string $projectId, string $externalRef): Response
@@ -121,6 +123,11 @@ final class CustomerOverviewController
                 : null,
             'plans' => $canSubscribe ? $this->plans->list(new ListPlansCommand($projectId, 'active', null, 100), $scope)->items : [],
             'canSubscribe' => $canSubscribe,
+            // ADR-0125 §4 — the login by code of the project, on the
+            // sheet itself: the operator reads the address the customer
+            // is given, and the session the code leaves through, before
+            // he gives anything to anybody.
+            'portalDirectLogin' => $this->directLogin->for($projectId, $scope),
         ]);
     }
 

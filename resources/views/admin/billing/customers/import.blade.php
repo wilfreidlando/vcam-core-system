@@ -35,6 +35,28 @@
     </div>
 
     <div class="max-w-2xl rounded-lg border border-slate-200 bg-white p-6">
+        <h2 class="text-base font-semibold text-slate-900">Le modèle du fichier</h2>
+        <p class="mt-1 text-sm text-slate-700">
+            Le fichier doit porter quatre colonnes, dans cet ordre. Téléchargez le modèle : il porte
+            l'en-tête et une ligne d'exemple, et il s'importe tel quel.
+        </p>
+
+        <dl class="mt-4 space-y-3">
+            @foreach (\App\Http\View\CustomerImportTemplate::columns() as $column)
+                <div>
+                    <dt class="text-sm font-medium text-slate-900">{{ $column['label'] }}</dt>
+                    <dd class="text-sm text-slate-700">{{ $column['explanation'] }}</dd>
+                </div>
+            @endforeach
+        </dl>
+
+        <a href="{{ route('admin.projects.customers.import.template', $projectId) }}"
+           class="mt-5 inline-block rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Télécharger le modèle
+        </a>
+    </div>
+
+    <div class="max-w-2xl rounded-lg border border-slate-200 bg-white p-6">
         <form method="POST"
               action="{{ route('admin.projects.customers.import', $projectId) }}"
               enctype="multipart/form-data"
@@ -42,7 +64,7 @@
             @csrf
 
             <x-admin.field name="file" type="custom" label="Fichier à importer" required
-                           hint="Un fichier CSV dont l'en-tête est : external_ref, display_name, email, phone.">
+                           hint="Un fichier CSV (virgule comme séparateur, encodage UTF-8) dont la première ligne est l'en-tête du modèle.">
                 <input type="file" id="field-file" name="file" accept=".csv,text/csv" required
                        class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm"
                        @if ($errors->has('file')) aria-invalid="true" @endif
