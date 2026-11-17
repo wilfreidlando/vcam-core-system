@@ -87,7 +87,22 @@ $projetDuClient = Illuminate\Support\Facades\DB::table('customers')
     ->value('project_id');
 
 if (is_string($projetDuClient)) {
-    app(OpenPortalSessionUseCase::class)->open(new OpenPortalSessionCommand($projetDuClient, 'ae0000', planCode: 'pro', trialDays: 14));
+    // The contract is only created when the client has **no live contract
+    // at all**. The Core allows one live contract per plan (ADR-0072 §1):
+    // asking for 'pro' again would not find one and would stack a second
+    // contract on top of an existing one — and the client's space would
+    // then show two subscriptions. The guard is therefore taken on **all**
+    // the plans, not on the plan of the script.
+    $dejaAbonne = Illuminate\Support\Facades\DB::table('subscriptions')
+        ->join('customers', 'customers.id', '=', 'subscriptions.customer_id')
+        ->where('customers.project_id', $projetDuClient)
+        ->where('customers.external_ref', 'ae0000')
+        ->whereIn('subscriptions.status', ['incomplete', 'trialing', 'active', 'past_due', 'paused'])
+        ->exists();
+
+    if (! $dejaAbonne) {
+        app(OpenPortalSessionUseCase::class)->open(new OpenPortalSessionCommand($projetDuClient, 'ae0000', planCode: 'pro', trialDays: 14));
+    }
 
     // ADR-0074 §5 — the project declares which capability of the Core
     // feeds which meter. Without the declaration, the WhatsApp messages
