@@ -9,6 +9,7 @@ use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\PaymentStatusMapper;
 use Core\Payment\Domain\Model\PaymentTimelineEntryType;
+use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\PaymentCallbackAuthenticator;
 use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
@@ -37,9 +38,12 @@ use Psr\Log\LoggerInterface;
  * ALL required before anything else is even considered — see
  * `MyCoolPayCallbackAuthenticator` and `ProviderApplicationRepository`:
  *  1. The request's source IP must be MyCoolPay's server.
- *  2. The payload's `application` (public key) must resolve to a
- *     registered `ProviderApplication` — an unrecognised application has
- *     no private key to verify against and is rejected outright.
+ *  2. The payload's `application` (public key) must resolve to at least
+ *     one registered `ProviderApplication` — an unrecognised application
+ *     has no private key to verify against and is rejected outright.
+ *     Since ADR-0126 the same key may serve several projects, so the
+ *     candidates are bound to the project of the payment the callback
+ *     names: only that project's key may authenticate the callback.
  *  3. The payload's `signature` must match
  *     `md5(transaction_ref+transaction_type+transaction_amount+
  *     transaction_currency+transaction_operator+private_key)`, using
@@ -175,8 +179,8 @@ final class MyCoolPayWebhookController
             return 'champ application absent';
         }
 
-        $application = $this->applications->findByProviderAndPublicKey('my-coolpay', $publicKey);
-        if ($application === null) {
+        $candidates = $this->applications->findAllByProviderAndPublicKey('my-coolpay', $publicKey);
+        if ($candidates === []) {
             // No fallback to a shared/default key — an application we
             // don't recognise has no basis to be trusted.
             $this->logger->error('my-coolpay.webhook.unknown_application', [
@@ -186,15 +190,56 @@ final class MyCoolPayWebhookController
             return 'application MyCoolPay inconnue';
         }
 
-        if (! $this->authenticator->hasValidSignature($body, $application->privateKey)) {
-            $this->logger->error('my-coolpay.webhook.invalid_signature', [
-                'transaction_ref' => $body['transaction_ref'] ?? null,
-            ]);
-
-            return 'signature invalide';
+        // ADR-0126 — the public key may be shared by several projects:
+        // the payment the callback names is what says which project it
+        // is about, and only that project's key may authenticate it.
+        foreach ($this->candidatesForThePayment($candidates, $body) as $candidate) {
+            if ($this->authenticator->hasValidSignature($body, $candidate->privateKey)) {
+                return null;
+            }
         }
 
-        return null;
+        $this->logger->error('my-coolpay.webhook.invalid_signature', [
+            'transaction_ref' => $body['transaction_ref'] ?? null,
+        ]);
+
+        return 'signature invalide';
+    }
+
+    /**
+     * ADR-0126 — a public key may serve several projects, so it is no
+     * longer a routing key on its own: the **payment** the callback
+     * names decides which project the callback is about. The candidates
+     * are bound to that project before the signature is checked, so a
+     * key held by another tenant can never settle this tenant's payment.
+     *
+     * @param list<ProviderApplication> $candidates
+     * @param array<string, mixed> $body
+     * @return list<ProviderApplication>
+     */
+    private function candidatesForThePayment(array $candidates, array $body): array
+    {
+        $transactionRef = self::stringField($body, 'transaction_ref');
+        if ($transactionRef === '') {
+            return $candidates;
+        }
+
+        $payment = $this->payments->findByProviderTransactionRef('my-coolpay', $transactionRef);
+        if ($payment === null) {
+            // The Core never initiated this transaction — nothing will be
+            // applied to any project (the handler ignores it), so every
+            // candidate may try to authenticate it.
+            return $candidates;
+        }
+
+        $bound = [];
+        foreach ($candidates as $candidate) {
+            if ($candidate->projectId === $payment->projectId) {
+                $bound[] = $candidate;
+            }
+        }
+
+        return $bound;
     }
 
     /**

@@ -480,10 +480,12 @@ final class AdminWebFlowTest extends TestCase
     }
 
     #[Test]
-    public function reusing_a_public_key_of_another_project_gives_a_clear_message_not_a_sql_error(): void
+    public function reusing_a_public_key_of_another_project_is_allowed_and_never_shows_a_sql_error(): void
     {
-        // The reported bug: editing an application answered with the raw
-        // PostgreSQL "duplicate key" message.
+        // ADR-0126 — the same key pair may serve several projects: a
+        // platform that collects for several entities with one merchant
+        // account registers it for each of them. The reported bug — the
+        // raw PostgreSQL "duplicate key" message — must stay dead.
         $this->withoutMiddleware(PreventRequestForgery::class);
         $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
 
@@ -500,7 +502,12 @@ final class AdminWebFlowTest extends TestCase
                 'provider' => 'my-coolpay', 'public_key' => 'shared-pub', 'private_key' => 's2',
             ])
             ->assertRedirect("/admin/projects/{$other->id}/provider-applications/create")
-            ->assertSessionHasErrors(['public_key' => 'Cette clé publique est déjà utilisée par le projet « Projet Propriétaire ». Une application my-coolpay ne peut servir qu\'un seul projet : c\'est elle qui permet au Core d\'attribuer chaque callback au bon projet. Créez une application distincte chez le provider, ou modifiez celle du projet « Projet Propriétaire ».']);
+            ->assertSessionHasNoErrors();
+
+        $stored = app(\Core\Payment\Domain\Port\ProviderApplicationRepository::class)
+            ->findByProjectAndProvider($other->id, 'my-coolpay');
+        self::assertNotNull($stored);
+        self::assertSame('shared-pub', $stored->publicKey);
 
         $page = $this->get("/admin/projects/{$other->id}/provider-applications/create");
         $page->assertDontSee('duplicate key')->assertDontSee('SQLSTATE');

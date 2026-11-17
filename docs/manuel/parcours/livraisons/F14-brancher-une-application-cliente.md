@@ -116,6 +116,11 @@ puis cliquez sur **« Enregistrer l'application »**.
 La clé privée n’est jamais réaffichée : gardez-la dans votre gestionnaire de
 mots de passe.
 
+La même clé publique peut être enregistrée pour plusieurs projets : c’est le
+cas quand la plateforme encaisse pour plusieurs entités avec un seul compte
+chez le service qui encaisse. Chaque retour du prestataire est alors rattaché
+au projet du paiement qu’il annonce, jamais à la clé seule.
+
 → **Ce qui se passe** : l’application est enregistrée et apparaît dans le
 tableau **« Applications enregistrées »**. Les paiements du projet passent
 désormais par ce compte.

@@ -9,9 +9,12 @@ use DateTimeImmutable;
 /**
  * A Project's own credentials at a payment provider — e.g. one MyCoolPay
  * "application" (public + private key pair). One per (project, provider)
- * (ADR-0066). The public key also routes inbound callbacks back to their
- * project, so a given public key belongs to exactly one project across the
- * whole Core.
+ * (ADR-0066).
+ *
+ * The public key is no longer unique across the Core (ADR-0126): the same
+ * key pair may serve several projects. It no longer routes an inbound
+ * callback on its own — the payment the callback names does, and the
+ * callback is verified against the key of that payment's project.
  *
  * `privateKey` is plaintext in memory only — encrypted at rest by the
  * Infrastructure adapter, never shown back once registered.

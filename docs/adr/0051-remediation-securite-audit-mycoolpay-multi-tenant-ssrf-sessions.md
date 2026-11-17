@@ -1,6 +1,6 @@
 # ADR-0051 — Revue de sécurité complète et correctifs : authenticité webhook MyCoolPay, applications multi-tenant, anti-SSRF, isolation des sessions WhatsApp, propriété des wallets
 
-- **Statut** : Accepté
+- **Statut** : Accepté — amendé par ADR-0126 (le caractère unique de `public_key`)
 - **Date** : 2026-09-20
 - **Décideurs** : décision de l'utilisateur, suite à une revue de sécurité multi-agents demandée explicitement
 - **Dérives concernées** : aucune (correctifs de sécurité, pas de nouvelle capacité métier hors périmètre)

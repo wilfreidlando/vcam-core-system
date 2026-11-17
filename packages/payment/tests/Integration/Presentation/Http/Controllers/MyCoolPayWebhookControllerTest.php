@@ -7,11 +7,14 @@ namespace Core\Payment\Tests\Integration\Presentation\Http\Controllers;
 use Core\Payment\Contracts\Events\PaymentStatusChanged;
 use Core\Payment\Contracts\PaymentStatusChangeHandler;
 use Core\Payment\Contracts\PaymentStatusMapper;
+use Core\Payment\Domain\Model\Payment;
 use Core\Payment\Domain\Model\ProviderApplication;
+use Core\Payment\Domain\Port\PaymentRepository;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Payment\Infrastructure\Provider\MyCoolPay\MyCoolPayCallbackAuthenticator;
 use Core\Payment\PaymentStatus;
 use Core\Payment\Presentation\Http\Controllers\MyCoolPayWebhookController;
+use Core\Payment\Tests\Unit\Fakes\InMemoryPaymentRepository;
 use Core\Payment\Tests\Unit\Fakes\InMemoryProviderApplicationRepository;
 use Core\Support\Clock;
 use Core\Support\Integration\Provider\ProviderCode;
@@ -43,6 +46,11 @@ use Tests\TestCase;
 final class MyCoolPayWebhookControllerTest extends TestCase
 {
     private const PRIVATE_KEY = 'sk';
+
+    /** The two tenants that share the same public key (ADR-0126). */
+    private const PROJECT_ONE = '22222222-2222-7222-8222-222222222222';
+
+    private const PROJECT_TWO = '33333333-3333-7333-8333-333333333333';
 
     private FakePaymentStatusChangeHandler $handler;
 
@@ -364,7 +372,7 @@ final class MyCoolPayWebhookControllerTest extends TestCase
             applications: $this->makeApplications(),
             authenticator: new MyCoolPayCallbackAuthenticator(['203.0.113.5']), // not the test client's IP
             logger: new NullLogger,
-            payments: app(\Core\Payment\Domain\Port\PaymentRepository::class),
+            payments: app(PaymentRepository::class),
             journey: app(\Core\Payment\Application\Service\PaymentJourney::class),
             redactor: app(\Core\Support\Integration\Redaction\PayloadRedactor::class),
         );
@@ -400,7 +408,7 @@ final class MyCoolPayWebhookControllerTest extends TestCase
             applications: $this->makeApplications(),
             authenticator: new MyCoolPayCallbackAuthenticator([]),
             logger: new NullLogger,
-            payments: app(\Core\Payment\Domain\Port\PaymentRepository::class),
+            payments: app(PaymentRepository::class),
             journey: app(\Core\Payment\Application\Service\PaymentJourney::class),
             redactor: app(\Core\Support\Integration\Redaction\PayloadRedactor::class),
         );
@@ -423,6 +431,53 @@ final class MyCoolPayWebhookControllerTest extends TestCase
         self::assertCount(0, $this->handler->handled);
     }
 
+    #[Test]
+    public function a_callback_on_a_shared_key_is_bound_to_the_project_of_its_payment(): void
+    {
+        // ADR-0126 — the same public key may serve two projects. The
+        // callback names a transaction: the payment says which project it
+        // belongs to, and only that project's key may authenticate it.
+        $controller = $this->sharedKeyController($this->paymentsWithOnePayment());
+
+        // Signed with project-2's key, but the transaction is project-1's.
+        $body = self::signedBody([
+            'application' => 'pub-shared',
+            'transaction_ref' => 'tx-abc',
+            'transaction_type' => 'PAYIN',
+            'transaction_amount' => 1000,
+            'transaction_currency' => 'XAF',
+            'transaction_operator' => 'CM_OM',
+            'transaction_status' => 'SUCCESS',
+        ], 'sk-project-2');
+
+        $response = $controller($this->webhookRequest($body));
+
+        self::assertSame(403, $response->getStatusCode());
+        self::assertCount(0, $this->handler->handled);
+    }
+
+    #[Test]
+    public function a_callback_on_a_shared_key_is_accepted_for_its_own_project(): void
+    {
+        $controller = $this->sharedKeyController($this->paymentsWithOnePayment());
+
+        $body = self::signedBody([
+            'application' => 'pub-shared',
+            'transaction_ref' => 'tx-abc',
+            'transaction_type' => 'PAYIN',
+            'transaction_amount' => 1000,
+            'transaction_currency' => 'XAF',
+            'transaction_operator' => 'CM_OM',
+            'transaction_status' => 'SUCCESS',
+        ], 'sk-project-1');
+
+        $response = $controller($this->webhookRequest($body));
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertCount(1, $this->handler->handled);
+        self::assertSame('tx-abc', $this->handler->handled[0]->transactionRef);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -440,10 +495,52 @@ final class MyCoolPayWebhookControllerTest extends TestCase
             // not IP trust, which has its own dedicated test above.
             authenticator: new MyCoolPayCallbackAuthenticator([]),
             logger: new NullLogger,
-            payments: app(\Core\Payment\Domain\Port\PaymentRepository::class),
+            payments: app(PaymentRepository::class),
             journey: app(\Core\Payment\Application\Service\PaymentJourney::class),
             redactor: app(\Core\Support\Integration\Redaction\PayloadRedactor::class),
         );
+    }
+
+    private function sharedKeyController(PaymentRepository $payments): MyCoolPayWebhookController
+    {
+        return new MyCoolPayWebhookController(
+            statusChangeHandler: $this->handler,
+            statusMapper: $this->getStatusMapper(),
+            clock: $this->getClock(),
+            applications: new InMemoryProviderApplicationRepository([
+                new ProviderApplication(projectId: self::PROJECT_ONE, providerCode: 'my-coolpay', publicKey: 'pub-shared', privateKey: 'sk-project-1'),
+                new ProviderApplication(projectId: self::PROJECT_TWO, providerCode: 'my-coolpay', publicKey: 'pub-shared', privateKey: 'sk-project-2'),
+            ]),
+            authenticator: new MyCoolPayCallbackAuthenticator([]),
+            logger: new NullLogger,
+            payments: $payments,
+            journey: app(\Core\Payment\Application\Service\PaymentJourney::class),
+            redactor: app(\Core\Support\Integration\Redaction\PayloadRedactor::class),
+        );
+    }
+
+    private function paymentsWithOnePayment(): PaymentRepository
+    {
+        $payments = new InMemoryPaymentRepository;
+        $payments->create(new Payment(
+            id: '11111111-1111-7111-8111-111111111111',
+            projectId: self::PROJECT_ONE,
+            channel: 'card',
+            providerCode: 'my-coolpay',
+            idempotencyKey: 'idem-1',
+            providerTransactionRef: 'tx-abc',
+            amount: 1000,
+            currency: 'XAF',
+            status: PaymentStatus::Pending,
+            requiresAction: false,
+            actionHint: null,
+            paymentUrl: null,
+            errorMessage: null,
+            returnUrl: null,
+            walletRecipientExternalRef: null,
+        ));
+
+        return $payments;
     }
 
     private function makeApplications(): ProviderApplicationRepository
