@@ -32,29 +32,45 @@
     {{-- ADR-0125 — l'espace du client : le lien que l'opérateur copie, et
          la connexion par code quand le projet l'a activée (ADR-0100).
          Le lien est un secret : il n'apparaît que dans la réponse qui
-         l'ouvre, jamais dans une session (ADR-0081 S-07). --}}
+         l'ouvre, jamais dans une session (ADR-0081 S-07).
+         ADR-0111 — deux gestes, deux liens : celui du client (il gère son
+         abonnement) et celui de l'opérateur (il regarde, sans rien
+         pouvoir changer). --}}
     <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
         <h2 class="text-base font-semibold text-slate-900">Espace du client</h2>
 
         @if ($portalLink ?? null)
             <p class="text-sm text-slate-700">
-                Ce lien ouvre l'espace du client. Il est à usage unique et expire le {{ $portalLink['expires_label'] }}.
+                @if (($portalLink['flow'] ?? 'manage') === 'read')
+                    Ce lien ouvre l'espace du client en lecture seule : vous voyez ce que voit votre client, vous ne pouvez rien y changer. Il est à usage unique et expire le {{ $portalLink['expires_label'] }}.
+                @else
+                    Ce lien ouvre l'espace du client. Il est à usage unique et expire le {{ $portalLink['expires_label'] }}.
+                @endif
             </p>
 
             <x-admin.field name="portal_link" label="Lien à copier" type="text" :value="$portalLink['url']" readonly class="font-mono text-sm" />
 
             <p class="text-sm text-slate-600">Adresse en clair : <span class="font-mono break-all">{{ $portalLink['url'] }}</span></p>
-        @else
-            <p class="text-sm text-slate-700">
-                Ouvrez l'espace du client pour obtenir un lien à donner à votre client : le lien sera à usage unique.
-            </p>
+        @endif
 
-            @if (app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('customers:read')->allowsProject($projectId))
+        @if (app(\Core\Identity\Contracts\OperatorContext::class)->scopeFor('customers:read')->allowsProject($projectId))
+            @unless ($portalLink ?? null)
+                <p class="text-sm text-slate-700">
+                    Ouvrez l'espace du client pour obtenir un lien à donner à votre client : le lien sera à usage unique.
+                </p>
+            @endunless
+
+            <div class="flex flex-wrap items-center gap-3">
                 <form method="POST" action="{{ route('admin.projects.customers.portal-session', [$projectId, $customer->externalRef]) }}">
                     @csrf
                     <button type="submit" class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">Ouvrir l'espace du client</button>
                 </form>
-            @endif
+
+                <form method="POST" action="{{ route('admin.projects.customers.portal-session.read', [$projectId, $customer->externalRef]) }}">
+                    @csrf
+                    <button type="submit" class="rounded-md border border-indigo-700 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">Consulter l'espace du client (lecture seule)</button>
+                </form>
+            </div>
         @endif
 
         @if ($portalDirectLogin ?? null)

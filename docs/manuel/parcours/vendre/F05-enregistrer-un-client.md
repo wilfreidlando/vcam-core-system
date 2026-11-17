@@ -96,14 +96,24 @@ aussi là que vous souscrivez une offre, avec le bouton **« Créer l’abonneme
 
 ### 6. Ouvrir l'espace du client
 
-Sur la même fiche, le bloc **« Espace du client »** propose le bouton
-**« Ouvrir l'espace du client »**. Cliquez dessus.
+Sur la même fiche, le bloc **« Espace du client »** propose deux gestes.
+
+**« Ouvrir l'espace du client »** — c'est le lien que vous **donnez à votre
+client** : il y gère son abonnement.
+
+**« Consulter l'espace du client (lecture seule) »** — c'est pour **vous** :
+vous voyez exactement ce que voit votre client, et vous ne pouvez rien y
+changer.
+
+Cliquez sur celui dont vous avez besoin.
 
 → **Ce qui se passe** : la page revient sur la fiche du client, et le lien
 s'affiche dans le champ **« Lien à copier »** — l'adresse en clair est écrite
 juste dessous. Le lien **ne marche qu'une fois** et il **expire** : la date est
-écrite à côté. Copiez-le et donnez-le à votre client, par le canal que vous
-voulez : c'est vous qui l'envoyez, pas le Core.
+écrite à côté. Pour le lien de gestion, copiez-le et donnez-le à votre client,
+par le canal que vous voulez : c'est vous qui l'envoyez, pas le Core. Pour le
+lien de consultation, ouvrez-le vous-même : votre client ne pourra rien y
+changer.
 
 Quand le projet a proposé la **« Connexion par code »**, le même bloc montre
 l'adresse que votre client peut ouvrir seul, et **la session d'envoi du code**
@@ -126,7 +136,8 @@ peuvent utiliser. Vous n'avez pas à savoir laquelle : le bloc vous le dit.
 | Un champ qui porte le nom d’une clé annoncée | Ce champ vient de l’application : c’est une valeur **de votre projet**, que le Core recueille et garde. |
 | **« Droits et usage »** | Ce à quoi le client a droit aujourd’hui, et combien il a déjà consommé de chaque quota. |
 | **« Espace du client »** | Le bloc qui ouvre l’espace du client : c’est là que le lien à copier apparaît. |
-| **« Ouvrir l'espace du client »** | Ouvre une session et rend un **lien à usage unique** : il marche une fois, puis il expire. |
+| **« Ouvrir l'espace du client »** | Ouvre une session et rend un **lien à usage unique** : il marche une fois, puis il expire. Ce lien est celui que vous donnez à votre client. |
+| **« Consulter l'espace du client (lecture seule) »** | Ouvre le même espace, mais en **lecture seule** : votre client voit la même chose, et aucun geste de changement n'y est possible — ni changer d'offre, ni annuler, ni payer. Ce lien est pour vous. |
 | **« Lien à copier »** | Le lien lui-même. Copiez-le et donnez-le à votre client : le Core ne l’envoie pas à sa place. |
 | **« Connexion par code »** | Quand le projet l’a proposée : l’adresse que le client peut ouvrir seul, et la session d’envoi du code. |
 | **« Règlements »** | Tout ce que le client a réglé, dans l’ordre : les paiements en ligne et les reçus hors ligne. |

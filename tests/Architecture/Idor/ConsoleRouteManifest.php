@@ -151,6 +151,11 @@ final class ConsoleRouteManifest
             // another project, the customer's reference is not found and
             // the operator keeps their place.
             Entry::isolated('admin.projects.customers.portal-session', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect, control: true),
+            // ADR-0111 — the same gesture, in read only: the operator
+            // opens the customer's space to **see** it. It is a gesture
+            // too (it opens a session, it is audited) — under another
+            // project, the customer's reference is not found.
+            Entry::isolated('admin.projects.customers.portal-session.read', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect, control: true),
             Entry::isolated('admin.projects.customers.edit', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFound),
             Entry::isolated('admin.projects.customers.update.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),
             Entry::isolated('admin.projects.customers.suspend.web', Nature::Customer, Outcome::NotFound, ownParent: Outcome::NotFoundRedirect),

@@ -149,6 +149,89 @@ final class CustomerPortalSpaceConsoleTest extends TestCase
     }
 
     #[Test]
+    public function the_sheet_offers_the_read_only_gesture(): void
+    {
+        $project = $this->project();
+        $this->customer($project, 'CLIENT-1');
+        $this->signInToConsole();
+
+        $this->get("/admin/projects/{$project}/customers/CLIENT-1")
+            ->assertOk()
+            ->assertSee('Consulter l\'espace du client (lecture seule)', false);
+    }
+
+    #[Test]
+    public function the_read_gesture_opens_a_read_only_session(): void
+    {
+        $project = $this->project();
+        $this->customer($project, 'CLIENT-1');
+        $this->signInToConsole();
+
+        $response = $this->post("/admin/projects/{$project}/customers/CLIENT-1/portal-session/read");
+
+        $response->assertOk();
+        $response->assertSee('en lecture seule');
+        $response->assertSee('/portal/enter/');
+
+        // The session says what it is: the module's own column, not a
+        // guess (ADR-0111 §3).
+        $session = DB::table('portal_sessions')->first();
+        self::assertNotNull($session);
+        self::assertSame('read', $session->flow);
+        self::assertSame($project, $session->project_id);
+        self::assertSame('CLIENT-1', $session->customer_ref);
+    }
+
+    #[Test]
+    public function the_read_gesture_is_audited_with_its_flow(): void
+    {
+        $project = $this->project();
+        $this->customer($project, 'CLIENT-1');
+        $this->signInToConsole();
+
+        $this->post("/admin/projects/{$project}/customers/CLIENT-1/portal-session/read");
+
+        // The console's own entry: the operator, the customer, the flow.
+        $entry = DB::table('audit_log')->where('action', 'portal.session.opened')->orderByDesc('id')->first();
+        self::assertNotNull($entry);
+        $context = json_decode($this->text($entry->context), true);
+        self::assertIsArray($context);
+        self::assertSame('read', $context['flow'] ?? null);
+        self::assertStringStartsWith('operator:', $this->text($entry->actor));
+
+        // And the module's entry (ADR-0111 §4).
+        $opened = DB::table('audit_log')->where('action', 'portal.session_opened')->orderByDesc('id')->first();
+        self::assertNotNull($opened);
+        $openedContext = json_decode($this->text($opened->context), true);
+        self::assertIsArray($openedContext);
+        self::assertSame('read', $openedContext['flow'] ?? null);
+    }
+
+    #[Test]
+    public function the_read_only_space_shows_the_client_space_and_no_gesture(): void
+    {
+        $project = $this->project();
+        $this->customer($project, 'CLIENT-1');
+        $this->signInToConsole();
+
+        $response = $this->post("/admin/projects/{$project}/customers/CLIENT-1/portal-session/read");
+        $link = $this->linkIn($this->html($response));
+
+        // The operator opens the link: he lands on the client's space.
+        $entered = $this->get((string) parse_url($link, PHP_URL_PATH));
+        $cookie = collect($entered->headers->getCookies())->first(fn ($c): bool => $c->getName() === 'portal');
+        self::assertNotNull($cookie);
+
+        // It is a consultation: the space says so (ADR-0111).
+        $value = $cookie->getValue();
+        self::assertIsString($value);
+        $this->withUnencryptedCookie('portal', $value)
+            ->get('/portal')
+            ->assertOk()
+            ->assertSee('Consultation seule');
+    }
+
+    #[Test]
     public function a_customer_the_project_does_not_know_is_refused_in_french(): void
     {
         $project = $this->project();

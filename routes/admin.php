@@ -345,6 +345,12 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
                 Route::post('{externalRef}/portal-session', [App\Http\Controllers\Admin\BillingCustomerPortalController::class, 'open'])
                     ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
                     ->name('projects.customers.portal-session')->middleware(['throttle:console-sensitive']);
+                // ADR-0111 — l'opérateur qui veut **voir** ce que voit le
+                // client, sans rien pouvoir changer : la session « read »
+                // ouvre les mêmes pages et refuse tout geste mutateur.
+                Route::post('{externalRef}/portal-session/read', [App\Http\Controllers\Admin\BillingCustomerPortalController::class, 'read'])
+                    ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
+                    ->name('projects.customers.portal-session.read')->middleware(['throttle:console-sensitive']);
                 Route::get('{externalRef}/edit', [App\Http\Controllers\Admin\BillingCustomersController::class, 'edit'])
                     ->where('externalRef', '[A-Za-z0-9._:-]{1,128}')
                     ->name('projects.customers.edit');
