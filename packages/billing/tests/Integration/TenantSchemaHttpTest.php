@@ -115,6 +115,107 @@ final class TenantSchemaHttpTest extends TestCase
     }
 
     #[Test]
+    public function a_declared_source_must_name_the_key_of_its_field(): void
+    {
+        [$token, $projectId] = $this->project(['tenant_schema:write']);
+
+        $declaration = $this->declaration();
+        $declaration['fields'] = [[
+            'key' => 'localisation',
+            'label' => 'Localisation',
+            'type' => 'string',
+            'required' => false,
+            'max_length' => 120,
+            // ADR-0130 §2 — la source nomme la clé **du champ** : ici
+            // elle en nomme une autre.
+            'source' => 'declared.emplacement',
+        ]];
+
+        $this->putJson('/v1/projects/'.$projectId.'/tenant-schema', $declaration, $this->auth($token))
+            ->assertStatus(422)
+            ->assertJsonPath('type', fn (string $type): bool => str_ends_with($type, 'invalid-tenant-schema'));
+    }
+
+    #[Test]
+    public function an_identical_proposal_does_not_stack_a_version(): void
+    {
+        [$token, $projectId] = $this->project(['tenant_schema:write']);
+
+        $first = $this->putJson('/v1/projects/'.$projectId.'/tenant-schema', $this->declaration(), $this->auth($token))
+            ->assertCreated()
+            ->json();
+
+        self::assertIsArray($first);
+
+        // ADR-0130 §5 — la même forme, dite deux fois, n'est pas une
+        // version de plus : la réponse est `200` et porte la même
+        // déclaration.
+        $second = $this->putJson('/v1/projects/'.$projectId.'/tenant-schema', $this->declaration(), $this->auth($token))
+            ->assertOk()
+            ->json();
+
+        self::assertIsArray($second);
+        self::assertSame($first['id'], $second['id']);
+        self::assertSame(1, $second['version']);
+    }
+
+    #[Test]
+    public function the_project_reads_the_form_in_force(): void
+    {
+        [$token, $projectId] = $this->project(['tenant_schema:write', 'tenant_schema:read']);
+
+        $this->acceptTheDeclaration($projectId, $token);
+
+        // ADR-0130 §4 — la forme en vigueur, et la proposition en attente.
+        $this->getJson('/v1/projects/'.$projectId.'/tenant-schema', $this->auth($token))
+            ->assertOk()
+            ->assertJsonPath('accepted.status', 'accepted')
+            ->assertJsonPath('accepted.unique_key', 'code_etablissement')
+            ->assertJsonPath('accepted.fields.0.key', 'localisation')
+            ->assertJsonPath('pending', null);
+    }
+
+    #[Test]
+    public function the_pending_proposal_is_rendered_beside_the_form_in_force(): void
+    {
+        [$token, $projectId] = $this->project(['tenant_schema:write', 'tenant_schema:read']);
+
+        $this->acceptTheDeclaration($projectId, $token);
+
+        // A second, **different**, form: it waits for the operator.
+        $declaration = $this->declaration();
+        $declaration['fields'][0]['label'] = 'Emplacement';
+
+        $this->putJson('/v1/projects/'.$projectId.'/tenant-schema', $declaration, $this->auth($token))
+            ->assertCreated();
+
+        $this->getJson('/v1/projects/'.$projectId.'/tenant-schema', $this->auth($token))
+            ->assertOk()
+            ->assertJsonPath('accepted.version', 1)
+            ->assertJsonPath('pending.status', 'pending')
+            ->assertJsonPath('pending.version', 2);
+    }
+
+    #[Test]
+    public function the_scope_gates_the_read(): void
+    {
+        [$token, $projectId] = $this->project(['tenant_schema:write']);
+
+        $this->getJson('/v1/projects/'.$projectId.'/tenant-schema', $this->auth($token))
+            ->assertForbidden();
+    }
+
+    #[Test]
+    public function a_project_cannot_read_the_form_of_another_project(): void
+    {
+        [$token] = $this->project(['tenant_schema:read']);
+        [, $otherProjectId] = $this->project(['tenant_schema:read']);
+
+        $this->getJson('/v1/projects/'.$otherProjectId.'/tenant-schema', $this->auth($token))
+            ->assertStatus(404);
+    }
+
+    #[Test]
     public function the_customer_renders_its_declared_values(): void
     {
         [$token, $projectId] = $this->project(['customers:write', 'customers:read', 'tenant_schema:write']);
@@ -192,6 +293,9 @@ final class TenantSchemaHttpTest extends TestCase
 
     /**
      * @return array<string, mixed>
+     */
+    /**
+     * @return array{unique_key: string, unique_key_pattern: string, fields: list<array{key: string, label: string, type: string, required: bool, max_length: int, source: string}>}
      */
     private function declaration(): array
     {

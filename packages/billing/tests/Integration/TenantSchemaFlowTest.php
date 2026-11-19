@@ -97,9 +97,12 @@ final class TenantSchemaFlowTest extends TestCase
             correlationId: null,
         ));
 
-        // A second proposal is a second version — the form in force is
-        // still the first one until the operator reads the second.
-        $second = $this->propose();
+        // A second proposal — a **different** form — is a second version:
+        // the form in force is still the first one until the operator reads
+        // the second. (ADR-0130 §5 — a proposal *identical* to a known
+        // form is not a version at all: see
+        // `an_identical_proposal_does_not_stack_a_version`.)
+        $second = $this->propose(label: 'Emplacement');
         self::assertSame(2, $second->version);
 
         $beforeAcceptance = $this->accepted();
@@ -131,6 +134,53 @@ final class TenantSchemaFlowTest extends TestCase
                 ->where('status', 'superseded')
                 ->count(),
         );
+    }
+
+    #[Test]
+    public function an_identical_proposal_does_not_stack_a_version(): void
+    {
+        $first = $this->propose();
+
+        // ADR-0130 §5 — la même forme, dite deux fois, n'est pas une
+        // version de plus : les versions ne s'empilent pas sur la même
+        // forme.
+        $second = $this->propose();
+
+        self::assertSame($first->id, $second->id);
+        self::assertSame(1, $second->version);
+
+        self::assertSame(
+            1,
+            DB::table('project_tenant_schemas')
+                ->where('project_id', self::PROJECT)
+                ->count(),
+        );
+    }
+
+    #[Test]
+    public function a_declaration_may_not_name_another_key_in_its_declared_source(): void
+    {
+        // ADR-0130 §2 — la source `declared.<clé>` nomme la clé **du
+        // champ** : le Core stocke la valeur sous la clé du champ, et
+        // l'application la chercherait sous un autre nom — sans qu'aucune
+        // erreur ne le dise.
+        $this->expectException(InvalidTenantSchema::class);
+
+        app(ProposeTenantSchema::class)->propose(new ProposeTenantSchemaCommand(
+            projectId: self::PROJECT,
+            uniqueKey: 'code_etablissement',
+            uniqueKeyPattern: 'AE-[0-9]{4}',
+            fields: [[
+                'key' => 'localisation',
+                'label' => 'Localisation',
+                'type' => 'string',
+                'required' => false,
+                'max_length' => 120,
+                'source' => 'declared.emplacement',
+            ]],
+            actor: 'project:'.self::PROJECT,
+            correlationId: null,
+        ));
     }
 
     #[Test]
@@ -169,7 +219,7 @@ final class TenantSchemaFlowTest extends TestCase
             ]],
             actor: 'project:'.self::PROJECT,
             correlationId: null,
-        ));
+        ))->schema;
 
         self::assertSame('core_identity.email', $proposed->fields[0]->source);
     }
@@ -375,27 +425,31 @@ final class TenantSchemaFlowTest extends TestCase
 
     /**
      * A proposal, with the shape a driving school would declare.
+     *
+     * The label is a parameter because ADR-0130 §5 makes the **label** part
+     * of the identity of a form: two proposals that differ by it are two
+     * forms, two versions.
      */
-    private function propose(): TenantSchemaView
+    private function propose(?string $label = null): TenantSchemaView
     {
         return app(ProposeTenantSchema::class)->propose(new ProposeTenantSchemaCommand(
             projectId: self::PROJECT,
             uniqueKey: 'code_etablissement',
             uniqueKeyPattern: 'AE-[0-9]{4}',
-            fields: $this->fields(),
+            fields: $this->fields($label),
             actor: 'project:'.self::PROJECT,
             correlationId: null,
-        ));
+        ))->schema;
     }
 
     /**
      * @return list<array{key: string, label: string, type: string, required: bool, max_length: int|null, source: string}>
      */
-    private function fields(): array
+    private function fields(?string $label = null): array
     {
         return [[
             'key' => 'localisation',
-            'label' => 'Localisation',
+            'label' => $label ?? 'Localisation',
             'type' => 'string',
             'required' => true,
             'max_length' => 120,

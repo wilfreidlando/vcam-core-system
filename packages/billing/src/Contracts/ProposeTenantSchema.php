@@ -12,5 +12,9 @@ namespace Core\Billing\Contracts;
  */
 interface ProposeTenantSchema
 {
-    public function propose(ProposeTenantSchemaCommand $command): TenantSchemaView;
+    /**
+     * ADR-0130 §5 — la proposition **et** ce qu'elle a fait : une
+     * version créée, ou une forme déjà connue.
+     */
+    public function propose(ProposeTenantSchemaCommand $command): TenantSchemaProposal;
 }

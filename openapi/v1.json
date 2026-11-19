@@ -7,7 +7,7 @@
     },
     "servers": [
         {
-            "url": "http://localhost:8000/v1"
+            "url": "http://localhost:8010/v1"
         }
     ],
     "security": [
@@ -1529,7 +1529,7 @@
         "/projects/{projectId}/tenant-schema": {
             "put": {
                 "operationId": "projects.tenant-schema.propose",
-                "description": "Answers `201` with the proposed declaration: it waits for the\noperator to read it \u2014 only an accepted declaration is ever rendered\n(ADR-0122 \u00a72).\n\nRequires the `tenant_schema:write` scope. That scope describes a\n**form**, not a write on the commerce: the template of the \u00ab\nApplication cliente \u00bb carries it, and still carries no write scope\non the customers, the subscriptions or the invoices (ADR-0122 \u00a78).",
+                "description": "Answers `201` with the proposed declaration: it waits for the\noperator to read it \u2014 only an accepted declaration is ever rendered\n(ADR-0122 \u00a72).\n\nADR-0130 \u00a75 \u2014 answers `200` when the form is **already known**: the\nproposal is identical to a declaration the Core already holds, and\nnothing is written. The versions of a form do not pile up on\nthemselves.\n\nRequires the `tenant_schema:write` scope. That scope describes a\n**form**, not a write on the commerce: the template of the \u00ab\nApplication cliente \u00bb carries it, and still carries no write scope\non the customers, the subscriptions or the invoices (ADR-0122 \u00a78).",
                 "summary": "Propose the tenant form of the calling Project",
                 "tags": [
                     "Billing"
@@ -1555,93 +1555,12 @@
                     }
                 },
                 "responses": {
-                    "201": {
-                        "description": "The proposed declaration, waiting for the operator.",
+                    "200": {
+                        "description": "",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "id": {
-                                            "type": "string"
-                                        },
-                                        "project_id": {
-                                            "type": "string"
-                                        },
-                                        "version": {
-                                            "type": "integer"
-                                        },
-                                        "status": {
-                                            "type": "string"
-                                        },
-                                        "unique_key": {
-                                            "type": "string"
-                                        },
-                                        "unique_key_pattern": {
-                                            "type": "string"
-                                        },
-                                        "fields": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "key": {
-                                                        "type": "string"
-                                                    },
-                                                    "label": {
-                                                        "type": "string"
-                                                    },
-                                                    "type": {
-                                                        "type": "string"
-                                                    },
-                                                    "required": {
-                                                        "type": "boolean"
-                                                    },
-                                                    "max_length": {
-                                                        "type": [
-                                                            "integer",
-                                                            "null"
-                                                        ]
-                                                    },
-                                                    "source": {
-                                                        "type": "string"
-                                                    }
-                                                },
-                                                "required": [
-                                                    "key",
-                                                    "label",
-                                                    "type",
-                                                    "required",
-                                                    "max_length",
-                                                    "source"
-                                                ]
-                                            }
-                                        },
-                                        "accepted_at": {
-                                            "type": [
-                                                "string",
-                                                "null"
-                                            ]
-                                        },
-                                        "created_at": {
-                                            "type": "string"
-                                        },
-                                        "updated_at": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "id",
-                                        "project_id",
-                                        "version",
-                                        "status",
-                                        "unique_key",
-                                        "unique_key_pattern",
-                                        "fields",
-                                        "accepted_at",
-                                        "created_at",
-                                        "updated_at"
-                                    ]
+                                    "type": "string"
                                 }
                             }
                         }
@@ -1804,10 +1723,384 @@
                                 }
                             }
                         }
+                    },
+                    "201": {
+                        "description": "The proposed declaration, waiting for the operator.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "project_id": {
+                                            "type": "string"
+                                        },
+                                        "version": {
+                                            "type": "integer"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "unique_key": {
+                                            "type": "string"
+                                        },
+                                        "unique_key_pattern": {
+                                            "type": "string"
+                                        },
+                                        "fields": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "key": {
+                                                        "type": "string"
+                                                    },
+                                                    "label": {
+                                                        "type": "string"
+                                                    },
+                                                    "type": {
+                                                        "type": "string"
+                                                    },
+                                                    "required": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "max_length": {
+                                                        "type": [
+                                                            "integer",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "source": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "key",
+                                                    "label",
+                                                    "type",
+                                                    "required",
+                                                    "max_length",
+                                                    "source"
+                                                ]
+                                            }
+                                        },
+                                        "accepted_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "created_at": {
+                                            "type": "string"
+                                        },
+                                        "updated_at": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "project_id",
+                                        "version",
+                                        "status",
+                                        "unique_key",
+                                        "unique_key_pattern",
+                                        "fields",
+                                        "accepted_at",
+                                        "created_at",
+                                        "updated_at"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 },
                 "x-required-scopes": [
                     "tenant_schema:write"
+                ]
+            },
+            "get": {
+                "operationId": "projects.tenant-schema.read",
+                "description": "Answers `200` with the accepted declaration (`null` when the\nproject has none yet) and the pending proposal (`null` when there\nis none).\n\nRequires the `tenant_schema:read` scope \u2014 the same family as\n`tenant_schema:write`, and just as harmless: a form, never a\nvalue (ADR-0122 \u00a78).",
+                "summary": "Read the tenant form of the calling Project",
+                "tags": [
+                    "Billing"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The declaration in force, and the one waiting for the operator.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "accepted": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "project_id": {
+                                                    "type": "string"
+                                                },
+                                                "version": {
+                                                    "type": "integer"
+                                                },
+                                                "status": {
+                                                    "type": "string"
+                                                },
+                                                "unique_key": {
+                                                    "type": "string"
+                                                },
+                                                "unique_key_pattern": {
+                                                    "type": "string"
+                                                },
+                                                "fields": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "key": {
+                                                                "type": "string"
+                                                            },
+                                                            "label": {
+                                                                "type": "string"
+                                                            },
+                                                            "type": {
+                                                                "type": "string"
+                                                            },
+                                                            "required": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "max_length": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "source": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "key",
+                                                            "label",
+                                                            "type",
+                                                            "required",
+                                                            "max_length",
+                                                            "source"
+                                                        ]
+                                                    }
+                                                },
+                                                "accepted_at": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "created_at": {
+                                                    "type": "string"
+                                                },
+                                                "updated_at": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "id",
+                                                "project_id",
+                                                "version",
+                                                "status",
+                                                "unique_key",
+                                                "unique_key_pattern",
+                                                "fields",
+                                                "accepted_at",
+                                                "created_at",
+                                                "updated_at"
+                                            ]
+                                        },
+                                        "pending": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "project_id": {
+                                                    "type": "string"
+                                                },
+                                                "version": {
+                                                    "type": "integer"
+                                                },
+                                                "status": {
+                                                    "type": "string"
+                                                },
+                                                "unique_key": {
+                                                    "type": "string"
+                                                },
+                                                "unique_key_pattern": {
+                                                    "type": "string"
+                                                },
+                                                "fields": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "key": {
+                                                                "type": "string"
+                                                            },
+                                                            "label": {
+                                                                "type": "string"
+                                                            },
+                                                            "type": {
+                                                                "type": "string"
+                                                            },
+                                                            "required": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "max_length": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "source": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "key",
+                                                            "label",
+                                                            "type",
+                                                            "required",
+                                                            "max_length",
+                                                            "source"
+                                                        ]
+                                                    }
+                                                },
+                                                "accepted_at": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "created_at": {
+                                                    "type": "string"
+                                                },
+                                                "updated_at": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "id",
+                                                "project_id",
+                                                "version",
+                                                "status",
+                                                "unique_key",
+                                                "unique_key_pattern",
+                                                "fields",
+                                                "accepted_at",
+                                                "created_at",
+                                                "updated_at"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "accepted",
+                                        "pending"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/project-not-found"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Project not found"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 404
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "https://errors.core-system.internal/forbidden"
+                                        },
+                                        "title": {
+                                            "type": "string",
+                                            "const": "Forbidden"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "const": 403
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-required-scopes": [
+                    "tenant_schema:read"
                 ]
             }
         },
@@ -17569,7 +17862,7 @@
                 "properties": {
                     "unique_key": {
                         "type": "string",
-                        "description": "L'attribut que l'application d\u00e9signe : celui qui identifie un\nlocataire **chez elle**. C'est un nom technique, jamais une\nvaleur.",
+                        "description": "L'attribut que l'application d\u00e9signe : celui qui identifie un\nlocataire **chez elle**. C'est un nom technique, jamais une\nvaleur. ADR-0130 \u00a75 \u2014 le Core **n'en lit aucun usage** : il ne\nconna\u00eet pas le mod\u00e8le de l'application et ne relit jamais\ncette cl\u00e9. Elle est conserv\u00e9e, telle quelle, dans la\nd\u00e9claration \u2014 elle fait partie du contrat que l'application\na avec elle-m\u00eame, et l'op\u00e9rateur la relit. Ce qui fait foi\nau Core, c'est le **motif** : c'est lui qui v\u00e9rifie la\nr\u00e9f\u00e9rence.",
                         "pattern": "^[a-z][a-z0-9_]{0,63}$",
                         "examples": [
                             "code_etablissement"
@@ -17659,7 +17952,7 @@
                                 },
                                 "source": {
                                     "type": "string",
-                                    "description": "D'o\u00f9 vient la valeur. Deux familles : - `declared.<cl\u00e9>` : la valeur est celle que l'op\u00e9rateur saisit\n  pour cette cl\u00e9 ;\n- `core_identity.<champ>` : la valeur est celle de l'identit\u00e9 du\n  Core \u2014 l'application **demande** cette donn\u00e9e. Le champ est\n  alors remplac\u00e9 dans le formulaire par la cl\u00e9 d\u00e9clar\u00e9e :\n  l'op\u00e9rateur ne saisit jamais la m\u00eame valeur deux fois\n  (ADR-0122 \u00a75).\n\nLe domaine refuse une source du Core qui nommerait un champ\ninconnu.",
+                                    "description": "D'o\u00f9 vient la valeur. Deux familles : - `declared.<cl\u00e9>` : la valeur est celle que l'op\u00e9rateur saisit\n  pour cette cl\u00e9. ADR-0130 \u00a72 \u2014 le suffixe **nomme la cl\u00e9 du\n  champ** : `declared.localisation` sur le champ\n  `localisation`. Une source qui nommerait une autre cl\u00e9 est\n  refus\u00e9e (`422 invalid-tenant-schema`) : le Core stockerait la\n  valeur sous la cl\u00e9 du champ, et l'application la chercherait\n  ailleurs \u2014 sans qu'aucune erreur ne le dise ;\n- `core_identity.<champ>` : la valeur est celle de l'identit\u00e9 du\n  Core \u2014 l'application **demande** cette donn\u00e9e. Le champ est\n  alors remplac\u00e9 dans le formulaire par la cl\u00e9 d\u00e9clar\u00e9e :\n  l'op\u00e9rateur ne saisit jamais la m\u00eame valeur deux fois\n  (ADR-0122 \u00a75).\n\nLe domaine refuse une source du Core qui nommerait un champ\ninconnu.",
                                     "examples": [
                                         "declared.localisation"
                                     ],

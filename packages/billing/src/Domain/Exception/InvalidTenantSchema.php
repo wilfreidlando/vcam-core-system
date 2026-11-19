@@ -73,6 +73,13 @@ final class InvalidTenantSchema extends RuntimeException
         );
     }
 
+    public static function becauseSourceDoesNotNameTheField(string $source, string $key): self
+    {
+        return new self(
+            "The source \"{$source}\" does not name the key of its field: a source \"declared.<clé>\" must name the key \"{$key}\" — the value is stored and rendered under the key of the field (ADR-0130 §2).",
+        );
+    }
+
     public static function becauseDuplicateFieldKey(string $key): self
     {
         return new self(

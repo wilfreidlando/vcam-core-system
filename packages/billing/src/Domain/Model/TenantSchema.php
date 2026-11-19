@@ -132,6 +132,46 @@ final class TenantSchema
     }
 
     /**
+     * Les deux déclarations décrivent-elles **la même forme** ?
+     *
+     * ADR-0130 §5 — une proposition identique à une forme déjà connue
+     * n'est pas une nouvelle version : c'est la même forme, dite deux
+     * fois. Empiler les versions ferait de la lecture de l'opérateur une
+     * file de formes mortes, et le versionnement perdrait son sens.
+     *
+     * L'ordre des champs ne compte pas : une forme est un **ensemble**
+     * de champs, pas une suite.
+     */
+    public function declaresTheSameFormAs(TenantSchema $other): bool
+    {
+        if ($this->uniqueKey !== $other->uniqueKey) {
+            return false;
+        }
+
+        if ($this->uniqueKeyPattern->pattern !== $other->uniqueKeyPattern->pattern) {
+            return false;
+        }
+
+        if (count($this->fields) !== count($other->fields)) {
+            return false;
+        }
+
+        $mine = [];
+
+        foreach ($this->fields as $field) {
+            $mine[$field->key] = $field->signature();
+        }
+
+        foreach ($other->fields as $field) {
+            if (! isset($mine[$field->key]) || $mine[$field->key] !== $field->signature()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * La forme JSON des champs — celle que porte la colonne `fields`.
      *
      * @return list<array{key: string, label: string, type: string, required: bool, max_length: int|null, source: string}>

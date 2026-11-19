@@ -93,8 +93,27 @@ qu'elle attend du Core (ADR-0122).
   `phone`, `locale`) **remplace** le champ correspondant du Core : la console ne
   demande jamais la même valeur deux fois.
 
+  Une source `declared.<clé>` doit nommer **la clé du champ** :
+  `declared.localisation` sur le champ `localisation`. Une source qui en nomme
+  une autre est refusée (`422 invalid-tenant-schema`) — le Core stocke la
+  valeur sous la clé du champ, et l'application la chercherait ailleurs, sans
+  qu'aucune erreur ne le dise (ADR-0130 §2).
+
+  Une proposition **identique** à une forme que le Core connaît déjà ne crée
+  pas de version de plus : la réponse est alors `200` et porte la déclaration
+  existante (ADR-0130 §5).
+
+- **Relire la forme** — `GET /v1/projects/{projectId}/tenant-schema`, portée
+  `tenant_schema:read` (dans le modèle **Application cliente**) : la forme **en
+  vigueur** (`accepted`) et la proposition **en attente** (`pending`). Une
+  application sait ainsi ce que le Core attend d'elle, sans jamais voir une
+  valeur (ADR-0130 §4).
+
 - **Lire** — `GET /v1/customers/{externalRef}` rend `declared_attributes` (avec
   `customers:read`) : un objet par clé déclarée, `{}` quand il n'y en a pas.
+  Les valeurs déclarées sont écrites **avant** que `customer.created` ne parte :
+  une application qui relit le client depuis l'événement trouve les valeurs que
+  l'opérateur vient de saisir (ADR-0130 §1).
 
 - **Décider** — dans la console, page **« Forme du client »** du projet
   (`GET /admin/projects/{projectId}/customers/schema`) : la proposition est lue

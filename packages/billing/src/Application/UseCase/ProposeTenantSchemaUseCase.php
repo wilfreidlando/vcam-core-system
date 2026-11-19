@@ -7,7 +7,7 @@ namespace Core\Billing\Application\UseCase;
 use Core\Billing\Application\Support\TenantSchemaViews;
 use Core\Billing\Contracts\ProposeTenantSchema;
 use Core\Billing\Contracts\ProposeTenantSchemaCommand;
-use Core\Billing\Contracts\TenantSchemaView;
+use Core\Billing\Contracts\TenantSchemaProposal;
 use Core\Billing\Domain\Exception\InvalidTenantSchema;
 use Core\Billing\Domain\Model\TenantSchema;
 use Core\Billing\Domain\Model\TenantSchemaField;
@@ -29,6 +29,10 @@ use Core\Support\UnitOfWork;
  *
  * Le geste ne déplace aucun argent et n'écrit aucun client : il décrit une
  * forme (ADR-0122 §8).
+ *
+ * ADR-0130 §5 — une proposition **identique** à une forme déjà connue
+ * n'écrit rien : elle rend la forme telle qu'elle est. Les versions ne
+ * s'empilent pas sur la même forme.
  */
 final readonly class ProposeTenantSchemaUseCase implements ProposeTenantSchema
 {
@@ -39,19 +43,13 @@ final readonly class ProposeTenantSchemaUseCase implements ProposeTenantSchema
         private Clock $clock,
     ) {}
 
-    public function propose(ProposeTenantSchemaCommand $command): TenantSchemaView
+    public function propose(ProposeTenantSchemaCommand $command): TenantSchemaProposal
     {
-        return $this->unitOfWork->transactional(function () use ($command): TenantSchemaView {
+        return $this->unitOfWork->transactional(function () use ($command): TenantSchemaProposal {
             $now = $this->clock->now();
 
-            // La proposition en attente qu'une plus récente remplace sort de
-            // l'attente de lecture : l'opérateur lit la dernière.
             $pending = $this->schemas->findPending($command->projectId);
-
-            if ($pending !== null) {
-                $pending->supersede($now);
-                $this->schemas->save($pending);
-            }
+            $accepted = $this->schemas->findAccepted($command->projectId);
 
             $schema = new TenantSchema(
                 id: $this->identifier->generate(),
@@ -66,9 +64,27 @@ final readonly class ProposeTenantSchemaUseCase implements ProposeTenantSchema
                 updatedAt: $now,
             );
 
+            // ADR-0130 §5 — une proposition **identique** à une forme déjà
+            // connue n'est pas une version de plus : elle rend la forme
+            // telle qu'elle est, et n'écrit rien.
+            if ($pending !== null && $schema->declaresTheSameFormAs($pending)) {
+                return new TenantSchemaProposal(TenantSchemaViews::from($pending), false);
+            }
+
+            if ($accepted !== null && $schema->declaresTheSameFormAs($accepted)) {
+                return new TenantSchemaProposal(TenantSchemaViews::from($accepted), false);
+            }
+
+            // La proposition en attente qu'une plus récente remplace sort de
+            // l'attente de lecture : l'opérateur lit la dernière.
+            if ($pending !== null) {
+                $pending->supersede($now);
+                $this->schemas->save($pending);
+            }
+
             $this->schemas->save($schema);
 
-            return TenantSchemaViews::from($schema);
+            return new TenantSchemaProposal(TenantSchemaViews::from($schema), true);
         });
     }
 

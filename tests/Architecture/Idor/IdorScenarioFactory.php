@@ -353,7 +353,7 @@ final class IdorScenarioFactory
                         ]],
                         actor: 'test:idor',
                         correlationId: null,
-                    ))->id;
+                    ))->schema->id;
                 }
 
                 return new ResourceRequest(

@@ -19,8 +19,6 @@ use Core\Billing\Contracts\ListCustomers;
 use Core\Billing\Contracts\ListCustomersCommand;
 use Core\Billing\Contracts\ReactivateCustomer;
 use Core\Billing\Contracts\ReactivateCustomerCommand;
-use Core\Billing\Contracts\SetCustomerDeclaredAttributes;
-use Core\Billing\Contracts\SetCustomerDeclaredAttributesCommand;
 use Core\Billing\Contracts\SuspendCustomer;
 use Core\Billing\Contracts\SuspendCustomerCommand;
 use Core\Billing\Contracts\TenantSchemaFieldView;
@@ -76,7 +74,6 @@ final class BillingCustomersController
         private readonly EraseCustomer $eraseCustomer,
         private readonly GetTenantSchema $tenantSchemas,
         private readonly GetCustomerDeclaredAttributes $declaredAttributes,
-        private readonly SetCustomerDeclaredAttributes $setDeclaredAttributes,
         private readonly AuditLogger $audit,
         private readonly Clock $clock,
     ) {}
@@ -153,15 +150,15 @@ final class BillingCustomersController
                 expectedVersion: null,
                 actor: $this->actor($operator),
                 correlationId: null,
+                // ADR-0130 §1 — les valeurs déclarées voyagent avec le
+                // client : le cas d'usage les écrit **avant** d'émettre
+                // l'événement, dans la même transaction.
+                declaredAttributes: $this->declaredOnly($declared, $schema),
             ));
         } catch (CustomerEmailAlreadyTaken $exception) {
             return $this->refused($exception);
-        }
-
-        $notSaved = $this->saveDeclaredValues($projectId, $view->id, $declared, $schema, $scope, $operator);
-
-        if ($notSaved !== null) {
-            return $notSaved;
+        } catch (CustomerDeclaredAttributeRefused $exception) {
+            return $this->declaredRefused();
         }
 
         $this->audit->record(new AuditEntry(
@@ -261,15 +258,15 @@ final class BillingCustomersController
                 expectedVersion: $expectedVersion,
                 actor: $this->actor($operator),
                 correlationId: null,
+                // ADR-0130 §1 — les valeurs déclarées voyagent avec le
+                // client : le cas d'usage les écrit **avant** d'émettre
+                // l'événement, dans la même transaction.
+                declaredAttributes: $this->declaredOnly($declared, $schema),
             ));
         } catch (CustomerVersionConflict|CustomerEmailAlreadyTaken $exception) {
             return $this->refused($exception);
-        }
-
-        $notSaved = $this->saveDeclaredValues($projectId, $view->id, $declared, $schema, $scope, $operator);
-
-        if ($notSaved !== null) {
-            return $notSaved;
+        } catch (CustomerDeclaredAttributeRefused $exception) {
+            return $this->declaredRefused();
         }
 
         $this->audit->record(new AuditEntry(
@@ -592,38 +589,17 @@ final class BillingCustomersController
     }
 
     /**
-     * The declared values are written **after** the customer: they hang
-     * from it.
+     * Les valeurs déclarées que le Core refuse — la forme en vigueur a
+     * peut-être changé entre le chargement du formulaire et l'enregistrement.
      *
-     * @param array<string, string> $declared
+     * ADR-0130 §1 — l'erreur revient **sous les champs déclarés** : c'est
+     * là que l'opérateur la corrige.
      */
-    private function saveDeclaredValues(
-        string $projectId,
-        string $customerId,
-        array $declared,
-        ?TenantSchemaView $schema,
-        AccessScope $scope,
-        OperatorContext $operator,
-    ): ?RedirectResponse {
-        if ($schema === null) {
-            return null;
-        }
-
-        try {
-            $this->setDeclaredAttributes->set(new SetCustomerDeclaredAttributesCommand(
-                projectId: $projectId,
-                customerId: $customerId,
-                values: $this->declaredOnly($declared, $schema),
-                actor: $this->actor($operator),
-                correlationId: null,
-            ), $scope);
-        } catch (CustomerDeclaredAttributeRefused) {
-            return back()->withInput()->withErrors([
-                'attributes' => 'Les valeurs déclarées n\'ont pas pu être enregistrées : la forme en vigueur a peut-être changé.',
-            ]);
-        }
-
-        return null;
+    private function declaredRefused(): RedirectResponse
+    {
+        return back()->withInput()->withErrors([
+            'attributes' => 'Les valeurs déclarées n\'ont pas pu être enregistrées : la forme en vigueur a peut-être changé.',
+        ]);
     }
 
     /**
@@ -639,8 +615,12 @@ final class BillingCustomersController
      * @param array<string, string> $declared
      * @return array<string, string>
      */
-    private function declaredOnly(array $declared, TenantSchemaView $schema): array
+    private function declaredOnly(array $declared, ?TenantSchemaView $schema): array
     {
+        if ($schema === null) {
+            return [];
+        }
+
         $values = [];
 
         foreach ($declared as $key => $value) {

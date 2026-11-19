@@ -16,6 +16,7 @@ use Core\Billing\Presentation\Http\Controllers\GetEntitlementsController;
 use Core\Billing\Presentation\Http\Controllers\GetInvoiceController;
 use Core\Billing\Presentation\Http\Controllers\GetInvoiceDocumentController;
 use Core\Billing\Presentation\Http\Controllers\GetSubscriptionController;
+use Core\Billing\Presentation\Http\Controllers\GetTenantSchemaController;
 use Core\Billing\Presentation\Http\Controllers\IssueInvoiceController;
 use Core\Billing\Presentation\Http\Controllers\ListCustomersController;
 use Core\Billing\Presentation\Http\Controllers\ListInvoicePaymentsController;
@@ -86,6 +87,14 @@ Route::middleware(['project.auth'])
         Route::put('/projects/{projectId}/tenant-schema', ProposeTenantSchemaController::class)
             ->whereUuid('projectId')
             ->name('projects.tenant-schema.propose');
+
+        // ADR-0130 §4 — l'application relit la forme en vigueur de son
+        // locataire : les clés que le Core collecte, leurs types, leurs
+        // obligations. Une **forme**, jamais une valeur : la portée
+        // `tenant_schema:read` suffit.
+        Route::get('/projects/{projectId}/tenant-schema', GetTenantSchemaController::class)
+            ->whereUuid('projectId')
+            ->name('projects.tenant-schema.read');
 
         // usage et droits — ADR-0074 §4
         //

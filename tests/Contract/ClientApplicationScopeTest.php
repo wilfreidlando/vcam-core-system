@@ -46,6 +46,9 @@ final class ClientApplicationScopeTest extends TestCase
                 // ADR-0122 §8 — the declared form of the tenant. It is not
                 // a write on the commerce: the guarantee below stays whole.
                 'tenant_schema:write',
+                // ADR-0130 §4 — reading the form in force. A form, never a
+                // value: the guarantee below stays whole.
+                'tenant_schema:read',
             ],
             ApiKeyScopes::template(ApiKeyScopes::TEMPLATE_CLIENT_APP),
         );

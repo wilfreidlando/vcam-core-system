@@ -43,6 +43,11 @@ final class ProposeTenantSchemaController
      * operator to read it — only an accepted declaration is ever rendered
      * (ADR-0122 §2).
      *
+     * ADR-0130 §5 — answers `200` when the form is **already known**: the
+     * proposal is identical to a declaration the Core already holds, and
+     * nothing is written. The versions of a form do not pile up on
+     * themselves.
+     *
      * Requires the `tenant_schema:write` scope. That scope describes a
      * **form**, not a write on the commerce: the template of the «
      * Application cliente » carries it, and still carries no write scope
@@ -72,7 +77,7 @@ final class ProposeTenantSchemaController
         $data = $request->validated();
 
         try {
-            $view = $this->proposeTenantSchema->propose(new ProposeTenantSchemaCommand(
+            $proposal = $this->proposeTenantSchema->propose(new ProposeTenantSchemaCommand(
                 projectId: $project->projectId,
                 uniqueKey: $data['unique_key'],
                 uniqueKeyPattern: $data['unique_key_pattern'],
@@ -89,6 +94,11 @@ final class ProposeTenantSchemaController
             );
         }
 
-        return new JsonResponse($this->tenantSchemaView($view), 201);
+        // ADR-0130 §5 — une forme déjà connue ne crée pas de version :
+        // la réponse dit la forme, pas la novelty.
+        return new JsonResponse(
+            $this->tenantSchemaView($proposal->schema),
+            $proposal->created ? 201 : 200,
+        );
     }
 }
