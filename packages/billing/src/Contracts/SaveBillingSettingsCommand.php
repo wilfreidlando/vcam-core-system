@@ -9,6 +9,7 @@ final readonly class SaveBillingSettingsCommand
     /**
      * @param array<string, string> $meterMappings capability => meter
      * @param list<array{code: string, meter: string, quantity: int, unit_price_minor: int, label: string}>|null $supplementPacks the packs the project offers — `null` leaves the catalogue as it is (ADR-0119 §1)
+     * @param bool|null $retainInvoiceIdentity whether the erasure keeps the identity frozen on the **draft** invoices — `null` leaves the choice as it is (ADR-0129)
      * @param string $actor "operator:<uuid>"
      */
     public function __construct(
@@ -26,5 +27,6 @@ final readonly class SaveBillingSettingsCommand
         public string $actor,
         public ?string $correlationId = null,
         public ?array $supplementPacks = null,
+        public ?bool $retainInvoiceIdentity = null,
     ) {}
 }

@@ -8,6 +8,8 @@ use Core\Billing\Contracts\ApproveManualReceipt;
 use Core\Billing\Contracts\ApproveManualReceiptCommand;
 use Core\Billing\Contracts\ConfirmSubscriptionPeriodPayment;
 use Core\Billing\Contracts\ConfirmSubscriptionPeriodPaymentCommand;
+use Core\Billing\Contracts\CreateInvoice;
+use Core\Billing\Contracts\CreateInvoiceCommand;
 use Core\Billing\Contracts\CreatePlan;
 use Core\Billing\Contracts\CreatePlanCommand;
 use Core\Billing\Contracts\CreatePlanVersion;
@@ -20,10 +22,15 @@ use Core\Billing\Contracts\GetSubscription;
 use Core\Billing\Contracts\GetSubscriptionCommand;
 use Core\Billing\Contracts\GrantComplimentaryPeriod;
 use Core\Billing\Contracts\GrantComplimentaryPeriodCommand;
+use Core\Billing\Contracts\InvoiceLineInput;
+use Core\Billing\Contracts\IssueInvoice;
+use Core\Billing\Contracts\IssueInvoiceCommand;
+use Core\Billing\Contracts\ManageBillingSettings;
 use Core\Billing\Contracts\PublishPlanVersion;
 use Core\Billing\Contracts\PublishPlanVersionCommand;
 use Core\Billing\Contracts\RecordManualReceipt;
 use Core\Billing\Contracts\RecordManualReceiptCommand;
+use Core\Billing\Contracts\SaveBillingSettingsCommand;
 use Core\Billing\Contracts\SuspendCustomer;
 use Core\Billing\Contracts\SuspendCustomerCommand;
 use Core\Billing\Contracts\UpsertCustomer;
@@ -179,6 +186,63 @@ final class BillingFlowTest extends TestCase
         self::assertNull($row->email);
         self::assertNull($row->phone);
         self::assertNotNull($row->erased_at);
+    }
+
+    #[Test]
+    public function the_erasure_empties_the_draft_invoices_when_the_project_renounces_to_keep_the_identity(): void
+    {
+        [$customerId, $draftId, $issuedId] = $this->customerWithInvoices();
+
+        $this->keepInvoiceIdentity(false);
+
+        app(EraseCustomer::class)->erase(new EraseCustomerCommand(
+            projectId: self::PROJECT,
+            externalRef: 'acme',
+            actor: 'test:billing',
+            correlationId: null,
+        ));
+
+        // ADR-0094 §7 — the draft invoice follows the choice of the
+        // project: its frozen identity is emptied at the erasure.
+        $draft = DB::table('invoices')->where('id', $draftId)->first();
+
+        self::assertNotNull($draft);
+        self::assertSame('{}', $draft->customer_snapshot);
+
+        // An issued invoice is a document: its snapshot is frozen by the
+        // database, and the receivable subsists (ADR-0094 §7, ADR-0083 §4).
+        $issued = DB::table('invoices')->where('id', $issuedId)->first();
+
+        self::assertNotNull($issued);
+        $issuedSnapshot = $issued->customer_snapshot;
+        self::assertIsString($issuedSnapshot);
+        self::assertStringContainsString('ACME', $issuedSnapshot);
+        self::assertNotSame('{}', $issuedSnapshot);
+        self::assertNotNull(DB::table('customers')->where('id', $customerId)->value('erased_at'));
+    }
+
+    #[Test]
+    public function the_draft_invoices_keep_their_identity_when_the_project_keeps_it(): void
+    {
+        [, $draftId] = $this->customerWithInvoices();
+
+        $this->keepInvoiceIdentity(true);
+
+        app(EraseCustomer::class)->erase(new EraseCustomerCommand(
+            projectId: self::PROJECT,
+            externalRef: 'acme',
+            actor: 'test:billing',
+            correlationId: null,
+        ));
+
+        // ADR-0094 §7 — the default is to keep it: the draft invoice
+        // keeps the name it was drawn with.
+        $draft = DB::table('invoices')->where('id', $draftId)->first();
+
+        self::assertNotNull($draft);
+        $draftSnapshot = $draft->customer_snapshot;
+        self::assertIsString($draftSnapshot);
+        self::assertStringContainsString('ACME', $draftSnapshot);
     }
 
     #[Test]
@@ -413,6 +477,72 @@ final class BillingFlowTest extends TestCase
         );
 
         self::assertNull($found);
+    }
+
+    /**
+     * A customer, a draft invoice and an issued invoice.
+     *
+     * @return array{string, string, string} the customer id, the draft invoice id, the issued invoice id
+     */
+    private function customerWithInvoices(): array
+    {
+        $created = app(UpsertCustomer::class)->upsert(new UpsertCustomerCommand(
+            projectId: self::PROJECT,
+            externalRef: 'acme',
+            displayName: 'ACME',
+            email: 'contact@acme.test',
+            phone: '+237690000000',
+            locale: 'fr',
+            metadata: [],
+            expectedVersion: null,
+            actor: 'test:billing',
+            correlationId: null,
+        ));
+
+        $draft = app(CreateInvoice::class)->create(new CreateInvoiceCommand(
+            projectId: self::PROJECT,
+            customerRef: 'acme',
+            lines: [new InvoiceLineInput('Scolarité — mars', 1, 25_000)],
+            actor: 'test:billing',
+        ));
+
+        $issued = app(CreateInvoice::class)->create(new CreateInvoiceCommand(
+            projectId: self::PROJECT,
+            customerRef: 'acme',
+            lines: [new InvoiceLineInput('Scolarité — avril', 1, 50_000)],
+            actor: 'test:billing',
+        ));
+
+        app(IssueInvoice::class)->issue(new IssueInvoiceCommand(
+            projectId: self::PROJECT,
+            invoiceId: $issued->id,
+            actor: 'test:billing',
+        ));
+
+        return [$created->id, $draft->id, $issued->id];
+    }
+
+    /**
+     * ADR-0129 §2 — the choice of the project, written through the same
+     * door as the console.
+     */
+    private function keepInvoiceIdentity(bool $keep): void
+    {
+        app(ManageBillingSettings::class)->save(new SaveBillingSettingsCommand(
+            projectId: self::PROJECT,
+            timezone: 'Africa/Douala',
+            defaultCurrency: 'XAF',
+            renewalLeadDays: 7,
+            incompleteExpiryHours: 72,
+            invoicePrefix: 'FACT',
+            defaultTaxRateBps: 0,
+            manualReceiptApprovalThresholdMinor: 0,
+            meterMappings: [],
+            refundFailedUsage: true,
+            requireCustomerRef: false,
+            actor: 'test:billing',
+            retainInvoiceIdentity: $keep,
+        ), AccessScope::forProject(self::PROJECT));
     }
 
     private function declareCustomer(string $externalRef): void

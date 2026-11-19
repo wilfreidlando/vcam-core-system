@@ -21,15 +21,18 @@ use Core\Support\Access\AccessScope;
  *
  * The schema holds no rule (the owner's choice), so **every** value is
  * checked here before it is stored: a wrong prefix or a negative lead is
- * refused with a sentence, never written. The two settings the console does
- * not edit (`retain_invoice_identity`, `document_branding`) are carried over
- * untouched. The audit of the gesture is the console's (`billing` may not
- * write to `audit`, ADR-0002).
+ * refused with a sentence, never written. The setting the console does not
+ * edit (`document_branding`) is carried over untouched. The audit of the
+ * gesture is the console's (`billing` may not write to `audit`, ADR-0002).
  *
  * ADR-0119 §1 — the **catalogue of packs** lives here too, and follows the
  * same rule: the packs are carried over untouched when the command does
  * not carry them, so a settings save from the console never empties the
  * catalogue.
+ *
+ * ADR-0129 §2 — the **choice of keeping the frozen identity** on the draft
+ * invoices at the erasure follows the same rule: `null` in the command
+ * leaves the choice as it is.
  */
 final readonly class ManageBillingSettingsUseCase implements ManageBillingSettings
 {
@@ -78,7 +81,11 @@ final readonly class ManageBillingSettingsUseCase implements ManageBillingSettin
             invoicePrefix: $c->invoicePrefix,
             defaultTaxRateBps: $c->defaultTaxRateBps,
             manualReceiptApprovalThresholdMinor: $c->manualReceiptApprovalThresholdMinor,
-            retainInvoiceIdentity: $before->retainInvoiceIdentity,
+            // ADR-0129 §2 — the choice of keeping the frozen identity on
+            // the draft invoices is **carried over** when the command does
+            // not carry it: an edition of the other settings never turns
+            // it off by accident.
+            retainInvoiceIdentity: $c->retainInvoiceIdentity ?? $before->retainInvoiceIdentity,
             documentBranding: $before->documentBranding,
             meterMappings: $c->meterMappings,
             refundFailedUsage: $c->refundFailedUsage,
@@ -132,6 +139,7 @@ final readonly class ManageBillingSettingsUseCase implements ManageBillingSettin
             $s->refundFailedUsage,
             $s->requireCustomerRef,
             $this->packViews($s->supplementPacks),
+            $s->retainInvoiceIdentity,
         );
     }
 

@@ -77,7 +77,11 @@ refuses the change, not a convention.
   `customer_receivable:<client>` / Crédit `revenue` — and the cancellation
   **counter-passes** it; a write-off moves it to `bad_debt`;
 - the customer frozen on it is **stored in clear**, like the customer itself:
-  the printed document shows the name it carries, and nothing else does.
+  the printed document shows the name it carries, and nothing else does;
+- when a customer is **erased**, the identity frozen on its **draft** invoices
+  follows the project's choice (`billing_settings.retain_invoice_identity`,
+  `true` by default — the console edits it, ADR-0129); an **issued** invoice
+  keeps its snapshot: it is a document, and the database freezes it.
 
 ### What this lot does NOT deliver yet (ADR-0094)
 
