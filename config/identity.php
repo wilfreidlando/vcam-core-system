@@ -12,13 +12,20 @@ declare(strict_types=1);
  *
  * `disable_mfa` removes the MFA step entirely from the login flow: a
  * successful email+password check immediately issues a Sanctum session
- * token. Audit 2026-10-29 #12: like `disable_totp_in_local`, it is gated
- * in code — `IdentityServiceProvider::register()` throws `MfaBypassForbidden`
- * when it is true outside `APP_ENV=local`, so no environment variable alone
- * can switch MFA off elsewhere. Default is `false`. The auth logs still record
- * `operator.mfa_skipped` on every login when this is on, so an audit
- * review of who signed in during a disabled-MFA window remains
- * possible.
+ * token. Audit 2026-10-29 #12.
+ *
+ * ADR-0128 — **one variable, everywhere**: when it is true, the second
+ * factor is off on every runtime — the developer's machine, the staging
+ * deployment (ADR-0064) and the live one. There is no second variable, no
+ * environment to declare, no condition to satisfy: the flag is the decision.
+ *
+ * What replaces the code-level refusal that ADR-0128 removed is the
+ * **trace**: every login without MFA is recorded in the audit log as
+ * `operator.mfa_skipped` (both planes), and the console says so when it
+ * hands the session out. A window without MFA is therefore visible in the
+ * journal, whoever armed the flag.
+ *
+ * Default is `false`.
  */
 return [
     'disable_totp_in_local' => (bool) env('IDENTITY_DISABLE_TOTP_IN_LOCAL', false),

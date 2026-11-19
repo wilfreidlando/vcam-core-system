@@ -112,12 +112,10 @@ final class AuthController
 
         // `IDENTITY_DISABLE_MFA=true` removes the MFA step from the login
         // flow entirely — the password has just been verified, so the
-        // same operator can immediately get a session token. Unlike
-        // `IDENTITY_DISABLE_TOTP_IN_LOCAL` this is NOT env-gated: every
-        // runtime where the flag is set behaves this way. The runtime is
-        // expected to only set it in non-production environments; the
+        // same operator can immediately get a session token. One variable,
+        // on every runtime (ADR-0128): the flag is the decision. The
         // audit log still records `operator.mfa_skipped` on every such
-        // login so post-incident review is possible.
+        // login, so a window without MFA is visible.
         if ((bool) config('identity.disable_mfa', false)) {
             $token = $this->tokenIssuer->issue(
                 $challenge->operatorId,
