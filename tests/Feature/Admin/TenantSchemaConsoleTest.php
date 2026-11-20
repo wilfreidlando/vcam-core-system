@@ -274,12 +274,36 @@ final class TenantSchemaConsoleTest extends TestCase
         $this->assertControl($html, 'texte', 'textarea');
         $this->assertControl($html, 'entier', 'number');
         $this->assertControl($html, 'decimal', 'number');
-        $this->assertControl($html, 'booleen', 'select');
+        $this->assertControl($html, 'booleen', 'checkbox');
         $this->assertControl($html, 'jour', 'date');
         $this->assertControl($html, 'instant', 'datetime-local');
         $this->assertControl($html, 'courriel', 'email');
         $this->assertControl($html, 'telephone', 'tel');
         $this->assertControl($html, 'adresse', 'url');
+    }
+
+    #[Test]
+    public function a_declared_boolean_is_always_said_coched_or_not(): void
+    {
+        $projectId = $this->project();
+        $this->bindSchema($this->schemaWithBoolean($projectId));
+        $this->signInToConsole();
+
+        $html = $this->get(route('admin.projects.customers.new', $projectId))->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
+
+        self::assertIsString($html);
+
+        // La case à cocher est accompagnée d'un « 0 » caché : la valeur est
+        // toujours dite, cochée ou non.
+        self::assertStringContainsString('<input type="hidden" name="attributes[actif]" value="0">', $html);
+
+        $this->post(route('admin.projects.customers.store', $projectId), [
+            'external_ref' => 'AE0007',
+            'display_name' => 'Auto-école Soleil',
+            'attributes' => ['actif' => '0'],
+        ])->assertRedirect(route('admin.projects.customers.index', $projectId));
+
+        self::assertSame(['actif' => '0'], $this->declaredValues());
     }
 
     /**
@@ -396,6 +420,27 @@ final class TenantSchemaConsoleTest extends TestCase
             uniqueKey: 'code',
             uniqueKeyPattern: 'AE[0-9]{4,8}',
             fields: $fields,
+            acceptedAt: '2026-11-11T10:00:00+00:00',
+            createdAt: '2026-11-11T09:00:00+00:00',
+            updatedAt: '2026-11-11T10:00:00+00:00',
+        );
+    }
+
+    /**
+     * Une déclaration qui porte **un booléen**.
+     */
+    private function schemaWithBoolean(string $projectId): TenantSchemaView
+    {
+        return new TenantSchemaView(
+            id: '44444444-4444-4444-8444-444444444444',
+            projectId: $projectId,
+            version: 1,
+            status: 'accepted',
+            uniqueKey: 'code',
+            uniqueKeyPattern: 'AE[0-9]{4,8}',
+            fields: [
+                new TenantSchemaFieldView(key: 'actif', label: 'Actif', type: 'boolean', required: false, maxLength: null, source: 'declared.actif'),
+            ],
             acceptedAt: '2026-11-11T10:00:00+00:00',
             createdAt: '2026-11-11T09:00:00+00:00',
             updatedAt: '2026-11-11T10:00:00+00:00',

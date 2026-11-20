@@ -657,7 +657,7 @@ final class BillingCustomersController
                 'key' => $field->key,
                 'label' => $field->label,
                 'type' => $this->inputType($field->type),
-                'options' => $field->type === 'boolean' ? ['1' => 'Oui', '0' => 'Non'] : [],
+                'options' => [],
                 'required' => $field->required,
                 'maxLength' => $field->maxLength,
                 'identity' => TenantSchemaLabels::identityField($field->source),
@@ -670,13 +670,18 @@ final class BillingCustomersController
 
     /**
      * The control the console shows for a declared type.
+     *
+     * ADR-0130 §3 — **une seule** fonction décide, pour les dix types que
+     * le Core connaît : `string` → text, `text` → textarea, `integer` et
+     * `decimal` → number, `boolean` → checkbox, `date` → date, `datetime` →
+     * datetime-local, `email` → email, `phone` → tel, `url` → url.
      */
     private function inputType(string $type): string
     {
         return match ($type) {
             'text' => 'textarea',
             'integer', 'decimal' => 'number',
-            'boolean' => 'select',
+            'boolean' => 'checkbox',
             'date' => 'date',
             'datetime' => 'datetime-local',
             'email' => 'email',

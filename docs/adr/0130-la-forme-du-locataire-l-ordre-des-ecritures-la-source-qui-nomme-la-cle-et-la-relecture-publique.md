@@ -95,8 +95,25 @@ fonction.**
 La console mappe les dix types que le Core connaît (`string`, `text`,
 `integer`, `decimal`, `boolean`, `date`, `datetime`, `email`, `phone`, `url`)
 vers un contrôle HTML — et cette décision est **une seule**, dans une seule
-fonction. Le code le fait déjà ; la présente décision le fixe, et un test le
-prouve, champ par champ.
+fonction :
+
+| Type du Core | Contrôle |
+|---|---|
+| `string` | `text` |
+| `text` | `textarea` |
+| `integer` | `number` |
+| `decimal` | `number` |
+| `boolean` | `checkbox` |
+| `date` | `date` |
+| `datetime` | `datetime-local` |
+| `email` | `email` |
+| `phone` | `tel` |
+| `url` | `url` |
+
+Une case à cocher **dit toujours** sa valeur : un champ caché porte le « 0 »,
+la case porte le « 1 » — une case décochée est un « non », jamais un silence.
+
+Un test le prouve, champ par champ.
 
 **Décision 4 — la forme en vigueur se relit publiquement.**
 

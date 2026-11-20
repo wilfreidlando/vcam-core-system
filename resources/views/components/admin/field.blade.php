@@ -4,8 +4,9 @@
     Props
       name          (requis) nom du champ ; `items[]` / `a[b]` sont lus comme `items` / `a.b` pour old() et les erreurs.
       label         (requis) libellé visible (ou masqué si `label-hidden`).
-      type          text (défaut) | email | password | number | date | url | tel | … | textarea | select | custom
+      type          text (défaut) | email | password | number | date | url | tel | … | textarea | select | checkbox | custom
       value         valeur du modèle. `old($name, $value)` : la saisie précédente GAGNE toujours sur le modèle.
+                    checkbox : « 1 » = coché, « 0 » = décoché (la valeur est toujours dite).
       required      pose `required` + une étoile visuelle ; optional = affiche « (facultatif) ».
       hint          indice lié par aria-describedby (id `{id}-hint`).
       autocomplete  jeton WCAG 1.3.5 (`email`, `current-password`, `off`…).
@@ -111,6 +112,22 @@
                 @endforeach
             @endif
         </select>
+    @elseif ($type === 'checkbox')
+        {{-- La case à cocher est **explicitement** booleenne : un champ caché
+             porte le « 0 », pour que la valeur soit toujours dite, cochée ou
+             non. Sans lui, une case décochée ne dit rien du tout.
+             Pas d'attribut `required` : « Non » est une réponse, et le
+             navigateur ne doit pas empêcher de répondre « Non ». --}}
+        <input type="hidden" name="{{ $name }}" value="0">
+        <input
+            type="checkbox"
+            id="{{ $fieldId }}"
+            name="{{ $name }}"
+            value="1"
+            @checked(in_array('1', array_map('strval', (array) $current), true))
+            @if ($describedBy !== '') aria-describedby="{{ $describedBy }}" @endif
+            @if ($invalid) aria-invalid="true" @endif
+            class="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-700 focus:ring-indigo-600">
     @else
         <input
             type="{{ $type }}"
