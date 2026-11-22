@@ -4,6 +4,8 @@
 
 @section('content')
 @php
+    $columns = $columns ?? \App\Http\View\CustomerImportTemplate::columns();
+
     $summary = '';
     if ($report !== null) {
         $created = (int) $report['created'];
@@ -37,12 +39,12 @@
     <div class="max-w-2xl rounded-lg border border-slate-200 bg-white p-6">
         <h2 class="text-base font-semibold text-slate-900">Le modèle du fichier</h2>
         <p class="mt-1 text-sm text-slate-700">
-            Le fichier doit porter quatre colonnes, dans cet ordre. Téléchargez le modèle : il porte
+            Le fichier doit porter {{ count($columns) }} colonne{{ count($columns) > 1 ? 's' : '' }}, dans cet ordre. Téléchargez le modèle : il porte
             l'en-tête et une ligne d'exemple, et il s'importe tel quel.
         </p>
 
         <dl class="mt-4 space-y-3">
-            @foreach (\App\Http\View\CustomerImportTemplate::columns() as $column)
+            @foreach ($columns as $column)
                 <div>
                     <dt class="text-sm font-medium text-slate-900">{{ $column['label'] }}</dt>
                     <dd class="text-sm text-slate-700">{{ $column['explanation'] }}</dd>

@@ -177,8 +177,10 @@ pas chez le Core. Sur la page **« Clients »** du projet, cliquez sur
 **« Importer des clients »**.
 
 Votre application exporte ses clients dans un fichier CSV. Le fichier doit
-porter quatre colonnes, dans cet ordre : **« Référence »**, **« Nom »**,
-**« E-mail »** et **« Téléphone »**. La page **« Import de clients »** vous
+porter les colonnes du modèle, dans cet ordre : **« Référence »**, **« Nom »**,
+**« E-mail »** et **« Téléphone »** — et, si vous avez annoncé des champs pour
+vos clients, **une colonne par champ annoncé**, à la place des colonnes que
+ces champs remplacent. La page **« Import de clients »** vous
 donne le fichier tout fait : le bloc **« Le modèle du fichier »** explique
 chaque colonne, et **« Télécharger le modèle »** vous donne un fichier qui
 porte l’en-tête et une ligne d’exemple — il s’importe tel quel. Ouvrez-le,
@@ -212,7 +214,7 @@ est unique chez le Core.
 | **« L'application a proposé une forme pour ses clients »** | Une proposition attend votre décision. Elle ne change rien tant que vous ne l’avez pas acceptée. |
 | **« Rapport de l'import »** | Ce que l’import a fait : les clients créés, ceux qui étaient déjà connus, et les lignes refusées avec leur motif. |
 | **« Clients déjà connus »** | Ces clients existaient déjà chez le Core : ils ont été mis à jour, jamais dupliqués. |
-| **« Le modèle du fichier »** | Le fichier à déposer doit porter quatre colonnes, dans l’ordre. Le bloc les explique une par une. |
+| **« Le modèle du fichier »** | Le fichier à déposer doit porter les colonnes du modèle, dans l’ordre. Le bloc les explique une par une. |
 | **« Télécharger le modèle »** | Un fichier prêt à remplir : il porte l’en-tête et une ligne d’exemple. Il s’importe tel quel. |
 
 ## Si ça ne marche pas
@@ -226,7 +228,7 @@ est unique chez le Core.
 | **« Le destinataire n’a pas accepté l’événement de test. »** | L’adresse a répondu, mais pas comme il faut. La réponse du destinataire est affichée juste au-dessus. | Lisez-la. Si elle dit que la signature ne correspond pas, vérifiez que votre application utilise bien le secret affiché. |
 | Le secret affiché ne réapparaît plus quand vous revenez sur la page | Il n’a été montré qu’une fois, à la création. | Faites tourner le secret : un nouveau secret s’affiche, et l’ancien continue de signer pendant le recouvrement. |
 | **« Cette déclaration n’attend plus de lecture : elle a déjà été décidée. »** | Quelqu’un a déjà accepté ou refusé cette proposition pendant que vous lisiez. | Rechargez la page : la forme en vigueur est celle qui s’affiche. |
-| Une ligne du rapport d’import est refusée | Sa référence ne suit pas le format en vigueur, ou la ligne est illisible. | Corrigez la ligne dans le fichier et réimportez. Une ligne refusée n’a rien créé. |
+| Une ligne du rapport d’import est refusée | Sa référence ne suit pas le format en vigueur, un champ annoncé manque, ou la ligne est illisible. | Corrigez la ligne dans le fichier et réimportez. Une ligne refusée n’a rien créé. |
 | Le client importé n’apparaît pas dans la liste | Il a été refusé — lisez le **« Rapport de l’import »**, qui donne le motif ligne par ligne. | Corrigez la cause (le format de la référence, le format du fichier) et réimportez. |
 | Le formulaire **« Nouveau client »** ne montre aucun champ annoncé | Aucune forme n’a été acceptée pour ce projet. | Lisez **« Forme du client »** et acceptez la proposition de l’application. |
 

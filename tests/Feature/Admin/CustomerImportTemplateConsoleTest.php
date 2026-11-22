@@ -5,6 +5,15 @@ declare(strict_types=1);
 namespace Tests\Feature\Admin;
 
 use App\Http\View\CustomerImportTemplate;
+use Core\Billing\Contracts\GetTenantSchema;
+use Core\Billing\Contracts\TenantSchemaFieldView;
+use Core\Billing\Contracts\TenantSchemaView;
+use Core\Billing\Domain\Model\TenantSchema;
+use Core\Billing\Domain\Model\TenantSchemaField;
+use Core\Billing\Domain\Model\TenantSchemaFieldType;
+use Core\Billing\Domain\Model\TenantSchemaPattern;
+use Core\Billing\Domain\Model\TenantSchemaStatus;
+use Core\Billing\Domain\Port\TenantSchemaRepository;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Contracts\CreateProject;
@@ -13,6 +22,7 @@ use Core\Identity\Contracts\ResolveAccessScope;
 use Core\Identity\Domain\Model\Operator;
 use Core\Identity\Domain\Port\OperatorRepository;
 use Core\Support\Access\AccessScope;
+use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -177,11 +187,153 @@ final class CustomerImportTemplateConsoleTest extends TestCase
         $this->get(route('admin.projects.customers.import.template', $projectId))->assertForbidden();
     }
 
+    #[Test]
+    public function le_modele_porte_la_forme_en_vigueur_et_s_importe_tel_quel(): void
+    {
+        $projectId = $this->project();
+        $this->bindSchema($this->schemaWithName($projectId));
+        $this->signInToConsole();
+
+        $content = $this->content($this->get(route('admin.projects.customers.import.template', $projectId)));
+
+        // The declared key that carries the name replaces the Core's
+        // column; the other declared key comes after (ADR-0122 §5).
+        self::assertStringContainsString('external_ref,email,phone,nom,annee', $content);
+
+        // The model is a file the Core reads: it imports as it is.
+        $this->post(route('admin.projects.customers.import', $projectId), [
+            'file' => UploadedFile::fake()->createWithContent(CustomerImportTemplate::FILENAME, $content),
+        ])->assertOk();
+
+        $customer = DB::table('customers')->where('project_id', $projectId)->where('external_ref', 'AE0001')->first();
+        self::assertNotNull($customer);
+        self::assertSame('Auto-école Exemple', $customer->display_name);
+    }
+
     private function project(): string
     {
         $organization = app(CreateOrganization::class)->create(new CreateOrganizationCommand('Org'), actor: 'service:test', correlationId: null);
 
         return app(CreateProject::class)->create(new CreateProjectCommand($organization->id, 'Mon Auto-École'), actor: 'service:test', correlationId: null)->project->id;
+    }
+
+    /**
+     * The form in force: the declared key carries the name of the client.
+     */
+    private function schemaWithName(string $projectId): TenantSchemaView
+    {
+        return new TenantSchemaView(
+            id: '44444444-4444-4444-8444-444444444444',
+            projectId: $projectId,
+            version: 1,
+            status: 'accepted',
+            uniqueKey: 'code',
+            uniqueKeyPattern: 'AE[0-9]{4,8}',
+            fields: [
+                new TenantSchemaFieldView(key: 'nom', label: 'Nom', type: 'string', required: true, maxLength: 200, source: 'core_identity.display_name'),
+                new TenantSchemaFieldView(key: 'annee', label: 'Année', type: 'integer', required: true, maxLength: null, source: 'declared.annee'),
+            ],
+            acceptedAt: '2026-11-11T10:00:00+00:00',
+            createdAt: '2026-11-11T09:00:00+00:00',
+            updatedAt: '2026-11-11T10:00:00+00:00',
+        );
+    }
+
+    /**
+     * The form in force: the references must respect its pattern.
+     */
+    private function bindSchema(TenantSchemaView $schema): void
+    {
+        // ADR-0130 §1 — l'écriture des valeurs déclarées passe par le
+        // cas d'usage d'upsert : il lui faut la forme en vigueur.
+        $this->bindSchemaRepository($schema);
+
+        $this->app->bind(GetTenantSchema::class, static fn (): GetTenantSchema => new class($schema) implements GetTenantSchema
+        {
+            public function __construct(private readonly ?TenantSchemaView $schema) {}
+
+            public function accepted(string $projectId, AccessScope $scope): ?TenantSchemaView
+            {
+                return $this->schema;
+            }
+
+            public function acceptsReference(string $projectId, string $reference, AccessScope $scope): bool
+            {
+                if ($this->schema === null) {
+                    return true;
+                }
+
+                return preg_match('/\A(?:'.$this->schema->uniqueKeyPattern.')\z/', $reference) === 1;
+            }
+
+            public function pending(string $projectId, AccessScope $scope): ?TenantSchemaView
+            {
+                return null;
+            }
+        });
+    }
+
+    /**
+     * The form in force, as the Core's use case sees it.
+     */
+    private function bindSchemaRepository(?TenantSchemaView $accepted): void
+    {
+        $schema = null;
+
+        if ($accepted !== null) {
+            $fields = [];
+
+            foreach ($accepted->fields as $field) {
+                $fields[] = new TenantSchemaField(
+                    key: $field->key,
+                    label: $field->label,
+                    type: TenantSchemaFieldType::from($field->type),
+                    required: $field->required,
+                    maxLength: $field->maxLength,
+                    source: $field->source,
+                );
+            }
+
+            $schema = new TenantSchema(
+                id: $accepted->id,
+                projectId: $accepted->projectId,
+                version: $accepted->version,
+                status: TenantSchemaStatus::Accepted,
+                uniqueKey: $accepted->uniqueKey,
+                uniqueKeyPattern: TenantSchemaPattern::of($accepted->uniqueKeyPattern),
+                fields: $fields,
+                acceptedAt: new DateTimeImmutable($accepted->acceptedAt ?? 'now'),
+                createdAt: new DateTimeImmutable($accepted->createdAt),
+                updatedAt: new DateTimeImmutable($accepted->updatedAt),
+            );
+        }
+
+        $this->app->bind(TenantSchemaRepository::class, static fn (): TenantSchemaRepository => new class($schema) implements TenantSchemaRepository
+        {
+            public function __construct(private readonly ?TenantSchema $schema) {}
+
+            public function findById(string $projectId, string $id): ?TenantSchema
+            {
+                return $this->schema;
+            }
+
+            public function findAccepted(string $projectId): ?TenantSchema
+            {
+                return $this->schema;
+            }
+
+            public function findPending(string $projectId): ?TenantSchema
+            {
+                return null;
+            }
+
+            public function highestVersion(string $projectId): int
+            {
+                return $this->schema === null ? 0 : $this->schema->version;
+            }
+
+            public function save(TenantSchema $schema): void {}
+        });
     }
 
     /**

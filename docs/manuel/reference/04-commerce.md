@@ -130,7 +130,11 @@ refusée **sur place**, sous le champ, avec la raison.
 
 Page **« Importer des clients »**
 (`GET /admin/projects/{projectId}/customers/import`) : l'opérateur dépose un
-fichier CSV dont l'en-tête est `external_ref, display_name, email, phone`.
+fichier CSV dont l'en-tête est celui du **modèle** : `external_ref`,
+`display_name`, `email`, `phone` — et, quand le projet a déclaré la forme de
+ses clients, **une colonne par clé déclarée**, à la place des colonnes
+d'identité que la déclaration remplace. La page dit le nombre de colonnes et
+explique chacune d'elles.
 
 Le Core crée les clients et les pousse ; l'application, qui connaît déjà ses
 clients, les **relie** au lieu d'en créer un second. Un client déjà connu est
@@ -146,7 +150,9 @@ une ligne illisible).
 
 `GET /admin/projects/{projectId}/customers/import/template` — une **lecture**
 (`customers:read`), servie en `text/csv` : le fichier porte l'en-tête attendu
-et une ligne d'exemple, et il s'importe tel quel.
+et une ligne d'exemple, et il s'importe tel quel. Le modèle **suit la forme en
+vigueur** : un projet qui a déclaré la forme de ses clients reçoit un modèle
+qui porte ses clés déclarées.
 
 L'en-tête et le contenu du modèle sortent de la **même source** que le lecteur
 (`App\Http\View\CustomerImportTemplate`) : les deux ne peuvent pas diverger. Un
