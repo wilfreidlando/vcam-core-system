@@ -23,11 +23,20 @@ qui portent des champs à elle, une **septième** :
 | 6 | **Recevoir** son état (abonnement, quotas, factures) | webhooks signés |
 | 7 | **Proposer** la forme de ses clients *(facultatif)* | `PUT /v1/projects/{id}/tenant-schema` |
 | 8 | **Relire** la forme en vigueur *(facultatif)* | `GET /v1/projects/{id}/tenant-schema` |
+| 9 | **Servir** la forme de ses clients *(facultatif)* | `GET /core/tenant-schema` |
+| 10 | **Servir** les clients qu'elle a déjà *(facultatif)* | `POST /core/tenants` |
 
-Des **lectures**, un **comptage**, une **ouverture de portail**, et la **réception**
-d'événements. **Aucun** droit d'écrire sur le commerce : votre clé ne portera pas
+Des **lectures**, un **comptage**, une **ouverture de portail**, la **réception**
+d'événements, et — si vous voulez que la console du Core fasse tout le
+travail — deux **lectures servies** au Core. **Aucun** droit d'écrire sur le
+commerce : votre clé ne portera pas
 `customers:write`, ni `subscriptions:write`, ni `invoices:write` — ce n'est pas une
 promesse, c'est la portée de la clé.
+
+> **Les lignes 9 et 10 sont facultatives mais recommandées.** C'est grâce à elles
+> que le branchement se fait **entièrement dans la console du Core** : pas de
+> commande à taper sur votre serveur, pas de fichier à fabriquer, pas d'en-tête à
+> deviner ([ADR-0133](../adr/0133-la-console-tire-la-forme-et-les-clients-de-l-application.md)).
 
 > **Pourquoi ?** Le portail du Core possède déjà toute l'interface commerciale
 > (`/portal/plans`, `subscribe`, `cancel`, `change-plan`, `renew`, `invoices`, `pay`).
@@ -141,6 +150,13 @@ création. Vous ne les **inventez** pas au moment de la saisie : vous les
 C'est une *forme*, pas une donnée : ni le nom du client, ni son e-mail, ni son
 téléphone. Une déclaration ne contient que des **noms** de champs.
 
+> **Le chemin ordinaire n'est plus une commande : c'est la console.**
+> Depuis la version 1.7 du paquet `core-adapter`, l'opérateur de la console du
+> Core **demande** la forme à votre application, **la valide**, et **vous** la
+> lisez et la décidez — sur la page *« Application cliente »* du projet. Le
+> `PUT` ci-dessous reste le chemin **programmatique** (une intégration
+> automatisée, une CI) ; ce n'est plus le geste du jour.
+
 ```bash
 curl -s -X PUT "$BASE_URL/v1/projects/$PROJECT_ID/tenant-schema" \
   -H "Authorization: Bearer $API_KEY" \
@@ -223,15 +239,112 @@ curl -s "$BASE_URL/v1/customers/$TENANT" \
 > N'y mettez donc pas de donnée personnelle : ni pièce d'identité, ni adresse,
 > ni numéro de téléphone.
 
-### Vos Clients que le Core ne connaît pas encore
+### Vos clients que le Core ne connaît pas encore
 
 Si votre application avait déjà ses clients **avant** le branchement, ils ne
-sont pas chez le Core. Vous les exportez (le paquet `core-adapter` expose
-`core:export-tenants`), l'opérateur dépose le fichier dans la console du Core
-(*« Importer des clients »*), et le Core les crée et les pousse.
+sont pas chez le Core.
+
+**Le chemin ordinaire : le Core vient les chercher.** Sur la page *« Application
+cliente »* du projet, l'opérateur clique sur **« Créer les clients depuis
+l'application »** : le Core interroge votre application, qui lui rend la liste
+de ses clients **avec les valeurs qu'elle connaît déjà** (la localisation, le
+nom du responsable, l'année de création) ; le Core affiche un **aperçu** —
+combien seront créés, combien sont déjà connus, combien seront refusés et
+pourquoi — puis l'opérateur confirme par **« Créer les clients »**. Le Core les
+crée et les pousse.
 
 Votre application, qui les connaît déjà, les **relie** : **aucun doublique**
 n'est possible, la référence est unique.
+
+> **Le chemin de secours : le fichier.** Quand l'application est injoignable, ou
+> pour un lot hors bande, l'export reste possible (le paquet `core-adapter`
+> expose `core:export-tenants`) et l'opérateur dépose le fichier dans la console
+> du Core (*« Importer des clients »*). Le fichier doit porter les colonnes de
+> la forme en vigueur — la console donne le modèle tout fait. Ce n'est plus le
+> parcours ordinaire.
+
+### Les lectures que le Core vient chercher
+
+Pour que le Core fasse tout cela tout seul, votre application doit **servir**
+deux lectures. Le paquet `core-adapter` (v1.7 et au-delà) les monte
+automatiquement — **vous n'écrivez pas une ligne de code pour les monter**, vous
+ne faites que **les remplir**.
+
+**`GET /core/tenant-schema`** — la forme que l'application veut :
+
+```json
+{
+  "unique_key": "code",
+  "unique_key_pattern": "^AE[0-9]{4}([0-9]{2}){0,2}$",
+  "fields": [
+    {"key": "nom", "label": "Raison sociale", "type": "string",
+     "required": true, "source": "core_identity.display_name"},
+    {"key": "localisation", "label": "Localisation", "type": "string",
+     "required": false, "max_length": 191, "source": "declared.localisation"}
+  ]
+}
+```
+
+**`POST /core/tenants`** — les clients que l'application a déjà, **paginés**.
+La page demandée est portée par le **corps** de la requête, pas par la chaîne
+de requête :
+
+```json
+{"page": 1, "per_page": 100}
+```
+
+```json
+{
+  "data": [
+    {
+      "external_ref": "AE0042",
+      "display_name": "Auto-École La Fontaine",
+      "email": "contact@la-fontaine.cm",
+      "phone": "+237657467941",
+      "localisation": "Douala, Akwa",
+      "nom_respo": "Awa Njoya",
+      "annee_creation": 2019
+    }
+  ],
+  "meta": {"page": 1, "per_page": 100, "count": 1, "has_more": false}
+}
+```
+
+Trois règles, et rien d'autre :
+
+| Règle | Pourquoi |
+|---|---|
+| **Chaque ligne porte `external_ref`** | c'est votre clé unique — la référence que l'opérateur saisira chez le Core ; |
+| **Chaque ligne porte l'identité** (`display_name`, `email`, `phone`) | le Core crée le client avec elle ; |
+| **Chaque ligne porte les valeurs déclarées**, sous le nom de la clé déclarée | sans elles, le Core ne saurait rien de ce client : il le créerait avec la seule identité, et l'application recevrait un client à moitié renseigné. |
+
+Une valeur déclarée garde son **type** : un champ `integer` doit partir en
+nombre (`2019`), pas en date (`"2019-05-04"`) — le Core refuse une valeur d'un
+autre type.
+
+**L'authentification de ces lectures est celle du point d'entrée.** Le Core
+signe sa requête comme il signe un événement :
+
+```
+X-Signature: HMAC-SHA256(timestamp + "." + corps)
+X-Timestamp: <unix>
+```
+
+tolérance **300 s**. C'est **le même secret** que celui des événements — pas un
+secret de plus à créer, pas un secret de plus à faire tourner. Pendant une
+rotation, le Core signe avec le secret courant et l'application accepte
+**aussi** l'ancien : la rotation ne casse pas le branchement.
+
+**L'adresse** est **déduite du point d'entrée** déjà enregistré pour le projet
+(même schéma, même hôte) : l'opérateur ne la saisit pas une seconde fois. La
+console la montre et permet de la corriger, au cas où l'API de votre
+application ne serait pas sur le même hôte que la réception des événements.
+
+> **Ce que le Core fait de votre réponse : il ne s'y fie pas.** Elle est
+> validée par les mêmes règles qu'une proposition reçue par l'API ; une
+> application qui ment ne peut pas faire écrire n'importe quoi au Core. Le
+> corps des réponses n'est **jamais journalisé** : il porte des noms, des
+> e-mails et des téléphones.
 
 ## 3. Lire les droits du locataire
 
@@ -428,6 +541,8 @@ Les offres, c'est **vous** qui les publiez dans le Core (opérateur), une fois :
 | suivre l'envoi d'un message | `GET /v1/notifications/{id}` | `notifications:read` |
 | **proposer** la forme de ses clients | `PUT /v1/projects/{id}/tenant-schema` | `tenant_schema:write` |
 | **relire** la forme en vigueur | `GET /v1/projects/{id}/tenant-schema` | `tenant_schema:read` |
+| **servir** la forme de ses clients | `GET /core/tenant-schema` | — (signature du point d'entrée) |
+| **servir** ses clients existants | `POST /core/tenants` | — (signature du point d'entrée) |
 | recevoir ses événements | webhook signé | — |
 
 Et ce que vous **ne** ferez pas : **créer un client**, créer une offre, créer un

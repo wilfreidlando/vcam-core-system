@@ -263,13 +263,15 @@ que le CSV et la liste de l'application ne peuvent pas diverger.
 
 ## 8. La séquence
 
-1. **ADR-0133** — les décisions (le Core interroge ; le secret du point d'entrée ; l'adresse déduite ; le CSV reste en second plan).
-2. **Paquet `core-adapter` v1.7.0** — les deux routes, la pagination, la vérification de signature, les tests, la doc.
-3. **Core — sans console** — les contrats, les adaptateurs, les deux cas d'usage, les tests (le contrat du paquet est simulé par un faux).
-4. **Core — console** — la page d'état, les deux actions, l'aperçu, le rapport, les tests d'écran.
-5. **Application** — `tenants()`, mise à jour du paquet, tests.
-6. **Recette** — sur le staging : une application de démonstration (une auto-école) branchée de bout en bout, avec un client existant, un client déjà connu et un client refusé.
-7. **Documentation** — ADR-0133, le parcours `F14`, le guide `docs/integration/brancher-une-application-cliente.md`, le README du paquet.
+| # | Morceau | État |
+|---|---|---|
+| 1 | **ADR-0133** — les décisions (le Core interroge ; le secret du point d'entrée ; l'adresse déduite ; le CSV reste en second plan). | **fait** |
+| 2 | **Paquet `core-adapter` v1.7.0** — les deux routes, la pagination, la vérification de signature, les tests, la doc. | **fait** — publié (`v1.7.0`, `a840984`) |
+| 3 | **Core — sans console** — les contrats, les adaptateurs, les deux cas d'usage, les tests (le contrat du paquet est simulé par un faux). | **fait** — `2978990` |
+| 4 | **Core — console** — la page d'état, les deux actions, l'aperçu, le rapport, les tests d'écran. | **fait** — `2978990` |
+| 5 | **Application** — `tenants()`, mise à jour du paquet, tests. | **fait** — `54c4daa` (dépôt de l'application) |
+| 6 | **Recette** — sur le staging : une application de démonstration (une auto-école) branchée de bout en bout, avec un client existant, un client déjà connu et un client refusé. | **à faire** — demande un déploiement explicite |
+| 7 | **Documentation** — ADR-0133, le parcours `F14`, le guide `docs/integration/brancher-une-application-cliente.md`, le README du paquet. | **fait** |
 
 ## 9. Ce que ce plan ne change pas
 
