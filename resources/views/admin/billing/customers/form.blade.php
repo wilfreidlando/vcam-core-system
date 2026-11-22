@@ -6,12 +6,9 @@
 @php
     // Une clé déclarée dont l'origine est un champ du Core **remplace**
     // ce champ : le Core ne demande jamais deux fois la même valeur.
-    $replaced = [];
-    foreach ($fields as $field) {
-        if ($field['identity'] !== null) {
-            $replaced[$field['identity']] = true;
-        }
-    }
+    // La même liste que celle que la validation lit : ce que l'écran
+    // montre et ce que le serveur exige ne peuvent pas diverger.
+    $replaced = \App\Http\View\TenantSchemaLabels::replacedIdentityFields($schema);
 @endphp
 <div class="max-w-2xl space-y-6">
     <form method="POST"
@@ -37,19 +34,19 @@
         @endunless
 
         <div class="grid gap-4 sm:grid-cols-2">
-            {{-- ADR-0083 §3 — the console never shows personal data in
-                 clear: the value is masked, and the field starts empty.
+            {{-- ADR-0131 — le contact s'affiche tel que le Core le
+                 conserve : le champ part vide, et la valeur actuelle est
+                 rappelée à côté.
                  Leaving it empty keeps the stored value; filling it
-                 replaces it. Unmasking is an audited action, and the Core
-                 does not offer one in this lot. --}}
+                 replaces it. --}}
             @unless (isset($replaced['email']))
                 <x-admin.field name="email" label="Contact (courriel)" type="email" maxlength="255" optional autocomplete="off"
-                               :hint="'Enregistré en clair par le Core, jamais affiché en clair en console.'.($customer !== null && $customer->email !== null ? ' Valeur actuelle : '.\Core\Support\Privacy\PersonalDataMask::email($customer->email).' — laissez le champ vide pour la conserver.' : '')" />
+                               :hint="'Enregistré en clair par le Core.'.($customer !== null && $customer->email !== null ? ' Valeur actuelle : '.$customer->email.' — laissez le champ vide pour la conserver.' : '')" />
             @endunless
 
             @unless (isset($replaced['phone']))
                 <x-admin.field name="phone" label="Téléphone" maxlength="32" optional autocomplete="off"
-                               :hint="$customer !== null && $customer->phone !== null ? 'Valeur actuelle : '.\Core\Support\Privacy\PersonalDataMask::phone($customer->phone).' — laissez le champ vide pour la conserver.' : null" />
+                               :hint="$customer !== null && $customer->phone !== null ? 'Valeur actuelle : '.$customer->phone.' — laissez le champ vide pour la conserver.' : null" />
             @endunless
         </div>
 

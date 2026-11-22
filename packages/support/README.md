@@ -18,7 +18,7 @@ Décision de référence : [ADR-0020](../../docs/adr/0020-shared-kernel-support.
 | `Money` — enveloppe de brick/money | `src/Money/` | Livré — Lot 2 — [ADR-0021](../../docs/adr/0021-wrapper-money.md) |
 | Middleware d'idempotence + port `IdempotencyStore` | `src/Idempotency/` | Lot 2 — [ADR-0025](../../docs/adr/0025-design-idempotence.md) |
 | Socle d'intégration externe (HTTP sortant) | `src/Integration/` | **Livré** — [ADR-0026](../../docs/adr/0026-integration-providers-externes.md) + [ADR-0031](../../docs/adr/0031-socle-integration-en-parallele-du-lot-2.md) + [ADR-0034](../../docs/adr/0034-socle-integration-scope-structure.md) |
-| Normalisation et masquage des données personnelles | `src/Privacy/` | **Livré** — [ADR-0083](../../docs/adr/0083-donnees-personnelles-chiffrement-conservation-effacement.md), amendé par [ADR-0123](../../docs/adr/0123-le-core-ne-chiffre-plus-les-donnees-client.md) — socle du lot 8 |
+| Normalisation des données personnelles | `src/Privacy/` | **Livré** — [ADR-0083](../../docs/adr/0083-donnees-personnelles-chiffrement-conservation-effacement.md), amendé par [ADR-0123](../../docs/adr/0123-le-core-ne-chiffre-plus-les-donnees-client.md) et [ADR-0131](../../docs/adr/0131-la-console-affiche-le-contact-du-client-en-clair.md) — socle du lot 8 |
 | Portée d'accès console (organisations et projets visibles) | `src/Access/AccessScope.php` | **Livré** — [ADR-0069](../../docs/adr/0069-organisations-projets-et-acces-console-scopes.md) §2 — socle du lot 8 |
 
 ### Portée d'accès console (ADR-0069)
@@ -69,18 +69,20 @@ Ce que le noyau partagé garde, et qui n'a rien à voir avec le chiffrement :
 - `Privacy\PersonalDataKind` : normalisation (email en minuscules, téléphone en
   chiffres) avant stockage — c'est elle qui porte l'unicité par projet et la
   recherche par contact (ADR-0070 §4).
-- `Privacy\PersonalDataMask` : masquage d'affichage (`a***@d***.cm`).
 
 Le chiffreur (`Privacy\PersonalDataCipher`) et l'index aveugle
 (`Privacy\BlindIndex`) sont retirés par ADR-0123 : plus rien ne les utilise, et
-un chiffreur laissé en place est une tentation.
+un chiffreur laissé en place est une tentation. Le masque d'affichage
+(`Privacy\PersonalDataMask`) est retiré par ADR-0131 : la console montre le
+contact en clair, et un masque qui ne protège plus rien ne serait qu'un
+écran.
 
 Ce qui reste de la protection d'ADR-0083 ne porte pas sur le stockage, mais sur
 l'**exposition** :
 
 - l'API ne rend l'e-mail et le téléphone qu'à un appelant portant
   `customers:read` (§3) ;
-- la console les masque par défaut, et le démasquage est un acte audité ;
+- la console les montre en clair à l'opérateur autorisé (ADR-0131) ;
 - le journal d'audit et les journaux techniques ne portent aucune valeur
   personnelle (§4) ;
 - l'effacement vide l'identité — nom, contact, métadonnées (§6).

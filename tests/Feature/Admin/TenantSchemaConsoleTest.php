@@ -148,6 +148,78 @@ final class TenantSchemaConsoleTest extends TestCase
     }
 
     #[Test]
+    public function a_declared_key_that_carries_the_name_lets_the_customer_be_declared_without_the_core_field(): void
+    {
+        $projectId = $this->project();
+        $this->bindSchema($this->acceptedSchemaWithName($projectId));
+        $this->signInToConsole();
+
+        // The form shows the declared key, not the Core's own field: the
+        // operator has one field to fill, not two.
+        $html = $this->get(route('admin.projects.customers.new', $projectId))->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
+
+        self::assertIsString($html);
+        self::assertStringContainsString('name="attributes[nom]"', $html);
+        self::assertStringNotContainsString('name="display_name"', $html);
+
+        // He fills every field he can see — and the form is accepted.
+        $this->post(route('admin.projects.customers.store', $projectId), [
+            'external_ref' => 'AE0001',
+            'attributes' => ['nom' => 'Auto-école Soleil', 'annee' => '2019'],
+        ])->assertRedirect(route('admin.projects.customers.index', $projectId));
+
+        $customer = DB::table('customers')->where('external_ref', 'AE0001')->first();
+        self::assertNotNull($customer);
+        // The declared value feeds the Core's identity.
+        self::assertSame('Auto-école Soleil', $customer->display_name);
+    }
+
+    #[Test]
+    public function a_declared_name_left_empty_is_refused_under_the_declared_field(): void
+    {
+        $projectId = $this->project();
+        $this->bindSchema($this->acceptedSchemaWithName($projectId));
+        $this->signInToConsole();
+
+        $this->post(route('admin.projects.customers.store', $projectId), [
+            'external_ref' => 'AE0002',
+            'attributes' => ['nom' => '', 'annee' => '2019'],
+        ])->assertSessionHasErrors('attributes.nom');
+
+        self::assertSame(0, DB::table('customers')->where('project_id', $projectId)->count());
+    }
+
+    #[Test]
+    public function a_declared_name_left_empty_keeps_the_stored_one(): void
+    {
+        $projectId = $this->project();
+        // The name is **optional** here: an empty field then means "keep
+        // what is stored", the same rule as the contact.
+        $this->bindSchema($this->acceptedSchemaWithName($projectId, required: false));
+        $this->signInToConsole();
+
+        $this->post(route('admin.projects.customers.store', $projectId), [
+            'external_ref' => 'AE0003',
+            'attributes' => ['nom' => 'Auto-école Soleil', 'annee' => '2019'],
+        ])->assertRedirect(route('admin.projects.customers.index', $projectId));
+
+        $customer = DB::table('customers')->where('external_ref', 'AE0003')->first();
+        self::assertNotNull($customer);
+
+        // The operator clears the name: the field starts empty, and an
+        // empty field **keeps** what is stored — it never erases it.
+        $this->post(route('admin.projects.customers.update.web', [$projectId, 'AE0003']), [
+            'external_ref' => 'AE0003',
+            'version' => $customer->version,
+            'attributes' => ['nom' => '', 'annee' => '2020'],
+        ])->assertRedirect(route('admin.projects.customers.index', $projectId));
+
+        $after = DB::table('customers')->where('external_ref', 'AE0003')->first();
+        self::assertNotNull($after);
+        self::assertSame('Auto-école Soleil', $after->display_name);
+    }
+
+    #[Test]
     public function a_key_that_asks_for_a_core_field_is_written_in_the_identity_and_not_in_the_declared_attributes(): void
     {
         $projectId = $this->project();
@@ -378,6 +450,29 @@ final class TenantSchemaConsoleTest extends TestCase
             acceptedAt: '2026-11-11T10:00:00+00:00',
             createdAt: '2026-11-11T09:00:00+00:00',
             updatedAt: '2026-11-11T10:00:00+00:00',
+        );
+    }
+
+    /**
+     * Une déclaration qui porte **le nom** du client : la clé déclarée
+     * remplace le champ du Core (ADR-0122 §5).
+     */
+    private function acceptedSchemaWithName(string $projectId, bool $required = true): TenantSchemaView
+    {
+        return new TenantSchemaView(
+            id: '22222222-2222-4222-8222-222222222222',
+            projectId: $projectId,
+            version: 1,
+            status: 'accepted',
+            uniqueKey: 'code',
+            uniqueKeyPattern: 'AE[0-9]{4,8}',
+            fields: [
+                new TenantSchemaFieldView(key: 'nom', label: 'Raison sociale', type: 'string', required: $required, maxLength: null, source: 'core_identity.display_name'),
+                new TenantSchemaFieldView(key: 'annee', label: 'Année de création', type: 'integer', required: true, maxLength: null, source: 'declared.annee'),
+            ],
+            acceptedAt: '2026-11-20T10:00:00+00:00',
+            createdAt: '2026-11-20T09:00:00+00:00',
+            updatedAt: '2026-11-20T10:00:00+00:00',
         );
     }
 

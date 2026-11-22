@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\View;
 
+use Core\Billing\Contracts\TenantSchemaView;
+
 /**
  * The words the console uses for a declared form.
  *
@@ -101,6 +103,36 @@ final class TenantSchemaLabels
             'core_identity.locale' => 'locale',
             default => null,
         };
+    }
+
+    /**
+     * The Core's identity fields a declaration **replaces**.
+     *
+     * ADR-0122 §5 — a declared key whose source is one of the Core's own
+     * identity fields takes its place: the form does not show that field
+     * any more, and the server must not ask for it either. The form and
+     * the validation read the same list, or the operator fills in every
+     * field he can see and is told one is missing.
+     *
+     * @return array<string, string> the Core field, and the declared key that replaces it
+     */
+    public static function replacedIdentityFields(?TenantSchemaView $schema): array
+    {
+        if ($schema === null) {
+            return [];
+        }
+
+        $replaced = [];
+
+        foreach ($schema->fields as $field) {
+            $identity = self::identityField($field->source);
+
+            if ($identity !== null) {
+                $replaced[$identity] = $field->key;
+            }
+        }
+
+        return $replaced;
     }
 
     private static function plural(string $class): string

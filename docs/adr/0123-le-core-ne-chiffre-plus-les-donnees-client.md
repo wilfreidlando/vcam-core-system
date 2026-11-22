@@ -1,6 +1,6 @@
 # ADR-0123 — Le Core ne chiffre plus les données client : il les garde en clair, comme l'application
 
-- **Statut** : Accepté
+- **Statut** : Accepté — amendé par ADR-0131 (§3 : le noyau partagé ne garde plus le masque d'affichage ; §4 : la console affiche le contact en clair)
 - **Date** : 2026-11-12
 - **Décideurs** : commanditaire (« j'ai dit que on ne chiffre plus rien concernant les données client, rien du tout »), comité d'architecture
 - **Dérives concernées** : D3 données/PII

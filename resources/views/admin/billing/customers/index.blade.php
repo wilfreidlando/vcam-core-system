@@ -8,9 +8,9 @@
         <p class="font-semibold mb-1">Le client est déclaré par le projet</p>
         <p>
             Un client est l'identité minimale d'un payeur : la référence que le projet lui
-            connaît, un nom affiché et — facultativement — un contact. Le contact n'est
-            affiché que masqué, jamais en clair ; le Core le conserve en clair, comme le
-            reste de l'identité. Un client suspendu perd ses droits mais reste dû ; un
+            connaît, un nom affiché et — facultativement — un contact. Le contact s'affiche
+            tel que le projet l'a déclaré : le Core le conserve en clair, comme le reste
+            de l'identité. Un client suspendu perd ses droits mais reste dû ; un
             client effacé perd son identité, pas son historique.
         </p>
     </div>
@@ -49,7 +49,7 @@
                     <td class="px-4 py-2 text-base text-slate-900">{{ $customer->displayName }}</td>
                     <td class="px-4 py-2 text-sm text-slate-600">
                         @if ($customer->email !== null)
-                            {{ \Core\Support\Privacy\PersonalDataMask::email($customer->email) }}
+                            {{ $customer->email }}
                         @else
                             <span class="text-slate-500">—</span>
                         @endif

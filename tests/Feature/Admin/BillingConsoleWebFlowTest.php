@@ -76,14 +76,19 @@ final class BillingConsoleWebFlowTest extends TestCase
         self::assertSame('contact@acme.test', $row->email);
         self::assertSame('+237690000000', $row->phone);
 
-        // ADR-0083 §3 / ADR-0093 §6 — the console never shows a
-        // personal value in clear: the page carries the **masked**
-        // value, and the field starts empty.
+        // ADR-0131 — the console shows the contact as the Core keeps it:
+        // the field starts empty, and the current value is written next
+        // to it.
         $edit = $this->get(route('admin.projects.customers.edit', [$projectId, 'acme']));
         $edit->assertOk();
-        $edit->assertDontSee('contact@acme.test');
-        $edit->assertDontSee('+237690000000');
-        $edit->assertSee('c***@a***.test');
+        $edit->assertSee('contact@acme.test');
+        $edit->assertSee('+237690000000');
+
+        // The list shows it too — in clear, like the sheet.
+        $index = $this->get(route('admin.projects.customers.index', $projectId));
+        $index->assertOk();
+        $index->assertSee('contact@acme.test');
+        $index->assertDontSee('c***@a***.test');
 
         // The catalogue: a plan, a version, a publication.
         $this->post(route('admin.projects.plans.store', $projectId), [

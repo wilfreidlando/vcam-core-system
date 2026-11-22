@@ -29,6 +29,25 @@
         </div>
     </div>
 
+    {{-- ADR-0131 — le contact du client, tel que le Core le conserve :
+         l'opérateur doit reconnaître son client sans passer par un autre
+         écran. --}}
+    @if ($customer->email !== null || $customer->phone !== null)
+        <div class="rounded-lg border border-slate-200 bg-white p-5">
+            <h2 class="text-base font-semibold text-slate-900">Contact</h2>
+            <dl class="mt-3 grid gap-4 sm:grid-cols-2">
+                <div>
+                    <dt class="text-sm text-slate-600">Courriel</dt>
+                    <dd class="text-sm font-medium text-slate-900">{{ $customer->email ?? '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm text-slate-600">Téléphone</dt>
+                    <dd class="text-sm font-medium text-slate-900">{{ $customer->phone ?? '—' }}</dd>
+                </div>
+            </dl>
+        </div>
+    @endif
+
     {{-- ADR-0125 — l'espace du client : le lien que l'opérateur copie, et
          la connexion par code quand le projet l'a activée (ADR-0100).
          Le lien est un secret : il n'apparaît que dans la réponse qui
