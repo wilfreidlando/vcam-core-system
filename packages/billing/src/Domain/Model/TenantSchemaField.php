@@ -47,6 +47,18 @@ final readonly class TenantSchemaField
     public const RESERVED_SOURCE_NAMESPACE = 'core_identity';
 
     /**
+     * L'espace de noms des sources **déclarées** : la valeur que
+     * l'opérateur saisit pour cette clé.
+     *
+     * ADR-0130 §2 — le suffixe de la source nomme la **clé du champ** :
+     * c'est sous la clé que le Core stocke la valeur et la rend. Une
+     * source `declared.foo` sur un champ `bar` passerait le contrôle,
+     * le Core stockerait `bar` et le client chercherait `foo` — la valeur
+     * serait absente, sans erreur nulle part.
+     */
+    public const DECLARED_SOURCE_NAMESPACE = 'declared.';
+
+    /**
      * Les sources que le Core sait servir : l'application demande une de
      * ces valeurs, et le Core la lui donne.
      *
@@ -87,6 +99,11 @@ final readonly class TenantSchemaField
 
         if (self::isUnknownCoreSource($source)) {
             throw InvalidTenantSchema::becauseUnknownCoreSource($source);
+        }
+
+        // ADR-0130 §2 — une source déclarée nomme la clé du champ.
+        if (self::isDeclaredSource($source) && ! self::declaredSourceNamesTheKey($source, $key)) {
+            throw InvalidTenantSchema::becauseSourceDoesNotNameTheField($source, $key);
         }
     }
 
@@ -140,6 +157,61 @@ final readonly class TenantSchemaField
      * formulaire. `core_identity.whatever` ne l'est pas : elle ne dit pas
      * quelle valeur l'application veut (ADR-0122 §5).
      */
+    /**
+     * L'empreinte du champ — de quoi dire s'il est **le même** champ
+     * qu'un autre (ADR-0130 §5).
+     *
+     * Deux champs qui ne portent que le même nom ne sont pas le même
+     * champ : le libellé est ce que l'opérateur lit, le type est ce que
+     * la saisie contrôle, la source est d'où vient la valeur.
+     */
+    public function signature(): string
+    {
+        return (string) json_encode([
+            $this->key,
+            $this->label,
+            $this->type->value,
+            $this->required,
+            $this->maxLength,
+            $this->source,
+        ]);
+    }
+
+    /**
+     * La source vient-elle de l'**identité du Core** — c'est-à-dire la
+     * valeur que le Core stocke dans sa propre identité du client ?
+     *
+     * Ces champs ne vivent pas dans les attributs déclarés : leur valeur
+     * est **chiffrée** avec l'identité du client (ADR-0083 §3). Les
+     * valeurs déclarées ne les exigent donc pas (ADR-0130 §1).
+     */
+    public function isCoreIdentity(): bool
+    {
+        return in_array(trim($this->source), self::CORE_SOURCES, true);
+    }
+
+    /**
+     * La source est-elle une source **déclarée** — la valeur que
+     * l'opérateur saisit ?
+     */
+    private static function isDeclaredSource(string $source): bool
+    {
+        return str_starts_with(trim($source), self::DECLARED_SOURCE_NAMESPACE);
+    }
+
+    /**
+     * Le suffixe de la source nomme-t-il la clé du champ ?
+     *
+     * `declared.localisation` sur le champ `localisation` : conforme.
+     * `declared.foo` sur le champ `bar` : refusé (ADR-0130 §2).
+     */
+    private static function declaredSourceNamesTheKey(string $source, string $key): bool
+    {
+        $suffix = substr(trim($source), strlen(self::DECLARED_SOURCE_NAMESPACE));
+
+        return $suffix === $key;
+    }
+
     private static function isUnknownCoreSource(string $source): bool
     {
         $trimmed = trim($source);

@@ -6,22 +6,26 @@ namespace Tests\Feature\Admin;
 
 use Core\Billing\Contracts\AcceptTenantSchema;
 use Core\Billing\Contracts\AcceptTenantSchemaCommand;
-use Core\Billing\Contracts\GetCustomerDeclaredAttributes;
 use Core\Billing\Contracts\GetTenantSchema;
 use Core\Billing\Contracts\RejectTenantSchema;
 use Core\Billing\Contracts\RejectTenantSchemaCommand;
-use Core\Billing\Contracts\SetCustomerDeclaredAttributes;
 use Core\Billing\Contracts\TenantSchemaFieldView;
 use Core\Billing\Contracts\TenantSchemaView;
+use Core\Billing\Domain\Model\TenantSchema;
+use Core\Billing\Domain\Model\TenantSchemaField;
+use Core\Billing\Domain\Model\TenantSchemaFieldType;
+use Core\Billing\Domain\Model\TenantSchemaPattern;
+use Core\Billing\Domain\Model\TenantSchemaStatus;
+use Core\Billing\Domain\Port\TenantSchemaRepository;
 use Core\Identity\Contracts\CreateOrganization;
 use Core\Identity\Contracts\CreateOrganizationCommand;
 use Core\Identity\Contracts\CreateProject;
 use Core\Identity\Contracts\CreateProjectCommand;
 use Core\Support\Access\AccessScope;
+use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
-use Tests\Support\FakeDeclaredAttributes;
 use Tests\Support\SignsInToConsole;
 use Tests\TestCase;
 
@@ -144,11 +148,82 @@ final class TenantSchemaConsoleTest extends TestCase
     }
 
     #[Test]
+    public function a_declared_key_that_carries_the_name_lets_the_customer_be_declared_without_the_core_field(): void
+    {
+        $projectId = $this->project();
+        $this->bindSchema($this->acceptedSchemaWithName($projectId));
+        $this->signInToConsole();
+
+        // The form shows the declared key, not the Core's own field: the
+        // operator has one field to fill, not two.
+        $html = $this->get(route('admin.projects.customers.new', $projectId))->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
+
+        self::assertIsString($html);
+        self::assertStringContainsString('name="attributes[nom]"', $html);
+        self::assertStringNotContainsString('name="display_name"', $html);
+
+        // He fills every field he can see — and the form is accepted.
+        $this->post(route('admin.projects.customers.store', $projectId), [
+            'external_ref' => 'AE0001',
+            'attributes' => ['nom' => 'Auto-école Soleil', 'annee' => '2019'],
+        ])->assertRedirect(route('admin.projects.customers.index', $projectId));
+
+        $customer = DB::table('customers')->where('external_ref', 'AE0001')->first();
+        self::assertNotNull($customer);
+        // The declared value feeds the Core's identity.
+        self::assertSame('Auto-école Soleil', $customer->display_name);
+    }
+
+    #[Test]
+    public function a_declared_name_left_empty_is_refused_under_the_declared_field(): void
+    {
+        $projectId = $this->project();
+        $this->bindSchema($this->acceptedSchemaWithName($projectId));
+        $this->signInToConsole();
+
+        $this->post(route('admin.projects.customers.store', $projectId), [
+            'external_ref' => 'AE0002',
+            'attributes' => ['nom' => '', 'annee' => '2019'],
+        ])->assertSessionHasErrors('attributes.nom');
+
+        self::assertSame(0, DB::table('customers')->where('project_id', $projectId)->count());
+    }
+
+    #[Test]
+    public function a_declared_name_left_empty_keeps_the_stored_one(): void
+    {
+        $projectId = $this->project();
+        // The name is **optional** here: an empty field then means "keep
+        // what is stored", the same rule as the contact.
+        $this->bindSchema($this->acceptedSchemaWithName($projectId, required: false));
+        $this->signInToConsole();
+
+        $this->post(route('admin.projects.customers.store', $projectId), [
+            'external_ref' => 'AE0003',
+            'attributes' => ['nom' => 'Auto-école Soleil', 'annee' => '2019'],
+        ])->assertRedirect(route('admin.projects.customers.index', $projectId));
+
+        $customer = DB::table('customers')->where('external_ref', 'AE0003')->first();
+        self::assertNotNull($customer);
+
+        // The operator clears the name: the field starts empty, and an
+        // empty field **keeps** what is stored — it never erases it.
+        $this->post(route('admin.projects.customers.update.web', [$projectId, 'AE0003']), [
+            'external_ref' => 'AE0003',
+            'version' => $customer->version,
+            'attributes' => ['nom' => '', 'annee' => '2020'],
+        ])->assertRedirect(route('admin.projects.customers.index', $projectId));
+
+        $after = DB::table('customers')->where('external_ref', 'AE0003')->first();
+        self::assertNotNull($after);
+        self::assertSame('Auto-école Soleil', $after->display_name);
+    }
+
+    #[Test]
     public function a_key_that_asks_for_a_core_field_is_written_in_the_identity_and_not_in_the_declared_attributes(): void
     {
         $projectId = $this->project();
         $this->bindSchema($this->acceptedSchema($projectId, withContact: true));
-        $declared = $this->bindDeclaredAttributes();
         $this->signInToConsole();
 
         $this->post(route('admin.projects.customers.store', $projectId), [
@@ -162,8 +237,7 @@ final class TenantSchemaConsoleTest extends TestCase
         // into the declared attributes, which are the application's own
         // values. The year, which the application declared for itself, is
         // a declared value.
-        self::assertSame(['annee' => '2019'], $declared->last);
-        self::assertArrayNotHasKey('courriel', $declared->last);
+        self::assertSame(['annee' => '2019'], $this->declaredValues());
 
         $stored = DB::table('customer_declared_attributes')->pluck('value')->all();
         self::assertNotContains('contact@exemple.test', $stored);
@@ -240,7 +314,6 @@ final class TenantSchemaConsoleTest extends TestCase
     {
         $projectId = $this->project();
         $this->bindSchema($this->acceptedSchema($projectId));
-        $declared = $this->bindDeclaredAttributes();
         $this->signInToConsole();
 
         $this->post(route('admin.projects.customers.store', $projectId), [
@@ -249,8 +322,103 @@ final class TenantSchemaConsoleTest extends TestCase
             'attributes' => ['localisation' => 'Douala', 'annee' => '2019'],
         ])->assertRedirect(route('admin.projects.customers.index', $projectId));
 
-        self::assertSame(['localisation' => 'Douala', 'annee' => '2019'], $declared->last);
-        self::assertCount(1, $declared->stored);
+        // ADR-0130 §1 — les valeurs déclarées sont écrites **avec** le
+        // client, dans la même transaction : la console ne les écrit plus
+        // après coup.
+        self::assertSame(['annee' => '2019', 'localisation' => 'Douala'], $this->declaredValues());
+    }
+
+    #[Test]
+    public function the_ten_declared_types_are_rendered_as_the_control_they_deserve(): void
+    {
+        $projectId = $this->project();
+        $this->bindSchema($this->schemaOfTheTenTypes($projectId));
+        $this->signInToConsole();
+
+        $html = $this->get(route('admin.projects.customers.new', $projectId))->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
+
+        self::assertIsString($html);
+
+        // ADR-0122 §3, ADR-0130 §3 — les dix types que le Core connaît
+        // ont chacun **un** contrôle, choisi par une seule fonction de la
+        // console.
+        $this->assertControl($html, 'chaine', 'text');
+        $this->assertControl($html, 'texte', 'textarea');
+        $this->assertControl($html, 'entier', 'number');
+        $this->assertControl($html, 'decimal', 'number');
+        $this->assertControl($html, 'booleen', 'checkbox');
+        $this->assertControl($html, 'jour', 'date');
+        $this->assertControl($html, 'instant', 'datetime-local');
+        $this->assertControl($html, 'courriel', 'email');
+        $this->assertControl($html, 'telephone', 'tel');
+        $this->assertControl($html, 'adresse', 'url');
+    }
+
+    #[Test]
+    public function a_declared_boolean_is_always_said_coched_or_not(): void
+    {
+        $projectId = $this->project();
+        $this->bindSchema($this->schemaWithBoolean($projectId));
+        $this->signInToConsole();
+
+        $html = $this->get(route('admin.projects.customers.new', $projectId))->assertOk()->getContent(); // @phpstan-ignore staticMethod.dynamicCall
+
+        self::assertIsString($html);
+
+        // La case à cocher est accompagnée d'un « 0 » caché : la valeur est
+        // toujours dite, cochée ou non.
+        self::assertStringContainsString('<input type="hidden" name="attributes[actif]" value="0">', $html);
+
+        $this->post(route('admin.projects.customers.store', $projectId), [
+            'external_ref' => 'AE0007',
+            'display_name' => 'Auto-école Soleil',
+            'attributes' => ['actif' => '0'],
+        ])->assertRedirect(route('admin.projects.customers.index', $projectId));
+
+        self::assertSame(['actif' => '0'], $this->declaredValues());
+    }
+
+    /**
+     * Le contrôle rendu pour un champ déclaré.
+     */
+    private function assertControl(string $html, string $key, string $type): void
+    {
+        if ($type === 'textarea') {
+            self::assertMatchesRegularExpression('/<textarea[^>]*id="field-attributes-'.$key.'"/', $html);
+
+            return;
+        }
+
+        if ($type === 'select') {
+            self::assertMatchesRegularExpression('/<select[^>]*id="field-attributes-'.$key.'"/', $html);
+
+            return;
+        }
+
+        self::assertMatchesRegularExpression('/type="'.$type.'"[^>]*id="field-attributes-'.$key.'"/', $html);
+    }
+
+    /**
+     * Les valeurs déclarées, telles qu'elles sont en base.
+     *
+     * @return array<string, string>
+     */
+    private function declaredValues(): array
+    {
+        $rows = DB::table('customer_declared_attributes')->orderBy('key')->get();
+
+        $values = [];
+
+        foreach ($rows as $row) {
+            $key = $row->key;
+            $value = $row->value;
+            self::assertIsString($key);
+            self::assertIsString($value);
+
+            $values[$key] = $value;
+        }
+
+        return $values;
     }
 
     private function project(): string
@@ -285,6 +453,95 @@ final class TenantSchemaConsoleTest extends TestCase
         );
     }
 
+    /**
+     * Une déclaration qui porte **le nom** du client : la clé déclarée
+     * remplace le champ du Core (ADR-0122 §5).
+     */
+    private function acceptedSchemaWithName(string $projectId, bool $required = true): TenantSchemaView
+    {
+        return new TenantSchemaView(
+            id: '22222222-2222-4222-8222-222222222222',
+            projectId: $projectId,
+            version: 1,
+            status: 'accepted',
+            uniqueKey: 'code',
+            uniqueKeyPattern: 'AE[0-9]{4,8}',
+            fields: [
+                new TenantSchemaFieldView(key: 'nom', label: 'Raison sociale', type: 'string', required: $required, maxLength: null, source: 'core_identity.display_name'),
+                new TenantSchemaFieldView(key: 'annee', label: 'Année de création', type: 'integer', required: true, maxLength: null, source: 'declared.annee'),
+            ],
+            acceptedAt: '2026-11-20T10:00:00+00:00',
+            createdAt: '2026-11-20T09:00:00+00:00',
+            updatedAt: '2026-11-20T10:00:00+00:00',
+        );
+    }
+
+    /**
+     * Une déclaration qui porte **les dix** types que le Core connaît.
+     */
+    private function schemaOfTheTenTypes(string $projectId): TenantSchemaView
+    {
+        $types = [
+            'chaine' => 'string',
+            'texte' => 'text',
+            'entier' => 'integer',
+            'decimal' => 'decimal',
+            'booleen' => 'boolean',
+            'jour' => 'date',
+            'instant' => 'datetime',
+            'courriel' => 'email',
+            'telephone' => 'phone',
+            'adresse' => 'url',
+        ];
+
+        $fields = [];
+
+        foreach ($types as $key => $type) {
+            $fields[] = new TenantSchemaFieldView(
+                key: $key,
+                label: 'Champ '.$key,
+                type: $type,
+                required: false,
+                maxLength: null,
+                source: 'declared.'.$key,
+            );
+        }
+
+        return new TenantSchemaView(
+            id: '33333333-3333-4333-8333-333333333333',
+            projectId: $projectId,
+            version: 1,
+            status: 'accepted',
+            uniqueKey: 'code',
+            uniqueKeyPattern: 'AE[0-9]{4,8}',
+            fields: $fields,
+            acceptedAt: '2026-11-11T10:00:00+00:00',
+            createdAt: '2026-11-11T09:00:00+00:00',
+            updatedAt: '2026-11-11T10:00:00+00:00',
+        );
+    }
+
+    /**
+     * Une déclaration qui porte **un booléen**.
+     */
+    private function schemaWithBoolean(string $projectId): TenantSchemaView
+    {
+        return new TenantSchemaView(
+            id: '44444444-4444-4444-8444-444444444444',
+            projectId: $projectId,
+            version: 1,
+            status: 'accepted',
+            uniqueKey: 'code',
+            uniqueKeyPattern: 'AE[0-9]{4,8}',
+            fields: [
+                new TenantSchemaFieldView(key: 'actif', label: 'Actif', type: 'boolean', required: false, maxLength: null, source: 'declared.actif'),
+            ],
+            acceptedAt: '2026-11-11T10:00:00+00:00',
+            createdAt: '2026-11-11T09:00:00+00:00',
+            updatedAt: '2026-11-11T10:00:00+00:00',
+        );
+    }
+
     private function proposal(string $projectId): TenantSchemaView
     {
         return new TenantSchemaView(
@@ -310,6 +567,10 @@ final class TenantSchemaConsoleTest extends TestCase
      */
     private function bindSchema(?TenantSchemaView $accepted, ?TenantSchemaView $proposal = null): void
     {
+        // ADR-0130 §1 — l'écriture des valeurs déclarées passe par le
+        // cas d'usage d'upsert : il lui faut la forme en vigueur.
+        $this->bindSchemaRepository($accepted);
+
         $this->app->bind(GetTenantSchema::class, static fn (): GetTenantSchema => new class($accepted, $proposal) implements GetTenantSchema
         {
             public function __construct(
@@ -390,16 +651,69 @@ final class TenantSchemaConsoleTest extends TestCase
     }
 
     /**
-     * The declared values, kept in memory: the console writes them, the
-     * test reads them back.
+     * Le port de persistance des déclarations est doublé : l'écriture des
+     * valeurs déclarées passe désormais par le cas d'usage d'upsert
+     * (ADR-0130 §1), et c'est lui qui lit la forme **en vigueur**.
      */
-    private function bindDeclaredAttributes(): FakeDeclaredAttributes
+    private function bindSchemaRepository(?TenantSchemaView $accepted): void
     {
-        $declared = new FakeDeclaredAttributes;
+        $schema = null;
 
-        $this->app->instance(SetCustomerDeclaredAttributes::class, $declared);
-        $this->app->instance(GetCustomerDeclaredAttributes::class, $declared);
+        if ($accepted !== null) {
+            $fields = [];
 
-        return $declared;
+            foreach ($accepted->fields as $field) {
+                $fields[] = new TenantSchemaField(
+                    key: $field->key,
+                    label: $field->label,
+                    type: TenantSchemaFieldType::from($field->type),
+                    required: $field->required,
+                    maxLength: $field->maxLength,
+                    source: $field->source,
+                );
+            }
+
+            $schema = new TenantSchema(
+                id: $accepted->id,
+                projectId: $accepted->projectId,
+                version: $accepted->version,
+                status: TenantSchemaStatus::Accepted,
+                uniqueKey: $accepted->uniqueKey,
+                uniqueKeyPattern: TenantSchemaPattern::of($accepted->uniqueKeyPattern),
+                fields: $fields,
+                acceptedAt: new DateTimeImmutable($accepted->acceptedAt ?? 'now'),
+                createdAt: new DateTimeImmutable($accepted->createdAt),
+                updatedAt: new DateTimeImmutable($accepted->updatedAt),
+            );
+        }
+
+        $this->app->bind(TenantSchemaRepository::class, static fn (): TenantSchemaRepository => new class($schema) implements TenantSchemaRepository
+        {
+            public function __construct(
+                private readonly ?TenantSchema $schema,
+            ) {}
+
+            public function findById(string $projectId, string $id): ?TenantSchema
+            {
+                return $this->schema;
+            }
+
+            public function findAccepted(string $projectId): ?TenantSchema
+            {
+                return $this->schema;
+            }
+
+            public function findPending(string $projectId): ?TenantSchema
+            {
+                return null;
+            }
+
+            public function highestVersion(string $projectId): int
+            {
+                return $this->schema === null ? 0 : $this->schema->version;
+            }
+
+            public function save(TenantSchema $schema): void {}
+        });
     }
 }

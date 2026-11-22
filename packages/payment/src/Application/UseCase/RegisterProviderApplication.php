@@ -9,23 +9,29 @@ use Core\Identity\Contracts\GetProjectCommand;
 use Core\Payment\Contracts\RegisterProviderApplication as RegisterProviderApplicationPort;
 use Core\Payment\Contracts\RegisterProviderApplicationCommand;
 use Core\Payment\Domain\Exception\ProviderApplicationNotFound;
-use Core\Payment\Domain\Exception\ProviderApplicationPublicKeyAlreadyUsed;
 use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use Core\Support\Access\AccessScope;
 use InvalidArgumentException;
-use RuntimeException;
+use Psr\Log\LoggerInterface;
 
 /**
  * ADR-0066 — create or edit the (project, provider)
  * application. Every failure is an operator-readable domain exception —
  * never a raw SQL message (the "duplicate key" bug).
+ *
+ * ADR-0126 — the public key is no longer unique across projects: the
+ * same key pair may serve several projects. It is therefore not a
+ * refusal any more, but a **shared** key, and the operator is warned
+ * about it: a callback is then authenticated by a key several tenants
+ * hold.
  */
 final readonly class RegisterProviderApplication implements RegisterProviderApplicationPort
 {
     public function __construct(
         private ProviderApplicationRepository $applications,
         private GetProject $getProject,
+        private LoggerInterface $logger,
     ) {}
 
     public function register(RegisterProviderApplicationCommand $command, AccessScope $scope): bool
@@ -53,10 +59,7 @@ final readonly class RegisterProviderApplication implements RegisterProviderAppl
             throw new InvalidArgumentException('La clé privée est obligatoire pour une nouvelle application.');
         }
 
-        $owner = $this->applications->findByProviderAndPublicKey($command->providerCode, $publicKey);
-        if ($owner !== null && $owner->projectId !== $command->projectId) {
-            throw new ProviderApplicationPublicKeyAlreadyUsed($owner->projectId, $this->alreadyUsedMessage($owner, $scope));
-        }
+        $this->warnWhenKeyIsShared($command->providerCode, $publicKey, $command->projectId);
 
         $this->applications->save(new ProviderApplication(
             projectId: $command->projectId,
@@ -87,30 +90,28 @@ final readonly class RegisterProviderApplication implements RegisterProviderAppl
     }
 
     /**
-     * The owner project is named only when the caller may see it (ADR-0069
-     * §2, S-01): naming — or even identifying — another tenant's project
-     * in an error message would leak it across organizations.
+     * A public key shared by several projects is legitimate (ADR-0126) —
+     * but it is also what makes an inbound callback ambiguous, so the
+     * operator is told about it in the log. Only the count is logged:
+     * naming another tenant's project would leak it (ADR-0069 §2, S-01).
      */
-    private function alreadyUsedMessage(ProviderApplication $owner, AccessScope $scope): string
+    private function warnWhenKeyIsShared(string $providerCode, string $publicKey, string $projectId): void
     {
-        try {
-            $projectName = $this->getProject->get(new GetProjectCommand($owner->projectId), $scope)->name;
-        } catch (RuntimeException) {
-            return sprintf(
-                'Cette clé publique est déjà utilisée par un autre projet. Une application %s ne peut servir '
-                .'qu\'un seul projet : c\'est elle qui permet au Core d\'attribuer chaque '
-                .'callback au bon projet. Créez une application distincte chez le provider.',
-                $owner->providerCode,
-            );
+        $others = 0;
+        foreach ($this->applications->findAllByProviderAndPublicKey($providerCode, $publicKey) as $application) {
+            if ($application->projectId !== $projectId) {
+                $others++;
+            }
         }
 
-        return sprintf(
-            'Cette clé publique est déjà utilisée par le projet « %s ». Une application %s ne peut servir '
-            .'qu\'un seul projet : c\'est elle qui permet au Core d\'attribuer chaque '
-            .'callback au bon projet. Créez une application distincte chez le provider, ou modifiez celle du projet « %s ».',
-            $projectName,
-            $owner->providerCode,
-            $projectName,
-        );
+        if ($others === 0) {
+            return;
+        }
+
+        $this->logger->warning('payment.provider_application.shared_public_key', [
+            'provider_code' => $providerCode,
+            'public_key_prefix' => substr($publicKey, 0, 4),
+            'other_projects_count' => $others,
+        ]);
     }
 }

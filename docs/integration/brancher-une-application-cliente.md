@@ -22,6 +22,7 @@ qui portent des champs à elle, une **septième** :
 | 5 | **Ouvrir** le portail de son propriétaire | `POST /v1/portal/sessions` |
 | 6 | **Recevoir** son état (abonnement, quotas, factures) | webhooks signés |
 | 7 | **Proposer** la forme de ses clients *(facultatif)* | `PUT /v1/projects/{id}/tenant-schema` |
+| 8 | **Relire** la forme en vigueur *(facultatif)* | `GET /v1/projects/{id}/tenant-schema` |
 
 Des **lectures**, un **comptage**, une **ouverture de portail**, et la **réception**
 d'événements. **Aucun** droit d'écrire sur le commerce : votre clé ne portera pas
@@ -48,7 +49,7 @@ export TENANT="auto-ecole-42"                              # VOTRE référence d
 
 ```
 customers:read · usage:read · usage:write · portal:write · subscriptions:read · invoices:read
-notifications:write · notifications:read · tenant_schema:write
+notifications:write · notifications:read · tenant_schema:write · tenant_schema:read
 ```
 
 Les deux portées `notifications:*` sont celles des **messages** : votre application
@@ -57,8 +58,9 @@ messages ne sont pas du commerce — vous n'écrivez toujours aucun client, aucu
 offre, aucun abonnement, aucune facture.
 
 `tenant_schema:write` est la portée de la **déclaration** : elle vous permet de
-proposer la forme de vos locataires (section 2 bis). Ce n'est pas une écriture sur
-le commerce — c'est une *forme*, une liste de noms, jamais des valeurs.
+proposer la forme de vos locataires (section 2 bis). `tenant_schema:read` permet de
+**relire** la forme en vigueur. Ce n'est pas une écriture sur le commerce — c'est
+une *forme*, une liste de noms, jamais des valeurs.
 
 Vérifiez-la — la réponse dit ce qu'elle est autorisée à faire :
 
@@ -69,7 +71,7 @@ curl -s "$BASE_URL/v1/whoami" \
 ```
 
 ```json
-{"project_id":"01a101a1-7a96-712d-b63a-e3bbc27ae721","organization_id":"01a101a1-7a88-7241-b0aa-99f174f09b01","scopes":["customers:read","usage:read","usage:write","portal:write","subscriptions:read","invoices:read","notifications:write","notifications:read","tenant_schema:write"]}
+{"project_id":"01a101a1-7a96-712d-b63a-e3bbc27ae721","organization_id":"01a101a1-7a88-7241-b0aa-99f174f09b01","scopes":["customers:read","usage:read","usage:write","portal:write","subscriptions:read","invoices:read","notifications:write","notifications:read","tenant_schema:write","tenant_schema:read"]}
 ```
 
 Si votre clé porte `*` ou le modèle « Serveur complet », demandez une clé
@@ -169,10 +171,36 @@ curl -s -X PUT "$BASE_URL/v1/projects/$PROJECT_ID/tenant-schema" \
 | `fields[].max_length` | la longueur maximale |
 | `fields[].source` | `declared.<clé>`, ou `core_identity.email` / `.display_name` / `.phone` / `.locale` — une source qui reprend un champ du Core **remplace** ce champ : l'opérateur ne saisit jamais la même valeur deux fois |
 
+> **La source `declared.<clé>` doit nommer la clé du champ.** Sur le champ
+> `localisation`, la source est `declared.localisation` ; `declared.emplacement`
+> serait **refusée** (`422 invalid-tenant-schema`). Le Core stocke la valeur sous
+> la clé du champ — votre application la chercherait ailleurs, et aucune erreur
+> ne le dirait ([ADR-0130 §2](../adr/0130-la-forme-du-locataire-l-ordre-des-ecritures-la-source-qui-nomme-la-cle-et-la-relecture-publique.md)).
+
 **La proposition n'est pas une décision.** Elle reste **en attente** jusqu'à ce
 que l'opérateur du Core l'ait lue dans la console (*« Forme du client »*) et
 l'ait **acceptée**. Tant qu'il ne l'a pas fait, le formulaire du Core ne montre
 que l'identité du Core.
+
+**Relire la forme en vigueur** — pour savoir ce que le Core attend de vous,
+sans jamais voir une valeur :
+
+```bash
+curl -s "$BASE_URL/v1/projects/$PROJECT_ID/tenant-schema" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Accept: application/json"
+```
+
+```json
+{
+  "accepted": {"id": "…", "version": 1, "status": "accepted", "fields": [{"key": "localisation", "label": "Localisation", "type": "string", "required": false, "max_length": 120, "source": "declared.localisation"}]},
+  "pending": null
+}
+```
+
+`accepted` est la forme **en vigueur** ; `pending` est la proposition qui attend
+l'opérateur (`null` quand il n'y en a pas). Les deux sont `null` quand la
+déclaration n'existe pas encore ([ADR-0130 §4](../adr/0130-la-forme-du-locataire-l-ordre-des-ecritures-la-source-qui-nomme-la-cle-et-la-relecture-publique.md)).
 
 Les valeurs, ensuite, se **lisent** — comme le reste :
 
@@ -399,6 +427,7 @@ Les offres, c'est **vous** qui les publiez dans le Core (opérateur), une fois :
 | **prévenir** ses clients | `POST /v1/notifications/text` | `notifications:write` |
 | suivre l'envoi d'un message | `GET /v1/notifications/{id}` | `notifications:read` |
 | **proposer** la forme de ses clients | `PUT /v1/projects/{id}/tenant-schema` | `tenant_schema:write` |
+| **relire** la forme en vigueur | `GET /v1/projects/{id}/tenant-schema` | `tenant_schema:read` |
 | recevoir ses événements | webhook signé | — |
 
 Et ce que vous **ne** ferez pas : **créer un client**, créer une offre, créer un

@@ -17,6 +17,7 @@ final readonly class UpsertCustomerCommand
 {
     /**
      * @param array<string, mixed> $metadata technical identifiers of the project, never personal data (ADR-0070 §1)
+     * @param array<string, string> $declaredAttributes the declared values of the tenant, by key of field (ADR-0122 §5). They are written **in the same transaction** as the customer, **before** the event is emitted (ADR-0130 §1) — an application that reads the customer from `customer.created` finds them.
      * @param string $actor "operator:<uuid>", "project:<uuid>" or "service:<name>" — who asked for the write
      */
     public function __construct(
@@ -30,5 +31,6 @@ final readonly class UpsertCustomerCommand
         public ?int $expectedVersion,
         public string $actor,
         public ?string $correlationId,
+        public array $declaredAttributes = [],
     ) {}
 }

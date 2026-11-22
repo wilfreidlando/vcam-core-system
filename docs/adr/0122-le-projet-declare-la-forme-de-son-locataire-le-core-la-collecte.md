@@ -6,6 +6,7 @@
 - **Dérives concernées** : D1 périmètre · D3 données/PII · D5 contrat
 - **Précise** : ADR-0110 §4 (l'application lit l'identité dont elle a besoin)
 - **Amende** : ADR-0107 §5 — le gabarit de portées « Application cliente » gagne la portée `tenant_schema:write`, qui n'est **pas** une écriture sur le commerce
+- **Précisé par** : ADR-0130 (l'ordre des écritures, la source qui nomme la clé, les dix types, la relecture publique, les propositions identiques, `unique_key` sans usage)
 
 ## Contexte
 

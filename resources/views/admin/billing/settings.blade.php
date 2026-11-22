@@ -28,6 +28,21 @@
                            hint="Au-dessus, un reçu hors ligne attend une validation explicite. 0 = toujours." wrapper-class="sm:col-span-2" />
         </div>
 
+        <h2 class="text-base font-semibold text-slate-900 pt-2">Données personnelles sur les factures</h2>
+        <div class="space-y-2">
+            {{-- La case est cochée par défaut : sans le champ caché, un
+                 décochage n'enverrait rien et le choix resterait inchangé. --}}
+            <input type="hidden" name="retain_invoice_identity" value="0">
+            <div class="flex items-center gap-2">
+                <input id="retain_invoice_identity" type="checkbox" name="retain_invoice_identity" value="1" aria-describedby="retain_invoice_identity-hint" @checked(old('retain_invoice_identity', $settings->retainInvoiceIdentity)) class="h-4 w-4 rounded border border-slate-400">
+                <label for="retain_invoice_identity" class="text-sm text-slate-800">Conserver le nom figé du client sur ses factures brouillon, même après l'effacement de son compte</label>
+            </div>
+            <p id="retain_invoice_identity-hint" class="text-sm text-slate-600">
+                Une facture <strong>émise</strong> garde toujours son identité figée : c'est un document, et la base
+                la fige. Ce choix ne concerne que les factures encore en brouillon.
+            </p>
+        </div>
+
         <h2 class="text-base font-semibold text-slate-900 pt-2">Limites d'usage</h2>
         {{-- Les correspondances se déclarent bloc par bloc : jamais de texte à parser.
              Un bloc incomplet (une seule des deux cases) est ignoré. --}}

@@ -36,6 +36,14 @@ final class ProposeTenantSchemaRequest extends FormRequest
              * locataire **chez elle**. C'est un nom technique, jamais une
              * valeur.
              *
+             * ADR-0130 §5 — le Core **n'en lit aucun usage** : il ne
+             * connaît pas le modèle de l'application et ne relit jamais
+             * cette clé. Elle est conservée, telle quelle, dans la
+             * déclaration — elle fait partie du contrat que l'application
+             * a avec elle-même, et l'opérateur la relit. Ce qui fait foi
+             * au Core, c'est le **motif** : c'est lui qui vérifie la
+             * référence.
+             *
              * @example "code_etablissement"
              */
             'unique_key' => ['required', 'string', 'max:64', 'regex:/^[a-z][a-z0-9_]{0,63}$/'],
@@ -93,7 +101,12 @@ final class ProposeTenantSchemaRequest extends FormRequest
              * D'où vient la valeur. Deux familles :
              *
              * - `declared.<clé>` : la valeur est celle que l'opérateur saisit
-             *   pour cette clé ;
+             *   pour cette clé. ADR-0130 §2 — le suffixe **nomme la clé du
+             *   champ** : `declared.localisation` sur le champ
+             *   `localisation`. Une source qui nommerait une autre clé est
+             *   refusée (`422 invalid-tenant-schema`) : le Core stockerait la
+             *   valeur sous la clé du champ, et l'application la chercherait
+             *   ailleurs — sans qu'aucune erreur ne le dise ;
              * - `core_identity.<champ>` : la valeur est celle de l'identité du
              *   Core — l'application **demande** cette donnée. Le champ est
              *   alors remplacé dans le formulaire par la clé déclarée :

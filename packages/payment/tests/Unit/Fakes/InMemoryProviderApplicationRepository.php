@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Core\Payment\Tests\Unit\Fakes;
 
-use Core\Payment\Domain\Exception\ProviderApplicationPublicKeyAlreadyUsed;
 use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
 
@@ -25,11 +24,6 @@ final class InMemoryProviderApplicationRepository implements ProviderApplication
 
     public function save(ProviderApplication $application): void
     {
-        $owner = $this->findByProviderAndPublicKey($application->providerCode, $application->publicKey);
-        if ($owner !== null && $owner->projectId !== $application->projectId) {
-            throw new ProviderApplicationPublicKeyAlreadyUsed($owner->projectId);
-        }
-
         $key = self::key($application->projectId, $application->providerCode);
         $id = $application->id ?? ($this->applications[$key]->id ?? 'app-'.(count($this->applications) + 1));
 
@@ -48,15 +42,16 @@ final class InMemoryProviderApplicationRepository implements ProviderApplication
         return $this->applications[self::key($projectId, $providerCode)] ?? null;
     }
 
-    public function findByProviderAndPublicKey(string $providerCode, string $publicKey): ?ProviderApplication
+    public function findAllByProviderAndPublicKey(string $providerCode, string $publicKey): array
     {
+        $found = [];
         foreach ($this->applications as $application) {
             if ($application->providerCode === $providerCode && $application->publicKey === $publicKey) {
-                return $application;
+                $found[] = $application;
             }
         }
 
-        return null;
+        return $found;
     }
 
     public function find(string $id): ?ProviderApplication

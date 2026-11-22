@@ -5,20 +5,25 @@ declare(strict_types=1);
 namespace Core\Billing\Application\UseCase;
 
 use Core\Billing\Application\Support\CustomerViews;
+use Core\Billing\Application\Support\DeclaredAttributeValues;
 use Core\Billing\Contracts\CustomerView;
 use Core\Billing\Contracts\UpsertCustomer;
 use Core\Billing\Contracts\UpsertCustomerCommand;
+use Core\Billing\Domain\Exception\CustomerDeclaredAttributeRefused;
 use Core\Billing\Domain\Exception\CustomerEmailAlreadyTaken;
 use Core\Billing\Domain\Exception\CustomerVersionConflict;
 use Core\Billing\Domain\Exception\InvalidCustomerTransition;
 use Core\Billing\Domain\Model\Customer;
 use Core\Billing\Domain\Model\CustomerStatus;
+use Core\Billing\Domain\Port\CustomerDeclaredAttributeRepository;
 use Core\Billing\Domain\Port\CustomerRepository;
+use Core\Billing\Domain\Port\TenantSchemaRepository;
 use Core\Events\Contracts\DomainEvent;
 use Core\Events\Contracts\EventOutbox;
 use Core\Support\Clock;
 use Core\Support\Identifier;
 use Core\Support\UnitOfWork;
+use DateTimeImmutable;
 
 /**
  * ADR-0070 §2 — the project declares its customers:
@@ -47,6 +52,8 @@ final readonly class UpsertCustomerUseCase implements UpsertCustomer
         private EventOutbox $outbox,
         private Identifier $identifier,
         private Clock $clock,
+        private CustomerDeclaredAttributeRepository $attributes,
+        private TenantSchemaRepository $schemas,
     ) {}
 
     public function upsert(UpsertCustomerCommand $command): CustomerView
@@ -78,6 +85,11 @@ final readonly class UpsertCustomerUseCase implements UpsertCustomer
                 );
 
                 $this->customers->save($customer);
+
+                // ADR-0130 §1 — the declared values are written **before**
+                // the event: an application that reads the customer from
+                // `customer.created` finds them.
+                $this->writeDeclaredAttributes($customer, $command->declaredAttributes, $now);
 
                 $this->outbox->append(new DomainEvent(
                     $this->identifier->generate(),
@@ -124,6 +136,10 @@ final readonly class UpsertCustomerUseCase implements UpsertCustomer
 
             $this->customers->save($existing);
 
+            // ADR-0130 §1 — same order on the update: the values are in
+            // place before `customer.updated` leaves.
+            $this->writeDeclaredAttributes($existing, $command->declaredAttributes, $now);
+
             $this->outbox->append(new DomainEvent(
                 $this->identifier->generate(),
                 $command->projectId,
@@ -135,6 +151,41 @@ final readonly class UpsertCustomerUseCase implements UpsertCustomer
 
             return CustomerViews::from($existing);
         });
+    }
+
+    /**
+     * ADR-0130 §1 — les valeurs déclarées du client, écrites dans la
+     * **même transaction** que le client et **avant** l'événement.
+     *
+     * L'ordre est la règle : l'événement part en file, l'application
+     * relit le client, et elle doit y trouver les valeurs que l'opérateur
+     * vient de saisir. Les écrire après l'émission laissait l'application
+     * créer son locataire sans localisation, sans responsable, sans
+     * année — et le résultat était silencieux.
+     *
+     * La forme en force fait foi : sans déclaration acceptée, le Core ne
+     * sait pas quelles clés existent (ADR-0122 §2).
+     *
+     * @param array<string, string> $values
+     */
+    private function writeDeclaredAttributes(Customer $customer, array $values, DateTimeImmutable $now): void
+    {
+        if ($values === []) {
+            return;
+        }
+
+        $schema = $this->schemas->findAccepted($customer->projectId);
+
+        if ($schema === null) {
+            throw CustomerDeclaredAttributeRefused::becauseNoAcceptedSchema($customer->projectId);
+        }
+
+        $this->attributes->replace(
+            $customer->projectId,
+            $customer->id,
+            DeclaredAttributeValues::validated($schema, $values),
+            $now,
+        );
     }
 
     /**

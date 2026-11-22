@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Core\Payment\Infrastructure\Persistence\Eloquent;
 
-use Core\Payment\Domain\Exception\ProviderApplicationPublicKeyAlreadyUsed;
 use Core\Payment\Domain\Model\ProviderApplication;
 use Core\Payment\Domain\Port\ProviderApplicationRepository;
 use DateTimeImmutable;
@@ -12,6 +11,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 /**
  * `private_key_encrypted` uses `Crypt`, like `webhook_endpoints.secret_encrypted`:
@@ -22,14 +22,10 @@ final class EloquentProviderApplicationRepository implements ProviderApplication
 {
     public function save(ProviderApplication $application): void
     {
-        $owner = $this->findByProviderAndPublicKey($application->providerCode, $application->publicKey);
-        if ($owner !== null && $owner->projectId !== $application->projectId) {
-            throw new ProviderApplicationPublicKeyAlreadyUsed($owner->projectId);
-        }
-
         try {
-            // SAVEPOINT: a concurrent registration of the same public key
-            // must not poison an outer transaction (same pattern as
+            // SAVEPOINT: a concurrent registration of the same
+            // (project, provider) pair must not poison an outer
+            // transaction (same pattern as
             // EloquentPaymentRepository::create()).
             DB::transaction(function () use ($application): void {
                 $existing = ProviderApplicationRecord::query()
@@ -57,9 +53,15 @@ final class EloquentProviderApplicationRepository implements ProviderApplication
                 $existing->fill($attributes)->save();
             });
         } catch (UniqueConstraintViolationException) {
-            $owner = $this->findByProviderAndPublicKey($application->providerCode, $application->publicKey);
-
-            throw new ProviderApplicationPublicKeyAlreadyUsed($owner->projectId ?? 'inconnu');
+            // The only remaining unique index is (project_id,
+            // provider_code): a project has one application per provider
+            // (ADR-0066). Reaching it means a concurrent registration
+            // of the same pair — never a raw SQL message to the operator.
+            throw new RuntimeException(sprintf(
+                'Ce projet a déjà une application enregistrée chez « %s ». '
+                .'Modifiez-la au lieu d\'en enregistrer une seconde.',
+                $application->providerCode,
+            ));
         }
     }
 
@@ -73,14 +75,23 @@ final class EloquentProviderApplicationRepository implements ProviderApplication
         return $record === null ? null : $this->toDomain($record);
     }
 
-    public function findByProviderAndPublicKey(string $providerCode, string $publicKey): ?ProviderApplication
+    public function findAllByProviderAndPublicKey(string $providerCode, string $publicKey): array
     {
-        $record = ProviderApplicationRecord::query()
+        $base = ProviderApplicationRecord::query()
             ->where('provider_code', $providerCode)
             ->where('public_key', $publicKey)
-            ->first();
+            ->toBase();
+        $base->orderBy('created_at');
+        $base->orderBy('id');
 
-        return $record === null ? null : $this->toDomain($record);
+        $rows = $base->get()->map(static fn (object $row): array => (array) $row)->all();
+
+        $applications = [];
+        foreach (ProviderApplicationRecord::hydrate($rows) as $record) {
+            $applications[] = $this->toDomain($record);
+        }
+
+        return $applications;
     }
 
     public function find(string $id): ?ProviderApplication

@@ -1,6 +1,6 @@
 # ADR-0111 — Le portail s'ouvre en lecture seule pour l'opérateur
 
-- **Statut** : Accepté
+- **Statut** : Accepté — précisé par ADR-0127 (le geste de consultation dans la console)
 - **Date** : 2026-10-31
 - **Décideurs** : commanditaire (compléter la fiche client), comité d'architecture
 - **Dérives concernées** : D1 périmètre · D5 contrat

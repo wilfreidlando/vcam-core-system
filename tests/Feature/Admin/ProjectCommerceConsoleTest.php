@@ -143,6 +143,48 @@ final class ProjectCommerceConsoleTest extends TestCase
     }
 
     #[Test]
+    public function the_choice_of_keeping_the_identity_on_the_draft_invoices_is_written_and_audited(): void
+    {
+        $projectId = $this->project();
+        $this->loginAndEnrollMfa(OperatorRole::PlatformAdmin);
+
+        $this->get("/admin/projects/{$projectId}/commerce-settings")
+            ->assertOk()
+            ->assertSee('Conserver le nom figé du client');
+
+        // Unticked: the erasure will empty the draft invoices of the customer.
+        $this->post("/admin/projects/{$projectId}/commerce-settings", $this->commerceSettings() + ['retain_invoice_identity' => '0'])
+            ->assertRedirect("/admin/projects/{$projectId}/commerce-settings");
+
+        self::assertFalse((bool) DB::table('billing_settings')->where('project_id', $projectId)->value('retain_invoice_identity'));
+
+        // An edition that does not carry the choice leaves it as it is
+        // (ADR-0129 §2): the other settings never turn it off by accident.
+        $this->post("/admin/projects/{$projectId}/commerce-settings", $this->commerceSettings())
+            ->assertRedirect("/admin/projects/{$projectId}/commerce-settings");
+
+        self::assertFalse((bool) DB::table('billing_settings')->where('project_id', $projectId)->value('retain_invoice_identity'));
+
+        // Ticked: the draft invoices keep the identity.
+        $this->post("/admin/projects/{$projectId}/commerce-settings", $this->commerceSettings() + ['retain_invoice_identity' => '1'])
+            ->assertRedirect("/admin/projects/{$projectId}/commerce-settings");
+
+        self::assertTrue((bool) DB::table('billing_settings')->where('project_id', $projectId)->value('retain_invoice_identity'));
+
+        // The gesture is audited, with the choice in the state it left.
+        $entry = DB::table('audit_log')
+            ->where('action', 'billing.settings_changed')
+            ->where('project_id', $projectId)
+            ->orderByDesc('id')
+            ->first();
+
+        self::assertNotNull($entry);
+        $after = json_decode(is_string($entry->after) ? $entry->after : '{}', true);
+        self::assertIsArray($after);
+        self::assertTrue($after['retainInvoiceIdentity']);
+    }
+
+    #[Test]
     public function the_usage_page_lists_counters_filters_the_ones_near_their_limit_and_shows_the_journal(): void
     {
         $projectId = $this->project();
@@ -177,6 +219,25 @@ final class ProjectCommerceConsoleTest extends TestCase
         $this->get("/admin/projects/{$projectId}/portal")->assertStatus(403);
         $this->get("/admin/projects/{$projectId}/commerce-settings")->assertStatus(403);
         $this->get("/admin/projects/{$projectId}/usage")->assertStatus(403);
+    }
+
+    /**
+     * The commerce settings the console writes, without the choice of
+     * ADR-0129 §2 (which the test carries on purpose).
+     *
+     * @return array<string, mixed>
+     */
+    private function commerceSettings(): array
+    {
+        return [
+            'timezone' => 'Africa/Douala',
+            'default_currency' => 'XAF',
+            'renewal_lead_days' => '5',
+            'incomplete_expiry_hours' => '48',
+            'invoice_prefix' => 'AUTO',
+            'default_tax_rate_percent' => '19.25',
+            'manual_receipt_threshold' => '100000',
+        ];
     }
 
     private function project(): string

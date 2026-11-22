@@ -93,8 +93,27 @@ qu'elle attend du Core (ADR-0122).
   `phone`, `locale`) **remplace** le champ correspondant du Core : la console ne
   demande jamais la même valeur deux fois.
 
+  Une source `declared.<clé>` doit nommer **la clé du champ** :
+  `declared.localisation` sur le champ `localisation`. Une source qui en nomme
+  une autre est refusée (`422 invalid-tenant-schema`) — le Core stocke la
+  valeur sous la clé du champ, et l'application la chercherait ailleurs, sans
+  qu'aucune erreur ne le dise (ADR-0130 §2).
+
+  Une proposition **identique** à une forme que le Core connaît déjà ne crée
+  pas de version de plus : la réponse est alors `200` et porte la déclaration
+  existante (ADR-0130 §5).
+
+- **Relire la forme** — `GET /v1/projects/{projectId}/tenant-schema`, portée
+  `tenant_schema:read` (dans le modèle **Application cliente**) : la forme **en
+  vigueur** (`accepted`) et la proposition **en attente** (`pending`). Une
+  application sait ainsi ce que le Core attend d'elle, sans jamais voir une
+  valeur (ADR-0130 §4).
+
 - **Lire** — `GET /v1/customers/{externalRef}` rend `declared_attributes` (avec
   `customers:read`) : un objet par clé déclarée, `{}` quand il n'y en a pas.
+  Les valeurs déclarées sont écrites **avant** que `customer.created` ne parte :
+  une application qui relit le client depuis l'événement trouve les valeurs que
+  l'opérateur vient de saisir (ADR-0130 §1).
 
 - **Décider** — dans la console, page **« Forme du client »** du projet
   (`GET /admin/projects/{projectId}/customers/schema`) : la proposition est lue
@@ -111,7 +130,11 @@ refusée **sur place**, sous le champ, avec la raison.
 
 Page **« Importer des clients »**
 (`GET /admin/projects/{projectId}/customers/import`) : l'opérateur dépose un
-fichier CSV dont l'en-tête est `external_ref, display_name, email, phone`.
+fichier CSV dont l'en-tête est celui du **modèle** : `external_ref`,
+`display_name`, `email`, `phone` — et, quand le projet a déclaré la forme de
+ses clients, **une colonne par clé déclarée**, à la place des colonnes
+d'identité que la déclaration remplace. La page dit le nombre de colonnes et
+explique chacune d'elles.
 
 Le Core crée les clients et les pousse ; l'application, qui connaît déjà ses
 clients, les **relie** au lieu d'en créer un second. Un client déjà connu est
@@ -127,7 +150,9 @@ une ligne illisible).
 
 `GET /admin/projects/{projectId}/customers/import/template` — une **lecture**
 (`customers:read`), servie en `text/csv` : le fichier porte l'en-tête attendu
-et une ligne d'exemple, et il s'importe tel quel.
+et une ligne d'exemple, et il s'importe tel quel. Le modèle **suit la forme en
+vigueur** : un projet qui a déclaré la forme de ses clients reçoit un modèle
+qui porte ses clés déclarées.
 
 L'en-tête et le contenu du modèle sortent de la **même source** que le lecteur
 (`App\Http\View\CustomerImportTemplate`) : les deux ne peuvent pas diverger. Un

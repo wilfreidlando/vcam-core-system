@@ -1,6 +1,6 @@
 # ADR-0125 — Le portail rend la facture du client ; la console ouvre l'espace du client
 
-- **Statut** : Accepté
+- **Statut** : Accepté — amendé par ADR-0132 (§5 : le modèle du fichier porte la forme déclarée en vigueur)
 - **Date** : 2026-11-13
 - **Décideurs** : commanditaire (« il faut le lien à copier quelque part qui permet de se connecter au portail de cette façon », « il n'y a pas un endroit où on télécharge la facture avec l'en-tête »), comité d'architecture
 - **Précise** : ADR-0075 (le portail client), ADR-0098 (le libre-service du portail), ADR-0073 §5 (le document imprimable), ADR-0100 (la connexion par code), ADR-0033 §4 (la nature ouverte des comptes), ADR-0104 (la console sans JavaScript), ADR-0057 (les sessions globales)

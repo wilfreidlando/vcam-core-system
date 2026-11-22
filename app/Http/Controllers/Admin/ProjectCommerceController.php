@@ -235,6 +235,7 @@ final class ProjectCommerceController
             'supplement_packs' => ['nullable', 'array', 'max:20'],
             'refund_failed_usage' => ['nullable', 'boolean'],
             'require_customer_ref' => ['nullable', 'boolean'],
+            'retain_invoice_identity' => ['nullable', 'boolean'],
         ], [
             'meter_mappings.array' => 'Les correspondances se déclarent bloc par bloc.',
             'meter_mappings.max' => 'Au plus 50 correspondances.',
@@ -263,6 +264,11 @@ final class ProjectCommerceController
                 requireCustomerRef: $request->boolean('require_customer_ref'),
                 actor: $this->actor($operator),
                 supplementPacks: $this->packs($data['supplement_packs'] ?? null, array_values($meterMappings)),
+                // ADR-0129 §2 — absent, the choice is left as it is; present
+                // (the form always sends 0 or 1), it is the project's.
+                retainInvoiceIdentity: $request->has('retain_invoice_identity')
+                    ? $request->boolean('retain_invoice_identity')
+                    : null,
             ), $scope);
         } catch (InvalidBillingSettings $e) {
             return back()->withInput()->withErrors(['resource' => $e->getMessage()]);

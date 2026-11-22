@@ -1,6 +1,6 @@
 # ADR-0115 — Les cibles privées sont ouvertes en local seulement
 
-- **Statut** : Accepté
+- **Statut** : Accepté — amendé par ADR-0128 (le refus du contournement MFA cité en décision 2 n'existe plus : une seule variable, partout ; le refus des cibles privées, lui, reste)
 - **Date** : 2026-11-01
 - **Décideurs** : commanditaire (il a demandé de voir le flux complet Core → application cliente fonctionner), comité d'architecture
 - **Dérives concernées** : D3 données · D5 contrat

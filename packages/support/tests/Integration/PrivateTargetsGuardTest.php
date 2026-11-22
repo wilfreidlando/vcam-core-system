@@ -17,8 +17,9 @@ use Tests\TestCase;
  * client application it shares a Docker network with.
  *
  * The refusal is in **code**, at startup: no environment variable alone
- * can open the private ranges on a deployment that faces the internet —
- * the same rule as the MFA bypass (`MfaBypassForbidden`).
+ * can open the private ranges on a deployment that faces the internet.
+ * (The MFA bypass used to follow the same rule; ADR-0128 removed it there
+ * — the two are no longer alike.)
  */
 final class PrivateTargetsGuardTest extends TestCase
 {

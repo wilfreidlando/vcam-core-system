@@ -12,7 +12,9 @@ use Core\Billing\Contracts\EraseCustomer;
 use Core\Billing\Contracts\EraseCustomerCommand;
 use Core\Billing\Domain\Exception\CustomerNotFound;
 use Core\Billing\Domain\Model\Customer;
+use Core\Billing\Domain\Port\BillingSettingsRepository;
 use Core\Billing\Domain\Port\CustomerRepository;
+use Core\Billing\Domain\Port\InvoiceRepository;
 use Core\Billing\Domain\Port\SubscriptionRepository;
 use Core\Events\Contracts\DomainEvent;
 use Core\Events\Contracts\EventOutbox;
@@ -26,6 +28,12 @@ use Core\Support\UnitOfWork;
  * ADR-0083 — the erasure destroys the **identity**, not the history: the
  * row stays (the invoices and the contracts reference it), the personal
  * values go. The customer is final afterwards.
+ *
+ * ADR-0094 §7 — the erasure also empties the **frozen identity** of the
+ * draft invoices of the customer, unless the project chose to keep it
+ * (`billing_settings.retain_invoice_identity`, `true` by default). An
+ * issued invoice is a document: its snapshot is frozen by the database and
+ * survives the erasure whatever the setting says.
  */
 final readonly class EraseCustomerUseCase implements EraseCustomer
 {
@@ -34,6 +42,8 @@ final readonly class EraseCustomerUseCase implements EraseCustomer
         private CustomerRepository $customers,
         private SubscriptionRepository $subscriptions,
         private SubscriptionViewBuilder $subscriptionViews,
+        private BillingSettingsRepository $settings,
+        private InvoiceRepository $invoices,
         private EventOutbox $outbox,
         private Identifier $identifier,
         private Clock $clock,
@@ -57,6 +67,15 @@ final readonly class EraseCustomerUseCase implements EraseCustomer
             $customer->version++;
 
             $this->customers->save($customer);
+
+            // ADR-0094 §7 — the frozen identity of the **draft** invoices
+            // of the customer follows the project's choice: `false` empties
+            // it at the erasure, `true` (the default) keeps it. An issued
+            // invoice is a document: the database freezes its snapshot and
+            // refuses the write — the receivable subsists either way.
+            if (! $this->settings->find($command->projectId)->retainInvoiceIdentity) {
+                $this->invoices->clearDraftSnapshots($command->projectId, $customer->id);
+            }
 
             // ADR-0083 §6.3 (F4.8) — an erased customer keeps no live contract:
             // nobody is left to renew it, and the scheduler must not go on

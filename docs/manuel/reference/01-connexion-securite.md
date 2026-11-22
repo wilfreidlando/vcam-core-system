@@ -107,9 +107,11 @@ Les tentatives de connexion sont plafonnées : **20 par minute et par adresse IP
 refusée. L'activation d'invitation est plafonnée de la même façon (10/min par IP, 5/min
 par jeton).
 
-> Sur un environnement de démonstration où le MFA est désactivé, la connexion ne demande
-> qu'un mot de passe. Le journal d'audit enregistre alors `operator.mfa_skipped` à chaque
-> connexion. **Ce n'est pas le cas en production.**
+> Sur un environnement où le MFA est désactivé, la connexion ne demande qu'un mot de
+> passe. C'est une **variable d'environnement**, sans code à écrire :
+> `IDENTITY_DISABLE_MFA=true`. Elle vaut partout — poste du développement, staging,
+> déploiement vivant (ADR-0128). Le journal d'audit enregistre `operator.mfa_skipped`
+> à chaque connexion : une fenêtre sans MFA est visible.
 
 ---
 

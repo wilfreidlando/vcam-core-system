@@ -235,7 +235,9 @@ affichée en clair une seule fois, comme le mot de passe opérateur.
 
 Un paiement ne peut être traité que si le Project a sa propre application
 MyCoolPay enregistrée (clé publique/privée obtenues depuis le dashboard
-marchand MyCoolPay — jamais une clé partagée entre Projects, ADR-0051) :
+marchand MyCoolPay — la même clé peut être enregistrée pour plusieurs
+projects, ADR-0126 ; le callback entrant est alors rattaché au projet du
+paiement qu'il nomme) :
 
 ```bash
 docker compose -f compose.prod.yaml exec app php artisan payment:register-provider-application \

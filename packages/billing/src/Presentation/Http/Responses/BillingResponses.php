@@ -76,6 +76,19 @@ final class BillingResponses
         .'}';
 
     /**
+     * L'état de la déclaration de forme d'un projet — ADR-0130 §4.
+     *
+     * `accepted` est la forme **en vigueur** (celle que l'opérateur a
+     * acceptée, ADR-0122 §2) ; `pending` est la proposition qui attend
+     * sa lecture. Les deux sont `null` quand elles n'existent pas : la
+     * forme du client n'est jamais un champ vide.
+     */
+    public const TENANT_SCHEMA_STATE = 'array{'
+        .'accepted: '.self::TENANT_SCHEMA.'|null, '
+        .'pending: '.self::TENANT_SCHEMA.'|null'
+        .'}';
+
+    /**
      * The terms of a plan version — the price is in **minor units**
      * (G5), never a float.
      */

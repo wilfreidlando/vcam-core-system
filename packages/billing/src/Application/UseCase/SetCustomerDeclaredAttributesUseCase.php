@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Core\Billing\Application\UseCase;
 
+use Core\Billing\Application\Support\DeclaredAttributeValues;
 use Core\Billing\Contracts\SetCustomerDeclaredAttributes;
 use Core\Billing\Contracts\SetCustomerDeclaredAttributesCommand;
 use Core\Billing\Domain\Exception\CustomerDeclaredAttributeRefused;
-use Core\Billing\Domain\Model\TenantSchema;
 use Core\Billing\Domain\Port\CustomerDeclaredAttributeRepository;
 use Core\Billing\Domain\Port\CustomerRepository;
 use Core\Billing\Domain\Port\TenantSchemaRepository;
@@ -59,7 +59,7 @@ final readonly class SetCustomerDeclaredAttributesUseCase implements SetCustomer
                 throw CustomerDeclaredAttributeRefused::becauseNoAcceptedSchema($command->projectId);
             }
 
-            $values = $this->validated($schema, $command->values);
+            $values = DeclaredAttributeValues::validated($schema, $command->values);
 
             $this->attributes->replace(
                 $command->projectId,
@@ -70,52 +70,5 @@ final readonly class SetCustomerDeclaredAttributesUseCase implements SetCustomer
 
             return $values;
         });
-    }
-
-    /**
-     * Les valeurs, confrontées à la forme en force.
-     *
-     * Une valeur vide retire la clé : elle ne vaut pas une valeur.
-     *
-     * @param array<string, string> $values
-     * @return array<string, string>
-     */
-    private function validated(TenantSchema $schema, array $values): array
-    {
-        $validated = [];
-
-        foreach ($values as $key => $value) {
-            $field = $schema->field($key);
-
-            if ($field === null) {
-                throw CustomerDeclaredAttributeRefused::becauseKeyNotDeclared($key);
-            }
-
-            $trimmed = trim($value);
-
-            if ($trimmed === '') {
-                if ($field->required) {
-                    throw CustomerDeclaredAttributeRefused::becauseRequiredValueMissing($key);
-                }
-
-                continue;
-            }
-
-            if ($field->maxLength !== null && mb_strlen($trimmed) > $field->maxLength) {
-                throw CustomerDeclaredAttributeRefused::becauseValueTooLong($key, $field->maxLength);
-            }
-
-            $validated[$key] = $trimmed;
-        }
-
-        // Les champs obligatoires doivent être là, même quand l'opérateur
-        // ne les a pas renvoyés.
-        foreach ($schema->fields as $field) {
-            if ($field->required && ! isset($validated[$field->key])) {
-                throw CustomerDeclaredAttributeRefused::becauseRequiredValueMissing($field->key);
-            }
-        }
-
-        return $validated;
     }
 }

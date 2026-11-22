@@ -45,6 +45,9 @@ final class ApiKeyScopes
         // ADR-0122 §8 — the declared form of the tenant. It describes a
         // **form**, it writes no customer, no subscription and no invoice.
         'tenant_schema:write',
+        // ADR-0130 §4 — reading the form in force. Same nature as the
+        // write: a form, never a value.
+        'tenant_schema:read',
     ];
 
     /**
@@ -108,6 +111,10 @@ final class ApiKeyScopes
                 // Core to collect. That is a form, not a write on the
                 // commerce: the guarantee of ADR-0107 §5 stays whole.
                 'tenant_schema:write',
+                // ADR-0130 §4 — l'application relit la forme en vigueur
+                // de son locataire : elle sait ainsi ce que le Core
+                // attend de lui, sans jamais voir une valeur.
+                'tenant_schema:read',
             ],
             self::TEMPLATE_PAYOUTS => ['payouts:read', 'payouts:write'],
             default => [],
