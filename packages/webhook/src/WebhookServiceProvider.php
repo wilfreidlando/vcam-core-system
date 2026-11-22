@@ -21,6 +21,7 @@ use Core\Webhook\Application\UseCase\RegisterWebhookEndpointUseCase;
 use Core\Webhook\Application\UseCase\ReplayWebhookDeliveryUseCase;
 use Core\Webhook\Application\UseCase\RevokePreviousWebhookSecretUseCase;
 use Core\Webhook\Application\UseCase\RotateWebhookSecretUseCase;
+use Core\Webhook\Application\UseCase\SignEndpointRequestUseCase;
 use Core\Webhook\Application\UseCase\SweepStalledWebhookDeliveriesUseCase;
 use Core\Webhook\Application\UseCase\TestWebhookEndpointUseCase;
 use Core\Webhook\Application\UseCase\UpdateWebhookEndpointUseCase;
@@ -39,6 +40,7 @@ use Core\Webhook\Contracts\RegisterWebhookEndpoint;
 use Core\Webhook\Contracts\ReplayWebhookDelivery;
 use Core\Webhook\Contracts\RevokePreviousWebhookSecret;
 use Core\Webhook\Contracts\RotateWebhookSecret;
+use Core\Webhook\Contracts\SignEndpointRequest;
 use Core\Webhook\Contracts\SweepStalledWebhookDeliveries;
 use Core\Webhook\Contracts\TestWebhookEndpoint;
 use Core\Webhook\Contracts\UpdateWebhookEndpoint;
@@ -92,6 +94,7 @@ final class WebhookServiceProvider extends ServiceProvider
         // ADR-0082 §5 — secret rotation with a double-signature overlap.
         $this->app->bind(RotateWebhookSecret::class, RotateWebhookSecretUseCase::class);
         $this->app->bind(RevokePreviousWebhookSecret::class, RevokePreviousWebhookSecretUseCase::class);
+        $this->app->bind(SignEndpointRequest::class, SignEndpointRequestUseCase::class);
         $this->app->bind(PurgeExpiredWebhookSecrets::class, PurgeExpiredWebhookSecretsUseCase::class);
         $this->app->bind(HandleRelayedEvent::class, HandleRelayedEventUseCase::class);
         $this->app->bind(DeliverWebhook::class, DeliverWebhookUseCase::class);

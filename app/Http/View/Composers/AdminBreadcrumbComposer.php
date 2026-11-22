@@ -101,6 +101,12 @@ final readonly class AdminBreadcrumbComposer
         // ADR-0122 §2, §9 — the declaration to read, and the bulk import.
         'customers.schema' => ['Forme du client', 'admin.projects.customers.index', 'Clients'],
         'customers.import' => ['Import de clients', 'admin.projects.customers.index', 'Clients'],
+        // ADR-0133 — the page where the client application is branched.
+        'customers.application' => ['Application cliente', 'admin.projects.customers.index', 'Clients'],
+        'customers.application.form' => ['Application cliente', 'admin.projects.customers.index', 'Clients'],
+        'customers.application.address' => ['Application cliente', 'admin.projects.customers.index', 'Clients'],
+        'customers.application.clients.preview' => ['Application cliente', 'admin.projects.customers.index', 'Clients'],
+        'customers.application.clients.import' => ['Application cliente', 'admin.projects.customers.index', 'Clients'],
         'plans.index' => 'Offres',
         'plans.new' => ['Nouvelle offre', 'admin.projects.plans.index', 'Offres'],
         'subscriptions.index' => 'Abonnements',

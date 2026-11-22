@@ -7,6 +7,7 @@
 - **Précise** : ADR-0110 §4 (l'application lit l'identité dont elle a besoin)
 - **Amende** : ADR-0107 §5 — le gabarit de portées « Application cliente » gagne la portée `tenant_schema:write`, qui n'est **pas** une écriture sur le commerce
 - **Précisé par** : ADR-0130 (l'ordre des écritures, la source qui nomme la clé, les dix types, la relecture publique, les propositions identiques, `unique_key` sans usage)
+- **Amendé par** : ADR-0133 §9 — le fichier importé n'est plus le chemin par défaut du branchement : la console tire la forme et les clients de l'application
 
 ## Contexte
 
@@ -99,6 +100,8 @@ Le chemin est donc :
 4. l'application, qui connaît déjà ces locataires, les **lie** — elle n'en crée aucun.
 
 L'import est donc le chemin de provisionnement lui-même, réutilisé : aucun code de doublon, aucun cas particulier. Un import rejoué ne crée rien de nouveau : la référence est unique au Core.
+
+> **Amendé par ADR-0133** : ce chemin **reste** (c'est le chemin de secours), mais il **cesse d'être le chemin par défaut**. La console tire désormais la forme et les clients de l'application elle-même ; l'import reste disponible quand l'application est injoignable ou pour un lot hors bande.
 
 **Décision 10 — le refus est visible, jamais silencieux.**
 

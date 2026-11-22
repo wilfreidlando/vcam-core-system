@@ -179,6 +179,15 @@ final class ConsoleRouteManifest
             // read: it answers 404, never a redirect).
             Entry::isolated('admin.projects.customers.import.template', Nature::Customer, Outcome::NotFound, control: true),
 
+            // ADR-0133 — the page where the client application is branched:
+            // the Core reads the application, and every gesture of the
+            // operator stays inside the project it belongs to.
+            Entry::isolated('admin.projects.customers.application', Nature::Customer, Outcome::NotFound, control: true),
+            Entry::isolated('admin.projects.customers.application.form', Nature::Customer, Outcome::NotFound),
+            Entry::isolated('admin.projects.customers.application.clients.preview', Nature::Customer, Outcome::NotFound),
+            Entry::isolated('admin.projects.customers.application.clients.import', Nature::Customer, Outcome::NotFound),
+            Entry::isolated('admin.projects.customers.application.address', Nature::Customer, Outcome::NotFound),
+
             // ADR-0075 §4, ADR-0071 §4, ADR-0074 — the settings and the usage of a project.
             Entry::isolated('admin.projects.portal', Nature::Project, Outcome::NotFound),
             Entry::isolated('admin.projects.portal.save', Nature::Project, Outcome::NotFound),

@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Billing\ClientApplication\ClientApplicationConnections;
+use App\Billing\ClientApplication\HttpClientApplicationReader;
+use App\Billing\ClientApplication\ReadsClientApplication;
 use App\Http\Middleware\ResolveOperatorSession;
 use App\Http\View\Composers\AdminBreadcrumbComposer;
 use App\Http\View\Composers\AdminSidebarComposer;
+use App\Infrastructure\DatabaseClientApplicationConnections;
 use App\Infrastructure\DatabaseIdempotencyStore;
 use App\Infrastructure\DatabaseUnitOfWork;
 use App\Infrastructure\Guide\GuideCatalog;
@@ -20,6 +24,8 @@ use Core\Support\Clock;
 use Core\Support\Http\Middleware\LimitRequestBody;
 use Core\Support\Idempotency\IdempotencyScope;
 use Core\Support\Idempotency\IdempotencyStore;
+use Core\Support\Integration\Transport\GuardedHttpTransport;
+use Core\Support\Integration\Transport\HttpTransport;
 use Core\Support\SystemClock;
 use Core\Support\UnitOfWork;
 use Dedoc\Scramble\Scramble;
@@ -65,6 +71,23 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->bind(UnitOfWork::class, DatabaseUnitOfWork::class);
         $this->app->bind(IdempotencyStore::class, DatabaseIdempotencyStore::class);
         $this->app->bind(IdempotencyScope::class, ProjectIdempotencyScope::class);
+
+        // ADR-0133 §1 — la lecture d'une application cliente. Le port est
+        // ici, dans la coquille : c'est elle qui traverse les modules
+        // (`webhook` pour le secret, `billing` pour la forme), et un
+        // module ne peut pas en dependant d'un autre.
+        $this->app->bind(ReadsClientApplication::class, HttpClientApplicationReader::class);
+        // G6c — la seule sortie HTTP du Core. Le transport « gardé »
+        // résout l'hôte et refuse une destination non publique ; l'adresse
+        // vient du point d'entrée, que l'opérateur a enregistrée.
+        $this->app->when(HttpClientApplicationReader::class)
+            ->needs(HttpTransport::class)
+            ->give(GuardedHttpTransport::class);
+
+        // ADR-0133 §2 — le branchement retenu pour un projet (le point
+        // d'entrée choisi, l'adresse corrigée) : il est dans la table de
+        // la coquille, comme `idempotency_keys`.
+        $this->app->bind(ClientApplicationConnections::class, DatabaseClientApplicationConnections::class);
 
         // ADR-0113 — the operator guide. The catalogue reads the Markdown
         // of `docs/manuel/parcours/`; the root is a path, so the binding

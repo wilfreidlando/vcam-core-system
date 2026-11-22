@@ -324,6 +324,21 @@ Route::middleware(['web', 'admin.headers'])->prefix('admin')->name('admin.')->gr
                 Route::get('import/template', [App\Http\Controllers\Admin\BillingCustomerImportTemplateController::class, 'show'])
                     ->name('projects.customers.import.template');
 
+                // ADR-0133 — la page *Application cliente* : le Core
+                // interroge l'application, et tout le branchement se fait
+                // là. Trois gestes : récupérer la forme, créer les clients,
+                // corriger l'adresse appelée.
+                Route::get('application', [App\Http\Controllers\Admin\BillingClientApplicationController::class, 'show'])
+                    ->name('projects.customers.application');
+                Route::post('application/form', [App\Http\Controllers\Admin\BillingClientApplicationController::class, 'fetchForm'])
+                    ->name('projects.customers.application.form')->middleware(['throttle:console-sensitive']);
+                Route::post('application/clients/preview', [App\Http\Controllers\Admin\BillingClientApplicationController::class, 'previewClients'])
+                    ->name('projects.customers.application.clients.preview')->middleware(['throttle:console-sensitive']);
+                Route::post('application/clients/import', [App\Http\Controllers\Admin\BillingClientApplicationController::class, 'importClients'])
+                    ->name('projects.customers.application.clients.import')->middleware(['throttle:console-sensitive']);
+                Route::post('application/address', [App\Http\Controllers\Admin\BillingClientApplicationController::class, 'saveAddress'])
+                    ->name('projects.customers.application.address')->middleware(['throttle:console-sensitive']);
+
                 // The reference is format-checked in the route (the
                 // column carries the same CHECK constraint): a
                 // reference that does not match it is a route that does

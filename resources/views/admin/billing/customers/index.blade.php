@@ -33,6 +33,10 @@
                class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                 Importer des clients
             </a>
+            <a href="{{ route('admin.projects.customers.application', $projectId) }}"
+               class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Application cliente
+            </a>
             <a href="{{ route('admin.projects.customers.new', $projectId) }}"
                class="rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
                 Nouveau client
